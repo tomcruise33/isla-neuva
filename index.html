@@ -3218,7 +3218,7 @@ const BOOBA_BORN = 1993;
 const PASTEL_PINK = '#f7c6d9', BLONDE = '#f2d06b';
 // calendar: eras run a year every four days; the Modern era runs two years a day until 2016, then slows down
 function gameYear(G) {
-  if (G.story && typeof STORY !== 'undefined') { const C = STORY[Math.min(G.story.ch, STORY.length - 1)]; if (C && C.year) return C.year; } // the story keeps its own calendar
+  if (G.story && typeof STORY !== 'undefined') { let C = null; try { C = stCh(G.story.ch, G); } catch (e) { C = null; } C = C || STORY[Math.min(G.story.ch, STORY.length - 1)]; if (C && C.year) return C.year; } // the story keeps its own calendar
   const days = Math.max(0, (G.t - (G.eraT0 || 0)) / 1440); const base = ERAS[G.era].year;
   if (G.era < 4) return Math.min(base + Math.floor(days / 4), ERAS[G.era + 1].year - 1);
   return days <= 15 ? base + Math.floor(days * 2) : 2016 + Math.floor((days - 15) / 4);
@@ -7190,6 +7190,166 @@ const FAMILY_NAMES = ['Santos', 'Yılmaz', 'Kováč', 'Rivera', 'Demir', 'Mendoz
 /* ---------- words ---------- */
 const STT = {
   en: {
+    evL_build: 'Dear Mayor, from my window I can see the new building going up. My children will grow up there. Your neighbour, Beatriz',
+    evLe_build: 'Plan for the people who will live here in fifty years.',
+    evEnd_build: 'A town is never finished.',
+    evBdDone: 'Built. Look how the neighbours come to see it.',
+    evBdCp: 'A market near the homes. Tap a glowing spot.',
+    evBdC: 'A new market',
+    evBdBp: 'Near the centre, so people can walk everywhere. Tap a glowing spot.',
+    evBdB: 'Affordable apartments',
+    evBdAp: 'Parks go where people live. Tap the glowing spots.',
+    evBdA: 'Two new parks',
+    evBdQ: 'What should the island build?',
+    evBdIntro: 'The assembly has a little money this year, dear, and three ideas. Which one would you pick?',
+    evP_build: 'A new corner of town',
+    evN_build: 'Planning ahead',
+    evL_media: 'Dear Mayor, my grandson showed me how to tell if a video is fake. I have already caught two. I am seventy-eight. Your fan, Doña Pilar',
+    evLe_media: 'Anything can be faked now. Ask who made it, and why.',
+    evEnd_media: 'The truth needs a head start, and people who check before they share.',
+    evMeCdone: 'It does not blow over. For weeks people argue in the cafés, and some of them never quite trust you again.',
+    evMeIntro: 'A video of you is going round the island, dear, saying you want to sell the beach to foreigners. You never said that: a computer made it. Some people believe it anyway, and a crowd is gathering at the Town Hall.',
+    evP_media: 'The truth came out',
+    evN_media: 'The fake',
+    evL_strike: 'Dear Mayor, I have worked at the same bench for twenty years, and today, for the first time, somebody asked me what I think. Your friend, Ramón',
+    evLe_strike: 'Fairness at work protects an island from extreme promises.',
+    evEnd_strike: 'The machines are running again.',
+    evSkLesson: 'When workers feel robbed, people start listening to anyone who promises to take everything. Fair wages and a share in the profit keep the promise-makers away.',
+    evSkDdone: 'The work starts again, but the anger does not go away. It will be back.',
+    evSkD: 'Refuse: the owners decide',
+    evSkCdone: 'After three nights of talks both sides shake hands. Nobody got everything, which is usually a good sign.',
+    evSkC: 'Negotiate higher wages',
+    evSkBdone: 'Red flags go up over the gates. Wages are safe, but the owners take their money abroad, and nobody knows who will invest next.',
+    evSkB: 'The state takes everything over',
+    evSkAdone: 'The workers elect their own managers. The first year is chaotic, the second much better.',
+    evSkA: 'Co-operatives: the workers own a share',
+    evSkQ: 'How do you answer the workers?',
+    evSkIntro: 'The workshops and the plantations have stopped, dear. The workers say they do all the work while the owners take the profit. Some want the state to take everything; others want to own a share themselves.',
+    evP_strike: 'Workers at the gate',
+    evN_strike: 'The strike',
+    evL_model: 'Dear Mayor, my father and my uncle did not speak to each other for a week because of the referendum. Tonight they are playing dominoes again. Your neighbour, Elena',
+    evLe_model: 'The state and the market are tools, not religions.',
+    evEnd_model: 'The argument will come back. That is healthy.',
+    evMoLesson: 'No system stays perfect forever. Every generation has to find its own balance between freedom and fairness.',
+    evMoDone: 'The votes are counted and the island has chosen. Time will show what it brings.',
+    evMoQ: 'What do you recommend to the voters?',
+    evMoIntro_mixed: 'Every few years the old argument comes back, dear: should the state run more of the island, or less? A referendum has been called.',
+    evMoIntro_market: 'The rich are richer than ever, dear, and the edge of town is getting poorer. A new movement wants the state to take over the harbor and the plantations again. Others warn that we have seen how that ends. The island will vote.',
+    evMoIntro_state: 'People are tired of the queues, dear. A new movement wants the shops and farms back in private hands. Others say the state still protects the weak. The island will vote.',
+    evP_model: 'The referendum',
+    evN_model: 'Who owns the island?',
+    evL_newcomers: 'Dear Mayor, today my daughter corrected my Spanish. She is so proud. So are we. Thank you for the classes. The Haddad family',
+    evLe_newcomers: 'Newcomers help an island most when they can learn, work and belong.',
+    evEnd_newcomers: 'Every islander was a newcomer once.',
+    evNcCdone: 'One family leaves again. The others stay, but they unpack only half their things.',
+    evNcC: 'They may stay for one year only',
+    evNcBdone: 'Some find work quickly. Others stay among themselves, and the two halves of town slowly grow apart.',
+    evNcB: 'Let them find their own way',
+    evNcAdone: 'Within a year the children translate for their parents, and the parents have found work.',
+    evNcAp: 'A school near the new homes. Tap a glowing spot.',
+    evNcA: 'Language classes and a place at school',
+    evNcQ: 'How do we help them become islanders?',
+    evNcHomesDone: 'The new families carry their suitcases inside. Somebody has already brought soup.',
+    evNcHomes: 'Give them a home. Tap a glowing spot.',
+    evNcIntro: 'A ship has arrived with families from far away, dear. War and drought have driven them from their homes. They are tired, and they have nowhere to sleep tonight.',
+    evP_newcomers: 'Welcome',
+    evN_newcomers: 'New neighbours',
+    evL_fever: 'Dear Mayor, my little brother was very sick, and the nurse came in the middle of the night. Now he is jumping on the bed again. Thank you. Sofía',
+    evLe_fever: 'Health is built in the quiet years: clinics, clean water and trust in doctors.',
+    evEnd_fever: 'Illnesses come back. So must the clinics, the vaccines and the clean water.',
+    evFeWaitDone: 'Everyone is healthy again.',
+    evFeWait: 'The doctors are doing their rounds…',
+    evFeClinicDone: 'The clinic opens its doors. The queue is long, but it moves.',
+    evFeClinic: 'Build a clinic close to the sick families. Tap a glowing spot.',
+    evFeIntro: 'Something is going round again, dear: a new fever. The doctors say it is not dangerous if people get care quickly. The homes with sick people are marked with a red cross.',
+    evP_fever: 'Healthy again',
+    evN_fever: 'The fever returns',
+    evL_bust: 'Dear Mayor, it has been a hard year, but the neighbours share what they have. Yesterday five families ate together in the park. Your friend, Luis',
+    evLe_bust: 'An island that makes many different things falls less hard.',
+    evEnd_bust: 'Lean years pass. What matters is who is still here when they do.',
+    evBuCdone: 'The island tightens its belt. Nobody goes hungry, but the young people start looking at the ships.',
+    evBuC: 'Cut spending and wait',
+    evBuBdone: 'Everything keeps running. The loan will have to be paid back, with interest.',
+    evBuB: 'Borrow money and keep everything running',
+    evBuAdone: 'New jobs that do not depend on the price of sugar.',
+    evBuAp: 'Offices sell work that does not travel by ship. Tap a glowing spot.',
+    evBuA: 'Try something new: offices and services',
+    evBuQ: 'How do we get through the lean years?',
+    evBuIntroFund: 'The ships are coming back half empty, dear. Prices have fallen everywhere. But this time we have the fund from the good years, and it will carry us through the worst.',
+    evBuIntro: 'The ships are coming back half empty, dear. Prices for what we make have fallen all over the world, and the workshops are nervous.',
+    evP_bust: 'An empty harbor',
+    evN_bust: 'Lean years',
+    evL_boom: 'Dear Mayor, three ships in one week! My husband sold all his fish before noon and bought me a new dress. Thank you for the good road to the harbor. Your friend, Carmen',
+    evLe_boom: 'In good years, save and invest. Bad years always come.',
+    evEnd_boom: 'Good years are the time to fix the roof.',
+    evBoCdone: 'Everyone has a little more in their pocket. It feels wonderful, as long as the good years last.',
+    evBoC: 'Cut taxes for everyone',
+    evBoBdone: 'Money spent on children pays back for fifty years.',
+    evBoBp: 'The new school goes near the homes. Tap a glowing spot.',
+    evBoB: 'Build a new school',
+    evBoAdone: 'The fund grows quietly. Nobody cheers, but the next crisis will hurt less.',
+    evBoA: 'Save it in a fund for bad years',
+    evBoQ: 'What should we do with the extra money?',
+    evBoIntro: 'Good news from the harbor, dear: the world wants what we make, and prices are the best in years. The treasury is filling up. The question is what a wise island does with good years.',
+    evP_boom: 'Full ships',
+    evN_boom: 'The good years',
+    evL_storm: 'Dear Mayor, our roof flew off in the night and landed in the Pérez family\'s garden. They brought it back this morning, with a cake. We are fine. Your neighbour, Ana',
+    evLe_storm: 'Storms cannot be stopped, but damage can be planned away.',
+    evEnd_storm: 'Every storm tests what the island built in the quiet years.',
+    evStDamageB: 'The storm has passed and everyone is safe, but the damage is heavy. Homes destroyed: {n}. With more engineers and stricter building rules, fewer would have fallen.',
+    evStDamageA: 'The storm has passed and everyone is safe. Homes destroyed: {n}. Good engineers and strict building rules saved most of the island.',
+    evStIntro: 'The sky has turned the colour of an old bruise, dear. Another hurricane is coming. The sirens are sounding, and everyone is going to the strongest buildings.',
+    evP_storm: 'After the storm',
+    evN_storm: 'Storm season',
+    evL_protest: 'Dear Mayor, we made the signs ourselves, and my father helped me paint the letters. Whatever happens next, I am proud that on our island people can stand in the square and say what they think. Lucía, 16',
+    evLe_protest: 'A protest is information. Listen to it before it turns into anger.',
+    evEnd_protest: 'The square is quiet again, and the island is a little wiser.',
+    evPrLesson: 'People protest when they feel unheard. A leader who listens early rarely needs the police later.',
+    evPrCdone: 'The square is empty by midnight, but photos of the police go round the whole island. Many people who stayed at home are angry now too.',
+    evPrC: 'Send the police to clear the square',
+    evPrBdone: 'They do go home, but they come back next week, and the week after. Nobody likes to be ignored.',
+    evPrB: 'Wait until they get tired and go home',
+    evPrAdone: 'You sit down on the steps with them. Three of the organisers join the next assembly, and together you find a plan everyone can live with.',
+    evPrA: 'Go out, listen, and invite them to the assembly',
+    evPrQ: 'A peaceful protest is part of democracy, but it is not always comfortable. What do you do?',
+    evPrIntro_open: 'Listen, dear: the nurses are in the square. The clinic is full, they have worked double shifts for weeks, and they are asking the island to take the illness seriously.',
+    evPrIntro_lock: 'Listen, dear: the square is full. Shop owners and cooks who lost their income in the lockdown are asking how they will pay the rent. They are angry, but they are keeping their distance from each other.',
+    evPrIntro_climate: 'Listen, dear: the children have left school and filled the square. They are holding up pictures of the beach half under water and asking what the grown-ups are doing about it.',
+    evPrIntro_rents: 'Listen, dear: the square is full. Rents near the harbor have doubled, and the fishermen\'s children cannot afford to live where their parents grew up.',
+    evPrIntro_jobs: 'Listen, dear: drums and whistles from the square. The workshops are letting people go, and the young ones say there is no future for them here. They have come with painted signs.',
+    evPrIntro_prices: 'Listen, dear: drums and whistles from the Town Hall square. Food prices have gone up again, and the families at the edge of town cannot keep up. Hundreds of people have come with painted signs.',
+    evP_protest: 'Voices in the square',
+    evN_protest: 'The square is full',
+    evL_sweet: 'Dear Mayor, my grandmother still keeps an old front page with a single word on it: NO. Today I showed it to my son. Your friend, Marco',
+    evLe_sweet: 'The same trick works in every century: flattery first, then the limits disappear.',
+    evEnd_sweet: 'Sweet words are free. Freedom is not.',
+    evSwOut2: 'Within a year {name} ruled alone. Critics lost their jobs, two families sailed away, and it took years of patient, peaceful protest to win the island back. Sweet talk costs the most when it is believed.',
+    evSwOut1: 'That was close. {name} got one thing but not the other, and the island is still arguing about it. It will take the next election to put it right.',
+    evSwOut0: '{name} gave one last concert and then went into business. The island shrugged and moved on. Saying no early, and saying it calmly, is how a democracy protects itself.',
+    evSwN2done: 'The judges keep their independence, and the newspapers print it on the front page.',
+    evSwY2done: 'Now nobody can stop a bad law any more.',
+    evSwN2: 'No: judges answer to the law, not to a person',
+    evSwY2: 'All right, for efficiency',
+    evSwQ2: '“And the judges who keep blocking me,” says {name}, “should be chosen by me from now on. For efficiency.” What do you say?',
+    evSwN1done: 'The assembly stands up and applauds. The limit stays.',
+    evSwY1done: 'The crowd claps. The first limit is gone.',
+    evSwN1: 'No: every term has an end',
+    evSwY1: 'Maybe that is not so bad',
+    evSwQ1: '“Let me stay in office as long as I am needed,” says {name}. “Limits on terms are for weak leaders.” What do you say?',
+    evSwIntroRem: 'There is a new favourite on the island, dear: {name}. Big smiles, free concerts, and the same old song: the assembly is slow, the judges are in the way, the newspapers are lying. But this island remembers Alvarado. The old people are already shaking their heads, and the children learned the warning signs at school.',
+    evSwIntro: 'There is a new favourite on the island, dear: {name}. Handsome words, big smiles, free concerts on Fridays. {name} says the assembly is slow, the judges are in the way and the newspapers are lying. Does it sound familiar? It should. Sweet talk comes back in every generation, in new clothes.',
+    evP_sweet: 'The charming stranger',
+    evN_sweet: 'Sweet talk again',
+    evL_vote: 'Dear Mayor, I voted for the first time today. My grandfather walked me to the school and told me that people once had to fight for this little piece of paper. I folded it very carefully. Your neighbour, Inés',
+    evLe_vote: 'An election is a question the people get to ask again and again.',
+    evEnd_vote: 'The ballot boxes are packed away until next time. That is the quiet miracle of democracy: power changes hands, or stays, without a single shot.',
+    evVoWait: 'The campaign is on: posters, debates, and long arguments in the cafés…',
+    evVoIntro: 'It is election year again, dear. Every four years the island asks the same question: are we happy with how things are going? Nobody stays Mayor unless the people say so, again and again. Here is how each group feels today.',
+    evP_vote: 'Election day',
+    evN_vote: 'Election year',
+    evWon: 'You won {p}% of the votes. The island has chosen you again!',
+    evUnlock: 'Nothing new to build this time. The island keeps growing, one decision at a time.',
+    keepGoing: 'Keep going: the next years',
     hHosp: 'Hospital beds',
     hEdge: 'Happiness at the edge',
     hCentre: 'Happiness in the centre',
@@ -7673,7 +7833,7 @@ const STT = {
     digging: 'Digging a channel…',
     s3_doctorsdone: 'The {f} family has moved in. The clinic has a doctor and a nurse now, and they live two steps away.',
     s3_doctors: 'Doctor {f} came with her whole family, and her husband is a nurse. They need a home close to the clinic, so they can run over at night. Tap a glowing spot.',
-    rosa: 'Grandma Rosa', title: 'My Island', titleSub: 'Never played a game? Perfect. Grandma Rosa shows you everything, one tap at a time. Nothing can go wrong.', cont: 'Continue my island', ok: 'OK', next: 'Next', letsgo: 'Let’s begin', show: 'Show me', later: 'Maybe later', tapSpot: 'Tap one of the glowing spots', tapHarbor: 'Tap the glowing harbor', of: 'of', chapter: 'Chapter', people: 'people', letters: 'Letters', album: 'Album', menu: 'Menu', build: 'Build', close: 'Close', resume: 'Back to my island', exit: 'Save and go to the title', lang: 'Language', saved: 'Your island is saved. Come back any time.', learned: 'What you learned', unlocked: 'New for you', chapterDone: 'Chapter complete', nextChapter: 'Next chapter', restHere: 'Rest here for now', noLetters: 'No letters yet. The islanders will write when something good happens.', noPhotos: 'Photos appear here at the end of every chapter.', grant: 'The colonial office sent a grant of {m}. Keep building!', timePasses: 'Time passes…', driveSelf: 'Drive it myself', letThem: 'Let the islanders do it', view3d: '3D', view2d: 'Map', freeBuild: 'Tap where you want it, or on a glowing spot', cancel: 'Cancel', wishPill: 'The {f} family has a wish', wish_power: 'The {f} family says the lights flicker every evening. Could we build one more {b}?', wish_home: 'The {f} family’s cousins want to move here, and there is plenty of work. Could you build them a {b}?', wish_work: 'Some of the {f} family are looking for work. A new {b} would give them jobs.', wish_park: 'The {f} children have nowhere to play. A {b} near the homes would make everyone smile.', wish_fun: 'The {f} family has been dreaming of a {b}. Life is not only work, dear!', wishMoney: 'That costs {m}, and the treasury is a little short. Let the island earn for a while, then come back. The wish will wait.', wishDone: 'The {f} family is overjoyed! ❤', wishThanks: 'Dear friend, thank you for the {b}! The whole family came to look at it. You listened to us, and that means the world. With love, the {f} family', wishNoRoom: 'Hmm, I cannot find a good place for that right now. Let us think about it another day.', goOn: 'Next chapter ▶', joy: 'Happy news', perTile: '/ tile', expertT: 'Free build and traffic puzzles', expertS: 'for experienced players', awayA: 'Welcome back, {name}! While you were away, {h} hours passed on Isla Nueva.', awayB: '{v} worth of goods sailed away from the harbor.', awayC: 'The treasury grew by {m}.', awayD: 'Everyone slept well and missed you.', dearWord: 'dear', namePh: 'Your name (you can skip this)', niceName: 'What a lovely name, {name}!', readAloud: 'Read aloud', voiceOn: 'Grandma Rosa reads every message aloud', famOf: 'The {f} family', workersT: 'workers', harborT: 'Ships dock here; trucks bring the goods', worksHere: 'Families working here: {f}', wish_need: 'The {f} family would love a {b} closer to home. Daily life would be so much easier.', peopleForms: ['person', 'people', 'people'], sickForms: ['sick', 'sick', 'sick'], baby: 'A baby is born! The {f} family welcomes little {c}. ❤', babyL: 'Dear friend, our little {c} arrived last night, healthy and very loud! When {c} grows up, we will tell the story of the one who built this island. With love, the {f} family', wedding: 'Wedding bells! The {a} and {e} families are celebrating tonight.', weddingL: 'Dear friend, thank you for coming to the wedding! Without this island our children would never have met. The {a} and {e} families', cruise: 'A cruise ship stopped by. The tourists loved the island and spent {m}!', harvestBonus: 'What a harvest! The fields gave extra this week: {m} for the island.', driveBtn: 'Drive', noDrive: 'No goods are waiting right now. Try again after the next harvest.', freeDriveDone: 'Delivered! The island thanks its favourite driver.', newIsland: 'Start a new island', newConfirm: 'Tap again to start over. Your island will be replaced.', contSub: 'Tap to continue your island · {c}', storyDone: 'Story complete', helpMe: 'Help me with this one', buildHereQ: 'Build it here?', buildHere: 'Yes, build it here', soilHere: 'Soil here', soilX: 'excellent', soilG: 'good', soilF: 'fair', soilP: 'poor', soilTip: '(the fields will give little here; the dark green land is richer)', rLand: 'That is water. Buildings need dry land.', rSteep: 'Too steep here, those are hills.', rOcc: 'Something already stands there.', rSand: 'Fields need soil, not sand.', rSea: 'This one has to stand right by the sea.', rMoney: 'Not enough money yet.', rOff: 'That is the edge of the island.', rForest: 'A lumber camp needs forest around it.', rHills: 'A mine has to touch the hills.', rOne: 'The island already has one of these.', rEra: 'That comes later in the story.', rRoad: 'No road can reach that place yet.', allTools: 'All tools', stayStory: 'Stay in the story view', allToolsBack: 'Everything you built is here. To go back to Grandma Rosa, tap the Story button at the top, or open Menu.', fin: 'You finished the whole story, {name}. I am so proud of you. The island is yours now: tap Build to add anything you like, or open All tools for the full game with buses, trams and the economy.', storyBtn: 'Story', sick: 'sick', dayN: 'Day {d}',
+    rosa: 'Grandma Rosa', title: 'My Island', titleSub: 'Never played a game? Perfect. Grandma Rosa shows you everything, one tap at a time. Nothing can go wrong.', cont: 'Continue my island', ok: 'OK', next: 'Next', letsgo: 'Let’s begin', show: 'Show me', later: 'Maybe later', tapSpot: 'Tap one of the glowing spots', tapHarbor: 'Tap the glowing harbor', of: 'of', chapter: 'Chapter', people: 'people', letters: 'Letters', album: 'Album', menu: 'Menu', build: 'Build', close: 'Close', resume: 'Back to my island', exit: 'Save and go to the title', lang: 'Language', saved: 'Your island is saved. Come back any time.', learned: 'What you learned', unlocked: 'New for you', chapterDone: 'Chapter complete', nextChapter: 'Next chapter', restHere: 'Rest here for now', noLetters: 'No letters yet. The islanders will write when something good happens.', noPhotos: 'Photos appear here at the end of every chapter.', grant: 'The colonial office sent a grant of {m}. Keep building!', timePasses: 'Time passes…', driveSelf: 'Drive it myself', letThem: 'Let the islanders do it', view3d: '3D', view2d: 'Map', freeBuild: 'Tap where you want it, or on a glowing spot', cancel: 'Cancel', wishPill: 'The {f} family has a wish', wish_power: 'The {f} family says the lights flicker every evening. Could we build one more {b}?', wish_home: 'The {f} family’s cousins want to move here, and there is plenty of work. Could you build them a {b}?', wish_work: 'Some of the {f} family are looking for work. A new {b} would give them jobs.', wish_park: 'The {f} children have nowhere to play. A {b} near the homes would make everyone smile.', wish_fun: 'The {f} family has been dreaming of a {b}. Life is not only work, dear!', wishMoney: 'That costs {m}, and the treasury is a little short. Let the island earn for a while, then come back. The wish will wait.', wishDone: 'The {f} family is overjoyed! ❤', wishThanks: 'Dear friend, thank you for the {b}! The whole family came to look at it. You listened to us, and that means the world. With love, the {f} family', wishNoRoom: 'Hmm, I cannot find a good place for that right now. Let us think about it another day.', goOn: 'Next chapter ▶', joy: 'Happy news', perTile: '/ tile', expertT: 'Free build and traffic puzzles', expertS: 'for experienced players', awayA: 'Welcome back, {name}! While you were away, {h} hours passed on Isla Nueva.', awayB: '{v} worth of goods sailed away from the harbor.', awayC: 'The treasury grew by {m}.', awayD: 'Everyone slept well and missed you.', dearWord: 'dear', namePh: 'Your name (you can skip this)', niceName: 'What a lovely name, {name}!', readAloud: 'Read aloud', voiceOn: 'Grandma Rosa reads every message aloud', famOf: 'The {f} family', workersT: 'workers', harborT: 'Ships dock here; trucks bring the goods', worksHere: 'Families working here: {f}', wish_need: 'The {f} family would love a {b} closer to home. Daily life would be so much easier.', peopleForms: ['person', 'people', 'people'], sickForms: ['sick', 'sick', 'sick'], baby: 'A baby is born! The {f} family welcomes little {c}. ❤', babyL: 'Dear friend, our little {c} arrived last night, healthy and very loud! When {c} grows up, we will tell the story of the one who built this island. With love, the {f} family', wedding: 'Wedding bells! The {a} and {e} families are celebrating tonight.', weddingL: 'Dear friend, thank you for coming to the wedding! Without this island our children would never have met. The {a} and {e} families', cruise: 'A cruise ship stopped by. The tourists loved the island and spent {m}!', harvestBonus: 'What a harvest! The fields gave extra this week: {m} for the island.', driveBtn: 'Drive', noDrive: 'No goods are waiting right now. Try again after the next harvest.', freeDriveDone: 'Delivered! The island thanks its favourite driver.', newIsland: 'Start a new island', newConfirm: 'Tap again to start over. Your island will be replaced.', contSub: 'Tap to continue your island · {c}', storyDone: 'Story complete', helpMe: 'Help me with this one', buildHereQ: 'Build it here?', buildHere: 'Yes, build it here', soilHere: 'Soil here', soilX: 'excellent', soilG: 'good', soilF: 'fair', soilP: 'poor', soilTip: '(the fields will give little here; the dark green land is richer)', rLand: 'That is water. Buildings need dry land.', rSteep: 'Too steep here, those are hills.', rOcc: 'Something already stands there.', rSand: 'Fields need soil, not sand.', rSea: 'This one has to stand right by the sea.', rMoney: 'Not enough money yet.', rOff: 'That is the edge of the island.', rForest: 'A lumber camp needs forest around it.', rHills: 'A mine has to touch the hills.', rOne: 'The island already has one of these.', rEra: 'That comes later in the story.', rRoad: 'No road can reach that place yet.', allTools: 'All tools', stayStory: 'Stay in the story view', allToolsBack: 'Everything you built is here. To go back to Grandma Rosa, tap the Story button at the top, or open Menu.', fin: 'You finished the whole story, {name}. I am so proud of you. But an island never really stops: new years bring new elections, storms, arguments and good surprises. Tap Keep going to live them, tap Build to add anything you like, or open All tools for the full game.', storyBtn: 'Story', sick: 'sick', dayN: 'Day {d}',
     ch1: 'Arrival', ch2: 'A real village', ch3: 'The fever', ch4: 'The first assembly', ch5: 'Lights on', ch6: 'On the road', ch7: 'Pastel Textile', ch8: 'Carnival',
     // chapter 1
     s_hello: 'Welcome to Isla Nueva, dear! I am Rosa, the oldest person on this island. Families are sailing here to start a new life, and they need someone kind to help them settle. I will show you every step. You cannot break anything here, I promise.',
@@ -7774,6 +7934,166 @@ const STT = {
     photo1: 'The first homes',
   },
   tr: {
+    evL_build: 'Sevgili Başkan Hanım, penceremden yeni binanın yükseldiğini görüyorum. Çocuklarım orada büyüyecek. Komşunuz Beatriz',
+    evLe_build: 'Elli yıl sonra burada yaşayacak insanlar için planla.',
+    evEnd_build: 'Bir kasaba asla bitmez.',
+    evBdDone: 'İnşa edildi. Bak, komşular nasıl da görmeye geliyor.',
+    evBdCp: 'Evlerin yakınına bir pazar. Parlayan bir yere dokun.',
+    evBdC: 'Yeni bir pazar',
+    evBdBp: 'Merkeze yakın olsun ki insanlar her yere yürüyerek gidebilsin. Parlayan bir yere dokun.',
+    evBdB: 'Uygun fiyatlı daireler',
+    evBdAp: 'Parklar insanların yaşadığı yere yapılır. Parlayan yerlere dokun.',
+    evBdA: 'İki yeni park',
+    evBdQ: 'Ada ne inşa etsin?',
+    evBdIntro: 'Meclisin bu yıl biraz parası var canım, bir de üç fikri. Sen hangisini seçerdin?',
+    evP_build: 'Kasabanın yeni köşesi',
+    evN_build: 'Geleceği planlamak',
+    evL_media: 'Sevgili Başkan Hanım, torunum bana bir videonun sahte olup olmadığını nasıl anlayacağımı gösterdi. Şimdiden iki tane yakaladım. Yetmiş sekiz yaşındayım. Hayranınız Doña Pilar',
+    evLe_media: 'Artık her şeyin sahtesi yapılabilir. Onu kimin, neden yaptığını sor.',
+    evEnd_media: 'Gerçeğin biraz önden başlamaya ihtiyacı var; bir de paylaşmadan önce kontrol eden insanlara.',
+    evMeCdone: 'Mesele kendiliğinden kapanmıyor. İnsanlar haftalarca kafelerde tartışıyor ve bazıları sana bir daha asla tam olarak güvenmiyor.',
+    evMeIntro: 'Adada senin bir videon dolaşıyor canım; videoda plajı yabancılara satmak istediğini söylüyorsun. Sen böyle bir şey hiç söylemedin: onu bir bilgisayar üretti. Yine de bazıları buna inanıyor ve Belediye binasının önünde bir kalabalık toplanıyor.',
+    evP_media: 'Gerçek ortaya çıktı',
+    evN_media: 'Sahte video',
+    evL_strike: 'Sevgili Başkan Hanım, yirmi yıldır aynı tezgâhta çalışıyorum ve bugün ilk kez biri bana ne düşündüğümü sordu. Dostunuz Ramón',
+    evLe_strike: 'İşyerinde adalet, bir adayı aşırı vaatlerden korur.',
+    evEnd_strike: 'Makineler yeniden çalışıyor.',
+    evSkLesson: 'İşçiler soyulduklarını hissettiklerinde, insanlar her şeyi almayı vaat eden herkese kulak vermeye başlar. Adil ücretler ve kârdan pay, bu tür vaatlerde bulunanları uzak tutar.',
+    evSkDdone: 'İş yeniden başlıyor ama öfke dinmiyor. Geri gelecek.',
+    evSkD: 'Reddet: patronlar karar verir',
+    evSkCdone: 'Üç gece süren görüşmelerden sonra iki taraf el sıkışıyor. Kimse istediği her şeyi alamadı; bu da genelde iyiye işarettir.',
+    evSkC: 'Zam için masaya otur',
+    evSkBdone: 'Kapıların üstünde kızıl bayraklar dalgalanıyor. Ücretler güvende ama patronlar paralarını yurt dışına götürüyor ve bundan sonra kimin yatırım yapacağını kimse bilmiyor.',
+    evSkB: 'Her şeyi devlet devralsın',
+    evSkAdone: 'İşçiler kendi yöneticilerini seçiyor. İlk yıl karmaşa içinde geçiyor, ikincisi çok daha iyi.',
+    evSkA: 'Kooperatifler: işçiler ortak olsun',
+    evSkQ: 'İşçilere ne cevap verirsin?',
+    evSkIntro: 'Atölyeler ve plantasyonlar durdu canım. İşçiler bütün işi kendilerinin yaptığını, kârı ise patronların aldığını söylüyor. Kimileri her şeyin devlete geçmesini istiyor; kimileri de işletmelere kendileri ortak olmak istiyor.',
+    evP_strike: 'Kapıdaki işçiler',
+    evN_strike: 'Grev',
+    evL_model: 'Sevgili Başkan Hanım, babamla amcam referandum yüzünden bir hafta birbirleriyle konuşmadı. Bu akşam yine birlikte domino oynuyorlar. Komşunuz Elena',
+    evLe_model: 'Devlet de piyasa da birer araçtır, din değil.',
+    evEnd_model: 'Bu tartışma yine gelecek. Bu da sağlıklı bir şey.',
+    evMoLesson: 'Hiçbir sistem sonsuza kadar kusursuz kalmaz. Her kuşak, özgürlük ile adalet arasındaki kendi dengesini bulmak zorundadır.',
+    evMoDone: 'Oylar sayıldı ve ada kararını verdi. Neler getireceğini zaman gösterecek.',
+    evMoQ: 'Seçmenlere ne önerirsin?',
+    evMoIntro_mixed: 'Birkaç yılda bir o eski tartışma geri gelir canım: adanın daha çoğunu mu devlet yönetsin, yoksa daha azını mı? Referanduma gidiliyor.',
+    evMoIntro_market: 'Zenginler hiç olmadığı kadar zengin canım, kasabanın kenarı ise giderek yoksullaşıyor. Yeni bir hareket, limanın ve plantasyonların yeniden devlete geçmesini istiyor. Diğerleri uyarıyor: bunun nasıl bittiğini daha önce gördük. Ada sandığa gidecek.',
+    evMoIntro_state: 'İnsanlar kuyruklardan bıktı canım. Yeni bir hareket, dükkânların ve çiftliklerin yeniden özel ellere geçmesini istiyor. Diğerleri, devletin hâlâ zayıfları koruduğunu söylüyor. Ada sandığa gidecek.',
+    evP_model: 'Referandum',
+    evN_model: 'Ada kimin?',
+    evL_newcomers: 'Sevgili Başkan Hanım, bugün kızım benim İspanyolcamı düzeltti. Öyle gurur duyuyor ki! Biz de onunla gurur duyuyoruz. Kurslar için teşekkürler. Haddad ailesi',
+    evLe_newcomers: 'Yeni gelenler bir adaya en çok öğrenebildiklerinde, çalışabildiklerinde ve kendilerini ait hissedebildiklerinde katkı sağlar.',
+    evEnd_newcomers: 'Her adalı bir zamanlar yeni gelendi.',
+    evNcCdone: 'Bir aile yeniden gidiyor. Diğerleri kalıyor ama bavullarının ancak yarısını açıyorlar.',
+    evNcC: 'Sadece bir yıl kalabilirler',
+    evNcBdone: 'Bazıları hemen iş buluyor. Diğerleri kendi aralarında kalıyor ve kasabanın iki yarısı yavaş yavaş birbirinden uzaklaşıyor.',
+    evNcB: 'Kendi yollarını bulsunlar',
+    evNcAdone: 'Bir yıl içinde çocuklar anne babalarına tercümanlık yapıyor, anne babalar da iş bulmuş oluyor.',
+    evNcAp: 'Yeni evlerin yakınına bir okul. Parlayan bir yere dokun.',
+    evNcA: 'Dil kursları ve okulda yer',
+    evNcQ: 'Adalı olmalarına nasıl yardım edelim?',
+    evNcHomesDone: 'Yeni aileler bavullarını içeri taşıyor. Birisi şimdiden çorba bile getirmiş.',
+    evNcHomes: 'Onlara bir yuva ver. Parlayan bir yere dokun.',
+    evNcIntro: 'Uzak diyarlardan aileler getiren bir gemi geldi canım. Savaş ve kuraklık onları evlerinden etmiş. Yorgunlar ve bu gece uyuyacak bir yerleri yok.',
+    evP_newcomers: 'Hoş geldiniz',
+    evN_newcomers: 'Yeni komşular',
+    evL_fever: 'Sevgili Başkan Hanım, küçük kardeşim çok hastaydı ve hemşire gecenin bir yarısı geldi. Şimdi yine yatağın üstünde zıplıyor. Teşekkürler. Sofía',
+    evLe_fever: 'Sağlık sakin yıllarda inşa edilir: klinikler, temiz su ve doktorlara güven.',
+    evEnd_fever: 'Hastalıklar geri gelir. Klinikler, aşılar ve temiz su da her seferinde orada olmalı.',
+    evFeWaitDone: 'Herkes yeniden sağlıklı.',
+    evFeWait: 'Doktorlar ev ev dolaşıyor…',
+    evFeClinicDone: 'Klinik kapılarını açıyor. Kuyruk uzun ama ilerliyor.',
+    evFeClinic: 'Hasta ailelerin yakınına bir klinik yap. Parlayan bir yere dokun.',
+    evFeIntro: 'Yine bir şey dolaşıyor canım: yeni bir ateşli hastalık. Doktorlar, hastalar çabuk tedavi edilirse tehlikeli olmadığını söylüyor. Hastaların olduğu evler kırmızı bir artı işaretiyle gösteriliyor.',
+    evP_fever: 'Herkes iyileşti',
+    evN_fever: 'Hastalık geri döndü',
+    evL_bust: 'Sevgili Başkan Hanım, zor bir yıl oldu ama komşular ellerindekini paylaşıyor. Dün beş aile parkta birlikte yemek yedi. Dostunuz Luis',
+    evLe_bust: 'Pek çok farklı şey üreten bir ada, düştüğünde daha az yara alır.',
+    evEnd_bust: 'Darlık yılları geçer. Önemli olan, geçtiklerinde kimin hâlâ burada olduğudur.',
+    evBuCdone: 'Ada kemerleri sıkıyor. Kimse aç kalmıyor ama gençlerin gözü gemilere kaymaya başladı.',
+    evBuC: 'Harcamaları kıs ve bekle',
+    evBuBdone: 'Her şey işlemeye devam ediyor. Borcun faiziyle birlikte geri ödenmesi gerekecek.',
+    evBuB: 'Borç al, her şey işlemeye devam etsin',
+    evBuAdone: 'Şeker fiyatına bağlı olmayan yeni işler.',
+    evBuAp: 'Ofislerin sattığı iş gemiyle taşınmaz. Parlayan bir yere dokun.',
+    evBuA: 'Yeni bir şey dene: ofisler ve hizmetler',
+    evBuQ: 'Darlık yıllarını nasıl atlatacağız?',
+    evBuIntroFund: 'Gemiler yarı boş dönüyor canım. Fiyatlar her yerde düştü. Ama bu sefer iyi yıllardan kalan fonumuz var; en kötü günleri onunla atlatacağız.',
+    evBuIntro: 'Gemiler yarı boş dönüyor canım. Ürettiklerimizin fiyatı bütün dünyada düştü ve atölyeler tedirgin.',
+    evP_bust: 'Boş liman',
+    evN_bust: 'Darlık yılları',
+    evL_boom: 'Sevgili Başkan Hanım, bir haftada üç gemi! Kocam bütün balığını öğleden önce sattı ve bana yeni bir elbise aldı. Limana giden güzel yol için teşekkürler. Dostunuz Carmen',
+    evLe_boom: 'İyi yıllarda biriktir ve yatırım yap. Kötü yıllar mutlaka gelir.',
+    evEnd_boom: 'Çatıyı onarmanın zamanı, iyi yıllardır.',
+    evBoCdone: 'Herkesin cebinde biraz daha fazla para var. Harika bir his; iyi yıllar sürdüğü sürece.',
+    evBoC: 'Herkesin vergisini indir',
+    evBoBdone: 'Çocuklara harcanan para elli yıl boyunca karşılığını verir.',
+    evBoBp: 'Yeni okul evlerin yakınına yapılsın. Parlayan bir yere dokun.',
+    evBoB: 'Yeni bir okul yap',
+    evBoAdone: 'Fon sessizce büyüyor. Kimse alkışlamıyor ama bir sonraki kriz daha az acıtacak.',
+    evBoA: 'Kötü yıllar için bir fonda biriktir',
+    evBoQ: 'Fazla parayla ne yapalım?',
+    evBoIntro: 'Limandan güzel haberler var canım: dünya ürettiklerimizi istiyor ve fiyatlar yılların en iyisi. Kasa doluyor. Asıl soru şu: akıllı bir ada iyi yıllarda ne yapar?',
+    evP_boom: 'Dolu gemiler',
+    evN_boom: 'Bolluk yılları',
+    evL_storm: 'Sevgili Başkan Hanım, gece çatımız uçup Pérez ailesinin bahçesine kondu. Bu sabah yanlarında bir kekle birlikte geri getirdiler. Biz iyiyiz. Komşunuz Ana',
+    evLe_storm: 'Fırtınalar durdurulamaz ama hasar iyi bir planlamayla önlenebilir.',
+    evEnd_storm: 'Her fırtına, adanın sakin yıllarda inşa ettiklerini sınar.',
+    evStDamageB: 'Fırtına geçti ve herkes güvende ama hasar ağır. Yıkılan ev sayısı: {n}. Daha çok mühendis ve daha sıkı yapı kurallarıyla daha az ev yıkılırdı.',
+    evStDamageA: 'Fırtına geçti ve herkes güvende. Yıkılan ev sayısı: {n}. İyi mühendisler ve sıkı yapı kuralları adanın büyük kısmını kurtardı.',
+    evStIntro: 'Gökyüzü eski bir morluğun rengine döndü canım. Bir kasırga daha geliyor. Sirenler çalıyor ve herkes en sağlam binalara gidiyor.',
+    evP_storm: 'Fırtınadan sonra',
+    evN_storm: 'Kasırga mevsimi',
+    evL_protest: 'Sevgili Başkan Hanım, pankartları kendimiz yaptık, harfleri boyamama da babam yardım etti. Bundan sonra ne olursa olsun, adamızda insanların meydana çıkıp düşündüklerini söyleyebilmesiyle gurur duyuyorum. Lucía, 16 yaşında',
+    evLe_protest: 'Protesto bir mesajdır. Öfkeye dönüşmeden önce ona kulak ver.',
+    evEnd_protest: 'Meydan yine sessiz; ada da biraz daha bilge.',
+    evPrLesson: 'İnsanlar seslerinin duyulmadığını hissettiklerinde protesto eder. Erkenden dinleyen bir lider, sonradan polise pek ihtiyaç duymaz.',
+    evPrCdone: 'Gece yarısına kadar meydan boşalıyor ama polisin fotoğrafları bütün adayı dolaşıyor. Evde kalan pek çok kişi de artık öfkeli.',
+    evPrC: 'Polisi gönder, meydanı boşaltsın',
+    evPrBdone: 'Evlerine gidiyorlar, evet; ama ertesi hafta geri geliyorlar, ondan sonraki hafta da. Kimse görmezden gelinmekten hoşlanmaz.',
+    evPrB: 'Yorulup evlerine gitmelerini bekle',
+    evPrAdone: 'Onlarla birlikte basamaklara oturuyorsun. Organizatörlerden üçü bir sonraki meclis toplantısına katılıyor ve birlikte herkesin kabul edebileceği bir plan buluyorsunuz.',
+    evPrA: 'Dışarı çık, dinle, meclise davet et',
+    evPrQ: 'Barışçıl bir protesto demokrasinin bir parçasıdır ama her zaman kolay değildir. Ne yaparsın?',
+    evPrIntro_open: 'Dinle canım: hemşireler meydanda. Klinik ağzına kadar dolu; haftalardır çift vardiya çalışıyorlar ve adadan hastalığı ciddiye almasını istiyorlar.',
+    evPrIntro_lock: 'Dinle canım: meydan dolu. Kapanma döneminde gelirini kaybeden dükkân sahipleri ve aşçılar kiralarını nasıl ödeyeceklerini soruyor. Öfkeliler ama yine de birbirleriyle aralarında mesafe bırakıyorlar.',
+    evPrIntro_climate: 'Dinle canım: çocuklar derslerini bırakıp meydanı doldurmuş. Ellerinde yarısı sular altında kalmış plajın resimleri var; büyüklerin bu konuda ne yaptığını soruyorlar.',
+    evPrIntro_rents: 'Dinle canım: meydan tıklım tıklım. Limanın yakınındaki kiralar iki katına çıktı; balıkçıların çocukları, anne babalarının büyüdüğü yerde yaşamaya güç yetiremiyor.',
+    evPrIntro_jobs: 'Dinle canım: meydandan davul ve düdük sesleri geliyor. Atölyeler işçi çıkarıyor, gençler de burada kendilerine bir gelecek olmadığını söylüyor. Kendi boyadıkları pankartlarla gelmişler.',
+    evPrIntro_prices: 'Dinle canım: Belediye binasının önündeki meydandan davul ve düdük sesleri geliyor. Gıda fiyatları yine arttı ve kasabanın kenarındaki aileler geçinmekte zorlanıyor. Yüzlerce kişi kendi boyadıkları pankartlarla gelmiş.',
+    evP_protest: 'Meydandaki sesler',
+    evN_protest: 'Meydan dolu',
+    evL_sweet: 'Sevgili Başkan Hanım, büyükannem, manşetinde tek bir kelime yazan eski bir gazeteyi hâlâ saklıyor: HAYIR. Bugün onu oğluma gösterdim. Dostunuz Marco',
+    evLe_sweet: 'Aynı oyun her yüzyılda tutar: önce pohpohlama gelir, sonra sınırlar kaybolur.',
+    evEnd_sweet: 'Tatlı sözler bedavadır. Özgürlük değil.',
+    evSwOut2: 'Bir yıl içinde {name} adayı tek başına yönetmeye başladı. Eleştirenler işlerini kaybetti, iki aile tekneyle adadan gitti ve adayı geri kazanmak yıllar süren sabırlı, barışçıl protestolar gerektirdi. Tatlı dilin bedeli, ona inanıldığında en ağırdır.',
+    evSwOut1: 'Kıl payı kurtulduk. {name} istediklerinden birini aldı ama ötekini alamadı; ada hâlâ bunu tartışıyor. Bunu düzeltmek için bir sonraki seçimi beklemek gerekecek.',
+    evSwOut0: '{name} son bir konser verdi, sonra da ticarete atıldı. Ada omuz silkip yoluna devam etti. Erkenden ve sakince hayır demek, bir demokrasinin kendini koruma yoludur.',
+    evSwN2done: 'Yargıçlar bağımsızlıklarını koruyor, gazeteler de bunu manşetten veriyor.',
+    evSwY2done: 'Artık kötü bir yasayı kimse durduramaz.',
+    evSwN2: 'Hayır: yargıçlar bir kişiye değil, yasaya bağlıdır',
+    evSwY2: 'Peki, verimlilik için',
+    evSwQ2: '“Beni durmadan engelleyen yargıçları da,” diyor {name}, “bundan sonra ben seçeyim. Verimlilik için.” Sen ne dersin?',
+    evSwN1done: 'Meclis ayağa kalkıp alkışlıyor. Sınır yerinde kalıyor.',
+    evSwY1done: 'Kalabalık alkışlıyor. İlk sınır ortadan kalktı.',
+    evSwN1: 'Hayır: her görevin bir sonu var',
+    evSwY1: 'Belki o kadar da kötü değil',
+    evSwQ1: '“Gerek duyulduğu sürece görevde kalmama izin verin,” diyor {name}. “Görev süresine sınır koymak zayıf liderlere göredir.” Sen ne dersin?',
+    evSwIntroRem: 'Adada yeni bir gözde var canım: {name}. Kocaman gülümsemeler, bedava konserler ve aynı eski şarkı: meclis yavaşmış, yargıçlar ayak bağıymış, gazeteler yalan söylüyormuş. Ama bu ada Alvarado\'yu hatırlıyor. Yaşlılar şimdiden başlarını iki yana sallıyor, çocuklar da uyarı işaretlerini okulda öğrendi.',
+    evSwIntro: 'Adada yeni bir gözde var canım: {name}. Güzel sözler, kocaman gülümsemeler, cuma akşamları bedava konserler. {name} meclisin yavaş olduğunu, yargıçların ayak bağı olduğunu ve gazetelerin yalan söylediğini söylüyor. Kulağına tanıdık geliyor mu? Gelmeli de. Tatlı dil her kuşakta yeni kılıklara bürünüp geri gelir.',
+    evP_sweet: 'Sevimli yabancı',
+    evN_sweet: 'Tatlı dil yeniden',
+    evL_vote: 'Sevgili Başkan Hanım, bugün ilk kez oy kullandım. Dedem benimle okula kadar yürüdü ve bir zamanlar insanların bu küçük kâğıt parçası için mücadele etmek zorunda kaldığını anlattı. Onu çok dikkatle katladım. Komşunuz Inés',
+    evLe_vote: 'Seçim, halkın tekrar tekrar sorma hakkı olan bir sorudur.',
+    evEnd_vote: 'Oy sandıkları bir sonraki seçime kadar kaldırıldı. Demokrasinin sessiz mucizesi budur: tek bir kurşun atılmadan iktidar el değiştirir ya da yerinde kalır.',
+    evVoWait: 'Seçim kampanyası başladı: afişler, münazaralar ve kafelerde bitmek bilmeyen tartışmalar…',
+    evVoIntro: 'Yine seçim yılı geldi canım. Ada her dört yılda bir aynı soruyu sorar: işlerin gidişatından memnun muyuz? Halk tekrar tekrar onay vermedikçe kimse belediye başkanı olarak kalamaz. Bak, bugün her grup neler hissediyor.',
+    evP_vote: 'Seçim günü',
+    evN_vote: 'Seçim yılı',
+    evWon: 'Seçimi %{p} oyla kazandın. Ada seni yeniden seçti!',
+    evUnlock: 'Bu sefer inşa edilecek yeni bir şey yok. Ada, verilen her kararla biraz daha büyümeye devam ediyor.',
+    keepGoing: 'Devam et: sonraki yıllar',
     hHosp: 'Hastane yatakları',
     hEdge: 'Kenar mahallelerde mutluluk',
     hCentre: 'Merkezde mutluluk',
@@ -8257,7 +8577,7 @@ const STT = {
     digging: 'Kanal kazılıyor…',
     s3_doctorsdone: '{f} ailesi yerleşti. Artık kliniğin bir doktoru ve bir hemşiresi var ve iki adım ötede oturuyorlar.',
     s3_doctors: 'Doktor {f} bütün ailesiyle geldi, eşi de hemşire. Geceleri hemen koşabilmeleri için kliniğe yakın bir eve ihtiyaçları var. Parlayan bir yere dokun.',
-    rosa: 'Rosa Nene', title: 'Adacığım', titleSub: 'Hiç oyun oynamadın mı? Harika. Rosa Nene sana her şeyi adım adım gösterecek. Hiçbir şey ters gidemez.', cont: 'Kaldığın yerden devam et', ok: 'Tamam', next: 'Devam', letsgo: 'Başlayalım', show: 'Göster', later: 'Sonra bakarız', tapSpot: 'Parlayan yerlerden birine dokun', tapHarbor: 'Parlayan limana dokun', of: '/', chapter: 'Bölüm', people: 'kişi', letters: 'Mektuplar', album: 'Albüm', menu: 'Menü', build: 'İnşa et', close: 'Kapat', resume: 'Adacığıma dön', exit: 'Kaydet ve ana ekrana dön', lang: 'Dil', saved: 'Adan kaydedildi. İstediğin zaman geri gel.', learned: 'Neler öğrendin', unlocked: 'Senin için yeni', chapterDone: 'Bölüm tamamlandı', nextChapter: 'Sonraki bölüm', restHere: 'Şimdilik burada ara ver', noLetters: 'Henüz mektup yok. Güzel bir şey olunca adalılar yazacak.', noPhotos: 'Her bölümün sonunda fotoğraflar burada görünür.', grant: 'Merkezden {m} yardım geldi. Hadi, inşaata devam!', timePasses: 'Zaman geçiyor…', driveSelf: 'Kendim süreyim', letThem: 'Adalılar yapsın', view3d: '3B', view2d: 'Harita', freeBuild: 'İstediğin yere ya da parlayan bir yere dokun', cancel: 'Vazgeç', wishPill: '{f} ailesinin bir dileği var', wish_power: '{f} ailesi her akşam ışıkların gidip geldiğini söylüyor. Bir {b} daha yapabilir miyiz?', wish_home: '{f} ailesinin kuzenleri buraya taşınmak istiyor, iş de bol. Onlara bir {b} yapar mısın?', wish_work: '{f} ailesinden bazıları iş arıyor. Yeni bir {b} onlara iş verir.', wish_park: '{f} ailesinin çocuklarının oynayacak yeri yok. Evlerin yanında bir {b} herkesi gülümsetir.', wish_fun: '{f} ailesi bir {b} hayal ediyor. Hayat sadece iş değil canım!', wishMoney: 'Bunun fiyatı {m}, ama kasada şimdilik o kadar para yok. Ada biraz kazansın, sonra tekrar gel. Dilek seni bekler.', wishDone: '{f} ailesi çok mutlu! ❤', wishThanks: 'Sevgili dostum, {b} için teşekkürler! Bütün aile görmeye geldi. Bizi dinledin ve bu bizim için çok değerli. Sevgilerle, {f} ailesi', wishNoRoom: 'Hmm, şu an bunun için iyi bir yer bulamıyorum. Başka bir gün düşünelim.', goOn: 'Sonraki bölüm ▶', joy: 'Güzel bir haber', perTile: '/ kare', expertT: 'Serbest inşa ve trafik bulmacaları', expertS: 'deneyimli oyuncular için (İngilizce)', awayA: 'Tekrar hoş geldin {name}! Sen yokken Isla Nueva\'da {h} saat geçti.', awayB: 'Limandan {v} değerinde mal gemiyle gitti.', awayC: 'Kasaya {m} girdi.', awayD: 'Herkes iyi uyudu ve seni özledi.', dearWord: 'canım', namePh: 'Adın (istersen boş bırak)', niceName: 'Ne güzel bir isim, {name}!', readAloud: 'Sesli oku', voiceOn: 'Rosa Nene her mesajı sesli okusun', famOf: '{f} ailesi', workersT: 'çalışan', harborT: 'Gemiler buraya yanaşır; kamyonlar malları getirir', worksHere: 'Burada çalışan aileler: {f}', wish_need: '{f} ailesi evine daha yakın bir {b} istiyor. Günlük hayatları çok kolaylaşırdı.', peopleForms: ['kişi', 'kişi', 'kişi'], sickForms: ['hasta', 'hasta', 'hasta'], baby: '{f} ailesinin bir bebeği oldu! Adı {c}. ❤', babyL: 'Sevgili dostum, küçük {c} dün gece aramıza katıldı; sağlıklı ve sesi gür! Büyüyünce ona bu adayı kuran kişiyi anlatacağız. Sevgilerle, {f} ailesi', wedding: 'Düğün var! {a} ve {e} aileleri bu akşam kutlama yapıyor.', weddingL: 'Sevgili dostum, düğüne geldiğin için teşekkürler! Bu ada olmasaydı çocuklarımız hiç tanışmayacaktı. {a} ve {e} aileleri', cruise: 'Bir yolcu gemisi uğradı. Turistler adaya bayıldı ve {m} harcadı!', harvestBonus: 'Ne bereketli bir hasat! Tarlalar bu hafta fazladan ürün verdi: adaya {m}.', driveBtn: 'Sür', noDrive: 'Şu an bekleyen mal yok. Bir sonraki hasattan sonra tekrar dene.', freeDriveDone: 'Teslim edildi! Ada en sevdiği şoföre teşekkür ediyor.', newIsland: 'Yeni bir ada başlat', newConfirm: 'Baştan başlamak için tekrar dokun. Adan silinecek.', contSub: 'Adana devam etmek için dokun · {c}', storyDone: 'Hikâye tamamlandı', helpMe: 'Bunda bana yardım et', buildHereQ: 'Buraya mı yapalım?', buildHere: 'Evet, buraya yap', soilHere: 'Buradaki toprak', soilX: 'çok verimli', soilG: 'verimli', soilF: 'orta', soilP: 'zayıf', soilTip: '(tarla burada az ürün verir; koyu yeşil yerler daha verimli)', rLand: 'Orası su. Binalar kuru toprak ister.', rSteep: 'Orası çok dik, tepeler var.', rOcc: 'Orada zaten bir şey var.', rSand: 'Tarlalar kum değil, toprak ister.', rSea: 'Bu, deniz kenarında olmalı.', rMoney: 'Henüz yeterli para yok.', rOff: 'Orası adanın kenarı.', rForest: 'Kereste kampının etrafında orman olmalı.', rHills: 'Maden tepelere değmeli.', rOne: 'Adada bundan zaten bir tane var.', rEra: 'Bu, hikâyede daha sonra gelecek.', rRoad: 'Oraya henüz yol ulaşamıyor.', allTools: 'Tüm araçlar', stayStory: 'Hikâye görünümünde kal', allToolsBack: 'Yaptığın her şey burada. Rosa Nene\'ye dönmek için üstteki “Hikâye” düğmesine dokun ya da menüyü aç.', fin: 'Bütün hikâyeyi bitirdin, {name}. Seninle gurur duyuyorum. Ada artık senin: istediğini eklemek için “İnşa et” düğmesine dokun ya da otobüs, tramvay ve ekonomiyle tam oyun için “Tüm araçlar” düğmesine dokun.', storyBtn: 'Hikâye', sick: 'hasta', dayN: '{d}. gün',
+    rosa: 'Rosa Nene', title: 'Adacığım', titleSub: 'Hiç oyun oynamadın mı? Harika. Rosa Nene sana her şeyi adım adım gösterecek. Hiçbir şey ters gidemez.', cont: 'Kaldığın yerden devam et', ok: 'Tamam', next: 'Devam', letsgo: 'Başlayalım', show: 'Göster', later: 'Sonra bakarız', tapSpot: 'Parlayan yerlerden birine dokun', tapHarbor: 'Parlayan limana dokun', of: '/', chapter: 'Bölüm', people: 'kişi', letters: 'Mektuplar', album: 'Albüm', menu: 'Menü', build: 'İnşa et', close: 'Kapat', resume: 'Adacığıma dön', exit: 'Kaydet ve ana ekrana dön', lang: 'Dil', saved: 'Adan kaydedildi. İstediğin zaman geri gel.', learned: 'Neler öğrendin', unlocked: 'Senin için yeni', chapterDone: 'Bölüm tamamlandı', nextChapter: 'Sonraki bölüm', restHere: 'Şimdilik burada ara ver', noLetters: 'Henüz mektup yok. Güzel bir şey olunca adalılar yazacak.', noPhotos: 'Her bölümün sonunda fotoğraflar burada görünür.', grant: 'Merkezden {m} yardım geldi. Hadi, inşaata devam!', timePasses: 'Zaman geçiyor…', driveSelf: 'Kendim süreyim', letThem: 'Adalılar yapsın', view3d: '3B', view2d: 'Harita', freeBuild: 'İstediğin yere ya da parlayan bir yere dokun', cancel: 'Vazgeç', wishPill: '{f} ailesinin bir dileği var', wish_power: '{f} ailesi her akşam ışıkların gidip geldiğini söylüyor. Bir {b} daha yapabilir miyiz?', wish_home: '{f} ailesinin kuzenleri buraya taşınmak istiyor, iş de bol. Onlara bir {b} yapar mısın?', wish_work: '{f} ailesinden bazıları iş arıyor. Yeni bir {b} onlara iş verir.', wish_park: '{f} ailesinin çocuklarının oynayacak yeri yok. Evlerin yanında bir {b} herkesi gülümsetir.', wish_fun: '{f} ailesi bir {b} hayal ediyor. Hayat sadece iş değil canım!', wishMoney: 'Bunun fiyatı {m}, ama kasada şimdilik o kadar para yok. Ada biraz kazansın, sonra tekrar gel. Dilek seni bekler.', wishDone: '{f} ailesi çok mutlu! ❤', wishThanks: 'Sevgili dostum, {b} için teşekkürler! Bütün aile görmeye geldi. Bizi dinledin ve bu bizim için çok değerli. Sevgilerle, {f} ailesi', wishNoRoom: 'Hmm, şu an bunun için iyi bir yer bulamıyorum. Başka bir gün düşünelim.', goOn: 'Sonraki bölüm ▶', joy: 'Güzel bir haber', perTile: '/ kare', expertT: 'Serbest inşa ve trafik bulmacaları', expertS: 'deneyimli oyuncular için (İngilizce)', awayA: 'Tekrar hoş geldin {name}! Sen yokken Isla Nueva\'da {h} saat geçti.', awayB: 'Limandan {v} değerinde mal gemiyle gitti.', awayC: 'Kasaya {m} girdi.', awayD: 'Herkes iyi uyudu ve seni özledi.', dearWord: 'canım', namePh: 'Adın (istersen boş bırak)', niceName: 'Ne güzel bir isim, {name}!', readAloud: 'Sesli oku', voiceOn: 'Rosa Nene her mesajı sesli okusun', famOf: '{f} ailesi', workersT: 'çalışan', harborT: 'Gemiler buraya yanaşır; kamyonlar malları getirir', worksHere: 'Burada çalışan aileler: {f}', wish_need: '{f} ailesi evine daha yakın bir {b} istiyor. Günlük hayatları çok kolaylaşırdı.', peopleForms: ['kişi', 'kişi', 'kişi'], sickForms: ['hasta', 'hasta', 'hasta'], baby: '{f} ailesinin bir bebeği oldu! Adı {c}. ❤', babyL: 'Sevgili dostum, küçük {c} dün gece aramıza katıldı; sağlıklı ve sesi gür! Büyüyünce ona bu adayı kuran kişiyi anlatacağız. Sevgilerle, {f} ailesi', wedding: 'Düğün var! {a} ve {e} aileleri bu akşam kutlama yapıyor.', weddingL: 'Sevgili dostum, düğüne geldiğin için teşekkürler! Bu ada olmasaydı çocuklarımız hiç tanışmayacaktı. {a} ve {e} aileleri', cruise: 'Bir yolcu gemisi uğradı. Turistler adaya bayıldı ve {m} harcadı!', harvestBonus: 'Ne bereketli bir hasat! Tarlalar bu hafta fazladan ürün verdi: adaya {m}.', driveBtn: 'Sür', noDrive: 'Şu an bekleyen mal yok. Bir sonraki hasattan sonra tekrar dene.', freeDriveDone: 'Teslim edildi! Ada en sevdiği şoföre teşekkür ediyor.', newIsland: 'Yeni bir ada başlat', newConfirm: 'Baştan başlamak için tekrar dokun. Adan silinecek.', contSub: 'Adana devam etmek için dokun · {c}', storyDone: 'Hikâye tamamlandı', helpMe: 'Bunda bana yardım et', buildHereQ: 'Buraya mı yapalım?', buildHere: 'Evet, buraya yap', soilHere: 'Buradaki toprak', soilX: 'çok verimli', soilG: 'verimli', soilF: 'orta', soilP: 'zayıf', soilTip: '(tarla burada az ürün verir; koyu yeşil yerler daha verimli)', rLand: 'Orası su. Binalar kuru toprak ister.', rSteep: 'Orası çok dik, tepeler var.', rOcc: 'Orada zaten bir şey var.', rSand: 'Tarlalar kum değil, toprak ister.', rSea: 'Bu, deniz kenarında olmalı.', rMoney: 'Henüz yeterli para yok.', rOff: 'Orası adanın kenarı.', rForest: 'Kereste kampının etrafında orman olmalı.', rHills: 'Maden tepelere değmeli.', rOne: 'Adada bundan zaten bir tane var.', rEra: 'Bu, hikâyede daha sonra gelecek.', rRoad: 'Oraya henüz yol ulaşamıyor.', allTools: 'Tüm araçlar', stayStory: 'Hikâye görünümünde kal', allToolsBack: 'Yaptığın her şey burada. Rosa Nene\'ye dönmek için üstteki “Hikâye” düğmesine dokun ya da menüyü aç.', fin: '{name}, bütün hikâyeyi bitirdin. Seninle çok gurur duyuyorum. Ama bir ada aslında hiç durmaz: yeni yıllar yeni seçimler, fırtınalar, tartışmalar ve güzel sürprizler getirir. Onları yaşamak için “Devam et” düğmesine, istediğin her şeyi eklemek için “İnşa et” düğmesine dokun ya da tam oyun için “Tüm araçlar”ı aç.', storyBtn: 'Hikâye', sick: 'hasta', dayN: '{d}. gün',
     ch1: 'Varış', ch2: 'Gerçek bir köy', ch3: 'Ateşli hastalık', ch4: 'İlk meclis', ch5: 'Işıklar yansın', ch6: 'Yollarda', ch7: 'Pastel Tekstil', ch8: 'Karnaval',
     s_hello: 'Isla Nueva\'ya hoş geldin canım! Ben Rosa, bu adanın en yaşlısıyım. Aileler yeni bir hayata başlamak için buraya geliyor ve onlara yardım edecek iyi kalpli birine ihtiyaçları var. Sana her adımı göstereceğim. Burada hiçbir şeyi bozamazsın, söz veriyorum.',
     s_welcome: 'Bak, ilk gemi limana geldi! Santos ailesi rıhtımda bekliyor. Onları karşılamak için parlayan limana dokun.',
@@ -8357,6 +8677,166 @@ const STT = {
     photo1: 'İlk evler',
   },
   sk: {
+    evL_build: 'Milá pani starostka, z okna vidím, ako rastie nová budova. Moje deti v nej budú vyrastať. Vaša suseda Beatriz',
+    evLe_build: 'Plánuj pre ľudí, ktorí tu budú žiť o päťdesiat rokov.',
+    evEnd_build: 'Mesto nie je nikdy hotové.',
+    evBdDone: 'Hotovo. Pozri, ako si to susedia chodia pozrieť.',
+    evBdCp: 'Trh blízko domov. Ťukni na svietiace miesto.',
+    evBdC: 'Nový trh',
+    evBdBp: 'Blízko centra, aby ľudia mohli všade chodiť pešo. Ťukni na svietiace miesto.',
+    evBdB: 'Dostupné byty',
+    evBdAp: 'Parky patria tam, kde ľudia bývajú. Ťukni na svietiace miesta.',
+    evBdA: 'Dva nové parky',
+    evBdQ: 'Čo by mal ostrov postaviť?',
+    evBdIntro: 'Zhromaždenie má tento rok trochu peňazí, zlatko, a tri nápady. Ktorý by si vybrala?',
+    evP_build: 'Nový kút mesta',
+    evN_build: 'Myslieť dopredu',
+    evL_media: 'Milá pani starostka, vnuk mi ukázal, ako spoznať falošné video. Už som dve odhalila. Mám sedemdesiatosem rokov. Vaša obdivovateľka Doña Pilar',
+    evLe_media: 'Dnes sa dá sfalšovať čokoľvek. Pýtaj sa, kto to vyrobil a prečo.',
+    evEnd_media: 'Pravda potrebuje náskok a ľudí, ktorí si veci overia skôr, ako ich zdieľajú.',
+    evMeCdone: 'Samo od seba to neprejde. Celé týždne sa ľudia v kaviarňach hádajú a niektorí ti už nikdy celkom neuveria.',
+    evMeIntro: 'Po ostrove koluje video, zlatko, v ktorom vraj hovoríš, že chceš predať pláž cudzincom. Nikdy si to nepovedala: vyrobil ho počítač. Niektorí mu aj tak veria a pred radnicou sa zhromažďuje dav.',
+    evP_media: 'Pravda vyšla najavo',
+    evN_media: 'Podvrh',
+    evL_strike: 'Milá pani starostka, dvadsať rokov pracujem pri tom istom pracovnom stole a dnes sa ma niekto po prvý raz spýtal, čo si myslím. Váš priateľ Ramón',
+    evLe_strike: 'Spravodlivosť v práci chráni ostrov pred extrémnymi sľubmi.',
+    evEnd_strike: 'Stroje znova bežia.',
+    evSkLesson: 'Keď majú robotníci pocit, že ich okrádajú, ľudia začnú počúvať každého, kto sľubuje, že všetko zoberie. Spravodlivé mzdy a podiel na zisku nedajú rozdávačom sľubov šancu.',
+    evSkDdone: 'Práca sa znova rozbehne, ale hnev nezmizne. Ešte sa vráti.',
+    evSkD: 'Odmietnuť: rozhodujú majitelia',
+    evSkCdone: 'Po troch nociach rokovaní si obe strany podajú ruky. Nikto nedostal všetko, a to je zvyčajne dobré znamenie.',
+    evSkC: 'Vyjednať vyššie mzdy',
+    evSkBdone: 'Nad bránami vejú červené vlajky. Mzdy sú isté, ale majitelia vyvážajú peniaze do zahraničia a nikto nevie, kto bude investovať ďalej.',
+    evSkB: 'Štát prevezme všetko',
+    evSkAdone: 'Robotníci si volia vlastných vedúcich. Prvý rok je chaotický, druhý už oveľa lepší.',
+    evSkA: 'Družstvá: robotníci vlastnia podiel',
+    evSkQ: 'Čo odpovieš robotníkom?',
+    evSkIntro: 'Dielne aj plantáže stoja, zlatko. Robotníci hovoria, že všetku prácu robia oni, kým zisk berú majitelia. Niektorí chcú, aby štát prevzal všetko, iní by chceli sami vlastniť podiel.',
+    evP_strike: 'Robotníci pri bráne',
+    evN_strike: 'Štrajk',
+    evL_model: 'Milá pani starostka, otec so strýkom spolu kvôli referendu týždeň nehovorili. Dnes večer už zase hrajú domino. Vaša suseda Elena',
+    evLe_model: 'Štát aj trh sú nástroje, nie náboženstvá.',
+    evEnd_model: 'Ten spor sa ešte vráti. A to je zdravé.',
+    evMoLesson: 'Žiadny systém nezostane dokonalý navždy. Každá generácia si musí nájsť vlastnú rovnováhu medzi slobodou a spravodlivosťou.',
+    evMoDone: 'Hlasy sú spočítané a ostrov si vybral. Čas ukáže, čo to prinesie.',
+    evMoQ: 'Čo odporučíš voličom?',
+    evMoIntro_mixed: 'Každých pár rokov sa vracia ten starý spor, zlatko: má štát riadiť väčšiu časť ostrova, alebo menšiu? Vyhlásili referendum.',
+    evMoIntro_market: 'Bohatí sú bohatší ako kedykoľvek predtým, zlatko, a okraj mesta chudobnie. Nové hnutie chce, aby štát znova prevzal prístav a plantáže. Iní varujú, že už sme videli, ako sa to končí. Ostrov bude hlasovať.',
+    evMoIntro_state: 'Ľudia už majú dosť radov, zlatko. Nové hnutie chce vrátiť obchody a farmy do súkromných rúk. Iní hovoria, že štát stále chráni slabších. Ostrov bude hlasovať.',
+    evP_model: 'Referendum',
+    evN_model: 'Komu patrí ostrov?',
+    evL_newcomers: 'Milá pani starostka, dnes ma dcéra opravila v španielčine. Je na seba taká hrdá. A my na ňu tiež. Ďakujeme za kurzy. Rodina Haddad',
+    evLe_newcomers: 'Nováčikovia pomôžu ostrovu najviac, keď sa môžu učiť, pracovať a cítiť sa tu doma.',
+    evEnd_newcomers: 'Každý ostrovan bol kedysi nováčikom.',
+    evNcCdone: 'Jedna rodina zase odchádza. Ostatné zostávajú, ale vybalia si len polovicu vecí.',
+    evNcC: 'Smú zostať len jeden rok',
+    evNcBdone: 'Niektorí si prácu nájdu rýchlo. Iní zostávajú medzi sebou a dve polovice mesta sa pomaly vzďaľujú.',
+    evNcB: 'Nech si poradia sami',
+    evNcAdone: 'Do roka deti tlmočia rodičom a rodičia si našli prácu.',
+    evNcAp: 'Škola blízko nových domov. Ťukni na svietiace miesto.',
+    evNcA: 'Jazykové kurzy a miesto v škole',
+    evNcQ: 'Ako im pomôžeme stať sa ostrovanmi?',
+    evNcHomesDone: 'Nové rodiny si nosia kufre dnu. Niekto im už priniesol polievku.',
+    evNcHomes: 'Daj im domov. Ťukni na svietiace miesto.',
+    evNcIntro: 'Pristála loď s rodinami z ďalekých krajov, zlatko. Vojna a sucho ich vyhnali z domovov. Sú unavení a dnes večer nemajú kde spať.',
+    evP_newcomers: 'Vitajte',
+    evN_newcomers: 'Noví susedia',
+    evL_fever: 'Milá pani starostka, môj malý braček bol veľmi chorý a zdravotná sestra k nemu prišla uprostred noci. Teraz už zase skáče po posteli. Ďakujem. Sofía',
+    evLe_fever: 'Zdravie sa buduje v pokojných rokoch: kliniky, čistá voda a dôvera v lekárov.',
+    evEnd_fever: 'Choroby sa vracajú. Kliniky, vakcíny a čistá voda preto musia zostať.',
+    evFeWaitDone: 'Všetci sú znova zdraví.',
+    evFeWait: 'Lekári obchádzajú domy…',
+    evFeClinicDone: 'Klinika otvára dvere. Rad je dlhý, ale postupuje.',
+    evFeClinic: 'Postav kliniku blízko chorých rodín. Ťukni na svietiace miesto.',
+    evFeIntro: 'Zase sa niečo šíri, zlatko: nová horúčka. Lekári hovoria, že nie je nebezpečná, ak chorí rýchlo dostanú pomoc. Domy, v ktorých sú chorí, sú označené červeným krížom.',
+    evP_fever: 'Znova zdraví',
+    evN_fever: 'Horúčka sa vracia',
+    evL_bust: 'Milá pani starostka, bol to ťažký rok, ale susedia sa delia o to, čo majú. Včera jedlo v parku spolu päť rodín. Váš priateľ Luis',
+    evLe_bust: 'Ostrov, ktorý vyrába veľa rôznych vecí, nepadá tak tvrdo.',
+    evEnd_bust: 'Chudé roky pominú. Dôležité je, kto tu vtedy ešte bude.',
+    evBuCdone: 'Ostrov si uťahuje opasok. Nikto nehladuje, ale mladí sa začínajú obzerať za loďami.',
+    evBuC: 'Škrtať výdavky a čakať',
+    evBuBdone: 'Všetko ide ďalej. Pôžičku však bude treba splatiť aj s úrokmi.',
+    evBuB: 'Požičať si a udržať všetko v chode',
+    evBuAdone: 'Nové pracovné miesta, ktoré nezávisia od ceny cukru.',
+    evBuAp: 'Kancelárie predávajú prácu, ktorá necestuje loďou. Ťukni na svietiace miesto.',
+    evBuA: 'Skúsiť niečo nové: kancelárie a služby',
+    evBuQ: 'Ako prečkáme chudé roky?',
+    evBuIntroFund: 'Lode sa vracajú poloprázdne, zlatko. Ceny klesli všade. Ale tentoraz máme fond z dobrých rokov a ten nás prenesie cez to najhoršie.',
+    evBuIntro: 'Lode sa vracajú poloprázdne, zlatko. Ceny toho, čo vyrábame, klesli po celom svete a v dielňach sú nervózni.',
+    evP_bust: 'Prázdny prístav',
+    evN_bust: 'Chudé roky',
+    evL_boom: 'Milá pani starostka, tri lode za jeden týždeň! Manžel predal všetky ryby ešte pred obedom a kúpil mi nové šaty. Ďakujem vám za dobrú cestu do prístavu. Vaša priateľka Carmen',
+    evLe_boom: 'V dobrých rokoch šetri a investuj. Zlé roky prídu vždy.',
+    evEnd_boom: 'V dobrých rokoch sa opravuje strecha.',
+    evBoCdone: 'Každý má vo vrecku o čosi viac. Je to nádherný pocit, kým dobré roky trvajú.',
+    evBoC: 'Znížiť dane všetkým',
+    evBoBdone: 'Peniaze vložené do detí sa vracajú celých päťdesiat rokov.',
+    evBoBp: 'Nová škola bude blízko domov. Ťukni na svietiace miesto.',
+    evBoB: 'Postaviť novú školu',
+    evBoAdone: 'Fond potichu rastie. Nikto nejasá, ale ďalšia kríza bude menej bolieť.',
+    evBoA: 'Odložiť ich do fondu na horšie časy',
+    evBoQ: 'Čo urobíme s peniazmi navyše?',
+    evBoIntro: 'Dobré správy z prístavu, zlatko: svet chce to, čo vyrábame, a ceny sú najlepšie za posledné roky. Pokladnica sa plní. Otázkou je, čo s dobrými rokmi urobí múdry ostrov.',
+    evP_boom: 'Plné lode',
+    evN_boom: 'Dobré roky',
+    evL_storm: 'Milá pani starostka, v noci nám uletela strecha a pristála v záhrade rodiny Pérez. Dnes ráno nám ju priniesli späť aj s koláčom. Sme v poriadku. Vaša suseda Ana',
+    evLe_storm: 'Búrky sa zastaviť nedajú, ale škodám sa dá predísť dobrým plánovaním.',
+    evEnd_storm: 'Každá búrka preverí, čo ostrov postavil v pokojných rokoch.',
+    evStDamageB: 'Búrka prešla a všetci sú v bezpečí, ale škody sú veľké. Zničené domy: {n}. S viacerými inžiniermi a prísnejšími stavebnými pravidlami by ich padlo menej.',
+    evStDamageA: 'Búrka prešla a všetci sú v bezpečí. Zničené domy: {n}. Dobrí inžinieri a prísne stavebné pravidlá zachránili väčšinu ostrova.',
+    evStIntro: 'Obloha má farbu starej modriny, zlatko. Blíži sa ďalší hurikán. Húkajú sirény a všetci sa ponáhľajú do najpevnejších budov.',
+    evP_storm: 'Po búrke',
+    evN_storm: 'Obdobie búrok',
+    evL_protest: 'Milá pani starostka, transparenty sme si vyrobili sami a otec mi pomohol namaľovať písmená. Nech sa stane čokoľvek, som hrdá, že na našom ostrove môžu ľudia stáť na námestí a povedať, čo si myslia. Lucía, 16 rokov',
+    evLe_protest: 'Protest je informácia. Vypočuj si ju skôr, ako sa zmení na hnev.',
+    evEnd_protest: 'Na námestí je znova ticho a ostrov je o kúsok múdrejší.',
+    evPrLesson: 'Ľudia protestujú, keď majú pocit, že ich nikto nepočúva. Kto na čele počúva včas, ten neskôr políciu takmer nepotrebuje.',
+    evPrCdone: 'Do polnoci je námestie prázdne, ale fotky policajtov obletia celý ostrov. Nahnevaní sú teraz aj mnohí, ktorí zostali doma.',
+    evPrC: 'Nechať políciu vyprázdniť námestie',
+    evPrBdone: 'Domov naozaj odídu, ale o týždeň sú späť, a o ďalší týždeň znova. Nikto nemá rád, keď ho ignorujú.',
+    evPrB: 'Počkať, kým sa unavia a pôjdu domov',
+    evPrAdone: 'Sadneš si k nim na schody. Traja z organizátorov prídu na ďalšie zhromaždenie a spolu nájdete plán, s ktorým môžu žiť všetci.',
+    evPrA: 'Vyjsť von, vypočuť ich a pozvať na zhromaždenie',
+    evPrQ: 'Pokojný protest patrí k demokracii, ale nie vždy je príjemný. Čo urobíš?',
+    evPrIntro_open: 'Počúvaj, zlatko: na námestí sú zdravotné sestry. Klinika je plná, už celé týždne pracujú dvojité zmeny a žiadajú ostrov, aby chorobu bral vážne.',
+    evPrIntro_lock: 'Počúvaj, zlatko: námestie je plné. Majitelia obchodov a kuchári, ktorí prišli o príjem, keď bolo všetko zatvorené, sa pýtajú, z čoho zaplatia nájom. Hnevajú sa, ale držia si od seba odstup.',
+    evPrIntro_climate: 'Počúvaj, zlatko: deti odišli zo školy a zaplnili námestie. Držia obrázky pláže napoly pod vodou a pýtajú sa, čo s tým robia dospelí.',
+    evPrIntro_rents: 'Počúvaj, zlatko: námestie je plné. Nájomné pri prístave sa zdvojnásobilo a deti rybárov si už nemôžu dovoliť bývať tam, kde vyrastali ich rodičia.',
+    evPrIntro_jobs: 'Počúvaj, zlatko: z námestia sa ozývajú bubny a píšťalky. Dielne prepúšťajú ľudí a mladí hovoria, že tu pre nich nie je budúcnosť. Prišli s maľovanými transparentmi.',
+    evPrIntro_prices: 'Počúvaj, zlatko: z námestia pred radnicou sa ozývajú bubny a píšťalky. Ceny potravín znova stúpli a rodiny z okraja mesta už na to nemajú. Prišli stovky ľudí s maľovanými transparentmi.',
+    evP_protest: 'Hlasy na námestí',
+    evN_protest: 'Námestie je plné',
+    evL_sweet: 'Milá pani starostka, moja babka dodnes opatruje starú titulnú stranu novín s jediným slovom: NIE. Dnes som ju ukázal synovi. Váš priateľ Marco',
+    evLe_sweet: 'Ten istý trik funguje v každom storočí: najprv lichôtky, potom zmiznú hranice moci.',
+    evEnd_sweet: 'Sladké slová sú zadarmo. Sloboda nie.',
+    evSwOut2: 'Do roka vládol {name} sám. Kritici prišli o prácu, dve rodiny odplávali preč a trvalo roky trpezlivých, pokojných protestov, kým si ľudia ostrov vzali späť. Sladké reči stoja najviac vtedy, keď im ľudia uveria.',
+    evSwOut1: 'To bolo o chlp. {name} dostal jedno, ale druhé nie, a ostrov sa o tom stále háda. Napraviť to budú musieť až ďalšie voľby.',
+    evSwOut0: '{name} usporiadal ešte jeden posledný koncert a potom sa dal na podnikanie. Ostrov pokrčil plecami a žil ďalej. Povedať „nie“ včas a pokojne: presne tak sa demokracia chráni.',
+    evSwN2done: 'Sudcovia si zachovajú nezávislosť a noviny to dajú na titulnú stranu.',
+    evSwY2done: 'Teraz už zlý zákon nikto nezastaví.',
+    evSwN2: 'Nie: sudcovia slúžia zákonu, nie jednému človeku',
+    evSwY2: 'Dobre, kvôli efektívnosti',
+    evSwQ2: '„A sudcov, ktorí ma stále blokujú,“ hovorí {name}, „budem odteraz vyberať ja. Kvôli efektívnosti.“ Čo povieš?',
+    evSwN1done: 'Zhromaždenie vstane a tlieska. Obmedzenie zostáva.',
+    evSwY1done: 'Dav tlieska. Prvé obmedzenie padlo.',
+    evSwN1: 'Nie: každý mandát má koniec',
+    evSwY1: 'Možno to nie je také zlé',
+    evSwQ1: '„Nechajte ma v úrade tak dlho, ako bude treba,“ hovorí {name}. „Obmedzenia funkčných období sú pre slabých vodcov.“ Čo povieš?',
+    evSwIntroRem: 'Ostrov má nového miláčika, zlatko: {name}. Široké úsmevy, koncerty zadarmo a stále tá istá stará pesnička: zhromaždenie je pomalé, sudcovia prekážajú, noviny klamú. Ale tento ostrov si ešte pamätá, kto bol Alvarado. Starší ľudia už krútia hlavami a deti sa o varovných signáloch učili v škole.',
+    evSwIntro: 'Ostrov má nového miláčika, zlatko: {name}. Krásne slová, široké úsmevy a každý piatok koncerty zadarmo. {name} hovorí, že zhromaždenie je pomalé, sudcovia prekážajú a noviny klamú. Znie ti to povedome? Veru by malo. Sladké reči sa vracajú v každej generácii, len v nových šatách.',
+    evP_sweet: 'Miláčik davu',
+    evN_sweet: 'Sladké reči znova',
+    evL_vote: 'Milá pani starostka, dnes som prvýkrát volila. Dedko ma odprevadil do školy a povedal mi, že kedysi museli ľudia o tento malý kúsok papiera bojovať. Poskladala som ho veľmi opatrne. Vaša suseda Inés',
+    evLe_vote: 'Voľby sú otázka, ktorú môžu ľudia položiť znova a znova.',
+    evEnd_vote: 'Volebné urny sa odkladajú až do ďalších volieb. To je tichý zázrak demokracie: moc prejde do iných rúk, alebo zostane, a nepadne pri tom ani jeden výstrel.',
+    evVoWait: 'Kampaň je v plnom prúde: plagáty, debaty a dlhé hádky v kaviarňach…',
+    evVoIntro: 'Znova je volebný rok, zlatko. Každé štyri roky si ostrov kladie tú istú otázku: sme spokojní s tým, ako sa veci vyvíjajú? Nikto nezostane na čele ostrova, ak to ľudia znova a znova nepotvrdia. Pozri, ako sa dnes cíti každá skupina.',
+    evP_vote: 'Deň volieb',
+    evN_vote: 'Volebný rok',
+    evWon: 'Získala si {p} % hlasov. Ostrov si ťa znova vybral!',
+    evUnlock: 'Tentoraz nepribudlo nič nové na stavanie. Ostrov však rastie ďalej, jedno rozhodnutie za druhým.',
+    keepGoing: 'Pokračovať: ďalšie roky',
     hHosp: 'Nemocničné lôžka',
     hEdge: 'Spokojnosť na okraji',
     hCentre: 'Spokojnosť v centre',
@@ -8840,7 +9320,7 @@ const STT = {
     digging: 'Kope sa kanál…',
     s3_doctorsdone: 'Rodina {f} sa nasťahovala. Klinika má lekárku aj zdravotníka a bývajú dva kroky od nej.',
     s3_doctors: 'Doktorka {f} prišla s celou rodinou a jej manžel je zdravotník. Potrebujú domov blízko kliniky, aby v noci dobehli hneď. Ťukni na svietiace miesto.',
-    rosa: 'Babka Rosa', title: 'Môj ostrov', titleSub: 'Nikdy si nehrala hru? Výborne. Babka Rosa ti všetko ukáže, krok za krokom. Nič sa nemôže pokaziť.', cont: 'Pokračovať na mojom ostrove', ok: 'OK', next: 'Ďalej', letsgo: 'Začnime', show: 'Ukáž mi', later: 'Možno neskôr', tapSpot: 'Ťukni na jedno zo svietiacich miest', tapHarbor: 'Ťukni na svietiaci prístav', of: 'z', chapter: 'Kapitola', people: 'ľudí', letters: 'Listy', album: 'Album', menu: 'Menu', build: 'Stavať', close: 'Zavrieť', resume: 'Späť na ostrov', exit: 'Uložiť a ísť na úvod', lang: 'Jazyk', saved: 'Ostrov je uložený. Vráť sa kedykoľvek.', learned: 'Čo si sa naučila', unlocked: 'Nové pre teba', chapterDone: 'Kapitola dokončená', nextChapter: 'Ďalšia kapitola', restHere: 'Zatiaľ si oddýchni', noLetters: 'Zatiaľ žiadne listy. Ostrovania napíšu, keď sa stane niečo pekné.', noPhotos: 'Na konci každej kapitoly sa tu objaví fotka.', grant: 'Koloniálny úrad poslal príspevok {m}. Stavaj ďalej!', timePasses: 'Čas plynie…', driveSelf: 'Odveziem to sama', letThem: 'Nech to spravia ostrovania', view3d: '3D', view2d: 'Mapa', freeBuild: 'Ťukni, kam to chceš, alebo na svietiace miesto', cancel: 'Zrušiť', wishPill: 'Rodina {f} má prianie', wish_power: 'Rodina {f} hovorí, že svetlá každý večer blikajú. Pomohla by ďalšia stavba: {b}.', wish_home: 'Bratranci rodiny {f} sa chcú presťahovať sem a práce je dosť. Postavíš im nový domov? Hodí sa toto: {b}.', wish_work: 'Niekoľko ľudí z rodiny {f} hľadá prácu. Prácu by im dala nová stavba: {b}.', wish_park: 'Deti z rodiny {f} sa nemajú kde hrať. Park pri domoch by potešil každého.', wish_fun: 'Rodina {f} sníva o jednom: {b}. Život nie je len práca, zlatko!', wishMoney: 'Stojí to {m} a v pokladnici trochu chýba. Nech ostrov chvíľu zarába, potom sa vráť. Prianie počká.', wishDone: 'Rodina {f} má obrovskú radosť! ❤', wishThanks: 'Milá priateľka, ďakujeme ti za splnené prianie: {b}! Celá rodina sa to prišla pozrieť. Vypočula si nás a to pre nás veľa znamená. S láskou, rodina {f}', wishNoRoom: 'Hmm, teraz na to nenachádzam dobré miesto. Porozmýšľame o tom inokedy.', goOn: 'Ďalšia kapitola ▶', joy: 'Radostná novinka', perTile: '/ políčko', expertT: 'Voľné stavanie a dopravné hlavolamy', expertS: 'pre skúsených hráčov (po anglicky)', awayA: 'Vitaj späť, {name}! Kým si bola preč, na Isla Nueva ubehlo {h} hodín.', awayB: 'Z prístavu odišiel tovar v hodnote {v}.', awayC: 'Pokladnica narástla o {m}.', awayD: 'Všetci sa dobre vyspali a chýbala si im.', dearWord: 'zlatko', namePh: 'Tvoje meno (môžeš preskočiť)', niceName: 'Aké krásne meno, {name}!', readAloud: 'Čítať nahlas', voiceOn: 'Babka Rosa číta každú správu nahlas', famOf: 'Rodina {f}', workersT: 'pracovníkov', harborT: 'Tu kotvia lode; kamióny sem vozia tovar', worksHere: 'Pracujú tu rodiny: {f}', wish_need: 'Rodina {f} by veľmi chcela mať bližšie k domu toto: {b}. Každý deň by bol oveľa ľahší.', peopleForms: ['človek', 'ľudia', 'ľudí'], sickForms: ['chorý', 'chorí', 'chorých'], baby: 'Rodine {f} sa narodilo bábätko! Volá sa {c}. ❤', babyL: 'Milá priateľka, naše bábätko {c} prišlo na svet včera v noci, zdravé a poriadne hlasné! Keď vyrastie, porozprávame mu o tej, ktorá postavila tento ostrov. S láskou, rodina {f}', wedding: 'Svadba! Rodiny {a} a {e} dnes večer oslavujú.', weddingL: 'Milá priateľka, ďakujeme, že si prišla na svadbu! Bez tohto ostrova by sa naše deti nikdy nestretli. Rodiny {a} a {e}', cruise: 'Zastavila sa tu výletná loď. Turistom sa ostrov veľmi páčil a minuli {m}!', harvestBonus: 'Aká úroda! Polia tento týždeň dali navyše: {m} pre ostrov.', driveBtn: 'Jazdiť', noDrive: 'Teraz nečaká žiadny tovar. Skús to znova po ďalšej úrode.', freeDriveDone: 'Doručené! Ostrov ďakuje svojej najobľúbenejšej vodičke.', newIsland: 'Začať nový ostrov', newConfirm: 'Ťukni znova a začneš odznova. Tvoj ostrov sa nahradí.', contSub: 'Ťukni a pokračuj na svojom ostrove · {c}', storyDone: 'Príbeh dokončený', helpMe: 'Pomôž mi s tým', buildHereQ: 'Postaviť to tu?', buildHere: 'Áno, postav to tu', soilHere: 'Pôda tu', soilX: 'výborná', soilG: 'dobrá', soilF: 'priemerná', soilP: 'slabá', soilTip: '(pole tu veľa neurodí; tmavozelená pôda je bohatšia)', rLand: 'Tam je voda. Stavby potrebujú suchú zem.', rSteep: 'Tam je to príliš strmé, sú tam kopce.', rOcc: 'Tam už niečo stojí.', rSand: 'Polia potrebujú pôdu, nie piesok.', rSea: 'Toto musí stáť priamo pri mori.', rMoney: 'Zatiaľ nie je dosť peňazí.', rOff: 'Tam je okraj ostrova.', rForest: 'Píla potrebuje okolo seba les.', rHills: 'Baňa musí susediť s kopcami.', rOne: 'Toto už ostrov má.', rEra: 'To príde v príbehu neskôr.', rRoad: 'Tam sa zatiaľ cesta nedostane.', allTools: 'Všetky nástroje', stayStory: 'Zostať v príbehu', allToolsBack: 'Všetko, čo si postavila, je tu. Späť k babke Rose sa dostaneš tlačidlom Príbeh hore alebo cez Menu.', fin: 'Dokončila si celý príbeh, {name}. Som na teba taká hrdá. Ostrov je teraz tvoj: ťukni na Stavať a pridaj, čo chceš, alebo otvor Všetky nástroje pre plnú hru s autobusmi, električkami a ekonomikou.', storyBtn: 'Príbeh', sick: 'chorých', dayN: 'Deň {d}',
+    rosa: 'Babka Rosa', title: 'Môj ostrov', titleSub: 'Nikdy si nehrala hru? Výborne. Babka Rosa ti všetko ukáže, krok za krokom. Nič sa nemôže pokaziť.', cont: 'Pokračovať na mojom ostrove', ok: 'OK', next: 'Ďalej', letsgo: 'Začnime', show: 'Ukáž mi', later: 'Možno neskôr', tapSpot: 'Ťukni na jedno zo svietiacich miest', tapHarbor: 'Ťukni na svietiaci prístav', of: 'z', chapter: 'Kapitola', people: 'ľudí', letters: 'Listy', album: 'Album', menu: 'Menu', build: 'Stavať', close: 'Zavrieť', resume: 'Späť na ostrov', exit: 'Uložiť a ísť na úvod', lang: 'Jazyk', saved: 'Ostrov je uložený. Vráť sa kedykoľvek.', learned: 'Čo si sa naučila', unlocked: 'Nové pre teba', chapterDone: 'Kapitola dokončená', nextChapter: 'Ďalšia kapitola', restHere: 'Zatiaľ si oddýchni', noLetters: 'Zatiaľ žiadne listy. Ostrovania napíšu, keď sa stane niečo pekné.', noPhotos: 'Na konci každej kapitoly sa tu objaví fotka.', grant: 'Koloniálny úrad poslal príspevok {m}. Stavaj ďalej!', timePasses: 'Čas plynie…', driveSelf: 'Odveziem to sama', letThem: 'Nech to spravia ostrovania', view3d: '3D', view2d: 'Mapa', freeBuild: 'Ťukni, kam to chceš, alebo na svietiace miesto', cancel: 'Zrušiť', wishPill: 'Rodina {f} má prianie', wish_power: 'Rodina {f} hovorí, že svetlá každý večer blikajú. Pomohla by ďalšia stavba: {b}.', wish_home: 'Bratranci rodiny {f} sa chcú presťahovať sem a práce je dosť. Postavíš im nový domov? Hodí sa toto: {b}.', wish_work: 'Niekoľko ľudí z rodiny {f} hľadá prácu. Prácu by im dala nová stavba: {b}.', wish_park: 'Deti z rodiny {f} sa nemajú kde hrať. Park pri domoch by potešil každého.', wish_fun: 'Rodina {f} sníva o jednom: {b}. Život nie je len práca, zlatko!', wishMoney: 'Stojí to {m} a v pokladnici trochu chýba. Nech ostrov chvíľu zarába, potom sa vráť. Prianie počká.', wishDone: 'Rodina {f} má obrovskú radosť! ❤', wishThanks: 'Milá priateľka, ďakujeme ti za splnené prianie: {b}! Celá rodina sa to prišla pozrieť. Vypočula si nás a to pre nás veľa znamená. S láskou, rodina {f}', wishNoRoom: 'Hmm, teraz na to nenachádzam dobré miesto. Porozmýšľame o tom inokedy.', goOn: 'Ďalšia kapitola ▶', joy: 'Radostná novinka', perTile: '/ políčko', expertT: 'Voľné stavanie a dopravné hlavolamy', expertS: 'pre skúsených hráčov (po anglicky)', awayA: 'Vitaj späť, {name}! Kým si bola preč, na Isla Nueva ubehlo {h} hodín.', awayB: 'Z prístavu odišiel tovar v hodnote {v}.', awayC: 'Pokladnica narástla o {m}.', awayD: 'Všetci sa dobre vyspali a chýbala si im.', dearWord: 'zlatko', namePh: 'Tvoje meno (môžeš preskočiť)', niceName: 'Aké krásne meno, {name}!', readAloud: 'Čítať nahlas', voiceOn: 'Babka Rosa číta každú správu nahlas', famOf: 'Rodina {f}', workersT: 'pracovníkov', harborT: 'Tu kotvia lode; kamióny sem vozia tovar', worksHere: 'Pracujú tu rodiny: {f}', wish_need: 'Rodina {f} by veľmi chcela mať bližšie k domu toto: {b}. Každý deň by bol oveľa ľahší.', peopleForms: ['človek', 'ľudia', 'ľudí'], sickForms: ['chorý', 'chorí', 'chorých'], baby: 'Rodine {f} sa narodilo bábätko! Volá sa {c}. ❤', babyL: 'Milá priateľka, naše bábätko {c} prišlo na svet včera v noci, zdravé a poriadne hlasné! Keď vyrastie, porozprávame mu o tej, ktorá postavila tento ostrov. S láskou, rodina {f}', wedding: 'Svadba! Rodiny {a} a {e} dnes večer oslavujú.', weddingL: 'Milá priateľka, ďakujeme, že si prišla na svadbu! Bez tohto ostrova by sa naše deti nikdy nestretli. Rodiny {a} a {e}', cruise: 'Zastavila sa tu výletná loď. Turistom sa ostrov veľmi páčil a minuli {m}!', harvestBonus: 'Aká úroda! Polia tento týždeň dali navyše: {m} pre ostrov.', driveBtn: 'Jazdiť', noDrive: 'Teraz nečaká žiadny tovar. Skús to znova po ďalšej úrode.', freeDriveDone: 'Doručené! Ostrov ďakuje svojej najobľúbenejšej vodičke.', newIsland: 'Začať nový ostrov', newConfirm: 'Ťukni znova a začneš odznova. Tvoj ostrov sa nahradí.', contSub: 'Ťukni a pokračuj na svojom ostrove · {c}', storyDone: 'Príbeh dokončený', helpMe: 'Pomôž mi s tým', buildHereQ: 'Postaviť to tu?', buildHere: 'Áno, postav to tu', soilHere: 'Pôda tu', soilX: 'výborná', soilG: 'dobrá', soilF: 'priemerná', soilP: 'slabá', soilTip: '(pole tu veľa neurodí; tmavozelená pôda je bohatšia)', rLand: 'Tam je voda. Stavby potrebujú suchú zem.', rSteep: 'Tam je to príliš strmé, sú tam kopce.', rOcc: 'Tam už niečo stojí.', rSand: 'Polia potrebujú pôdu, nie piesok.', rSea: 'Toto musí stáť priamo pri mori.', rMoney: 'Zatiaľ nie je dosť peňazí.', rOff: 'Tam je okraj ostrova.', rForest: 'Píla potrebuje okolo seba les.', rHills: 'Baňa musí susediť s kopcami.', rOne: 'Toto už ostrov má.', rEra: 'To príde v príbehu neskôr.', rRoad: 'Tam sa zatiaľ cesta nedostane.', allTools: 'Všetky nástroje', stayStory: 'Zostať v príbehu', allToolsBack: 'Všetko, čo si postavila, je tu. Späť k babke Rose sa dostaneš tlačidlom Príbeh hore alebo cez Menu.', fin: 'Dokončila si celý príbeh, {name}. Som na teba taká hrdá. Lenže ostrov sa nikdy celkom nezastaví: nové roky prinesú nové voľby, búrky, hádky aj milé prekvapenia. Ťukni na Pokračovať a zaži ich, ťukni na Stavať a pridaj, čo sa ti páči, alebo otvor Všetky nástroje a hraj plnú hru.', storyBtn: 'Príbeh', sick: 'chorých', dayN: 'Deň {d}',
     ch1: 'Príchod', ch2: 'Skutočná dedina', ch3: 'Horúčka', ch4: 'Prvé zhromaždenie', ch5: 'Rozsvieťme ostrov', ch6: 'Na cestách', ch7: 'Pastel Textile', ch8: 'Karneval',
     s_hello: 'Vitaj na Isla Nueva, zlatko! Som Rosa, najstaršia obyvateľka ostrova. Pripláva sem veľa rodín, ktoré chcú začať nový život, a potrebujú niekoho láskavého, kto im pomôže. Každý krok ti ukážem. Nič tu nemôžeš pokaziť, sľubujem.',
     s_welcome: 'Pozri, do prístavu práve priplávala prvá loď! Rodina Santos čaká na móle. Ťukni na svietiaci prístav a privítaj ich.',
@@ -8960,7 +9440,7 @@ const ROSA_GEN = { 1: { hair: '#e6e1dc', bun: '#d9d4cf', skin: '#c98a5e', flower
   3: { hair: '#a39c96', bun: '#8f8882', skin: '#c48558', flower: '#e8584a', dress: '#2a6f97', frame: '#2a2a2a' },
   4: { hair: '#5a4a44', bun: '#4a3c37', skin: '#b87a50', flower: '#7fd1c8', dress: '#e0a030', frame: '#7a3aa0' } };
 const _rosa = {};
-function stGen() { try { return (G && G.story && (STORY[Math.min(G.story.ch, STORY.length - 1)] || {}).rosa) || 1; } catch (e) { return 1; } }
+function stGen() { try { return (G && G.story && (stCh(G.story.ch) || STORY[STORY.length - 1] || {}).rosa) || 1; } catch (e) { return 1; } }
 function rosaFace(size = 128, gen) {
   gen = gen || stGen();
   const key = size + ':' + gen; if (_rosa[key]) return _rosa[key]; const P = ROSA_GEN[gen] || ROSA_GEN[1];
@@ -9173,12 +9653,12 @@ function councilHTML(G) {
 function stElection(G) {
   const S = G.story; const m = councilMood(G); let tot = 0, votes = 0;
   for (const [f] of FACTIONS) { const w = Math.max(1, m[f].n); tot += w; votes += w * m[f].v; }
-  let p = Math.round(votes / tot); p = clamp(p, 56, 94); S.votePct = p; S.mayor = true;
+  let p = Math.round(votes / tot); p = clamp(p, 56, 94); S.votePct = p; const again = !!S.mayor; S.mayor = true; S.terms = (S.terms || 0) + 1;
   const order = FACTIONS.map(([f]) => f).sort((a, b) => m[b].v - m[a].v);
   const el = $('#stCelebrate'); setSpeed(1); stCardHide(); Music.sfx('report');
   el.innerHTML = `<div class="st-cel"><span class="st-kicker">${chName(G.story.ch)}</span><h2>${st('s4_votes')}</h2>
     <div class="st-ballot">${FACTIONS.map(([f, ic, col]) => `<div class="st-bcol"><div class="st-btrack"><i data-v="${m[f].v}" style="background:${col}"></i></div><span>${ic}</span><b>${st(f[0].toUpperCase() + f.slice(1))}</b><em>${m[f].v}%</em></div>`).join('')}</div>
-    <p class="st-big">${st('s4_won', { p })}</p><p>${st('s4_best', { f: st(order[0]) })} ${m[order[2]].v < 70 ? st('s4_worst', { f: st(order[2]) }) : ''}</p>
+    <p class="st-big">${st(again ? 'evWon' : 's4_won', { p })}</p><p>${st('s4_best', { f: st(order[0]) })} ${m[order[2]].v < 70 ? st('s4_worst', { f: st(order[2]) }) : ''}</p>
     <div class="st-btns"><button class="st-primary" id="stVoteOk">${st('next')}</button></div><canvas class="st-confetti" id="stConfetti"></canvas></div>`;
   el.hidden = false; setTimeout(() => { for (const i of el.querySelectorAll('.st-btrack i')) i.style.height = i.dataset.v + '%'; }, 60); setTimeout(() => stConfetti($('#stConfetti')), 900);
   $('#stVoteOk').onclick = () => { el.hidden = true; stAdvance(G); };
@@ -9223,7 +9703,7 @@ function stBrainDrain(G, n) { const list = [...G.cits.values()].filter(c => (c.e
 function stLiteracy(G) { for (const c of G.cits.values()) if (!c.edu) c.edu = 1; }
 // free courses: the jobless learn a new trade
 function stRetrain(G) { for (const c of G.cits.values()) if (c.job == null && (c.edu || 0) < 2) c.edu = (c.edu || 0) + 1; assignJobs(G); }
-function stHurricaneStart(G) { G.storm = { start: G.t, end: G.t + 250 }; G.story.stormN = 0; }
+function stHurricaneStart(G) { G.storm = { start: G.t, end: G.t + 250 }; G.story.stormN = 0; G.story.stormHit = false; }
 // the storm takes the weakest homes; engineers (education) and rules save most of them
 function stHurricaneHit(G) {
   const S = G.story; if (S.stormHit) return; S.stormHit = true;
@@ -9527,6 +10007,7 @@ const STORY = [
       { label: 'oiB', bld: 'windmill', near: 'windy', n: 2, say: 'oiBp', done: 'oiBdone' },
       { label: 'oiC', bld: 'coalplant', near: 'away', say: 'oiCp', fx: { farmers: -5 }, done: 'oiCdone' } ] },
     { id: 'years', kind: 'info', say: G => 'oiModel_' + (G.story.model || 'mixed'), btn: 'next', fn: G => { if (G.story.model === 'state') stBrainDrain(G, 3); } },
+    ...evStrikeSteps('sk_'),
     { id: 'dusk', kind: 'wait', say: 'oiDusk', done: 'oiLit', speed: 6, until: G => { const tod = G.t % 1440; return G.t > (G.story.waitFrom || 0) + 30 && tod >= 20 * 60 + 50; }, zoomOut: true },
     { id: 'end', kind: 'chapterEnd', say: 'oiEnd' },
   ] },
@@ -9557,6 +10038,7 @@ const STORY = [
     { id: 'mxq', kind: 'choice', when: G => !G.story.model || G.story.model === 'mixed', say: 'waMxQ', options: [
       { label: 'waMxA', bld: 'office', near: 'homes', say: 'waMxAp', fx: { merchants: 8, fishers: 2 }, done: 'waMxAdone' },
       { label: 'waMxB', fx: { farmers: 8, fishers: 6, merchants: -6 }, done: 'waMxBdone' } ] },
+    ...evSweetSteps('Señor Castillo', 'sw2_'),
     { id: 'lesson', kind: 'info', say: 'waLesson', btn: 'next' },
     { id: 'end', kind: 'chapterEnd', say: 'waEnd' },
   ] },
@@ -9598,6 +10080,7 @@ const STORY = [
       { label: 'quB', fx: { merchants: 6 }, then: G => { outbreak(G, Math.max(8, Math.round(G.cits.size * 0.12))); }, done: 'quBdone' } ] },
     { id: 'gap', kind: 'info', say: 'quGap', btn: 'next', edu: true },
     { id: 'masks', kind: 'info', say: 'quMasks', btn: 'next', fn: G => { const J = G.story.joy || (G.story.joy = {}); for (const c of G.cits.values()) if (c.fam) J[c.fam] = G.t + 2 * 1440; } },
+    ...evProtestSteps(G => (G.story.lockdown ? 'lock' : 'open'), 'pr_'),
     { id: 'weeks', kind: 'wait', say: 'quWait', done: 'quWaitDone', speed: 8, until: G => { if (G.t > (G.story.waitFrom || 0) + 3 * 1440) for (const c of G.cits.values()) c.sick = 0; return sickCount(G) === 0 && G.t > (G.story.waitFrom || 0) + 600; } },
     { id: 'end', kind: 'chapterEnd', say: 'quEnd' },
   ] },
@@ -9609,6 +10092,7 @@ const STORY = [
       { label: 'fdB', fx: { merchants: 2, fishers: -6, farmers: -4 }, done: 'fdBdone' },
       { label: 'fdC', fx: { fishers: -4, farmers: -4 }, then: G => { G.story.mobKeep = true; outbreak(G, Math.max(5, Math.round(G.cits.size * 0.05))); }, done: 'fdCdone' } ] },
     { id: 'aristotle', kind: 'info', say: 'fdAristotle', btn: 'next', scene: G => (G.story.mobKeep ? 'crowd' : 'calm') },
+    ...evSweetSteps('Señora Vega', 'sw3_'),
     { id: 'future', kind: 'choice', say: 'fdQ2', options: [
       { label: 'fdLA', law: ['media', 'school'], done: 'fdLAdone' },
       { label: 'fdLB', law: ['media', 'law'], done: 'fdLBdone' },
@@ -9659,8 +10143,127 @@ const STORY = [
     { id: 'end', kind: 'chapterEnd', say: 'laEnd' },
   ] },
 ];
-const stChapter = G => STORY[G.story.ch] || null;
-const chName = k => st((STORY[k] && STORY[k].name) || ('ch' + (k + 1)));
+/* ---------- themes that come back: sweet talk, protests, strikes (used inside the story and in the endless years) ---------- */
+function evSweetSteps(name, tag) {
+  const v = () => ({ name });
+  return [
+    { id: tag + 'in', kind: 'info', say: G => (G.story.sweetYes === 0 ? 'evSwIntroRem' : 'evSwIntro'), vars: v, btn: 'next', scene: 'rally', fn: G => { G.story.swN = 0; } },
+    { id: tag + 'q1', kind: 'choice', say: 'evSwQ1', vars: v, council: true, scene: 'rally', options: [
+      { label: 'evSwY1', then: G => { G.story.swN = (G.story.swN || 0) + 1; }, fx: { fishers: 3, merchants: -3 }, done: 'evSwY1done' }, { label: 'evSwN1', fx: { fishers: -2, merchants: 2 }, done: 'evSwN1done' } ] },
+    { id: tag + 'q2', kind: 'choice', say: 'evSwQ2', vars: v, scene: 'radio', options: [
+      { label: 'evSwY2', then: G => { G.story.swN = (G.story.swN || 0) + 1; }, done: 'evSwY2done' }, { label: 'evSwN2', done: 'evSwN2done' } ] },
+    { id: tag + 'out', kind: 'info', say: G => ['evSwOut0', 'evSwOut1', 'evSwOut2'][Math.min(2, G.story.swN || 0)], vars: v, btn: 'next', fn: G => { if ((G.story.swN || 0) >= 2) { stEmigrate(G, 2); const f = G.story.council || (G.story.council = { farmers: 0, fishers: 0, merchants: 0 }); for (const k in f) f[k] -= 6; } } },
+  ];
+}
+function evProtestSteps(topic, tag) {
+  return [
+    { id: tag + 'in', kind: 'info', say: typeof topic === 'function' ? G => 'evPrIntro_' + topic(G) : 'evPrIntro_' + topic, btn: 'next', scene: 'protest' },
+    { id: tag + 'q', kind: 'choice', say: 'evPrQ', council: true, scene: 'protest', options: [
+      { label: 'evPrA', fx: { fishers: 5, farmers: 5, merchants: 2 }, then: G => { G.money = Math.max(300, G.money - 600); }, done: 'evPrAdone' },
+      { label: 'evPrB', fx: { fishers: -4, farmers: -4 }, done: 'evPrBdone' },
+      { label: 'evPrC', fx: { fishers: -8, farmers: -6, merchants: 3 }, done: 'evPrCdone' } ] },
+    { id: tag + 'ls', kind: 'info', say: 'evPrLesson', btn: 'next' },
+  ];
+}
+function evStrikeSteps(tag) {
+  return [
+    { id: tag + 'in', kind: 'info', say: 'evSkIntro', btn: 'next', scene: 'strike' },
+    { id: tag + 'q', kind: 'choice', say: 'evSkQ', council: true, scene: 'strike', options: [
+      { label: 'evSkA', fx: { fishers: 6, farmers: 6, merchants: -8 }, then: G => { G.story.coops = true; }, done: 'evSkAdone' },
+      { label: 'evSkB', model: 'state', fx: { fishers: 8, farmers: 4, merchants: -15 }, done: 'evSkBdone' },
+      { label: 'evSkC', fx: { fishers: 4, farmers: 4, merchants: 4 }, then: G => { G.money = Math.max(300, G.money - 1500); }, done: 'evSkCdone' },
+      { label: 'evSkD', fx: { fishers: -8, farmers: -8, merchants: 8 }, done: 'evSkDdone' } ] },
+    { id: tag + 'ls', kind: 'info', say: 'evSkLesson', btn: 'next' },
+  ];
+}
+// the election every four years (the first one, in 1912, is the story's own)
+function evVoteSteps() {
+  return [
+    { id: 'vo_in', kind: 'info', say: 'evVoIntro', btn: 'next', council: true, scene: 'assembly' },
+    { id: 'vo_night', kind: 'wait', say: 'evVoWait', hint: 's4_wait', done: 's4_votes', speed: 8, until: G => { const d = Math.floor((G.story.waitFrom || 0) / 1440); return G.t >= (d + 1) * 1440 + 10 * 60; } },
+    { id: 'vo', kind: 'election' },
+  ];
+}
+/* ---------- the years go on: after 2070 every chapter is a new year with something the island must face ---------- */
+const EV_TYPES = ['sweet', 'protest', 'storm', 'boom', 'bust', 'fever', 'newcomers', 'model', 'strike', 'media', 'build'];
+const EV_NAMES = ['Señor Montoya', 'Señora Rivas', 'Señor Ferrer', 'Señora Luna', 'Señor Beltrán', 'Señora Ortega'];
+const EV_TOPICS = ['prices', 'jobs', 'rents', 'climate'];
+function evSteps(g) {
+  const t = g.t, h = g.h;
+  switch (t) {
+    case 'vote': return evVoteSteps();
+    case 'sweet': return evSweetSteps(EV_NAMES[(h >>> 6) % EV_NAMES.length], 'sw_');
+    case 'protest': return evProtestSteps(EV_TOPICS[(h >>> 6) % EV_TOPICS.length], 'pr_');
+    case 'strike': return evStrikeSteps('sk_');
+    case 'storm': return [
+      { id: 'st_in', kind: 'info', say: 'evStIntro', btn: 'next' },
+      { id: 'st_wait', kind: 'wait', say: 'stWait', hint: 'stWaitHint', done: 'stWaitDone', speed: 3, fn: G => stHurricaneStart(G), until: G => G.t > (G.story.waitFrom || 0) + 260 },
+      { id: 'st_dmg', kind: 'info', say: G => (G.story.stormEdu ? 'evStDamageA' : 'evStDamageB'), btn: 'next', fn: G => stHurricaneHit(G), vars: G => ({ n: G.story.stormN || 0 }) },
+      { id: 'st_re', kind: 'place', bld: 'house', n: G => Math.max(1, G.story.stormN || 1), near: 'homes', rehome: true, say: 'stRebuild', done: 'stRebuilt' } ];
+    case 'boom': return [
+      { id: 'bo_in', kind: 'info', say: 'evBoIntro', btn: 'next', fn: G => stShock(G, { fruit: 1.5, fish: 1.4, crafts: 1.4, garments: 1.4, rum: 1.3, goods: 1.3, canned: 1.3, sugar: 1.4 }) },
+      { id: 'bo_q', kind: 'choice', say: 'evBoQ', council: true, options: [
+        { label: 'evBoA', fx: { merchants: 2 }, then: G => { G.story.fund = (G.story.fund || 0) + 3000; }, done: 'evBoAdone' },
+        { label: 'evBoB', bld: 'school', near: 'homes', say: 'evBoBp', fx: { fishers: 4, farmers: 4 }, done: 'evBoBdone' },
+        { label: 'evBoC', fx: { merchants: 8, fishers: 3, farmers: 3 }, done: 'evBoCdone' } ] } ];
+    case 'bust': return [
+      { id: 'bu_in', kind: 'info', say: G => (G.story.fund ? 'evBuIntroFund' : 'evBuIntro'), btn: 'next', fn: G => { stShock(G, { fruit: 0.6, fish: 0.7, crafts: 0.6, garments: 0.6, rum: 0.7, goods: 0.6, canned: 0.7, sugar: 0.5 }); if (G.story.fund) { G.money += G.story.fund; G.story.fund = 0; } } },
+      { id: 'bu_q', kind: 'choice', say: 'evBuQ', council: true, options: [
+        { label: 'evBuA', bld: 'office', near: 'homes', say: 'evBuAp', fx: { merchants: 5, fishers: 2 }, done: 'evBuAdone' },
+        { label: 'evBuB', fx: { merchants: 3, fishers: 3, farmers: 3 }, then: G => { G.money += 3000; G.story.debt = (G.story.debt || 0) + 3000; }, done: 'evBuBdone' },
+        { label: 'evBuC', fx: { fishers: -5, farmers: -5, merchants: 2 }, done: 'evBuCdone' } ] } ];
+    case 'fever': return [
+      { id: 'fe_in', kind: 'info', say: 'evFeIntro', btn: 'next', fn: G => { outbreak(G, Math.max(6, Math.round(G.cits.size * 0.12))); } },
+      { id: 'fe_cl', kind: 'place', bld: 'clinic', n: 1, near: 'sick', say: 'evFeClinic', done: 'evFeClinicDone' },
+      { id: 'fe_wait', kind: 'wait', say: 'evFeWait', done: 'evFeWaitDone', speed: 8, until: G => { if (G.t > (G.story.waitFrom || 0) + 3 * 1440) for (const c of G.cits.values()) c.sick = 0; return sickCount(G) === 0 && G.t > (G.story.waitFrom || 0) + 300; } } ];
+    case 'newcomers': return [
+      { id: 'nc_in', kind: 'info', say: 'evNcIntro', btn: 'next' },
+      { id: 'nc_home', kind: 'place', bld: 'apartment', n: 1, near: 'homes', say: 'evNcHomes', done: 'evNcHomesDone' },
+      { id: 'nc_q', kind: 'choice', say: 'evNcQ', council: true, options: [
+        { label: 'evNcA', bld: 'school', near: 'homes', say: 'evNcAp', fx: { fishers: 3, farmers: 3, merchants: 3 }, then: G => stLiteracy(G), done: 'evNcAdone' },
+        { label: 'evNcB', fx: { merchants: 3 }, done: 'evNcBdone' },
+        { label: 'evNcC', fx: { merchants: 4, fishers: -4 }, then: G => stEmigrate(G, 1), done: 'evNcCdone' } ] } ];
+    case 'model': return [
+      { id: 'mo_in', kind: 'info', say: G => 'evMoIntro_' + (G.story.model || 'mixed'), btn: 'next', edu: true },
+      { id: 'mo_q', kind: 'choice', say: 'evMoQ', council: true, options: [
+        { label: 'roA', model: 'state', fx: { farmers: -4, fishers: 8, merchants: -10 }, done: 'evMoDone' },
+        { label: 'roB', model: 'market', fx: { merchants: 10, fishers: -4, farmers: 2 }, done: 'evMoDone' },
+        { label: 'roC', model: 'mixed', fx: { farmers: 3, fishers: 3, merchants: 3 }, done: 'evMoDone' } ] },
+      { id: 'mo_ls', kind: 'info', say: 'evMoLesson', btn: 'next' } ];
+    case 'media': return [
+      { id: 'me_in', kind: 'info', say: 'evMeIntro', btn: 'next', scene: 'mob' },
+      { id: 'me_q', kind: 'choice', say: 'fdQ', council: true, scene: 'mob', options: [
+        { label: 'fdA', fx: { fishers: 3, farmers: 3, merchants: 3 }, done: G => (G.story.press === 'free' ? 'fdAdone1' : 'fdAdone2') },
+        { label: 'fdB', fx: { merchants: 2, fishers: -6, farmers: -4 }, done: 'fdBdone' },
+        { label: 'fdC', fx: { fishers: -4, farmers: -4, merchants: -2 }, done: 'evMeCdone' } ] } ];
+    default: return [
+      { id: 'bd_in', kind: 'info', say: 'evBdIntro', btn: 'next' },
+      { id: 'bd_q', kind: 'choice', say: 'evBdQ', options: [
+        { label: 'evBdA', bld: 'park', n: 2, near: 'homes', say: 'evBdAp', fx: { fishers: 2, farmers: 2 }, done: 'evBdDone' },
+        { label: 'evBdB', bld: 'apartment', near: 'centre', say: 'evBdBp', fx: { merchants: 3 }, done: 'evBdDone' },
+        { label: 'evBdC', bld: 'market', near: 'homes', say: 'evBdCp', fx: { merchants: 4 }, done: 'evBdDone' } ] } ];
+  }
+}
+const EV_CACHE = new Map();
+function evChapter(G, k) {
+  const S = G.story, i = k - STORY.length; if (i < 0) return null; S.gen = S.gen || [];
+  while (S.gen.length <= i) {
+    const j = S.gen.length, prev = j ? S.gen[j - 1] : { y: STORY[STORY.length - 1].year, t: 'launch' }; const h = ihash(((S.started || 7) % 1000003) + j * 7919 + 13);
+    const y = prev.y + 2 + (h % 3); const lastVote = [...S.gen].reverse().find(q => q.vote); const recent = S.gen.slice(-5).map(q => q.t);
+    const pool = EV_TYPES.filter(q => !recent.includes(q)); const t = pool[(h >>> 4) % pool.length];
+    // every four years or so the chapter ends with an election, never two in a row
+    const vote = !prev.vote && y - (lastVote ? lastVote.y : STORY[STORY.length - 1].year - 3) >= 4;
+    S.gen.push({ t, y, h, vote });
+  }
+  const g = S.gen[i]; if (g.t === 'vote') { g.t = 'build'; g.vote = true; } const key = i + ':' + g.t + ':' + g.y + ':' + !!g.vote; if (EV_CACHE.has(key)) return EV_CACHE.get(key);
+  const C = { id: 'ev_' + g.t, name: 'evN_' + g.t, era: 4, year: g.y, rosa: 4, photo: 'evP_' + g.t, learned: ['evLe_' + g.t], unlock: 'evUnlock', tools: [], letter: 'evL_' + g.t, gen: true,
+    steps: [...evSteps(g), ...(g.vote ? evVoteSteps() : []), { id: 'end', kind: 'chapterEnd', say: 'evEnd_' + g.t }] };
+  EV_CACHE.set(key, C); return C;
+}
+// chapter k: one of the story's own, or a year after the story
+const stCh = (k, g) => { g = g || (typeof G !== 'undefined' ? G : null); return k < STORY.length ? STORY[k] : g && g.story ? evChapter(g, k) : null; };
+const stChapter = G => stCh(G.story.ch, G) || null;
+const chName = k => st((stCh(k) && stCh(k).name) || ('ch' + (k + 1)));
 const sayOf = (G, k) => (typeof k === 'function' ? k(G) : k);
 const nOf = (G, s) => (typeof s.n === 'function' ? s.n(G) : s.n || 1);
 const stStep = G => { const C = stChapter(G); return C ? C.steps[G.story.step] || null : null; };
@@ -9697,7 +10300,7 @@ function stShow() {
   viewResize(); stFrame(true);
   if (!Music.ready) Music.init(); Music.setEra(G.era); if (UI.volume != null) Music.setVolume(UI.volume);
   setLens('none'); setSpeed(1); if (G.story.resting && !G.story.done) G.story.resting = false;
-  const go = () => { if (G.story.done) stFinCard(); else stEnterStep(G, true); };
+  const go = () => { if (G.story.done && G.story.resting) stFinCard(); else stEnterStep(G, true); };
   if (ST.away) { const a = ST.away; ST.away = null; stCard({ text: stAwayText(a), buttons: [[st('next'), go]] }); Music.sfx('report'); } else go();
   stLabels(); stHud(true);
 }
@@ -9711,7 +10314,7 @@ function stAllTools() {
   stSave(); UI.seedLabel = st('title'); startGame(true); setSpeed(1);
   toast({ title: st('allTools'), body: st('allToolsBack'), tone: 'report', timeout: 9000 });
 }
-function stFinCard() { stCard({ text: st('fin'), buttons: [[st('ok'), () => stCardHide()], [st('allTools'), stAllTools]] }); }
+function stFinCard() { stCard({ text: st('fin'), buttons: [[st('keepGoing'), () => { G.story.resting = false; stCardHide(); stSave(); stEnterStep(G); stHud(true); }], [st('ok'), () => stCardHide()], [st('allTools'), stAllTools]] }); }
 function stSave() { if (!G || !G.story) return; G.story.seen = Date.now(); if (G.story.ditches) G.story.ditches = G.story.ditches.filter(d => G.t - d.gt < 6 * 1440); ST.lastSave = performance.now(); try { store(ST_KEY, serialize(G)); } catch (e) { /* storage full or off */ } }
 function stExit() { stSave(); ST.on = false; $('#story').hidden = true; stCardHide(); ST.spots = []; if (V3.on) v3Toggle(false); G = null; showTitle(); }
 function stLabels() {
@@ -9737,7 +10340,7 @@ function stEnterStep(G, resumed) {
   setSpeed(1);
   const C = stChapter(G); if (C && C.era > G.era) { G.era = C.era; G.eraT0 = G.t; Music.setEra(G.era); }
   // a new chapter years later: say what changed, and who is telling the story now
-  if (C && C.year && S.step === 0 && S.yearSeen !== C.year && S.ch > 0) { const prev = STORY[S.ch - 1];
+  if (C && C.year && S.step === 0 && S.yearSeen !== C.year && S.ch > 0) { const prev = stCh(S.ch - 1);
     if (prev && prev.year && C.year - prev.year >= 3) { S.yearSeen = C.year; const grew = stYearsGrowth(G, C.year - prev.year); stSave(); const nr = C.rosa !== prev.rosa ? ' ' + st('rosa' + C.rosa) : '';
       const a = stAnchor(G, 'homes'); stFrame(false, a.x, a.y, 1.1);
       stHud(true); stCard({ text: `<span class="st-yearbig">${prev.year} → ${C.year}</span>${st(C.year - prev.year <= 4 ? 'yearsPass24' : 'yearsPass', { g: stN(C.year - prev.year, 'year') })} ${C.news ? st(C.news) : ''}${grew ? ' ' + st('yearsGrow', { n: grew }) : ''}${nr}${stNews(G, prev.year, C.year)}`, buttons: [[st('next'), () => stEnterStep(G)]] }); Music.sfx('era'); return; } }
@@ -9758,7 +10361,7 @@ function stEnterStep(G, resumed) {
   else if (s.kind === 'drive') stCard({ text: st(sayOf(G, s.say)), buttons: [[st('driveSelf'), () => stDrive(G, s)], [st('letThem'), () => { if (s.job === 'medicine') G.medicineUntil = G.t + 2 * 1440; stAdvance(G); }]] });
   else if (s.kind === 'choice') {
     if (S.choice != null && s.options[S.choice].bld) { const o = s.options[S.choice]; stAfford(G, o.bld, (o.n || 1) - S.prog); ST.spots = stSpots(G, o.bld, o.near, 3); if (!ST.spots.length) { stAdvance(G); return; } const a = ST.spots[0]; if (a) stFrame(false, a.x + a.w / 2, a.y + a.h / 2); stCard({ text: st(o.say), hint: st('tapSpot') }); }
-    else { if (!resumed) { const f = stSceneFocus(G); if (f) stFrame(false, f.x, f.y, f.z); else { const a = stAnchor(G, 'homes'); stFrame(false, a.x, a.y, 1.4); } } stCard({ text: st(sayOf(G, s.say)), extra: s.council ? councilHTML(G) : '', equal: true, buttons: s.options.map((o, k) => [o, k]).filter(([o]) => !o.when || o.when(G)).map(([o, k]) => [`${st(o.label)}`, () => { S.choice = k; (S.decisions || (S.decisions = [])).push({ ch: S.ch, label: o.label }); const f = S.council || (S.council = { farmers: 0, fishers: 0, merchants: 0 }); for (const x in o.fx || {}) f[x] += o.fx[x]; if (o.law) (S.laws || (S.laws = {}))[o.law[0]] = o.law[1]; if (o.model) S.model = o.model; if (o.then) o.then(G); if (!o.bld) { if (o.color) S.color = o.color; ST.spots = []; stPraise(st(sayOf(G, o.done || s.done))); Music.sfx('cash'); stCardHide(); setTimeout(() => stAdvance(G), 1800); return; } stSave(); stEnterStep(G); }]) }); }
+    else { if (!resumed) { const f = stSceneFocus(G); if (f) stFrame(false, f.x, f.y, f.z); else { const a = stAnchor(G, 'homes'); stFrame(false, a.x, a.y, 1.4); } } stCard({ text: st(sayOf(G, s.say), s.vars ? s.vars(G) : null), extra: s.council ? councilHTML(G) : '', equal: true, buttons: s.options.map((o, k) => [o, k]).filter(([o]) => !o.when || o.when(G)).map(([o, k]) => [`${st(o.label)}`, () => { S.choice = k; (S.decisions || (S.decisions = [])).push({ ch: S.ch, label: o.label }); const f = S.council || (S.council = { farmers: 0, fishers: 0, merchants: 0 }); for (const x in o.fx || {}) f[x] += o.fx[x]; if (o.law) (S.laws || (S.laws = {}))[o.law[0]] = o.law[1]; if (o.model) S.model = o.model; if (o.then) o.then(G); if (!o.bld) { if (o.color) S.color = o.color; ST.spots = []; stPraise(st(sayOf(G, o.done || s.done))); Music.sfx('cash'); stCardHide(); setTimeout(() => stAdvance(G), 1800); return; } stSave(); stEnterStep(G); }]) }); }
   }
   else if (s.kind === 'election') stElection(G);
   else if (s.kind === 'charter') stCharter(G);
@@ -9987,7 +10590,7 @@ function stSnapshot() {
   try { const src = V3.on && V3.R ? V3.R.domElement : $('#world'); const w = 520, h = Math.round(w * src.height / src.width); const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(src, 0, 0, w, h); return c.toDataURL('image/jpeg', 0.72); } catch (e) { return null; }
 }
 function stChapterEnd(G) {
-  const S = G.story, C = STORY[S.ch]; setSpeed(1); stCardHide(); stShockEnd(G); S.shortage = S.shortage && C.id === 'wall' && S.model === 'state' ? S.shortage : false; S.flood = false;
+  const S = G.story, C = stCh(S.ch); setSpeed(1); stCardHide(); stShockEnd(G); S.shortage = S.shortage && C.id === 'wall' && S.model === 'state' ? S.shortage : false; S.flood = false;
   const d = G.blds.get(G.dockId); const sp = C.id === 'launch' && [...G.blds.values()].find(b => b.type === 'spaceport');
   if (sp) { ST.rocket = null; ST.pan = null; stFrame(true, sp.x + 1.5, sp.y + 1, 1.1); } else stFrame(false, d.x + 1, d.y - 5, 1.1); // the launch photo shows the island, not the empty sky
   setTimeout(() => {
@@ -10001,9 +10604,9 @@ function stChapterEnd(G) {
       <div class="st-learn"><b>${st('learned')}</b><ul>${C.learned.map(k => `<li>${st(k)}</li>`).join('')}</ul></div>
       <div class="st-unlock"><b>${st('unlocked')}</b><span>${st(C.unlock)}</span></div>
       ${C.final ? `<p class="st-finhint">${st('allToolsHint')}</p>` : ''}
-      <div class="st-btns">${STORY[S.ch + 1] ? `<button class="st-primary" id="stNextCh">${st('nextChapter')}</button>` : `<button class="st-primary" id="stAllTools">${st('allTools')}</button>`}<button class="st-secondary" id="stRest">${st(C.final ? 'stayStory' : 'restHere')}</button></div></div>`;
+      <div class="st-btns">${stCh(S.ch + 1) ? `<button class="st-primary" id="stNextCh">${st(C.final ? 'keepGoing' : 'nextChapter')}</button>` : ''}${C.final || !stCh(S.ch + 1) ? `<button class="st-secondary" id="stAllTools">${st('allTools')}</button>` : ''}<button class="st-secondary" id="stRest">${st(C.final ? 'stayStory' : 'restHere')}</button></div></div>`;
     el.hidden = false; stConfetti($('#stConfetti'));
-    const go = () => { el.hidden = true; S.ch++; S.step = 0; S.prog = 0; if (STORY[S.ch] && STORY[S.ch].era > G.era) { G.era = STORY[S.ch].era; G.eraT0 = G.t; Music.setEra(G.era); } stSave(); stEnterStep(G); stHud(true); };
+    const go = () => { el.hidden = true; if (C.final) S.done = true; S.ch++; S.step = 0; S.prog = 0; S.resting = false; if (stCh(S.ch) && stCh(S.ch).era > G.era) { G.era = stCh(S.ch).era; G.eraT0 = G.t; Music.setEra(G.era); } stSave(); stEnterStep(G); stHud(true); };
     const nx = $('#stNextCh'); if (nx) nx.onclick = go;
     const at = $('#stAllTools'); if (at) at.onclick = () => { el.hidden = true; S.ch++; S.step = 0; S.prog = 0; S.done = true; S.resting = true; stAllTools(); };
     $('#stRest').onclick = () => { el.hidden = true; S.ch++; S.step = 0; S.prog = 0; S.resting = true; if (C.final) { S.done = true; stSave(); stFinCard(); stHud(true); return; } stSave(); stCard({ text: st('saved'), buttons: [[st('ok'), () => { stCardHide(); }]] }); stHud(true); };
@@ -10056,7 +10659,7 @@ function stHud(force) {
   const nl = S.newLetters || 0; const lb = $('#stLetters'); lb.classList.toggle('has', nl > 0);
   $('#stBuildBtn').hidden = !S.tools.length;
   { const dv = $('#stDriveBtn'); const on = !!((S.resting || S.done) && (S.ch >= 1 || S.done)); if (dv.hidden === on) dv.hidden = !on; }
-  { const go = $('#stGoOn'); const on = !!(S.resting && !S.done && STORY[S.ch]); if (go.hidden === on) { go.hidden = !on; go.textContent = st('goOn'); } }
+  { const go = $('#stGoOn'); const on = !!(S.resting && stCh(S.ch)); if (go.hidden === on) { go.hidden = !on; go.textContent = st('goOn'); } }
   if (ST.praiseUntil && now > ST.praiseUntil) { $('#stPraise').hidden = true; ST.praiseUntil = 0; }
 }
 function stLettersOpen() {
@@ -10068,7 +10671,7 @@ function stLettersOpen() {
 function stAlbumOpen() {
   const S = G.story; const el = $('#stOver'); const D = S.decisions || [];
   const chOf = p => p.ch != null ? p.ch : STORY.findIndex(C => C.photo === p.title);
-  el.innerHTML = `<div class="st-panel"><h2>${st('album')}</h2>${S.photos.length ? `<div class="st-photos">${S.photos.map(p => { const k = chOf(p); const C = STORY[k]; const ds = D.filter(d => d.ch === k);
+  el.innerHTML = `<div class="st-panel"><h2>${st('album')}</h2>${S.photos.length ? `<div class="st-photos">${S.photos.map(p => { const k = chOf(p); const C = k >= 0 ? stCh(k) : null; const ds = D.filter(d => d.ch === k);
     return `<figure><img alt="" src="${p.img}"><figcaption><b>${C && C.year ? C.year + ' · ' : ''}${k >= 0 ? chName(k) : ''}</b><span>${st(p.title)} · ${p.pop} ${st('people')}</span>${ds.length ? `<ul class="st-dec">${ds.map(d => `<li>${st(d.label)}</li>`).join('')}</ul>` : ''}</figcaption></figure>`; }).join('')}</div>` : `<p>${st('noPhotos')}</p>`}<button class="st-primary" id="stOverClose">${st('close')}</button></div>`;
   el.hidden = false; $('#stOverClose').onclick = () => { el.hidden = true; };
 }
@@ -10110,7 +10713,7 @@ function stTitleText() {
   ST.lang = uiLang(); const b = $('#btnStory'); if (!b) return;
   const raw = load(ST_KEY); let S = null; try { S = raw ? JSON.parse(raw).story : null; } catch (e) { S = null; }
   b.querySelector('b').textContent = st('title');
-  b.querySelector('small').textContent = S ? st('contSub', { c: S.done || S.ch >= STORY.length ? st('storyDone') : `${st('chapter')} ${S.ch + 1} · ${chName(S.ch)}` }) : st('titleSub');
+  b.querySelector('small').textContent = S ? st('contSub', { c: S.done && S.resting ? st('storyDone') : `${st('chapter')} ${S.ch + 1} · ${chName(S.ch)}` }) : st('titleSub');
   const c = $('#btnStoryCont'); c.hidden = !S; c.textContent = st('newIsland'); c.dataset.armed = ''; c.classList.remove('warn');
   const et = $('#expertT'), es = $('#expertS'); if (et) { et.textContent = st('expertT'); es.textContent = st('expertS'); }
 }
@@ -10131,10 +10734,11 @@ function drawDrones(c, G, now) {
     c.fillStyle = 'rgba(200,220,230,0.55)'; for (const [ax, ay] of [[-4, -4], [4, -4], [-4, 4], [4, 4]]) { c.beginPath(); c.arc(x + ax, dy + ay, 2.4, 0, 7); c.fill(); }
     c.fillStyle = '#f4f6f7'; c.beginPath(); c.arc(x, dy, 2, 0, 7); c.fill(); c.fillStyle = '#c8894a'; c.fillRect(x - 1.8, dy + 2, 3.6, 3); }
 }
+function stStrikeAt(G) { const b = [...G.blds.values()].find(q => ['factory', 'mill', 'workshop', 'distillery', 'cannery'].includes(q.type)) || [...G.blds.values()].find(q => BLD[q.type].kind === 'goods'); return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2, r: Math.max(b.w, b.h) / 2 + 0.7 } : stSceneAt(G, 'townhall', 'homes'); }
 function stSceneFocus(G) {
   const sc = stSceneOf(G); if (!sc) return null; let A;
   if (sc === 'assembly') A = stSceneAt(G, 'townhall', 'homes'); else if (sc === 'radio' || sc === 'rally') A = stSceneAt(G, 'radio', 'homes'); else if (sc === 'crowd' || sc === 'calm') A = stSceneAt(G, 'clinic', 'homes');
-  else if (sc === 'prams') A = stSceneAt(G, 'park', 'homes'); else A = stAnchor(G, 'homes');
+  else if (sc === 'prams') A = stSceneAt(G, 'park', 'homes'); else if (sc === 'protest' || sc === 'mob') A = stSceneAt(G, 'townhall', 'homes'); else if (sc === 'strike') A = stStrikeAt(G); else A = stAnchor(G, 'homes');
   return { x: A.x, y: A.y, z: sc === 'radio' ? 1.6 : sc === 'leaflets' ? 1.9 : 2.3 };
 }
 function drawScene(c, G, z, now) {
@@ -10143,7 +10747,7 @@ function drawScene(c, G, z, now) {
   const person = (x0, y0, k, body, extra) => { c.save(); c.translate(x0, y0); c.scale(1.3, 1.3); const x = 0, y = 0; const bob = Math.abs(Math.sin(t * (extra === 'angry' ? 7 : 3) + k * 1.7)) * (extra === 'angry' ? 1.4 : 0.5);
     c.fillStyle = 'rgba(10,30,30,0.25)'; c.beginPath(); c.ellipse(x + 1, y + 2.6, 2.8, 1.3, 0, 0, 7); c.fill();
     c.fillStyle = body; c.beginPath(); c.arc(x, y - bob, 2.5, 0, 7); c.fill(); c.fillStyle = SK[k % SK.length]; c.beginPath(); c.arc(x, y - 2.8 - bob, 1.6, 0, 7); c.fill();
-    if (extra === 'sign' || (extra === 'angry' && k % 3 === 0)) { c.strokeStyle = '#6b4a2a'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(x + 2.2, y - bob); c.lineTo(x + 2.2, y - 9 - bob); c.stroke(); c.fillStyle = extra === 'angry' ? '#fbe9e4' : '#fff6d8'; c.fillRect(x - 0.8, y - 13.5 - bob, 7, 4.6); c.fillStyle = extra === 'angry' ? '#c0392b' : '#2a6f97'; c.fillRect(x + 0.2, y - 12 - bob, 5, 0.8); c.fillRect(x + 0.2, y - 10.4 - bob, 3.5, 0.8); }
+    if (extra === 'sign' || (extra === 'angry' && k % 3 === 0) || (extra === 'march' && k % 2 === 0)) { c.strokeStyle = '#6b4a2a'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(x + 2.2, y - bob); c.lineTo(x + 2.2, y - 9 - bob); c.stroke(); c.fillStyle = extra === 'angry' ? '#fbe9e4' : '#fff6d8'; c.fillRect(x - 0.8, y - 13.5 - bob, 7, 4.6); c.fillStyle = extra === 'angry' ? '#c0392b' : '#2a6f97'; c.fillRect(x + 0.2, y - 12 - bob, 5, 0.8); c.fillRect(x + 0.2, y - 10.4 - bob, 3.5, 0.8); }
     if (extra === 'angry' && k % 3 === 1) { c.fillStyle = `rgba(190,230,255,${0.7 + 0.3 * Math.sin(t * 9 + k)})`; c.fillRect(x + 1.6, y - 6 - bob, 1.8, 2.8); }   // a phone held up, filming
     if (extra === 'flag' && k % 4 === 0) { c.strokeStyle = '#555'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(x + 2, y - bob); c.lineTo(x + 2, y - 12 - bob); c.stroke(); c.fillStyle = '#2a4a8a'; c.beginPath(); c.moveTo(x + 2, y - 12 - bob); c.lineTo(x + 8 + Math.sin(t * 6 + k), y - 10.5 - bob); c.lineTo(x + 2, y - 9 - bob); c.fill(); } c.restore(); };
   const crowd = (A, n, bodyCols, extra, face) => { for (let k = 0; k < n; k++) { const h = ihash(k * 131 + 7); const ring = Math.floor(k / 12); const ang = (k % 12) / 12 * Math.PI * 2 + ring * 0.26 + (h % 100) / 400;
@@ -10161,6 +10765,9 @@ function drawScene(c, G, z, now) {
     for (let k = 0; k < 4; k++) { const ph = (t * 0.5 + k / 4) % 1; c.strokeStyle = `rgba(255,110,80,${0.85 * (1 - ph)})`; c.lineWidth = 3.2 / Math.min(z, 2); c.beginPath(); c.arc(mx, my, 8 + ph * 150, 0, 7); c.stroke(); }
     if (sc === 'rally') { crowd({ x: A.x, y: A.y, r: 1.1 }, 30, ['#2a4a8a', '#2a4a8a', '#3a5a9a', '#d9483b', '#f2f2ea'], 'flag'); person(mx - 2, my + 16, 1, '#1c2230', null); } }
   else if (sc === 'crowd') { const A = stSceneAt(G, 'clinic', 'homes'); crowd(A, 34, CLOTH, 'angry'); }
+  else if (sc === 'protest') { const A = stSceneAt(G, 'townhall', 'homes'); crowd(A, 38, CLOTH, 'march'); }
+  else if (sc === 'mob') { const A = stSceneAt(G, 'townhall', 'homes'); crowd(A, 34, CLOTH, 'angry'); }
+  else if (sc === 'strike') { const A = stStrikeAt(G); crowd(A, 30, ['#3a5a8a', '#6b6b6b', '#d9483b', '#8a6a4a'], 'march'); }
   else if (sc === 'calm') { const A = stSceneAt(G, 'clinic', 'homes'); crowd(A, 10, CLOTH, null); }
   else if (sc === 'prams') { for (const b of G.blds.values()) { if (b.type !== 'park' && b.type !== 'school') continue; const h = ihash(b.id * 3); for (let k = 0; k < 2; k++) { const px = (b.x + 0.25 + k * 0.5) * TILE + Math.sin(t * 0.6 + k + h) * 5, py = (b.y + b.h + 0.15) * TILE;
       c.fillStyle = ['#f07aa8', '#7fb3e0', '#f2c14e'][(h + k) % 3]; c.beginPath(); c.arc(px, py, 2.6, Math.PI, 0); c.fill(); c.fillRect(px - 2.6, py, 5.2, 1.6); c.fillStyle = '#333'; c.beginPath(); c.arc(px - 1.8, py + 2.4, 0.9, 0, 7); c.arc(px + 1.8, py + 2.4, 0.9, 0, 7); c.fill(); person(px - 5, py, k + h, CLOTH[(h + k) % CLOTH.length], null); } } }
