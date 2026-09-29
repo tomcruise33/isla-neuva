@@ -3157,6 +3157,12 @@ function nightlyMoves(G2) {
   if (switched) log(G2, "".concat(switched, " commuter").concat(switched > 1 ? "s" : "", " took a job closer to home."));
   if (moved) log(G2, "".concat(moved, " famil").concat(moved > 1 ? "ies" : "y", " moved closer to work."));
 }
+function crashMood(G2) {
+  const n = G2.crashesYesterday || 0;
+  if (!n) return 0;
+  const big = G2.gov && G2.story && G2.story.open;
+  return Math.round(Math.min(12, n * 2 * (big ? 150 / Math.max(150, G2.cits.size) : 1)));
+}
 function computeHappy(G2, c) {
   const h = c.home != null ? G2.blds.get(c.home) : null;
   if (!h) return 20;
@@ -3182,7 +3188,7 @@ function computeHappy(G2, c) {
   if (G2.era >= 4 && !s.school) v -= 4;
   v -= h.noise;
   if (h.beach) v += 4;
-  v -= Math.min(12, (G2.crashesYesterday || 0) * 2);
+  v -= crashMood(G2);
   return clamp(v, 0, 100);
 }
 function happinessBreakdown(G2, c) {
@@ -3222,7 +3228,7 @@ function happinessBreakdown(G2, c) {
   if (h.airNoise) out.push(["Aircraft noise", -h.airNoise]);
   if (h.noise - (h.airNoise || 0) > 0) out.push(["Industrial noise", -(h.noise - (h.airNoise || 0))]);
   if (h.beach) out.push(["By the sea", 4]);
-  if (G2.crashesYesterday) out.push(["Road safety (".concat(G2.crashesYesterday, " crash").concat(G2.crashesYesterday > 1 ? "es" : "", " yesterday)"), -Math.min(12, G2.crashesYesterday * 2)]);
+  if (crashMood(G2)) out.push(["Road safety (".concat(G2.crashesYesterday, " crash").concat(G2.crashesYesterday > 1 ? "es" : "", " yesterday)"), -crashMood(G2)]);
   return out;
 }
 function updateHappiness(G2) {
@@ -18374,8 +18380,10 @@ function stSpots(G2, type, near, n = 3, front = false) {
   const d = BLD[type];
   const A = stAnchor(G2, near);
   const cand = [];
+  const grid = front !== false && G2.civ && typeof civGridFree === "function";
   for (let y = 1; y < MAP_H - d.h; y++) for (let x = 1; x < MAP_W - d.w; x++) {
     if (!checkBuilding(G2, type, x, y).ok) continue;
+    if (grid && !civGridFree(G2, x, y, d.w, d.h)) continue;
     let rd = 999;
     for (const [px, py] of perimeterTiles({ x, y, w: d.w, h: d.h })) rd = Math.min(rd, D[idx(px, py)]);
     if (rd > 24) continue;
@@ -18452,26 +18460,56 @@ function stConnect(G2, b) {
     if (landOK(G2, i) || G2.road[i]) goal.add(i);
   }
   const prev = /* @__PURE__ */ new Map();
-  const q = [];
-  for (const [x, y] of perimeterTiles(b)) {
-    const i = idx(x, y);
-    if (landOK(G2, i) || G2.road[i]) {
-      prev.set(i, -1);
-      q.push(i);
-    }
-  }
   let hit = -1;
-  for (let h = 0; h < q.length && hit < 0; h++) {
-    const i = q[h];
-    if (isNet(i) || goal.has(i)) {
-      hit = i;
-      break;
+  if (G2.civ && typeof civGridLine === "function") {
+    const dist = /* @__PURE__ */ new Map(), H = new MinHeap();
+    for (const [x, y] of perimeterTiles(b)) {
+      const i = idx(x, y);
+      if (landOK(G2, i) || G2.road[i]) {
+        prev.set(i, -1);
+        dist.set(i, 0);
+        H.push(0, i);
+      }
     }
-    for (const j of neighbours4(i)) {
-      if (prev.has(j)) continue;
-      if (!landOK(G2, j) && !G2.road[j]) continue;
-      prev.set(j, i);
-      q.push(j);
+    while (H.size) {
+      const i = H.pop();
+      const di = H.topP;
+      if (di > dist.get(i)) continue;
+      if (isNet(i) || goal.has(i)) {
+        hit = i;
+        break;
+      }
+      for (const j of neighbours4(i)) {
+        if (!landOK(G2, j) && !G2.road[j]) continue;
+        const c = di + (G2.road[j] || civGridLine(G2, j % MAP_W, j / MAP_W | 0) ? 1 : 2.5);
+        if (!dist.has(j) || c < dist.get(j)) {
+          dist.set(j, c);
+          prev.set(j, i);
+          H.push(c, j);
+        }
+      }
+    }
+  } else {
+    const q = [];
+    for (const [x, y] of perimeterTiles(b)) {
+      const i = idx(x, y);
+      if (landOK(G2, i) || G2.road[i]) {
+        prev.set(i, -1);
+        q.push(i);
+      }
+    }
+    for (let h = 0; h < q.length && hit < 0; h++) {
+      const i = q[h];
+      if (isNet(i) || goal.has(i)) {
+        hit = i;
+        break;
+      }
+      for (const j of neighbours4(i)) {
+        if (prev.has(j)) continue;
+        if (!landOK(G2, j) && !G2.road[j]) continue;
+        prev.set(j, i);
+        q.push(j);
+      }
     }
   }
   if (hit < 0) return -1;
@@ -23272,9 +23310,10 @@ const YEAR_MIN = { airport: 1935, terminal: 1965, nuclear: 1965, windmill: 1978,
 const FUTURE_T = /* @__PURE__ */ new Set(["vfarm", "floathome", "fusion", "maglev", "spaceport"]);
 const HIDE_T = /* @__PURE__ */ new Set(["garage", "dock", "pastel"]);
 const STAGES = {
-  2: { goals: [["pop", 180], ["happy", 58], ["commute", 30], ["gdp", 2500]] },
-  3: { goals: [["pop", 400], ["happy", 58], ["unemp", 8], ["gdp", 8e3], ["year", 1950]] },
-  4: { goals: [["pop", 700], ["happy", 60], ["commute", 28], ["gdp", 2e4], ["year", 2020]] },
+  2: { goals: [["pop", 180], ["happy", 58], ["commute", 40], ["gdp", 2500]] },
+  // families keep coming: the commute target has to survive growth
+  3: { goals: [["pop", 400], ["happy", 55], ["unemp", 8], ["gdp", 8e3], ["year", 1950]] },
+  4: { goals: [["pop", 700], ["happy", 56], ["commute", 35], ["gdp", 2e4], ["year", 2020]] },
   5: { goals: [] }
 };
 const LAWS = [
@@ -23593,7 +23632,7 @@ function govEndOfDay(G2, rec) {
   }
   rec.taxes = incTax + D.bizTax;
   rec.upkeep = wagesPub + upPub + admin + roads + social + interest;
-  rec.gov = { inc: incTax, biz: D.bizTax, pub: D.pubSales, wagesPub, upPub, roads, social, interest, grant, rent: rentPub };
+  rec.net = incTax + D.bizTax + D.pubSales + rentPub + grant + util - rec.upkeep - pubImports;
   V.day = govDayAcc();
   const y = govY(G2);
   if (y !== V.yNow) {
@@ -23890,7 +23929,7 @@ function govReasons(G2, c) {
   if (h.noise) out.push(["Noise", -h.noise]);
   if (c.sick) out.push(["Sick", -10]);
   if (h.beach) out.push(["Beach", 4]);
-  if (G2.crashesYesterday) out.push(["Crash", -Math.min(12, G2.crashesYesterday * 2)]);
+  if (crashMood(G2)) out.push(["Crash", -crashMood(G2)]);
   for (const kp of govHappyKeys(G2, c, h)) out.push(kp);
   return out;
 }
@@ -23922,16 +23961,22 @@ function govInvestTick(G2) {
   } else if (hands) type = govPickHome(G2);
   if (!type || BLD[type].cost > V.inv) return;
   const front = !!G2.civ;
-  const sp = govRich(G2, () => front ? stSpots(G2, type, near, 1, 0)[0] || stSpots(G2, type, near, 1, 2)[0] : stSpots(G2, type, near, 1)[0]);
-  if (!sp) {
-    if (front) {
+  let far = false;
+  const sp = govRich(G2, () => {
+    if (!front) return stSpots(G2, type, near, 1)[0];
+    const a = stSpots(G2, type, near, 1, 0)[0] || stSpots(G2, type, near, 1, 2)[0];
+    if (a) return a;
+    far = true;
+    return stSpots(G2, type, near, 1)[0];
+  });
+  if (front) {
+    if (far || !sp) {
       G2.civ.noLot = (G2.civ.noLot || 0) + 1;
       G2.civ.noLotT = G2.t;
       G2.civ.noLotType = type;
-    }
-    return;
+    } else G2.civ.noLot = 0;
   }
-  if (front) G2.civ.noLot = 0;
+  if (!sp) return;
   const fam = govNewFam(G2);
   const r = { id: V.reqSeq++, type, x: sp.x, y: sp.y, w: sp.w, h: sp.h, fam, cost: BLD[type].cost, t: G2.t, until: G2.t + GOV_DAYS * 1440 };
   if (BLD[type].fertile) r.crop = govBestCrop(G2);
@@ -24014,7 +24059,7 @@ function govApprove(G2, r, auto) {
   }
   let x = r.x, y = r.y;
   if (!govRich(G2, () => checkBuilding(G2, r.type, x, y).ok)) {
-    const sp = govRich(G2, () => stSpots(G2, r.type, BLD[r.type].fertile ? "soil" : "homes", 1, G2.civ ? 2 : false))[0];
+    const sp = govRich(G2, () => stSpots(G2, r.type, BLD[r.type].fertile ? "soil" : "homes", 1, G2.civ ? 2 : false)[0] || stSpots(G2, r.type, BLD[r.type].fertile ? "soil" : "homes", 1)[0]);
     if (!sp) return false;
     x = sp.x;
     y = sp.y;
@@ -24179,6 +24224,7 @@ function govSetLaw(G2, id, val) {
   if (id === "liquor" && G2.policy) G2.policy.liquorTax = !!val;
   if (id === "term") V.elec.next = Math.max(govY(G2) + 1, V.elec.last + val);
   V._moodT = null;
+  if (G2.civ) G2.civ._kT = -1;
   govLogAdd(G2, { k: "law", id, from: old, to: val, exp, base: govSnapshot(G2) });
 }
 function govFarmRoadsOK(G2) {
@@ -24335,13 +24381,7 @@ function civInit(G2) {
   if (V.laws.imm == null) V.laws.imm = "open";
   if (V.laws.natjobs == null) V.laws.natjobs = 0;
   if (G2.civ) {
-    const C = G2.civ;
-    C.wave = C.wave || {};
-    C.joy = C.joy || {};
-    C.pre = C.pre || {};
-    C.arrHist = C.arrHist || [];
-    C.arrNow = C.arrNow || {};
-    C.turnedNow = C.turnedNow || {};
+    civMigrate(G2);
     return;
   }
   G2.civ = { orgs: {}, pets: [], petSeq: 1, wave: {}, joy: {}, pre: {}, ev: {}, arrHist: [], arrNow: {}, turnedNow: {}, strike: null, lastAsk: 0, noLot: 0, lastDay: -1, seenY: 0 };
@@ -24376,6 +24416,28 @@ function civGuessOrigin(G2, c, y) {
   }
   c.orig = "main";
   c.oy = y;
+}
+function civMigrate(G2) {
+  const C = G2.civ;
+  if (!C) return;
+  for (const k of ["orgs", "wave", "joy", "pre", "ev", "arrNow", "turnedNow"]) C[k] = C[k] || {};
+  C.pets = C.pets || [];
+  C.arrHist = C.arrHist || [];
+  C.petSeq = C.petSeq || 1;
+  if (C.lastDay == null) C.lastDay = -1;
+  const L = G2.gov.laws;
+  if (L.imm == null) L.imm = "open";
+  if (L.natjobs == null) L.natjobs = 0;
+}
+const GRID = 5;
+function civGridLine(G2, x, y) {
+  const d = G2.blds.get(G2.dockId);
+  const ox = d ? d.x : 0, oy = d ? d.y : 0;
+  return ((x - ox) % GRID + GRID) % GRID === 0 || ((y - oy) % GRID + GRID) % GRID === 0;
+}
+function civGridFree(G2, x, y, w, h) {
+  for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (civGridLine(G2, x + dx, y + dy)) return false;
+  return true;
 }
 const civOn = (G2) => !!(G2 && G2.civ && govOn(G2));
 function civOrig(G2, c) {
@@ -24437,6 +24499,7 @@ function civShipNow(G2, orig, n, special) {
   G2.ships.push({ x: G2.berth.x, y: MAP_H + 4, phase: "in", pax: n, wait: 0, steam: G2.era >= 3, orig, from: ORIGINS[orig].from, special: special || "special" });
 }
 function civServices(G2, homes, svcs) {
+  if (G2.civ) G2.civ._kT = -1;
   const halls = svcs.filter((s) => s.type === "hall" || s.type === "chapel" || s.type === "church");
   for (const h of homes) {
     h.faiths = [];
@@ -24502,9 +24565,10 @@ function civBuilt(G2, b, byOrg) {
     b.pub = false;
     b.own = "org";
     b.org = byOrg || civHouseOrg(b);
-    if (G2.civ && !byOrg) {
-      const O = civOrgState(G2, b.org);
-      if (O) O.rel += 18;
+    if (byOrg) b.self = true;
+    else if (G2.civ) {
+      b.gift = true;
+      civRel(G2, b.org, 18);
     }
   } else if (b.type === "church") {
     b.pub = false;
@@ -24521,12 +24585,13 @@ function civBuilt(G2, b, byOrg) {
 }
 const civHouseOrg = (b) => b.type === "chapel" ? { prot: "chapel", jew: "shul", folk: "temple" }[b.v || "prot"] : "s_" + (b.v || "gal");
 function civSetVariant(G2, b, v) {
+  if (b.self) return;
   const old = b.org;
   b.v = v;
   b.org = civHouseOrg(b);
-  if (old !== b.org && G2.civ) {
-    const O = civOrgState(G2, b.org);
-    if (O) O.rel += 10;
+  if (old !== b.org && G2.civ && b.gift) {
+    civRel(G2, old, -18);
+    civRel(G2, b.org, 18);
   }
   G2.svcDirty = true;
   recomputeServices(G2);
@@ -24781,6 +24846,11 @@ function civUncovered(G2, x, y, r, key) {
   });
   return n;
 }
+function civLawOK(G2, org, law, val) {
+  const cur = G2.gov.laws[law];
+  const f = ORGS[org] && ORGS[org].laws && ORGS[org].laws[law];
+  return f ? f(cur) >= f(val) - 1e-9 : cur === val;
+}
 const PETK = {
   jam: { icon: "🚗", lens: "traffic", dir: "down", unit: "veh-min of delay a day", m: (G2, p) => Math.round(civSumNear(G2, G2.delayDay, p.x, p.y, 2)), tgt: (b) => Math.round(b * 0.55) },
   crash: { icon: "⚠", lens: "safety", dir: "down", unit: "crashes a day", m: (G2, p) => civSumNear(G2, G2.crashTilePrev, p.x, p.y, 2), tgt: () => 0 },
@@ -24789,8 +24859,11 @@ const PETK = {
   health: { icon: "🏥", lens: "coverage", dir: "down", unit: "people without a clinic", m: (G2, p) => civUncovered(G2, p.x, p.y, 6, "health"), tgt: () => 0 },
   school: { icon: "🏫", lens: "coverage", dir: "down", unit: "people without a school", m: (G2, p) => civUncovered(G2, p.x, p.y, 6, "school"), tgt: () => 0 },
   market: { icon: "🧺", lens: "coverage", dir: "down", unit: "people without a market", m: (G2, p) => civUncovered(G2, p.x, p.y, 6, "market"), tgt: () => 0 },
-  housing: { icon: "🏠", lens: "none", dir: "up", unit: "free homes", m: (G2) => counts().vacant, tgt: () => 12 },
-  law: { icon: "📜", lens: "none", dir: "up", unit: "", m: (G2, p) => G2.gov.laws[p.law] === p.val ? 1 : 0, tgt: () => 1 },
+  housing: { icon: "🏠", lens: "none", dir: "down", unit: "settlers turned away a day", m: (G2) => {
+    const r = G2.history[G2.history.length - 1];
+    return r ? r.turned || 0 : null;
+  }, tgt: () => 0 },
+  law: { icon: "📜", lens: "none", dir: "up", unit: "", m: (G2, p) => civLawOK(G2, p.org, p.law, p.val) ? 1 : 0, tgt: () => 1 },
   site: { icon: "🏛", lens: "none", dir: "up", unit: "", m: () => 0, tgt: () => 1 }
 };
 const PET_HINT = {
@@ -24846,7 +24919,7 @@ function civPetBody(G2, p) {
     case "market":
       return "".concat(p.base, " people living ").concat(p.place, " have no ").concat(p.k === "health" ? "clinic" : p.k, " within reach. The ").concat(who, " asks that every one of them has one by ").concat(due, ".");
     case "housing":
-      return "".concat(p.base, " settlers sailed on last year: there was no free home for them. The ").concat(who, " asks for at least ").concat(p.tgt, " free homes waiting on the day ships come, by ").concat(due, ".");
+      return "".concat(p.base0 || p.base, " settlers sailed on last year: there was no free home for them. The ").concat(who, " asks for one whole day when nobody is turned away, by ").concat(due, ".");
     case "law":
       return "The ".concat(who, " asks you to put it to the council and win the vote by ").concat(due, ".");
     case "site":
@@ -24880,28 +24953,28 @@ const civPet = (G2, id) => G2.civ.pets.find((p) => p.id === id);
 const civOpenPets = (G2) => G2.civ ? G2.civ.pets.filter((p) => p.st === "on") : [];
 const civAskPets = (G2) => G2.civ ? G2.civ.pets.filter((p) => p.st === "ask") : [];
 function civAccept(G2, p) {
+  if (p.st !== "ask") return false;
   const O = civOrgState(G2, p.org);
-  p.st = "on";
   const y = govY(G2);
-  p.y0 = y;
-  p.due = y + 2;
-  if (O) O.rel += 3;
   if (p.k === "site") {
     const ok = civBuildSite(G2, p);
-    if (!ok) {
-      p.st = "ask";
-      return false;
-    }
+    if (!ok) return false;
     p.st = "won";
-    if (O) O.rel += p.bld === "ballpark" ? 20 : 15;
+    p.yEnd = y;
+    if (O) O.rel += 3 + (p.bld === "ballpark" ? 20 : 15);
     govLogAdd(G2, { k: "c_site", org: p.org, bld: p.bld, v: p.v });
     return true;
   }
+  p.st = "on";
+  p.y0 = y;
+  p.due = y + 2;
+  if (O) O.rel += 3;
   govLogAdd(G2, { k: "c_acc", org: p.org, pk: p.k, title: civPetTitle(G2, p) });
   civPetCheck(G2, p, true);
   return true;
 }
 function civDecline(G2, p) {
+  if (p.st !== "ask") return;
   const O = civOrgState(G2, p.org);
   p.st = "no";
   if (O) O.rel -= p.k === "site" ? 10 : 6;
@@ -24929,6 +25002,7 @@ function civBuildSite(G2, p) {
   }
   let spots = govRich(G2, () => stSpots(G2, t, "homes", 8, 0));
   if (!spots.length) spots = govRich(G2, () => stSpots(G2, t, "homes", 8, 2));
+  if (!spots.length) spots = govRich(G2, () => stSpots(G2, t, "homes", 8));
   if (!spots.length) {
     toast({ title: "No free lot on a street", body: "Lay out a new street first, then accept again.", tone: "bad", timeout: 5e3 });
     return false;
@@ -25046,16 +25120,17 @@ function civCandidates(G2) {
   {
     const last = G2.gov.years[G2.gov.years.length - 1];
     const turned = last ? last.turned || 0 : 0;
-    if (turned >= 8 && !busy("housing")) {
+    const yd = G2.history[G2.history.length - 1];
+    if (turned >= 8 && yd && yd.turned > 0 && !busy("housing")) {
       const tb = G2.civ.turnedLast || {};
       const o = Object.keys(tb).sort((a, b) => tb[b] - tb[a]).find((k2) => has("s_" + k2));
       const org = o ? "s_" + o : pickOrg("chamber", "planters");
-      if (org) out.push({ w: turned / 6, p: { k: "housing", org, base: turned } });
+      if (org) out.push({ w: turned / 6, p: { k: "housing", org, base: yd.turned, base0: turned } });
     }
   }
   const L = G2.gov.laws;
   const law = (org, id, val, w) => {
-    if (!has(org) || L[id] === val || C.pets.some((p) => p.k === "law" && p.law === id && (p.st === "on" || p.st === "ask" || p.st === "no" && y - p.y0 < 6))) return;
+    if (!has(org) || civLawOK(G2, org, id, val) || C.pets.some((p) => p.k === "law" && p.law === id && (p.st === "on" || p.st === "ask" || p.st === "no" && y - p.y0 < 6))) return;
     if (civOrgScore(G2, org) > 12) return;
     out.push({ w, p: { k: "law", org, law: id, val, base: 0 } });
   };
@@ -25130,6 +25205,10 @@ function civTick(G2) {
 function civDay(G2) {
   const C = G2.civ, y = govY(G2);
   for (const p of C.pets) if (p.st === "on") civPetCheck(G2, p);
+  for (const p of C.pets) if (p.st === "ask" && p.k === "site" && civHasBld(G2, p.bld, p.bld === "ballpark" || p.bld === "church" ? null : p.v) && (p.bld !== "church" || civComms(G2)._faith.cath.covered / Math.max(1, civComms(G2)._faith.cath.n) >= 0.6)) {
+    p.st = "won";
+    p.yEnd = y;
+  }
   for (const p of C.pets) if (p.st === "ask" && y - p.y0 >= 1 && G2.t - p.t0 > GOV_DAYS * 1440) {
     p.st = "no";
     p.lapsed = true;
@@ -25268,14 +25347,10 @@ const CIV_EV = [
       { t: "Let them land", d: "The town houses them for a while ($400). Doctors, tailors and teachers join the island.", fx: (G2) => {
         G2.money -= 400;
         civShipNow(G2, "jew", 30, "The Esperanza");
-        civPre(G2, "s_jew", 30);
-        civPre(G2, "shul", 25);
         civRel(G2, "s_jew", 30);
         civRel(G2, "shul", 25);
       } },
       { t: "We cannot take them", d: "The Esperanza turns back towards Europe. The island will remember.", fx: (G2) => {
-        civPre(G2, "s_jew", -25);
-        civPre(G2, "shul", -25);
         civRel(G2, "s_jew", -25);
         civRel(G2, "shul", -25);
       } }
@@ -25401,12 +25476,15 @@ function civEvDo(G2, id, k) {
   const c = e.ch[k];
   if (!c) return;
   G2.civ.ev[id] = k;
+  if (G2.civ.pendingEv === id) G2.civ.pendingEv = null;
   c.fx(G2);
   govLogAdd(G2, { k: "c_ev", id, ch: k });
   G2.gov._moodT = null;
+  G2.civ._kT = -1;
 }
 function civStrikeStart(G2, negotiate) {
   const C = G2.civ;
+  C.pendingStrike = false;
   const O = civOrgState(G2, "union");
   if (negotiate) {
     const cost = Math.round(Math.max(200, G2.cits.size * 0.6));
@@ -25414,8 +25492,23 @@ function civStrikeStart(G2, negotiate) {
     if (O) O.rel += 18;
     govLogAdd(G2, { k: "c_strikeDeal", m: cost });
     const L = G2.gov.laws;
-    if (L.hours === 12) civPetAdd(G2, { k: "law", org: "union", law: "hours", val: 10, base: 0 }).st = "on";
-    else if (!L.minwage) civPetAdd(G2, { k: "law", org: "union", law: "minwage", val: 1, base: 0 }).st = "on";
+    const ask = L.hours === 12 ? ["hours", 10] : !L.minwage ? ["minwage", 1] : null;
+    if (ask) {
+      const open = C.pets.find((p) => p.k === "law" && p.law === ask[0] && (p.st === "on" || p.st === "ask"));
+      const la = C.lastAsk;
+      if (open) {
+        if (open.st === "ask") {
+          open.st = "on";
+          const y = govY(G2);
+          open.y0 = y;
+          open.due = y + 2;
+        }
+      } else {
+        const p = civPetAdd(G2, { k: "law", org: "union", law: ask[0], val: ask[1], base: 0 });
+        p.st = "on";
+        C.lastAsk = la;
+      }
+    }
     return cost;
   }
   C.strike = { until: G2.t + 1440, y: govY(G2) };
@@ -26659,7 +26752,7 @@ const gfGo = (x, y, z, lens) => {
 const gfPct = (v) => Math.round(clamp(v, 0, 1) * 100);
 const gfSign = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(Math.round(v));
 function govEnterFull(G2, welcome) {
-  if (!G2.civ) civInit(G2);
+  civInit(G2);
   ST.lang = "en";
   GF.on = true;
   GF.sel = null;
@@ -26701,6 +26794,9 @@ function govEnterFull(G2, welcome) {
   gfHudBind();
   setSpeed(1);
   setTab("goals");
+  const C = G2.civ;
+  if (C.pendingEv && !G2.gov.queue.some((e) => e.k === "c_ev" && e.id === C.pendingEv)) G2.gov.queue.unshift({ k: "c_ev", id: C.pendingEv });
+  if (C.pendingStrike && !G2.gov.queue.some((e) => e.k === "c_strike")) G2.gov.queue.unshift({ k: "c_strike" });
   stSave();
   if (welcome) gfWelcome(G2);
 }
@@ -26708,6 +26804,7 @@ function govLeaveFull() {
   if (!GF.on) return;
   GF.on = false;
   GF.sel = null;
+  GF.modalLock = false;
   const S = $("#story");
   S.classList.remove("g-full");
   S.hidden = true;
@@ -26817,7 +26914,7 @@ function govFullTick() {
   }
   if (C.noLot >= 3 && performance.now() - GF.noLotAt > 9e4) {
     GF.noLotAt = performance.now();
-    toast({ title: "No free lots on the streets", body: "Families have saved for a ".concat(BLD[C.noLotType] ? BLD[C.noLotType].name.toLowerCase() : "building", " but every lot along a street is taken. Lay out a new street and they will build there."), tone: "report", timeout: 9e3, actions: [["Roads", () => setTool("road" + (G.era >= 2 ? 2 : 1))]] });
+    toast({ title: "No free lots on the streets", body: "Every lot along a street is taken, so families lay their own lanes to build a ".concat(BLD[C.noLotType] ? BLD[C.noLotType].name.toLowerCase() : "building", ". New streets keep the town tidy."), tone: "report", timeout: 9e3, actions: [["Roads", () => setTool("road" + (G.era >= 2 ? 2 : 1))]] });
   }
 }
 function gfOpen(tab) {
@@ -26839,7 +26936,7 @@ function gfEvent(G2, e, story) {
       return;
     }
     case "req": {
-      const q = V.req[V.req.length - 1];
+      const q = V.req.find((r) => r.id === e.id);
       if (!q) return;
       Music.sfx("ding");
       UI.goalsBadge = UI.tab !== "goals";
@@ -26922,12 +27019,15 @@ function gfEvent(G2, e, story) {
 function gfCivEvent(G2, id) {
   const E = CIV_EV.find((x) => x.id === id);
   if (!E) return;
+  G2.civ.pendingEv = id;
+  GF.modalLock = true;
   govPause();
   Music.sfx("report");
   modal(
     '<span class="label">'.concat(st("g_paper"), " · ").concat(govY(G2), "</span><h2>").concat(E.head, "</h2><p>").concat(E.body, '</p><div class="gf-choices">').concat(E.ch.map((c, k) => '<button class="gf-choice" data-k="'.concat(k, '"><b>').concat(c.t, "</b><small>").concat(c.d, "</small></button>")).join(""), "</div>"),
     (m) => {
       for (const b of m.querySelectorAll("[data-k]")) b.onclick = () => {
+        GF.modalLock = false;
         civEvDo(G2, id, +b.dataset.k);
         closeModal();
         govResume();
@@ -26940,6 +27040,8 @@ function gfCivEvent(G2, id) {
 }
 function gfStrike(G2) {
   const cost = Math.round(Math.max(200, G2.cits.size * 0.6));
+  G2.civ.pendingStrike = true;
+  GF.modalLock = true;
   govPause();
   Music.sfx("error");
   const ask = G2.gov.laws.hours === 12 ? "a ten-hour working day" : "a minimum wage";
@@ -26947,6 +27049,7 @@ function gfStrike(G2) {
     '<span class="label">'.concat(govY(G2), " · Union</span><h2>General strike</h2><p>The Dockers’ and Workers’ Union has called everyone out. The harbor, the factories and the canneries stand still. They want ").concat(ask, '.</p>\n    <div class="gf-choices"><button class="gf-choice" data-k="0"><b>Negotiate</b><small>A one-off payment of ').concat(fmtMoney(cost), " from the treasury, and your promise to put ").concat(ask, ' to the council. Work resumes at once.</small></button>\n    <button class="gf-choice" data-k="1"><b>Wait it out</b><small>Industry and the port run at a third for half a year. Employers are grateful; workers are not.</small></button></div>'),
     (m) => {
       for (const b of m.querySelectorAll("[data-k]")) b.onclick = () => {
+        GF.modalLock = false;
         civStrikeStart(G2, b.dataset.k === "0");
         closeModal();
         govResume();
@@ -26993,6 +27096,16 @@ function govFullHud() {
   if (due && UI.tab !== "goals") UI.goalsBadge = true;
 }
 function gfHudBind() {
+  for (const id of ["#sp0", "#spS", "#sp1", "#sp2", "#sp4", "#sp8"]) {
+    const b = $(id);
+    if (!b || b.dataset.gf) continue;
+    const f = b.onclick;
+    b.dataset.gf = "1";
+    b.onclick = (e) => {
+      if (GF.on && $("#modal").hidden && $("#stCelebrate").hidden && $("#stOver").hidden) GV.pause = 0;
+      f(e);
+    };
+  }
   const on = (sel, f) => {
     const b = $(sel);
     if (b && b.parentElement) {
@@ -27089,7 +27202,7 @@ function gfGoalsHTML() {
   if (ask.length) h += '<div class="gf-sec"><span class="label">Petitions waiting · '.concat(ask.length, "</span>").concat(ask.map(gfPetCard).join(""), "</div>");
   if (V.req.length) h += '<div class="gf-sec"><span class="label">Permits waiting · '.concat(V.req.length, "</span>").concat(V.req.map(gfReqCard).join(""), '<label class="pol"><input type="checkbox" id="gfAuto" ').concat(V.auto ? "checked" : "", "><span><b>Approve family plans automatically</b><small>Every home and business a family can pay for goes ahead.</small></span></label></div>");
   else h += '<label class="pol"><input type="checkbox" id="gfAuto" '.concat(V.auto ? "checked" : "", "><span><b>Approve family plans automatically</b><small>Every home and business a family can pay for goes ahead.</small></span></label>");
-  if (G.civ && G.civ.noLot >= 2) h += '<div class="issue s2"><b>No free lots along the streets</b><span>Families have saved up to build, but every lot beside a street is taken. They only build where a street already runs.</span><button class="secondary" id="gfRoads">Lay out a street</button></div>';
+  if (G.civ && G.civ.noLot >= 2) h += '<div class="issue s2"><b>No free lots along the streets</b><span>Every lot beside a street is taken, so families lay their own winding lanes to build. New streets keep the town tidy and its traffic flowing.</span><button class="secondary" id="gfRoads">Lay out a street</button></div>';
   const att = gfAttention();
   if (att.length) h += '<div class="gf-sec"><span class="label">Needs attention</span>'.concat(att.map((a, k) => '<div class="bn"><span class="n" style="background:'.concat(a.col || "var(--mango)", '">').concat(a.ic, "</span><span>").concat(a.t, "</span>").concat(a.go ? '<button class="link" data-att="'.concat(k, '">Show</button>') : "<span></span>", "</div>")).join(""), "</div>");
   const log2 = V.log.slice(-4).reverse();
@@ -27482,7 +27595,7 @@ function gfBudgetHTML() {
   const V = G.gov, A = V.acc, last = V.years[V.years.length - 1];
   const y = govY(G);
   const inK = ["incTax", "bizTax", "pubSales", "rent", "util", "grant"], outK = ["wagesPub", "upkeep", "roads", "social", "interest", "imports", "build"];
-  const cur = { inc: { incTax: A.incTax, bizTax: A.bizTax + V.day.bizTax, pubSales: A.pubSales + V.day.pubSales, rent: A.rent, util: A.util, grant: A.grant }, out: { wagesPub: A.wagesPub, upkeep: A.upkeep, roads: A.roads, social: A.social, interest: A.interest, imports: A.imports, build: A.build + (G.dayAcc.build || 0) } };
+  const cur = { inc: { incTax: A.incTax, bizTax: A.bizTax, pubSales: A.pubSales, rent: A.rent, util: A.util, grant: A.grant }, out: { wagesPub: A.wagesPub, upkeep: A.upkeep, roads: A.roads, social: A.social, interest: A.interest, imports: A.imports, build: A.build + (G.dayAcc.build || 0) } };
   const sum = (o) => Object.values(o).reduce((a, v) => a + v, 0);
   const row = (k, grp) => {
     const a = cur[grp][k] || 0, b = last ? last[grp][k] || 0 : 0;
@@ -27604,8 +27717,8 @@ function govDemolishHTML(b) {
   if (b.id === G.dockId) return "";
   if (b.own === "parish" || b.own === "org") return '<p class="gf-sub">It belongs to the '.concat(b.own === "parish" ? ORGS.parish.name : ORGS[b.org] ? ORGS[b.org].name : "society", "; only they could pull it down.</p>");
   if (!isPub(b)) {
-    const comp = govCompensation(G, b) + Math.round(d.cost * 0.25);
-    return UI.confirmBulldoze ? '<div class="btnrow"><button class="primary" id="gfBuyout">Pay '.concat(gMoney(comp), ' and demolish</button><button class="secondary" id="btnCancelDemolish">Keep it</button></div>') : '<button class="secondary" id="gfBuyout">Buy it out and demolish · '.concat(gMoney(comp), "</button>");
+    const comp = govCompensation(G, b);
+    return UI.confirmBulldoze ? '<div class="btnrow"><button class="primary" id="gfBuyout">Pay the '.concat(esc(b.own || ""), " family ").concat(gMoney(comp), ' and demolish</button><button class="secondary" id="btnCancelDemolish">Keep it</button></div>') : '<button class="secondary" id="gfBuyout">Buy it out and demolish · '.concat(gMoney(comp), "</button>");
   }
   return UI.confirmBulldoze ? '<div class="btnrow"><button class="primary" id="btnDemolish">Remove '.concat(d.name, '</button><button class="secondary" id="btnCancelDemolish">Keep it</button></div>') : '<button class="secondary" id="btnDemolish">Demolish · the town gets '.concat(gMoney(d.cost * 0.25), " back</button>");
 }
@@ -27620,12 +27733,13 @@ function govFullBindInspect() {
     }
     const b = G.blds.get(UI.selected);
     if (!b) return;
-    const comp = govCompensation(G, b) + Math.round(BLD[b.type].cost * 0.25);
+    const comp = govCompensation(G, b);
     if (G.money < comp) {
       toast({ body: "Not enough in the treasury.", tone: "bad", timeout: 2500 });
       return;
     }
-    G.money -= comp;
+    G.money -= comp + Math.round(BLD[b.type].cost * 0.25);
+    G.dayAcc.build += comp;
     G.gov.mem[ownerGroup(b.type)] = (G.gov.mem[ownerGroup(b.type)] || 0) - 0.5;
     removeBuilding(G, b);
     recomputeNetwork(G);
@@ -27646,7 +27760,8 @@ function govFullBindInspect() {
     rer();
   };
 }
-function govFullTap(t) {
+const PET_R = (k) => k === "commute" ? 4.5 : k === "health" || k === "school" || k === "market" ? 6 : k === "port" ? 3.5 : 2.5;
+function govFullTap(t, w) {
   if (!govFullOn()) return false;
   const V = G.gov;
   const rq = V.req.find((r) => t.x >= r.x && t.x < r.x + r.w && t.y >= r.y && t.y < r.y + r.h);
@@ -27658,7 +27773,12 @@ function govFullTap(t) {
     UI.panelSig = "";
     return true;
   }
-  const p = civOpenPets(G).concat(civAskPets(G)).find((q) => q.x != null && Math.abs(q.x - t.x) <= 1 && Math.abs(q.y - t.y) <= 1 && G.bldAt[idx(t.x, t.y)] < 0 && !G.road[idx(t.x, t.y)]);
+  const zz = Math.min(View.cam.z, 2);
+  const p = civOpenPets(G).concat(civAskPets(G)).find((q) => {
+    if (q.x == null) return false;
+    const px = (q.x + 0.5) * TILE, py = (q.y + 0.5) * TILE - PET_R(q.k) * TILE - 8 / zz, r = 12 / zz + 3;
+    return w ? Math.hypot(w[0] - px, w[1] - py) <= r * 1.8 : Math.abs(q.x - t.x) <= 1 && Math.abs(q.y - t.y) <= 1;
+  });
   if (p) {
     GF.sel = { k: "pet", id: p.id };
     gfOpen("inspect");
@@ -27721,7 +27841,7 @@ function govFullDraw(c, G2) {
     const D = ORGS[p.org];
     const K = PETK[p.k];
     const cx = (p.x + 0.5) * TILE, cy = (p.y + 0.5) * TILE;
-    const R = (p.k === "commute" ? 4.5 : p.k === "health" || p.k === "school" || p.k === "market" ? 6 : p.k === "port" ? 3.5 : 2.5) * TILE;
+    const R = PET_R(p.k) * TILE;
     const isSel = sel && sel.k === "pet" && sel.id === p.id;
     c.strokeStyle = D.col;
     c.globalAlpha = isSel ? 1 : 0.8;
@@ -28273,7 +28393,8 @@ function buildDock() {
     const wrap = el("div", "tgroup");
     wrap.append(el("span", "label", g));
     const row = el("div", "row");
-    for (const t of TOOLS.filter((x) => x.group === g && !(typeof govFullOn === "function" && govFullOn() && x.bld && (HIDE_T.has(x.bld) || x.bld === "townhall" && govHas(G, "townhall"))))) {
+    const gm = typeof govFullOn === "function" && govFullOn();
+    for (const t of TOOLS.filter((x) => x.group === g && !(gm && x.bld && (HIDE_T.has(x.bld) || x.bld === "townhall" && govHas(G, "townhall"))) && !(!gm && x.bld === "hall"))) {
       const b = el("button", "tool");
       b.dataset.tool = t.id;
       b.setAttribute("aria-pressed", String(UI.tool === t.id));
@@ -28507,7 +28628,7 @@ function selectAt(t, w) {
     storyTap(t);
     return;
   }
-  if (typeof govFullTap === "function" && govFullTap(t)) return;
+  if (typeof govFullTap === "function" && govFullTap(t, w)) return;
   const v = w ? pickVehicle(G, w[0], w[1]) : null;
   if (v) {
     UI.selVeh = v.key;
@@ -28806,11 +28927,12 @@ function bindInput() {
     if (!UI.started) return;
     const k = e.key.toLowerCase();
     if (!$("#modal").hidden) {
-      if (k === "escape") closeModal();
+      if (k === "escape" && !(typeof GF !== "undefined" && GF.modalLock)) closeModal();
       return;
     }
     UI.keys.add(k === " " ? " " : k);
     if (DV.on) return;
+    if ((k === " " || k === "[" || k === "]") && typeof GF !== "undefined" && GF.on && $("#stCelebrate").hidden && $("#stOver").hidden) GV.pause = 0;
     if (k === " ") {
       e.preventDefault();
       setSpeed(UI.paused ? UI.speed : 0);
@@ -28960,7 +29082,11 @@ function renderPanel(force) {
     const k = counts();
     const last = G.history[G.history.length - 1];
     html += '<div class="kv"><span class="k">Homes</span><span class="v">'.concat(k.pop, " / ").concat(k.housing, '</span><span class="k">Jobs filled</span><span class="v">').concat(k.employed, " / ").concat(k.jobs, '</span><span class="k">Unemployed</span><span class="v">').concat(k.pop - k.employed, '</span><span class="k">Vehicles on the road now</span><span class="v">').concat(G.movers.filter((m) => m.trip.w > 0).length, '</span><span class="k">Queued right now</span><span class="v">').concat(G.waitingNow, "</span></div>");
-    if (last) {
+    if (last && last.gov && typeof govFullOn === "function" && govFullOn()) {
+      const g = last.gov;
+      const sign = (v) => Math.round(v) === 0 ? "<span>$0</span>" : '<span class="'.concat(v > 0 ? "pos" : "neg", '">').concat(v > 0 ? "+" : "−").concat(fmtMoney(Math.abs(v)), "</span>");
+      html += '<div style="display:flex;flex-direction:column;gap:6px"><span class="label">Day '.concat(last.day, ' · the town hall’s own day</span><div class="kv"><span class="k">Taxes</span><span class="v">').concat(sign(last.taxes), '</span><span class="k">Town enterprises, fares, power</span><span class="v">').concat(sign(g.pub + (g.rent || 0) + (g.grant || 0) + (last.fares || 0) + ((last.commerceBy || {}).power || 0) + ((last.commerceBy || {}).airport || 0)), '</span><span class="k">Staff, upkeep, roads, care</span><span class="v">').concat(sign(-last.upkeep), '</span><span class="k tot">Result</span><span class="v tot">').concat(sign(last.net), '</span><span class="k">Construction</span><span class="v">').concat(sign(-last.build), '</span></div><small style="color:var(--ink-3)">The whole island’s economy is in Money → Industry.</small></div>');
+    } else if (last) {
       const sign = (v) => Math.round(v) === 0 ? "<span>$0</span>" : '<span class="'.concat(v > 0 ? "pos" : "neg", '">').concat(v > 0 ? "+" : "−").concat(fmtMoney(Math.abs(v)), "</span>");
       html += '<div style="display:flex;flex-direction:column;gap:6px"><span class="label">Day '.concat(last.day, ' ledger</span><div class="kv">\n        <span class="k">Exports via harbor</span><span class="v">').concat(sign(last.exports), '</span>\n        <span class="k">Shops, hotels, offices</span><span class="v">').concat(sign(last.commerce), '</span>\n        <span class="k">Taxes</span><span class="v">').concat(sign(last.taxes), '</span>\n        <span class="k">Transit fares</span><span class="v">').concat(sign(last.fares || 0), '</span>\n        <span class="k">Upkeep</span><span class="v">').concat(sign(-last.upkeep), '</span>\n        <span class="k tot">Operating result</span><span class="v tot">').concat(sign(last.net), '</span>\n        <span class="k">Construction</span><span class="v">').concat(sign(-last.build), "</span></div></div>");
     } else html += "<p>The first daily ledger arrives at midnight.</p>";
@@ -28975,7 +29101,7 @@ function renderPanel(force) {
     const spots = [];
     for (let i = 0; i < MAP_N; i++) if (G.crashTilePrev[i]) spots.push(i);
     spots.sort((a, b) => G.crashTilePrev[b] - G.crashTilePrev[a]);
-    html += '<div style="display:flex;flex-direction:column;gap:6px"><span class="label">Road safety</span><div class="kv"><span class="k">Crashes today</span><span class="v '.concat(G.dayAcc.crashes ? "neg" : "", '">').concat(G.dayAcc.crashes, '</span><span class="k">Crashes yesterday</span><span class="v">').concat(lastCr == null ? "–" : lastCr, '</span><span class="k">Lanes blocked now</span><span class="v ').concat(blocked ? "neg" : "", '">').concat(blocked, '</span><span class="k">Happiness cost of yesterday’s crashes</span><span class="v">').concat(G.crashesYesterday ? "−" + Math.min(12, G.crashesYesterday * 2) : "0", "</span></div>\n      ").concat(spots.slice(0, 3).map((i, k2) => '<div class="bn"><span class="n" style="background:#e0960f">'.concat(k2 + 1, "</span><span>").concat(G.arms[i] >= 3 ? G.ctrl[i] ? CTRL[G.ctrl[i]].name : "Uncontrolled junction" : ROADS[G.road[i]].name, " at ").concat(i % MAP_W, ",").concat(i / MAP_W | 0, '<br><small style="color:var(--ink-2)">').concat(G.crashTilePrev[i], " crash").concat(G.crashTilePrev[i] > 1 ? "es" : "", ' yesterday</small></span><button class="link" data-go="').concat(i, '" data-lens="safety">Show</button></div>')).join(""), "</div>");
+    html += '<div style="display:flex;flex-direction:column;gap:6px"><span class="label">Road safety</span><div class="kv"><span class="k">Crashes today</span><span class="v '.concat(G.dayAcc.crashes ? "neg" : "", '">').concat(G.dayAcc.crashes, '</span><span class="k">Crashes yesterday</span><span class="v">').concat(lastCr == null ? "–" : lastCr, '</span><span class="k">Lanes blocked now</span><span class="v ').concat(blocked ? "neg" : "", '">').concat(blocked, '</span><span class="k">Happiness cost of yesterday’s crashes</span><span class="v">').concat(crashMood(G) ? "−" + crashMood(G) : "0", "</span></div>\n      ").concat(spots.slice(0, 3).map((i, k2) => '<div class="bn"><span class="n" style="background:#e0960f">'.concat(k2 + 1, "</span><span>").concat(G.arms[i] >= 3 ? G.ctrl[i] ? CTRL[G.ctrl[i]].name : "Uncontrolled junction" : ROADS[G.road[i]].name, " at ").concat(i % MAP_W, ",").concat(i / MAP_W | 0, '<br><small style="color:var(--ink-2)">').concat(G.crashTilePrev[i], " crash").concat(G.crashTilePrev[i] > 1 ? "es" : "", ' yesterday</small></span><button class="link" data-go="').concat(i, '" data-lens="safety">Show</button></div>')).join(""), "</div>");
     html += '<div style="display:flex;flex-direction:column;gap:6px"><span class="label">Average commute by day (min)</span><canvas class="chart" id="chCommute"></canvas></div>';
     html += '<div style="display:flex;flex-direction:column;gap:6px"><span class="label">Vehicles on the road by hour · today vs <span style="color:var(--ink-3)">yesterday</span></span><canvas class="chart" id="chHourly"></canvas></div>';
     html += '<div style="display:flex;flex-direction:column;gap:8px"><span class="label">Worst bottlenecks yesterday</span>';
