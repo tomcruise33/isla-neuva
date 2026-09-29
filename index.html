@@ -10063,10 +10063,38 @@ const Music = (() => {
     }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return false;
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = "playback";
+    } catch (e) {
+    }
     ctx = new AC();
     buildGraph();
+    unlockNow();
     if (on) start();
     return true;
+  }
+  let unlocked = false;
+  function unlockNow() {
+    if (!ctx) return;
+    try {
+      if (ctx.state !== "running") ctx.resume();
+    } catch (e) {
+    }
+    if (unlocked && ctx.state === "running") return;
+    try {
+      const b = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = b;
+      src.connect(ctx.destination);
+      src.start(0);
+      unlocked = ctx.state === "running";
+    } catch (e) {
+    }
+  }
+  function unlock() {
+    if (!ctx) {
+      if (on) init();
+    } else unlockNow();
   }
   function buildGraph() {
     master = ctx.createGain();
@@ -10989,8 +11017,15 @@ const Music = (() => {
       if (ctx && ctx.state === "running") ctx.suspend();
     },
     resume() {
-      if (ctx && ctx.state === "suspended") ctx.resume();
-    }
+      if (ctx && ctx.state !== "running" && ctx.state !== "closed") {
+        try {
+          ctx.resume();
+        } catch (e) {
+        }
+      }
+    },
+    // iOS also has 'interrupted'
+    unlock
   };
 })();
 const V3 = {
@@ -24204,6 +24239,7 @@ function boot(data) {
     UI.panelHover = false;
   });
   document.addEventListener("pointerdown", () => Music.resume(), true);
+  for (const ev of ["touchend", "click", "keydown"]) document.addEventListener(ev, () => Music.unlock(), true);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       saveGame(true);
