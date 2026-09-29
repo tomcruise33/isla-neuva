@@ -453,6 +453,19 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 @keyframes stpop { from { transform: translate(-50%, -12px) scale(0.92); opacity: 0; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }
 .st-card { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); transform: translateX(-50%); width: min(700px, calc(100% - 24px)); display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 16px 18px; border-radius: 20px; background: rgba(255, 250, 240, 0.97); color: #3a2410; box-shadow: 0 12px 36px rgba(0,0,0,0.25); pointer-events: auto; animation: stup 0.3s ease-out; }
 @keyframes stup { from { transform: translate(-50%, 16px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+/* never cover more than about half the screen: long texts scroll inside the card, the buttons stay in view */
+.st-card { max-height: min(54vh, 600px); transition: opacity 0.25s; }
+.st-body { max-height: calc(min(54vh, 600px) - 32px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-right: 4px; }
+.st-body > .st-btns { position: sticky; bottom: 0; padding-top: 10px; background: linear-gradient(rgba(255,250,240,0), rgba(255,250,240,0.98) 35%); }
+@media (orientation: portrait) { .st-card { max-height: 46vh; } .st-body { max-height: calc(46vh - 28px); } }
+.st-min { position: absolute; top: 8px; right: 10px; width: 38px; height: 38px; border: 0; border-radius: 50%; background: #f7e6c8; color: #8a4a14; font: 700 18px system-ui, sans-serif; cursor: pointer; z-index: 1; }
+.st-card .st-who { padding-right: 44px; }
+.st-card.folded { grid-template-columns: 46px minmax(0, 1fr); align-items: center; padding-block: 10px; }
+.st-card.folded .st-face { width: 46px; height: 46px; cursor: pointer; }
+.st-card.folded .st-body > p, .st-card.folded .st-body > div:not(.st-btns) { display: none; }
+.st-card.folded .st-body { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.st-card.folded .st-body > .st-btns { position: static; background: none; padding-top: 0; margin-top: 0; }
+.st-card.peek { opacity: 0.16; pointer-events: none; }
 .st-face { width: 84px; height: 84px; border-radius: 50%; box-shadow: 0 0 0 3px #f2b85a; }
 .st-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .st-who { font: 700 14px var(--f-cond); letter-spacing: 0.05em; text-transform: uppercase; color: #b4561a; }
@@ -5489,10 +5502,13 @@ function drawLineDetail(c, G, L) {
 }
 
 /* ============================================================
-   Music: gentle procedural island music (Web Audio).
-   Slow lounge-bossa: warm pads, soft nylon arpeggios, a round
-   bass and a sparse vibraphone melody over the sound of the sea.
-   Every 16 bars the melody rests for 8. Nothing is sampled.
+   Music: the Isla Nueva theme (Web Audio, nothing is sampled).
+   An original song in A minor that lifts into C major: a quiet
+   intro, two verses, a chorus and an instrumental break over the
+   sound of the sea. Usually gentle (marimba, nylon guitar, warm
+   pads); now and then, and at the big moments of the story, the
+   chorus comes back grand: strings and timpani in the early
+   years, synth brass and a drum machine from the 1980s on.
    ============================================================ */
 const Music = (() => {
   let ctx = null, master = null, musicBus = null, sfxBus = null, filt = null, rev = null, noise = null, waves = null;
@@ -5501,9 +5517,9 @@ const Music = (() => {
   const SCALE = [0, 2, 4, 5, 7, 9, 11];
   const PENTA = [0, 1, 2, 4, 5];                             // scale degrees of the major pentatonic
   const TONIC = { 1: 65, 2: 62, 3: 63, 4: 67 };              // F, D, E-flat, G
-  const TEMPO = { 1: 70, 2: 72, 3: 74, 4: 76 };
+  const TEMPO = { 1: 88, 2: 90, 3: 92, 4: 96 };
   const PROG = { 1: [0, 5, 3, 4, 0, 5, 1, 4], 2: [0, 3, 5, 4, 0, 3, 1, 4], 3: [0, 5, 1, 4, 2, 5, 1, 4], 4: [0, 2, 5, 3, 0, 2, 3, 4] };
-  const MUSIC_GAIN = 2.2;
+  const MUSIC_GAIN = 2.2; const THEME = true;
   const RHY = [[0, 8], [0, 6, 12], [4, 12], [0], [2, 10], [0, 8, 12], [6], [0, 4]];
   const hz = m => 440 * Math.pow(2, (m - 69) / 12);
   const degToSemi = d => { const o = Math.floor(d / 7); const r = ((d % 7) + 7) % 7; return o * 12 + SCALE[r]; };
@@ -5530,13 +5546,13 @@ const Music = (() => {
     const nd = noise.getChannelData(0); let b = 0; for (let i = 0; i < nd.length; i++) { b = b * 0.97 + (Math.random() * 2 - 1) * 0.03; nd[i] = b * 6 + (Math.random() * 2 - 1) * 0.15; }
   }
   // render a stretch of music offline (used to check levels and make previews)
-  async function renderPreview(sec, e) {
-    const saved = { ctx, master, musicBus, sfxBus, filt, rev, noise, waves, era, pendingEra, phrase };
+  async function renderPreview(sec, e, opts = {}) {
+    const saved = { ctx, master, musicBus, sfxBus, filt, rev, noise, waves, era, pendingEra, phrase, song, grandQueued };
     const sr = 44100; ctx = new OfflineAudioContext(2, Math.floor(sr * sec), sr); waves = null;
-    buildGraph(); era = pendingEra = e || 1; phrase = null; startWaves();
+    buildGraph(); era = pendingEra = e || 1; phrase = null; song = { sec: 0, bar: 0, loop: 0, grand: false }; grandQueued = !!opts.grand; if (opts.from) { song.sec = opts.from; } startWaves();
     const spb = 60 / TEMPO[era] / 4; let t = 0.1, st = 0; while (t < sec - 0.5) { schedule(st, t); t += spb; st++; }
     const buf = await ctx.startRendering();
-    ({ ctx, master, musicBus, sfxBus, filt, rev, noise, waves, era, pendingEra, phrase } = saved);
+    ({ ctx, master, musicBus, sfxBus, filt, rev, noise, waves, era, pendingEra, phrase, song, grandQueued } = saved);
     return buf;
   }
   function impulse(sec) {
@@ -5563,7 +5579,7 @@ const Music = (() => {
   function stopWaves() { if (!waves) return; try { waves.src.stop(); waves.lfo.stop(); waves.lfo2.stop(); if (waves.base) waves.base.stop(); } catch (e) { /* already stopped */ } waves = null; }
   function start() {
     if (!ctx || timer) return;
-    nextT = ctx.currentTime + 0.15; step = 0; phrase = null;
+    nextT = ctx.currentTime + 0.15; step = 0; phrase = null; song = { sec: 0, bar: 0, loop: 0, grand: false };
     timer = setInterval(tick, 40);
     startWaves();
   }
@@ -5628,6 +5644,50 @@ const Music = (() => {
     if (bus) g.connect(bus); else out(g, 0.85, 0.35);
   }
 
+
+  /* ---- voices for the theme ---- */
+  // pan flute: breathy sine with a late vibrato
+  function flute(t, m, v, dur) {
+    const f = hz(m); const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.05 * v, t + 0.07); g.gain.setValueAtTime(0.05 * v, t + Math.max(0.08, dur - 0.12)); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.25);
+    const o = osc('sine', f, t, dur + 0.3); const vib = osc('sine', 5, t, dur + 0.3); const vg = ctx.createGain(); vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * 0.006, t + 0.35); vib.connect(vg); vg.connect(o.frequency);
+    o.connect(g); const o3 = osc('triangle', f * 2, t, dur + 0.3); const g3 = ctx.createGain(); g3.gain.value = 0.12; o3.connect(g3); g3.connect(g);
+    const s = ctx.createBufferSource(); s.buffer = noise; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f * 2; bp.Q.value = 3; const ng = ctx.createGain(); ng.gain.setValueAtTime(0.0001, t); ng.gain.linearRampToValueAtTime(0.02 * v, t + 0.04); ng.gain.linearRampToValueAtTime(0.004 * v, t + 0.2); ng.gain.linearRampToValueAtTime(0.0001, t + dur + 0.2);
+    s.connect(bp); bp.connect(ng); ng.connect(g); s.start(t, Math.random(), dur + 0.3);
+    out(g, 0.75, 0.6);
+  }
+  // warm marimba for the music (the sound-effect one keeps its own level)
+  function mar(t, m, v, dur) { const f = hz(m); const g = ctx.createGain(); env(g, t, 0.004, 0.11 * v, Math.min(1.1, 0.35 + dur * 0.4)); osc('sine', f, t, 1.2).connect(g); const g2 = ctx.createGain(); env(g2, t, 0.002, 0.03 * v, 0.07); osc('sine', f * 4, t, 0.1).connect(g2); g2.connect(g); const g3 = ctx.createGain(); env(g3, t, 0.003, 0.012 * v, 0.25); osc('sine', f * 10, t, 0.3).connect(g3); g3.connect(g); out(g, 0.85, 0.35); }
+  // 80s synth brass: two detuned saws through a swelling filter
+  function brass(t, m, v, dur) {
+    const f = hz(m); const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 2; lp.frequency.setValueAtTime(500, t); lp.frequency.linearRampToValueAtTime(2600, t + 0.12); lp.frequency.linearRampToValueAtTime(1500, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.034 * v, t + 0.05); g.gain.setValueAtTime(0.03 * v, t + Math.max(0.06, dur - 0.08)); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.3);
+    for (const dt of [-0.09, 0.09]) { const o = osc('sawtooth', f * Math.pow(2, dt / 12), t, dur + 0.35); const vib = osc('sine', 5.5, t, dur + 0.35); const vg = ctx.createGain(); vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * 0.005, t + 0.4); vib.connect(vg); vg.connect(o.frequency); o.connect(lp); }
+    lp.connect(g); out(g, 0.7, 0.55);
+  }
+  // strings: a slow, wide pad of detuned saws (the grand chorus before synths existed)
+  function strings(t, ms, dur, level) {
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(900, t); lp.frequency.linearRampToValueAtTime(2200, t + dur * 0.6); lp.Q.value = 0.3;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(level, t + 0.5); g.gain.setValueAtTime(level, t + Math.max(0.6, dur - 0.2)); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.9);
+    for (const m of ms) for (const dt of [-0.12, 0, 0.12]) { const o = osc('sawtooth', hz(m) * Math.pow(2, dt / 12), t, dur + 1); o.connect(lp); }
+    lp.connect(g); out(g, 0.55, 0.7);
+  }
+  function kick(t, v) { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.14); const g = ctx.createGain(); env(g, t, 0.003, 0.28 * v, 0.32); o.connect(g); o.start(t); o.stop(t + 0.4); out(g, 1, 0.05); }
+  // a big 80s snare: noise and a body tone into lots of reverb
+  function snare(t, v, big) {
+    const s = ctx.createBufferSource(); s.buffer = noise; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.7;
+    const g = ctx.createGain(); env(g, t, 0.002, 0.13 * v, big ? 0.22 : 0.12); s.connect(bp); bp.connect(g); s.start(t, Math.random(), 0.4);
+    const b = ctx.createGain(); env(b, t, 0.002, 0.07 * v, 0.1); osc('triangle', 190, t, 0.15).connect(b); b.connect(g);
+    out(g, 0.8, big ? 1.1 : 0.4);
+  }
+  function hat(t, v, open) { const s = ctx.createBufferSource(); s.buffer = noise; const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7500; const g = ctx.createGain(); env(g, t, 0.001, 0.035 * v, open ? 0.22 : 0.05); s.connect(hp); hp.connect(g); s.start(t, Math.random(), 0.3); out(g, 0.6, 0.15); }
+  function shaker(t, v) { const s = ctx.createBufferSource(); s.buffer = noise; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 6500; bp.Q.value = 1.2; const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.02 * v, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1); s.connect(bp); bp.connect(g); s.start(t, Math.random(), 0.15); out(g, 0.6, 0.2); }
+  function tom(t, m, v) { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(hz(m) * 1.6, t); o.frequency.exponentialRampToValueAtTime(hz(m), t + 0.12); const g = ctx.createGain(); env(g, t, 0.003, 0.2 * v, 0.45); o.connect(g); o.start(t); o.stop(t + 0.55); out(g, 0.8, 0.7); }
+  function conga(t, hi, v) { const o = ctx.createOscillator(); o.type = 'sine'; const f = hi ? 330 : 220; o.frequency.setValueAtTime(f * 1.3, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.04); const g = ctx.createGain(); env(g, t, 0.002, 0.07 * v, 0.2); o.connect(g); o.start(t); o.stop(t + 0.3); out(g, 0.8, 0.25); }
+  function timp(t, m, v) { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(hz(m) * 1.05, t); o.frequency.exponentialRampToValueAtTime(hz(m), t + 0.2); const g = ctx.createGain(); env(g, t, 0.006, 0.26 * v, 1.4); o.connect(g); o.start(t); o.stop(t + 1.6); const s = ctx.createBufferSource(); s.buffer = noise; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 400; const ng = ctx.createGain(); env(ng, t, 0.002, 0.08 * v, 0.15); s.connect(lp); lp.connect(ng); ng.connect(g); s.start(t, Math.random(), 0.2); out(g, 0.9, 0.5); }
+  // a rising wash of noise that opens into the chorus
+  function riser(t, dur, v) { const s = ctx.createBufferSource(); s.buffer = noise; s.loop = true; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.4; bp.frequency.setValueAtTime(400, t); bp.frequency.exponentialRampToValueAtTime(6000, t + dur); const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05 * v, t + dur); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.05); s.connect(bp); bp.connect(g); s.start(t); s.stop(t + dur + 0.1); out(g, 0.6, 0.8); }
+  function crash(t, v) { const s = ctx.createBufferSource(); s.buffer = noise; const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 4500; const g = ctx.createGain(); env(g, t, 0.002, 0.06 * v, 1.8); s.connect(hp); hp.connect(g); s.start(t, Math.random(), 2); out(g, 0.6, 0.8); }
+
   /* ---- composition ---- */
   const chord7 = d => [d, d + 2, d + 4, d + 6];
   function makePhrase() {
@@ -5653,7 +5713,98 @@ const Music = (() => {
     }
     return bars;
   }
-  function schedule(st, t) {
+
+  /* ---- the Isla Nueva theme ---- */
+  // chords: pad voicing (MIDI) and bass root
+  const CH = { Am: [[57, 60, 64], 45], F: [[57, 60, 65], 41], C: [[55, 60, 64], 48], G: [[55, 59, 62], 43], E: [[56, 59, 64], 40], Es: [[57, 59, 64], 40], Em: [[55, 59, 64], 40] };
+  // melody bars: [sixteenth, MIDI, length in sixteenths]
+  const V1 = [
+    [[0, 76, 4], [4, 76, 2], [6, 74, 2], [8, 72, 3], [11, 74, 3], [14, 76, 2]],
+    [[0, 72, 6], [6, 69, 2], [8, 69, 4], [12, 67, 4]],
+    [[0, 67, 2], [2, 69, 2], [4, 72, 4], [8, 76, 4], [12, 79, 4]],
+    [[0, 77, 3], [3, 76, 3], [6, 74, 6], [12, 71, 4]],
+    [[0, 76, 4], [4, 76, 2], [6, 74, 2], [8, 72, 3], [11, 74, 3], [14, 76, 2]],
+    [[0, 77, 4], [4, 76, 2], [6, 74, 2], [8, 72, 4], [12, 69, 4]],
+    [[0, 71, 3], [3, 72, 3], [6, 74, 4], [10, 67, 6]],
+    [[0, 68, 4], [4, 69, 2], [6, 71, 10]] ];
+  const V2 = [V1[0], V1[1],
+    [[0, 67, 2], [2, 69, 2], [4, 72, 4], [8, 76, 4], [12, 81, 4]],
+    [[0, 79, 3], [3, 77, 3], [6, 76, 6], [12, 74, 4]],
+    [[0, 72, 4], [4, 74, 2], [6, 76, 2], [8, 77, 4], [12, 76, 4]],
+    [[0, 74, 4], [4, 76, 2], [6, 74, 2], [8, 71, 8]],
+    [[0, 71, 3], [3, 72, 3], [6, 74, 4], [10, 76, 6]],
+    [[0, 68, 8], [8, 71, 4], [12, 76, 4]] ];
+  const CHO = [
+    [[0, 81, 6], [6, 79, 2], [8, 77, 4], [12, 72, 4]],
+    [[0, 74, 4], [4, 79, 4], [8, 79, 4], [12, 77, 2], [14, 76, 2]],
+    [[0, 76, 6], [6, 74, 2], [8, 71, 4], [12, 67, 4]],
+    [[0, 69, 4], [4, 72, 4], [8, 76, 8]],
+    [[0, 81, 6], [6, 79, 2], [8, 77, 4], [12, 81, 4]],
+    [[0, 83, 4], [4, 79, 4], [8, 74, 4], [12, 79, 4]],
+    [[0, 84, 8], [8, 79, 4], [12, 76, 4]],
+    [[0, 72, 16]] ];
+  const SECTIONS = [
+    { k: 'intro', ch: ['Am', 'F', 'C', 'G'], mel: null },
+    { k: 'verse', ch: ['Am', 'F', 'C', 'G', 'Am', 'F', 'G', 'Es'], mel: V1 },
+    { k: 'verse2', ch: ['Am', 'F', 'C', 'G', 'F', 'G', 'Es', 'E'], mel: V2 },
+    { k: 'chorus', ch: ['F', 'G', 'Em', 'Am', 'F', 'G', 'C', 'C'], mel: CHO },
+    { k: 'break', ch: ['Am', 'F', 'C', 'G', 'Am', 'F', 'G', 'Es'], mel: null } ];
+  let song = { sec: 0, bar: 0, loop: 0, grand: false }, grandQueued = false;
+  const diatonicBelow = m => { const pcs = [0, 2, 4, 5, 7, 9, 11]; for (let d = 3; d <= 4; d++) { if (pcs.includes((m - d + 120) % 12)) return m - d; } return m - 3; };  // a third below, in C major / A minor
+  function themeBar() {
+    // advance section/bar; decide whether the coming chorus is grand
+    song.bar++;
+    if (song.bar >= SECTIONS[song.sec].ch.length) { song.bar = 0; song.sec++; if (song.sec >= SECTIONS.length) { song.sec = 1; song.loop++; } }
+    if (SECTIONS[song.sec].k === 'chorus' && song.bar === 0) { song.grand = grandQueued || (song.loop % 3 === 2); grandQueued = false; }
+    if (song.bar === 0 && SECTIONS[song.sec].k === 'intro') song.grand = false;
+  }
+  function scheduleTheme(st, t) {
+    const s16 = st % 16;
+    if (s16 === 0) { if (st > 0) themeBar(); if (pendingEra !== era && (SECTIONS[song.sec].k === 'intro' || SECTIONS[song.sec].k === 'break' || song.bar === 0)) era = pendingEra; }
+    const S = SECTIONS[song.sec], name = S.ch[song.bar], [chord, root] = CH[name];
+    const spb = 60 / TEMPO[era] / 4, barLen = spb * 16; const hum = () => (rng() - 0.5) * 0.01;
+    const chorus = S.k === 'chorus', grand = chorus && song.grand, lastBar = song.bar === S.ch.length - 1;
+    const nextS = lastBar ? SECTIONS[song.sec + 1 >= SECTIONS.length ? 1 : song.sec + 1] : null; const intoGrandChorus = nextS && nextS.k === 'chorus' && (grandQueued || song.loop % 3 === 2);
+    // harmony: pad (or strings when grand), bass
+    if (s16 === 0) {
+      if (grand) { if (era >= 4) { pad(t, chord.map(m => m + 12), barLen, 0.02); strings(t, chord, barLen, 0.012); } else strings(t, chord.concat([chord[0] + 12]), barLen, 0.016); }
+      else pad(t, chord, barLen, S.k === 'intro' ? 0.011 : 0.014);
+      bass(t, root, grand ? 1.1 : 0.9, spb * (grand ? 7 : 9));
+      if (grand && song.bar === 0) crash(t, 1);
+    }
+    if (grand) { if (s16 === 8 || s16 === 14) bass(t, root + (s16 === 14 ? 12 : 0), 0.8, spb * 5); }
+    else if (s16 === 10 && song.bar % 2 === 1) bass(t, root + 7, 0.55, spb * 5);
+    // the rhythm guitar (or marimba in the early years): a relaxed broken chord
+    const arp = [0, 3, 6, 8, 11, 14], ai = arp.indexOf(s16);
+    if (ai >= 0 && !(S.k === 'intro' && song.bar === 0 && s16 > 0)) { const n = [chord[0], chord[2], chord[1] + 12, chord[2], chord[0] + 12, chord[1]][ai]; if (grand && era >= 4) epiano(t + hum(), n + 12, 0.6, spb * 4); else nylon(t + hum(), n, ai === 0 ? 0.9 : 0.6, spb * 5); }
+    // an 80s arpeggiator pulses under the grand chorus
+    if (grand && era >= 4 && s16 % 2 === 0) { const a = [chord[0], chord[1], chord[2], chord[1] + 12][(s16 / 2) % 4] + 12; mar(t, a, 0.35, spb * 2); }
+    // drums and percussion
+    if (grand) {
+      if (era >= 4) { if (s16 === 0 || s16 === 8 || s16 === 10) kick(t, 1); if (s16 === 4 || s16 === 12) snare(t, 1, true); if (s16 % 2 === 0) hat(t, s16 % 4 === 2 ? 0.8 : 0.5, s16 === 14); if (lastBar && s16 >= 8 && s16 % 2 === 0) tom(t, [52, 50, 47, 45][(s16 - 8) / 2], 0.9); }
+      else { if (s16 === 0) timp(t, root + 12, 1); if (s16 === 8) timp(t, root + 19, 0.6); if ([3, 6, 11, 14].includes(s16)) conga(t, s16 === 6 || s16 === 14, 0.8); if (s16 % 4 === 2) shaker(t, 0.8); }
+    } else {
+      if (era >= 2 && S.k !== 'intro' && s16 % 4 === 2) shaker(t + hum(), s16 === 14 ? 1 : 0.6);
+      if (era >= 3 && (S.k === 'chorus' || S.k === 'verse2') && (s16 === 0 || s16 === 8)) kick(t, 0.45);
+      if (era >= 3 && S.k === 'chorus' && (s16 === 4 || s16 === 12)) snare(t, 0.35, false);
+      if (S.k === 'break' && [3, 11].includes(s16)) conga(t + hum(), s16 === 11, 0.5);
+    }
+    if (intoGrandChorus && s16 === 0) riser(t, barLen - 0.05, 1);
+    if (intoGrandChorus && era < 4 && s16 >= 8 && s16 % 2 === 0) timp(t, 45 + [0, 0, 7, 7][(s16 - 8) / 2], 0.5 + (s16 - 8) * 0.06);
+    // the tune
+    const mel = S.mel ? S.mel[song.bar] : null;
+    if (mel) for (const [p, m, len] of mel) if (p === s16) {
+      const dur = len * spb; const v = 0.8 + rng() * 0.15;
+      if (grand) { if (era >= 4) { brass(t, m, 1, dur + 0.05); brass(t, diatonicBelow(m), 0.6, dur + 0.05); flute(t, m + 12, 0.5, dur); } else { flute(t, m, 1, dur); mar(t, m + 12, 0.7, dur); steelpan(t, diatonicBelow(m), 0.6); } }
+      else if (chorus) { if (era >= 4) { brass(t, m, 0.5, dur); vibes(t, m + 12, 0.5, dur); } else if (era === 3) { vibes(t, m, 0.9, Math.min(3, dur + 0.3)); flute(t, m + 12, 0.35, dur); } else { steelpan(t, m, 0.9); flute(t, m, 0.45, dur); } }
+      else if (era >= 4) flute(t, m, 0.95, dur);
+      else if (era === 3) vibes(t, m, 0.9, Math.min(3, dur + 0.3));
+      else { mar(t, m, 0.9, dur); if (len >= 4) flute(t, m, 0.3, dur); }   // marimba, with a breath of flute under the long notes
+    }
+    // in the break, an echo of the hook now and then
+    if (S.k === 'break' && (song.bar === 3 || song.bar === 7) && s16 === 8) (era >= 3 ? vibes : mar)(t, 76 + (song.bar === 7 ? 0 : 5), 0.4, 2.2);
+  }
+  function schedule(st, t) { if (THEME) { scheduleTheme(st, t); return; }
     const s16 = st % 16, bar = Math.floor(st / 16) % 16, pb = bar % 8;
     if (s16 === 0 && bar === 0) { if (pendingEra !== era) era = pendingEra; phrase = makePhrase(); }
     if (!phrase) phrase = makePhrase();
@@ -5719,6 +5870,10 @@ const Music = (() => {
     setOn(v) { on = v; if (!ctx) return; if (on) start(); else stop(); },
     setVolume(v) { vol = v; if (musicBus) { musicBus.gain.setTargetAtTime(vol * MUSIC_GAIN, ctx.currentTime, 0.1); sfxBus.gain.setTargetAtTime(vol * 0.5, ctx.currentTime, 0.1); } },
     setEra(e) { pendingEra = clamp(e, 1, 4); },
+    // a big moment: a short fanfare now, and the next chorus comes back grand
+    swell() { grandQueued = true; if (!ctx || !on || vol <= 0) return; const t = ctx.currentTime + 0.02; const tn = 60; timp(t, 45, 0.9); crash(t + 0.02, 0.8);
+      [0, 4, 7, 12].forEach((sx, k) => { if (era >= 4) brass(t + k * 0.09, tn + sx + 9, 0.8, 1.2 - k * 0.1); else flute(t + k * 0.09, tn + sx + 9, 0.9, 1.2 - k * 0.1); });
+      strings(t, [57, 60, 64, 69], 2.2, 0.014); },
     setDaylight(d) { if (!filt) return; filt.frequency.setTargetAtTime(1800 + 7200 * d * d, ctx.currentTime, 1.5); },
     suspend() { if (ctx && ctx.state === 'running') ctx.suspend(); },
     resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); },
@@ -7190,6 +7345,8 @@ const FAMILY_NAMES = ['Santos', 'Yılmaz', 'Kováč', 'Rivera', 'Demir', 'Mendoz
 /* ---------- words ---------- */
 const STT = {
   en: {
+    showCard: 'Show the text',
+    hideCard: 'Fold the text away',
     evL_build: 'Dear Mayor, from my window I can see the new building going up. My children will grow up there. Your neighbour, Beatriz',
     evLe_build: 'Plan for the people who will live here in fifty years.',
     evEnd_build: 'A town is never finished.',
@@ -7934,6 +8091,8 @@ const STT = {
     photo1: 'The first homes',
   },
   tr: {
+    showCard: 'Metni göster',
+    hideCard: 'Metni küçült',
     evL_build: 'Sevgili Başkan Hanım, penceremden yeni binanın yükseldiğini görüyorum. Çocuklarım orada büyüyecek. Komşunuz Beatriz',
     evLe_build: 'Elli yıl sonra burada yaşayacak insanlar için planla.',
     evEnd_build: 'Bir kasaba asla bitmez.',
@@ -8677,6 +8836,8 @@ const STT = {
     photo1: 'İlk evler',
   },
   sk: {
+    showCard: 'Zobraziť text',
+    hideCard: 'Skryť text',
     evL_build: 'Milá pani starostka, z okna vidím, ako rastie nová budova. Moje deti v nej budú vyrastať. Vaša suseda Beatriz',
     evLe_build: 'Plánuj pre ľudí, ktorí tu budú žiť o päťdesiat rokov.',
     evEnd_build: 'Mesto nie je nikdy hotové.',
@@ -9660,7 +9821,7 @@ function stElection(G) {
     <div class="st-ballot">${FACTIONS.map(([f, ic, col]) => `<div class="st-bcol"><div class="st-btrack"><i data-v="${m[f].v}" style="background:${col}"></i></div><span>${ic}</span><b>${st(f[0].toUpperCase() + f.slice(1))}</b><em>${m[f].v}%</em></div>`).join('')}</div>
     <p class="st-big">${st(again ? 'evWon' : 's4_won', { p })}</p><p>${st('s4_best', { f: st(order[0]) })} ${m[order[2]].v < 70 ? st('s4_worst', { f: st(order[2]) }) : ''}</p>
     <div class="st-btns"><button class="st-primary" id="stVoteOk">${st('next')}</button></div><canvas class="st-confetti" id="stConfetti"></canvas></div>`;
-  el.hidden = false; setTimeout(() => { for (const i of el.querySelectorAll('.st-btrack i')) i.style.height = i.dataset.v + '%'; }, 60); setTimeout(() => stConfetti($('#stConfetti')), 900);
+  el.hidden = false; setTimeout(() => { for (const i of el.querySelectorAll('.st-btrack i')) i.style.height = i.dataset.v + '%'; }, 60); setTimeout(() => { stConfetti($('#stConfetti')); Music.swell(); }, 900);
   $('#stVoteOk').onclick = () => { el.hidden = true; stAdvance(G); };
 }
 // the years between chapters: new families build homes (in the planned home zone when there is one), and a little more work appears
@@ -9717,7 +9878,7 @@ function stHurricaneHit(G) {
 // liftoff: the rocket leaves the pad, climbs on a column of fire, and the pad stays empty
 function stLaunch(G) {
   const sp = [...G.blds.values()].find(b => b.type === 'spaceport'); if (!sp) return;
-  ST.rocket = { x: (sp.x + 1.65) * TILE, y: (sp.y + 1.5) * TILE, t0: performance.now(), id: sp.id }; Music.sfx('era');
+  ST.rocket = { x: (sp.x + 1.65) * TILE, y: (sp.y + 1.5) * TILE, t0: performance.now(), id: sp.id }; Music.swell();
   setTimeout(() => { sp.launched = true; stSave(); }, 400);
   stFrame(false, sp.x + 1.5, sp.y - 2, 0.9);
 }
@@ -10322,11 +10483,14 @@ function stLabels() {
   $('#stBuildBtn').querySelector('span').textContent = st('build'); $('#stDriveBtn').querySelector('span').textContent = st('driveBtn'); $('#st3d').querySelector('span').textContent = V3.on ? st('view2d') : st('view3d');
 }
 // frame the camera on something
+// how much of the screen Rosa's card covers from the bottom (a guess until it is on screen)
+function stCardH() { const el = document.getElementById('stCard'); if (el && !el.hidden) { const r = el.getBoundingClientRect(); if (r.height > 0) return View.H - r.top + 12; } return Math.min(240, View.H * 0.3); }
+function stReframe() { const f = ST.frameT; if (!f || !ST.on) return; const topEl = document.querySelector('.st-top'); const top = topEl ? topEl.getBoundingClientRect().bottom : 70; const vc = (top + View.H - stCardH()) / 2; const oy = (vc - View.H / 2) / f.z; ST.pan = { x: f.x * TILE, y: f.y * TILE - oy, z: f.z }; }
 function stFrame(first, tx, ty, z) {
   const d = G.blds.get(G.dockId); const x = tx != null ? tx : d.x + 1, y = ty != null ? ty : d.y - 4;
   // keep the point of interest in the open space between the top bar and Grandma Rosa's card
   const zz = first ? (z || 1.7) : (z || Math.max(View.cam.z, 1.5)); const topEl = document.querySelector('.st-top');
-  const top = topEl ? topEl.getBoundingClientRect().bottom : 70, cardH = Math.min(240, View.H * 0.3); const vc = (top + View.H - cardH) / 2;
+  const top = topEl ? topEl.getBoundingClientRect().bottom : 70, cardH = stCardH(); const vc = (top + View.H - cardH) / 2; ST.frameT = { x, y, z: zz };
   const oy = (vc - View.H / 2) / zz;
   if (first) { View.cam.x = x * TILE; View.cam.y = y * TILE - oy; View.cam.z = zz; UI.zoomTarget = null; }
   else { ST.pan = { x: x * TILE, y: y * TILE - oy, z: zz }; }
@@ -10453,7 +10617,7 @@ function storyTick() {
   if (s && s.kind === 'road' && ST.ghost && !ST.roadHelp && performance.now() - (ST.roadT0 || 0) > 25000 && $('#stOver').hidden) { ST.roadHelp = true;
     stCard({ text: st(sayOf(G, s.say)), hint: st(s.hint), buttons: [[st('helpMe'), () => { if (!ST.ghost) return; const need = ST.ghost.length * ROADS[storyRoad(G)].cost + 50; if (G.money < need) stGrant(G, need - G.money); buildRoad(G, ST.ghost.slice(1), storyRoad(G)); recomputeNetwork(G); stCardHide(); }]] }); }
   if (s && s.kind === 'road' && ST.ghost) { const g = ST.ghost.slice(1); const done = g.filter(([x, y]) => G.road[idx(x, y)]).length; if (done >= Math.ceil(g.length * 0.8)) { ST.ghost = null; UI.tool = 'inspect'; stPraise(st(s.done)); Music.sfx('era'); setTimeout(() => stAdvance(G), 1500); } }
-  if (s && s.kind === 'wait' && s.until(G)) { setSpeed(1); if (s.launch) stLaunch(G); if (s.fireworks) { ST.fireworksUntil = performance.now() + 40000; Music.sfx('era'); } if (s.zoomOut) { const a = stAnchor(G, 'homes'); stFrame(false, a.x, a.y, 1.1); } stPraise(st(s.done, { m: fmtMoney(G.story.soldValue || 0) })); stAdvance(G); }
+  if (s && s.kind === 'wait' && s.until(G)) { setSpeed(1); if (s.launch) stLaunch(G); if (s.fireworks) { ST.fireworksUntil = performance.now() + 40000; if (!s.launch) Music.swell(); } if (s.zoomOut) { const a = stAnchor(G, 'homes'); stFrame(false, a.x, a.y, 1.1); } stPraise(st(s.done, { m: fmtMoney(G.story.soldValue || 0) })); stAdvance(G); }
   if (ST.pan) { const k = 0.08; View.cam.x += (ST.pan.x - View.cam.x) * k; View.cam.y += (ST.pan.y - View.cam.y) * k; View.cam.z += (ST.pan.z - View.cam.z) * k; if (Math.abs(ST.pan.x - View.cam.x) < 2 && Math.abs(ST.pan.y - View.cam.y) < 2) ST.pan = null; }
   if (G.money < 150) stGrant(G);
   stWishTick(G); stLifeTick(G);
@@ -10597,7 +10761,7 @@ function stChapterEnd(G) {
     const img = stSnapshot(); if (img) S.photos.push({ title: C.photo, img, day: Math.floor(G.t / 1440) + 1, pop: G.cits.size, ch: S.ch, year: C.year });
     if (C.letter) { S.letters.push({ key: C.letter, day: Math.floor(G.t / 1440) + 1 }); S.newLetters++; }
     for (const t of C.tools || []) if (!S.tools.includes(t)) S.tools.push(t);
-    stSave(); Music.sfx('era');
+    stSave(); Music.swell();
     const el = $('#stCelebrate');
     el.innerHTML = `<div class="st-cel"><canvas class="st-confetti" id="stConfetti"></canvas><span class="st-kicker">${st('chapter')} ${S.ch + 1} · ${st('chapterDone')}</span><h2>${chName(S.ch)}</h2>
       ${img ? `<img class="st-photo" alt="" src="${img}">` : ''}<p>${(() => { const e = C.steps[C.steps.length - 1]; return st(e.say, e.vars ? e.vars(G) : { n: G.cits.size, f: new Set([...G.cits.values()].map(c => c.fam).filter(Boolean)).size }); })()}</p>
@@ -10634,9 +10798,12 @@ function stSpeak(html) {
   } catch (e) { /* no voice on this device */ }
 }
 function stCard(o) {
-  const fresh = !ST.card || ST.card.text !== o.text; ST.card = o; const el = $('#stCard');
-  el.innerHTML = `<img class="st-face" alt="" src="${rosaFace(128).toDataURL()}"><div class="st-body"><b class="st-who">${st('rosa')}${canSpeak() ? `<button class="st-say" aria-label="${st('readAloud')}" title="${st('readAloud')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>` : ''}</b><p>${o.text}</p>${o.extra || ''}${o.hint ? `<span class="st-hint ${o.wait ? 'wait' : ''}">${o.wait ? '<i class="st-spin"></i>' : '<i class="st-tap"></i>'}${o.hint}</span>` : ''}${o.buttons ? `<div class="st-btns">${o.buttons.map((b, k) => `<button class="${k === 0 || o.equal ? 'st-primary' : 'st-secondary'}" data-k="${k}">${b[0]}</button>`).join('')}</div>` : ''}</div>`;
-  el.hidden = false;
+  const fresh = !ST.card || ST.card.text !== o.text; ST.card = o; const el = $('#stCard'); if (fresh) ST.cardMini = false;
+  el.innerHTML = `<button class="st-min" aria-label="${st(ST.cardMini ? 'showCard' : 'hideCard')}" title="${st(ST.cardMini ? 'showCard' : 'hideCard')}">${ST.cardMini ? '▴' : '▾'}</button><img class="st-face" alt="" src="${rosaFace(128).toDataURL()}"><div class="st-body"><b class="st-who">${st('rosa')}${canSpeak() ? `<button class="st-say" aria-label="${st('readAloud')}" title="${st('readAloud')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>` : ''}</b><p>${o.text}</p>${o.extra || ''}${o.hint ? `<span class="st-hint ${o.wait ? 'wait' : ''}">${o.wait ? '<i class="st-spin"></i>' : '<i class="st-tap"></i>'}${o.hint}</span>` : ''}${o.buttons ? `<div class="st-btns">${o.buttons.map((b, k) => `<button class="${k === 0 || o.equal ? 'st-primary' : 'st-secondary'}" data-k="${k}">${b[0]}</button>`).join('')}</div>` : ''}</div>`;
+  el.hidden = false; el.classList.toggle('folded', !!ST.cardMini);
+  const mb = el.querySelector('.st-min'); mb.onclick = e => { e.stopPropagation(); ST.cardMini = !ST.cardMini; el.classList.toggle('folded', ST.cardMini); mb.textContent = ST.cardMini ? '▴' : '▾'; mb.title = mb.ariaLabel = st(ST.cardMini ? 'showCard' : 'hideCard'); stReframe(); };
+  el.querySelector('.st-face').onclick = () => { if (ST.cardMini) mb.onclick({ stopPropagation() {} }); };
+  requestAnimationFrame(stReframe);   // now that the card has its real height, keep the point of interest above it
   if (o.buttons) for (const b of el.querySelectorAll('[data-k]')) b.onclick = () => { Music.resume(); if (canSpeak()) speechSynthesis.cancel(); o.buttons[+b.dataset.k][1](); };
   const sp = el.querySelector('.st-say'); if (sp) sp.onclick = () => stSpeak(o.text);
   if (fresh && stVoiceOn()) stSpeak(o.text);
@@ -10707,6 +10874,10 @@ function stBind() {
   $('#stGoOn').onclick = () => { const S = G.story; if (ST.wishOn || ST.wishPlacing) stWishEnd(); S.resting = false; ST.placing = null; stSave(); stEnterStep(G); stHud(true); };
   $('#stWish').onclick = stWishOpen; $('#stDriveBtn').onclick = () => stFreeDrive(G);
   $('#stLetters').onclick = stLettersOpen; $('#stAlbum').onclick = stAlbumOpen; $('#stBuildBtn').onclick = stBuildOpen; $('#stMenu').onclick = stMenuOpen; $('#stPeopleBtn').onclick = () => stPeopleOpen();
+  for (const id of ['world', 'world3d']) { const cv = document.getElementById(id); if (!cv || cv.dataset.peek) continue; cv.dataset.peek = '1';
+    cv.addEventListener('pointerdown', () => { const c = document.getElementById('stCard'); if (ST.on && c && !c.hidden) { clearTimeout(ST.peekT); c.classList.add('peek'); } }, true);
+    const off = () => { clearTimeout(ST.peekT); ST.peekT = setTimeout(() => { const c = document.getElementById('stCard'); if (c) c.classList.remove('peek'); }, 700); };
+    cv.addEventListener('pointerup', off, true); cv.addEventListener('pointercancel', off, true); }
   $('#st3d').onclick = async () => { await v3Toggle(); $('#v3ctl').hidden = true; stLabels(); };
 }
 function stTitleText() {
