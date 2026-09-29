@@ -265,6 +265,68 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .pill { font-family: var(--f-cond); font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--paper-2); color: var(--ink-2); letter-spacing: 0.03em; }
 .pill.on { background: var(--palm); color: #fff; } .pill.off { background: transparent; border: 1px dashed var(--line); }
 
+/* ---------- the open island in the full interface ---------- */
+#story.g-full .st-top, #story.g-full #stWish, #story.g-full #gReq, #story.g-full #gTool, #story.g-full #gLens, #story.g-full #gToast, #story.g-full #stPraise, #story.g-full #stCard, #story.g-full #stInfo { display: none !important; }
+#panel.g-wide { width: 396px; }
+#panel.g-wide .tabs button { padding-inline: 3px; font-size: 12px; }
+.gf-click { cursor: pointer; } .gf-click:hover b { text-decoration: underline; text-decoration-color: var(--line); }
+.gf-yearbar { display: block; height: 3px; border-radius: 2px; background: var(--paper-2); margin-top: 3px; overflow: hidden; } .gf-yearbar > i { display: block; height: 100%; background: var(--mango); }
+.subtabs { display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--paper-2); }
+.subtabs button { flex: 1 1 0; min-width: 0; border: 0; background: transparent; padding: 7px 4px; border-radius: 7px; cursor: pointer; font: 700 13px var(--f-cond); letter-spacing: 0.02em; color: var(--ink-2); white-space: nowrap; }
+.subtabs button[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+.gf-sec { display: flex; flex-direction: column; gap: 8px; }
+.gf-sub { color: var(--ink-3); font-size: 12px; line-height: 1.4; grid-column: 1 / -1; }
+.gf-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; color: var(--ink-2); line-height: 1.45; } .gf-list b { color: var(--ink); }
+.gf-pet { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.gf-pet:last-child { border-bottom: 0; }
+.gf-pet .gv small { color: var(--ink-3); font-weight: 500; }
+.gf-pmeta { display: flex; align-items: center; gap: 6px; } .gf-pmeta small { flex: 1; color: var(--ink-3); font-size: 12px; }
+.odot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; flex: none; }
+.gf-card b { display: flex; align-items: center; gap: 2px; }
+.gf-card .btnrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+.gf-card .btnrow button { margin-top: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; } .chips span { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 99px; background: var(--paper-2); font-size: 12.5px; color: var(--ink-2); }
+.chips span.ok { background: color-mix(in srgb, var(--palm) 16%, var(--paper)); color: var(--palm); } .chips span.bad { background: color-mix(in srgb, var(--coral) 14%, var(--paper)); color: var(--coral); }
+.chips.sm span { font-size: 11.5px; padding: 2px 7px; }
+.oico { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 16px; flex: none; }
+.gf-grp, .gf-org { display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; border-radius: 11px; background: var(--paper); border: 1px solid var(--line); }
+.gf-gh { display: flex; align-items: center; gap: 10px; } .gf-gh > div { flex: 1; display: flex; flex-direction: column; min-width: 0; } .gf-gh small { color: var(--ink-3); font-size: 12px; }
+.gf-gh em { font-style: normal; font-weight: 700; font-family: var(--f-cond); font-size: 16px; }
+.gf-grp .bar { height: 8px; }
+.gf-rel { position: relative; height: 8px; border-radius: 4px; background: var(--paper-2); } .gf-rel i { position: absolute; top: 0; bottom: 0; border-radius: 4px; } .gf-rel b { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink-3); }
+.gf-split { height: 16px; margin-top: 6px; }
+.gf-otbl { display: flex; flex-direction: column; }
+.gf-ohead, .gf-orow { display: grid; grid-template-columns: minmax(0, 1fr) 46px 46px 70px; gap: 6px; align-items: center; }
+.gf-hint { color: var(--ink-2); font-size: 12.5px; line-height: 1.4; padding: 6px 8px; border-radius: 7px; background: var(--paper-2); }
+.gf-ohead span { font: 600 10.5px var(--f-cond); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); text-align: right; } .gf-ohead span:first-child { text-align: left; }
+.gf-orow { padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.gf-orow > span:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; min-width: 0; } .gf-orow > span:first-child small { flex-basis: 100%; color: var(--ink-3); font-size: 11.5px; padding-left: 15px; } .gf-orow .chips { flex-basis: 100%; padding-left: 15px; margin-top: 3px; }
+.gf-orow .num { text-align: right; font-weight: 600; } .gf-orow > span:last-child { display: flex; flex-direction: column; gap: 2px; align-items: flex-end; } .gf-orow .bar { width: 100%; height: 6px; }
+.gf-chart { width: 100%; height: auto; max-height: 130px; } .gf-chart text { font: 10px var(--f-ui); fill: var(--ink-3); } .gf-chart .ax { font-weight: 700; }
+.gf-laws { display: flex; flex-direction: column; gap: 6px; }
+.gf-law { display: flex; align-items: center; gap: 10px; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; }
+.gf-law > span { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; } .gf-law small { color: var(--ink-3); font-size: 12px; line-height: 1.35; }
+.gf-law em { font-style: normal; font-weight: 700; font-size: 13px; white-space: nowrap; color: var(--sea); }
+.gf-law:hover { background: var(--paper-2); }
+.gf-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.gf-opts button { min-width: 64px; padding: 8px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: 700 14px var(--f-ui); cursor: pointer; display: flex; flex-direction: column; align-items: center; }
+.gf-opts button small { font: 500 11px var(--f-ui); color: var(--ink-3); } .gf-opts button[aria-pressed="true"] { border-color: var(--sea); box-shadow: inset 0 0 0 2px var(--sea); background: var(--paper-2); }
+.gf-council { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; } .gf-council .g-seats { width: 190px; } .gf-council .g-seatn { fill: var(--ink-2); }
+.gf-legend { flex-direction: column; flex-wrap: nowrap; gap: 3px; flex: 1; min-width: 150px; }
+.gf-who .v { text-align: right; font-weight: 500; white-space: normal; color: var(--ink-2); font-size: 12.5px; } .gf-who .k { white-space: normal; color: var(--ink); font-weight: 600; }
+.gf-big { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.gf-big > div { padding: 8px 10px; border-radius: 10px; background: var(--paper-2); display: flex; flex-direction: column; } .gf-big small { color: var(--ink-3); font-size: 11.5px; } .gf-big b { font: 700 19px var(--f-cond); font-variant-numeric: tabular-nums; }
+.gf-scroll { overflow-x: auto; }
+.gf-btbl { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.gf-btbl th { text-align: right; font: 700 13px var(--f-cond); color: var(--ink-2); padding: 3px 4px; } .gf-btbl th small { display: block; font: 500 10px var(--f-ui); color: var(--ink-3); }
+.gf-btbl td { padding: 4px; border-bottom: 1px solid var(--line); color: var(--ink-2); } .gf-btbl td + td { text-align: right; white-space: nowrap; color: var(--ink); }
+.gf-btbl tr.h td { padding-top: 10px; font: 600 11px var(--f-cond); letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); border: 0; }
+.gf-btbl tr.t td { font-weight: 700; color: var(--ink); } .gf-btbl tr.r td { font-weight: 700; font-size: 15px; border: 0; color: var(--ink); }
+.gf-choices { display: flex; flex-direction: column; gap: 8px; }
+.gf-choice { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 11px 13px; border-radius: 11px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; }
+.gf-choice b { font-size: 15px; } .gf-choice small { color: var(--ink-2); line-height: 1.4; } .gf-choice:hover { border-color: var(--sea); background: var(--paper-2); }
+.gf-chron li { font-size: 13px; } .gf-chron small { color: var(--ink-3); }
+
 /* ---------- toasts, tooltip ---------- */
 #toasts { position: absolute; left: 16px; display: flex; flex-direction: column-reverse; gap: 8px; z-index: 6; max-width: min(380px, calc(100% - 32px)); pointer-events: none; }
 .toast { pointer-events: auto; border-radius: 12px; padding: 10px 14px; line-height: 1.4; animation: tin 0.25s ease-out; }
@@ -740,6 +802,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
     <button data-lens="coverage" aria-pressed="false"><span class="sw" style="background:#2a8fb0"></span>Services</button>
     <button data-lens="money" aria-pressed="false"><span class="sw" style="background:#e8a93a"></span>Money</button>
     <button data-lens="land" aria-pressed="false"><span class="sw" style="background:#8a6a3c"></span>Land</button>
+    <button data-lens="people" aria-pressed="false" hidden><span class="sw" style="background:linear-gradient(90deg,#2a6fb0,#e39a2a,#3f8f4a,#8c4a9c)"></span>People</button>
     <div class="los-legend" id="losLegend" hidden title="Level of service: volume over capacity"></div>
     <div class="land-legend" id="landLegend" hidden></div>
   </div>
@@ -1063,7 +1126,10 @@ const BLD = {
   hotel: { name: "Hotel", era: 3, w: 2, h: 2, cost: 700, upkeep: 8, jobs: 12, kind: "commerce", income: 1.1, beachy: true, rooms: 40, desc: "Tourism income, 50% more next to a beach. Guests flown in by an airport can more than double it." },
   tower: { name: "Tower", era: 4, w: 2, h: 2, cost: 1400, upkeep: 10, housing: 64, quality: 34, kind: "home", desc: "High-rise living for 64." },
   university: { name: "University", era: 4, w: 3, h: 2, cost: 2600, upkeep: 20, jobs: 16, kind: "service", service: "uni", radius: 14, edu: 2, desc: "Graduates for skilled jobs. Adults within 14 tiles slowly earn degrees. Its staff need degrees themselves." },
-  office: { name: "Offices", era: 4, w: 2, h: 2, cost: 1500, upkeep: 14, jobs: 40, kind: "commerce", income: 1.1, edu: 1, desc: "Service economy: 40 jobs and no trucks." }
+  office: { name: "Offices", era: 4, w: 2, h: 2, cost: 1500, upkeep: 14, jobs: 40, kind: "commerce", income: 1.1, edu: 1, desc: "Service economy: 40 jobs and no trucks." },
+  chapel: { name: "Chapel", era: 1, w: 1, h: 1, cost: 160, upkeep: 0.6, jobs: 0, kind: "service", service: "chapel", radius: 8, desc: "A house of worship for a faith other than the Catholic one: a Protestant chapel, a synagogue or a Chinese temple. The congregation runs it; pick which one in Info." },
+  hall: { name: "Society Hall", era: 1, w: 2, h: 1, cost: 340, upkeep: 1, jobs: 0, kind: "service", service: "club", radius: 10, desc: "The clubhouse of a newcomers’ mutual-aid society: dances, a library, a doctor when someone falls ill. Its members within 10 tiles feel at home. Pick the society in Info." },
+  ballpark: { name: "Ballpark", era: 2, w: 3, h: 3, cost: 700, upkeep: 3, jobs: 4, kind: "service", service: "sport", radius: 12, income: 0.3, desc: "Baseball on Sunday afternoons, with stands for the whole island. Homes within 12 tiles are happier, and tickets bring in a little." }
 };
 const HARBOR_LV = [
   null,
@@ -1141,7 +1207,6 @@ const TOOLS = [
   { id: "pastel", group: "Commerce", bld: "pastel" },
   { id: "market", group: "Services", bld: "market" },
   { id: "cafe", group: "Services", bld: "cafe" },
-  { id: "church", group: "Services", bld: "church" },
   { id: "townhall", group: "Services", bld: "townhall" },
   { id: "press", group: "Services", bld: "press" },
   { id: "radio", group: "Services", bld: "radio" },
@@ -1151,6 +1216,10 @@ const TOOLS = [
   { id: "school", group: "Services", bld: "school" },
   { id: "cinema", group: "Services", bld: "cinema" },
   { id: "university", group: "Services", bld: "university" },
+  { id: "church", group: "Community", bld: "church" },
+  { id: "chapel", group: "Community", bld: "chapel" },
+  { id: "hall", group: "Community", bld: "hall" },
+  { id: "ballpark", group: "Community", bld: "ballpark" },
   { id: "pier", group: "Port & air", bld: "pier" },
   { id: "terminal", group: "Port & air", bld: "terminal" },
   { id: "garage", group: "Industry", bld: "garage" },
@@ -1539,6 +1608,9 @@ function checkBuilding(G2, type, x, y) {
   if (G2.gov && typeof govLocked === "function") {
     const why = govLocked(G2, type);
     if (why) return { ok: false, reason: why };
+  }
+  if (G2.gov && G2.gov.req && G2.gov.req.length) {
+    for (const r of G2.gov.req) if (x < r.x + r.w && x + d.w > r.x && y < r.y + r.h && y + d.h > r.y) return { ok: false, reason: "Reserved for a family’s building plan" };
   }
   let cost = d.cost, sand = 0;
   for (let dy = 0; dy < d.h; dy++) for (let dx = 0; dx < d.w; dx++) {
@@ -1962,7 +2034,7 @@ function recomputeServices(G2) {
   }
   const airports = [...G2.blds.values()].filter((b) => BLD[b.type].airNoise);
   for (const h of homes) {
-    h.svc = { market: 0, health: 0, school: 0, park: 0, faith: 0, fun: 0, coffee: 0, luxury: 0, booze: 0, uni: 0 };
+    h.svc = { market: 0, health: 0, school: 0, park: 0, faith: 0, fun: 0, coffee: 0, luxury: 0, booze: 0, uni: 0, chapel: 0, club: 0, sport: 0 };
     h.noise = 0;
     h.airNoise = 0;
     h.smoke = 0;
@@ -1982,6 +2054,7 @@ function recomputeServices(G2) {
       h.noise += 14;
     }
   }
+  if (typeof civServices === "function") civServices(G2, homes, svcs);
 }
 const _pf = { g: new Float64Array(MAP_N), came: new Int32Array(MAP_N), seen: new Int32Array(MAP_N), closed: new Int32Array(MAP_N), stamp: 0, heap: new MinHeap() };
 function capOf(G2, i) {
@@ -2944,7 +3017,9 @@ function shipSize(G2) {
 function updateShips(G2, dt) {
   if (!G2.noShips && G2.t >= G2.nextShip) {
     const pax = shipSize(G2);
-    G2.ships.push({ x: G2.berth.x, y: MAP_H + 4, phase: "in", pax, wait: 0, steam: G2.era >= 3 });
+    const ship = { x: G2.berth.x, y: MAP_H + 4, phase: "in", pax, wait: 0, steam: G2.era >= 3 };
+    if (typeof civShip === "function") civShip(G2, ship);
+    G2.ships.push(ship);
     G2.nextShip = G2.t + shipInterval(G2);
     G2.shipIncoming = true;
   }
@@ -3005,6 +3080,7 @@ function disembark(G2, ship) {
     }
     const c = makeCitizen(G2, best.id);
     best.res.push(c.id);
+    if (typeof civNewcomer === "function") civNewcomer(G2, c, ship);
     const path = findPath(G2, dock.ent, best.ent);
     if (path) {
       c.state = "travel";
@@ -3016,6 +3092,7 @@ function disembark(G2, ship) {
   ship.landed = landed;
   G2.dayAcc.arrivals += landed;
   G2.dayAcc.turned += turned;
+  if (typeof civLanded === "function") civLanded(G2, ship, landed, turned);
   if (landed) log(G2, "".concat(landed, " settler").concat(landed > 1 ? "s" : "", " landed at the harbor."), "good");
   if (turned) log(G2, "".concat(turned, " settler").concat(turned > 1 ? "s" : "", " found no home and sailed on."), "bad");
   G2.needJobs = true;
@@ -3087,7 +3164,7 @@ function computeHappy(G2, c) {
   let v = 45 + d.quality * 0.4;
   v += c.job != null ? 10 : -12;
   if (c.commuteAvg != null) v -= clamp((c.commuteAvg - 25) * 0.45, 0, 25);
-  v += s.market * 7 + s.health * 7 + s.school * 6 + s.park * 5 + (s.faith || 0) * 4 + (s.fun || 0) * 5 + (s.coffee || 0) * 3;
+  v += s.market * 7 + s.health * 7 + s.school * 6 + s.park * 5 + (typeof civFaithOK === "function" ? civFaithOK(G2, c, h) : s.faith || 0) * 4 + (s.fun || 0) * 5 + (s.coffee || 0) * 3 + (s.sport || 0) * 4;
   if (c.booba && typeof boobaExtras === "function") for (const [, x] of boobaExtras(G2, c)) v += x;
   if (!G2.classic) {
     if (G2.pw && G2.pw.active && G2.pw.avg < 0.95) v -= Math.round((1 - G2.pw.avg) * 10);
@@ -3127,7 +3204,8 @@ function happinessBreakdown(G2, c) {
   if (s.school) out.push(["School nearby", 6]);
   else if (G2.era >= 4) out.push(["No school", -4]);
   if (s.park) out.push(["Park nearby", 5]);
-  if (s.faith) out.push(["Church nearby", 4]);
+  if (typeof civFaithOK === "function" ? civFaithOK(G2, c, h) : s.faith) out.push([typeof civFaithLabel === "function" ? civFaithLabel(G2, c) : "Church nearby", 4]);
+  if (s.sport) out.push(["Ballpark nearby", 4]);
   if (s.fun) out.push(["Cinema nearby", 5]);
   if (s.coffee) out.push(["Café nearby", 3]);
   if (!G2.classic) {
@@ -5144,7 +5222,7 @@ function boobaLog(G2, text, tone = "", year) {
 }
 const pick = (arr, r) => arr[Math.floor(r() * arr.length) % arr.length];
 function boobaHour(G2, hour) {
-  if (G2.challenge || G2.drive) return;
+  if (G2.challenge || G2.drive || G2.gov && G2.story && G2.story.open) return;
   const y = gameYear(G2);
   if (!G2.booba) {
     if (G2.era >= 4 && y >= BOOBA_BORN) boobaBirth(G2);
@@ -6267,6 +6345,165 @@ function drawBld(c, type, x, y, w, h, color, opt = {}) {
       c.fillStyle = "#7a4e2a";
       c.fillRect(bx + bw * 0.47, by + bh * 0.04, bw * 0.06, bh * 0.22);
       c.fillRect(bx + bw * 0.4, by + bh * 0.1, bw * 0.2, bh * 0.05);
+      break;
+    }
+    case "chapel": {
+      const bx = x + pad, by = y + pad, bw = w - pad * 2, bh = h - pad * 2;
+      const v = opt.v || "prot";
+      if (v === "jew") {
+        sh(s * 0.12, s * 0.14, bx + bw * 0.1, by + bh * 0.1, bw * 0.8, bh * 0.85, s * 0.05);
+        c.fillStyle = "#eadfc6";
+        c.fillRect(bx + bw * 0.1, by + bh * 0.1, bw * 0.8, bh * 0.85);
+        c.fillStyle = "#d8c9a6";
+        c.fillRect(bx + bw * 0.1, by + bh * 0.82, bw * 0.8, bh * 0.13);
+        c.fillStyle = "#5b86a8";
+        c.beginPath();
+        c.arc(bx + bw * 0.5, by + bh * 0.45, bw * 0.26, 0, 7);
+        c.fill();
+        c.fillStyle = "#7fa8c8";
+        c.beginPath();
+        c.arc(bx + bw * 0.44, by + bh * 0.39, bw * 0.1, 0, 7);
+        c.fill();
+        c.strokeStyle = "#e8c35a";
+        c.lineWidth = Math.max(0.8, s * 0.035);
+        const cx = bx + bw * 0.5, cy = by + bh * 0.45, r = bw * 0.12;
+        for (const a0 of [-Math.PI / 2, Math.PI / 2]) {
+          c.beginPath();
+          for (let k = 0; k < 3; k++) {
+            const a = a0 + k * Math.PI * 2 / 3;
+            c[k ? "lineTo" : "moveTo"](cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+          }
+          c.closePath();
+          c.stroke();
+        }
+        c.fillStyle = "#6b4a2a";
+        for (let k = 0; k < 3; k++) c.fillRect(bx + bw * (0.25 + k * 0.2), by + bh * 0.86, bw * 0.08, bh * 0.08);
+      } else if (v === "folk") {
+        sh(s * 0.12, s * 0.14, bx, by + bh * 0.1, bw, bh * 0.85, s * 0.04);
+        c.fillStyle = "#b8322a";
+        c.fillRect(bx + bw * 0.08, by + bh * 0.18, bw * 0.84, bh * 0.75);
+        c.fillStyle = "#2e7d4f";
+        c.fillRect(bx, by + bh * 0.1, bw, bh * 0.62);
+        c.fillStyle = "#256b42";
+        for (let k = 1; k < 6; k++) c.fillRect(bx, by + bh * 0.1 + k * bh * 0.1, bw, bh * 0.02);
+        c.fillStyle = "#e8b93a";
+        c.fillRect(bx + bw * 0.08, by + bh * 0.39, bw * 0.84, bh * 0.04);
+        for (const [a, b2] of [[0, 0.1], [1, 0.1], [0, 0.72], [1, 0.72]]) {
+          c.beginPath();
+          c.arc(bx + bw * a, by + bh * b2, s * 0.07, 0, 7);
+          c.fill();
+        }
+        c.fillStyle = "#e8584a";
+        for (const a of [0.3, 0.7]) {
+          c.beginPath();
+          c.arc(bx + bw * a, by + bh * 0.84, s * 0.07, 0, 7);
+          c.fill();
+        }
+        c.fillStyle = "#f2c14e";
+        c.fillRect(bx + bw * 0.44, by + bh * 0.76, bw * 0.12, bh * 0.17);
+      } else {
+        sh(s * 0.12, s * 0.14, bx + bw * 0.18, by, bw * 0.64, bh, s * 0.04);
+        c.fillStyle = "#f7f4ec";
+        c.fillRect(bx + bw * 0.18, by + bh * 0.22, bw * 0.64, bh * 0.78);
+        c.fillStyle = "#7d8a92";
+        c.fillRect(bx + bw * 0.14, by + bh * 0.34, bw * 0.36, bh * 0.62);
+        c.fillStyle = "#95a2aa";
+        c.fillRect(bx + bw * 0.5, by + bh * 0.34, bw * 0.36, bh * 0.62);
+        c.fillStyle = "#f7f4ec";
+        c.fillRect(bx + bw * 0.34, by + bh * 0.02, bw * 0.32, bh * 0.34);
+        c.fillStyle = "#5f7a6e";
+        c.beginPath();
+        c.moveTo(bx + bw * 0.5, by - bh * 0.02);
+        c.lineTo(bx + bw * 0.66, by + bh * 0.2);
+        c.lineTo(bx + bw * 0.34, by + bh * 0.2);
+        c.closePath();
+        c.fill();
+        c.fillStyle = "#3b3f45";
+        c.fillRect(bx + bw * 0.485, by + bh * 0.22, bw * 0.03, bh * 0.12);
+        c.fillRect(bx + bw * 0.45, by + bh * 0.25, bw * 0.1, bh * 0.03);
+      }
+      break;
+    }
+    case "hall": {
+      const bx = x + pad * 0.6, by = y + pad, bw = w - pad * 1.2, bh = h - pad * 2;
+      const col = typeof ORIGINS !== "undefined" && ORIGINS[opt.v] ? ORIGINS[opt.v].col : color;
+      sh(s * 0.14, s * 0.16, bx, by, bw, bh, s * 0.05);
+      c.fillStyle = "#f3ead6";
+      c.fillRect(bx, by, bw, bh);
+      c.fillStyle = "#b5523b";
+      c.fillRect(bx + bw * 0.03, by + bh * 0.06, bw * 0.94, bh * 0.56);
+      c.fillStyle = "#9c4430";
+      c.fillRect(bx + bw * 0.03, by + bh * 0.32, bw * 0.94, bh * 0.04);
+      c.fillStyle = "#f7f2e6";
+      c.beginPath();
+      c.moveTo(bx + bw * 0.36, by + bh * 0.62);
+      c.lineTo(bx + bw * 0.5, by + bh * 0.4);
+      c.lineTo(bx + bw * 0.64, by + bh * 0.62);
+      c.closePath();
+      c.fill();
+      c.fillStyle = col;
+      c.fillRect(bx, by + bh * 0.62, bw, bh * 0.1);
+      c.fillStyle = "#fff";
+      for (let k = 0; k < 6; k++) c.fillRect(bx + bw * (0.06 + k * 0.16), by + bh * 0.74, bw * 0.03, bh * 0.22);
+      c.fillStyle = "#4a3222";
+      for (const a of [0.2, 0.5, 0.8]) c.fillRect(bx + bw * a - bw * 0.035, by + bh * 0.78, bw * 0.07, bh * 0.2);
+      c.fillStyle = "#555";
+      c.fillRect(bx + bw * 0.93, by - bh * 0.3, s * 0.035, bh * 0.5);
+      c.fillStyle = col;
+      c.fillRect(bx + bw * 0.93 + s * 0.035, by - bh * 0.3, bw * 0.12, bh * 0.2);
+      c.fillStyle = "rgba(255,255,255,0.55)";
+      c.fillRect(bx + bw * 0.93 + s * 0.035, by - bh * 0.23, bw * 0.12, bh * 0.05);
+      break;
+    }
+    case "ballpark": {
+      c.fillStyle = "#4f9a45";
+      c.fillRect(x + s * 0.05, y + s * 0.05, w - s * 0.1, h - s * 0.1);
+      c.fillStyle = "rgba(255,255,255,0.08)";
+      for (let k = 0; k < 6; k++) if (k % 2) c.fillRect(x + s * 0.05, y + s * 0.05 + k * (h - s * 0.1) / 6, w - s * 0.1, (h - s * 0.1) / 6);
+      const hx = x + w * 0.5, hy = y + h * 0.8, R = w * 0.3;
+      c.fillStyle = "#c8955a";
+      c.beginPath();
+      c.moveTo(hx, hy + R * 0.12);
+      c.lineTo(hx + R * 0.75, hy - R * 0.62);
+      c.lineTo(hx, hy - R * 1.35);
+      c.lineTo(hx - R * 0.75, hy - R * 0.62);
+      c.closePath();
+      c.fill();
+      c.fillStyle = "#4f9a45";
+      c.beginPath();
+      c.moveTo(hx, hy - R * 0.2);
+      c.lineTo(hx + R * 0.5, hy - R * 0.66);
+      c.lineTo(hx, hy - R * 1.12);
+      c.lineTo(hx - R * 0.5, hy - R * 0.66);
+      c.closePath();
+      c.fill();
+      c.strokeStyle = "#f7f4ec";
+      c.lineWidth = Math.max(0.8, s * 0.03);
+      c.beginPath();
+      c.moveTo(hx, hy);
+      c.lineTo(x + w * 0.96, y + h * 0.1);
+      c.moveTo(hx, hy);
+      c.lineTo(x + w * 0.04, y + h * 0.1);
+      c.stroke();
+      c.fillStyle = "#fff";
+      for (const [dx, dy] of [[0, 0], [0.6, -0.66], [0, -1.26], [-0.6, -0.66]]) c.fillRect(hx + dx * R - s * 0.04, hy + dy * R - s * 0.04, s * 0.08, s * 0.08);
+      c.fillStyle = "#c8955a";
+      c.beginPath();
+      c.arc(hx, hy - R * 0.66, s * 0.09, 0, 7);
+      c.fill();
+      c.fillStyle = "rgba(10,30,30,0.25)";
+      c.fillRect(x + s * 0.2, y + h - s * 0.4, w - s * 0.3, s * 0.35);
+      c.fillStyle = "#9aa3a8";
+      c.fillRect(x + s * 0.12, y + h - s * 0.45, w - s * 0.24, s * 0.35);
+      c.fillRect(x + s * 0.12, y + h * 0.45, s * 0.3, h * 0.5);
+      c.fillStyle = "#c0392b";
+      for (let k = 0; k < 14; k++) c.fillRect(x + s * (0.2 + k * 0.19), y + h - s * 0.38, s * 0.1, s * 0.08);
+      c.fillStyle = "#2a6fb0";
+      for (let k = 0; k < 14; k++) c.fillRect(x + s * (0.2 + k * 0.19), y + h - s * 0.22, s * 0.1, s * 0.08);
+      c.fillStyle = "#2b3a33";
+      c.fillRect(x + w * 0.38, y + s * 0.1, w * 0.24, s * 0.22);
+      c.fillStyle = "#f2c14e";
+      for (let k = 0; k < 5; k++) c.fillRect(x + w * (0.4 + k * 0.042), y + s * 0.16, s * 0.05, s * 0.05);
       break;
     }
     case "distillery": {
@@ -7852,11 +8089,11 @@ function drawBuildings(c, G2, UI2, x0, y0, x1, y1, night) {
       c.translate(cx, cy);
       c.scale(Math.max(0.05, s), Math.max(0.05, s));
       c.translate(-cx, -cy);
-      drawBld(c, b.type, b.x * TILE, b.y * TILE, b.w * TILE, b.h * TILE, b.color, { ripe: b.stock > 12, lv: b.lv, crop: b.crop, t: View.time, launched: b.launched });
+      drawBld(c, b.type, b.x * TILE, b.y * TILE, b.w * TILE, b.h * TILE, b.color, { ripe: b.stock > 12, lv: b.lv, crop: b.crop, t: View.time, launched: b.launched, v: b.v });
       c.restore();
       continue;
     }
-    drawBld(c, b.type, b.x * TILE, b.y * TILE, b.w * TILE, b.h * TILE, b.color, { ripe: b.stock > 12, lv: b.lv, crop: b.crop, t: View.time, launched: b.launched });
+    drawBld(c, b.type, b.x * TILE, b.y * TILE, b.w * TILE, b.h * TILE, b.color, { ripe: b.stock > 12, lv: b.lv, crop: b.crop, t: View.time, launched: b.launched, v: b.v });
     if (fy >= 2033 && (b.type === "apartment" || b.type === "tower" || b.type === "office" || b.type === "hotel")) drawFutureRoof(c, b, fy);
     if ((b.type === "factory" || b.type === "distillery" || b.type === "cannery") && b.present > 0 && !UI2.reducedMotion) {
       for (let k = 0; k < 3; k++) {
@@ -8234,6 +8471,7 @@ function boobaWhere(G2) {
   return b ? { x: (b.x + b.w / 2) * TILE, y: b.y * TILE } : null;
 }
 function drawBoobaPin(c, G2) {
+  if (G2.gov && G2.story && G2.story.open) return;
   const p = boobaWhere(G2);
   if (!p) return;
   const z = View.cam.z;
@@ -8305,7 +8543,7 @@ function drawOverlays(c, G2, UI2, x0, y0, x1, y1) {
     }
   }
   if (UI2.lens === "coverage" || UI2.tool && BLD[UI2.tool] && BLD[UI2.tool].service) {
-    const cols = { market: "232,169,58", health: "217,72,59", school: "42,143,176", park: "63,143,74", faith: "240,234,216", fun: "138,90,156", coffee: "146,98,60", luxury: "212,175,55", booze: "224,122,58", uni: "138,58,46" };
+    const cols = { market: "232,169,58", health: "217,72,59", school: "42,143,176", park: "63,143,74", faith: "240,234,216", fun: "138,90,156", coffee: "146,98,60", luxury: "212,175,55", booze: "224,122,58", uni: "138,58,46", chapel: "200,210,235", club: "120,90,200", sport: "70,170,90" };
     for (const b of G2.blds.values()) {
       const d = BLD[b.type];
       if (!d.service) continue;
@@ -8346,6 +8584,7 @@ function drawOverlays(c, G2, UI2, x0, y0, x1, y1) {
   drawBoobaPin(c, G2);
   if (typeof drawSickHomes === "function") drawSickHomes(c, G2);
   if (typeof drawStory === "function") drawStory(c, G2);
+  if (typeof govFullDraw === "function") govFullDraw(c, G2);
   if (UI2.selVeh) {
     const m = View.moverByKey && View.moverByKey.get(UI2.selVeh);
     if (m && m.vis) drawSelectedVehicle(c, G2, m);
@@ -11358,7 +11597,10 @@ const H3 = {
   carpentry: 0.5,
   boutique: 0.45,
   cantina: 0.3,
-  university: 0.8
+  university: 0.8,
+  chapel: 0.9,
+  hall: 0.6,
+  ballpark: 0.35
 };
 function winGrid(W, x0, z0, x1, z1, y0, y1, floorH, face) {
   const put = (ax, az, bx, bz, nx, nz) => {
@@ -11964,6 +12206,65 @@ function modelBuilding(K, W, b, G2) {
       K.box(X + 8.4, y, Z + 1.6, X + 9.7, y + 0.35, Z + 2.8, "#b9bec2");
       K.gable(X + 8.35, Z + 1.55, X + 9.75, Z + 2.85, y + 0.35, 0.18, "#8a9096", false, "#b9bec2");
       winGrid(W, X + 0.3, Z + 1.55, X + 3.7, Z + 2.75, y + 0.02, y + 0.33, 0.3, "ns");
+      break;
+    }
+    case "chapel": {
+      const v = b.v || "prot";
+      if (v === "jew") {
+        K.box(X + 0.14, y, Z + 0.14, X + 0.86, y + 0.42, Z + 0.86, "#eadfc6");
+        K.box(X + 0.12, y + 0.42, Z + 0.12, X + 0.88, y + 0.46, Z + 0.88, "#d8c9a6");
+        K.cyl(X + 0.5, Z + 0.5, y + 0.46, y + 0.56, 0.24, 16, "#d8c9a6");
+        K.cyl(X + 0.5, Z + 0.5, y + 0.56, y + 0.74, 0.24, 16, "#5b86a8", true, 0.04);
+        K.box(X + 0.49, y + 0.74, Z + 0.49, X + 0.51, y + 0.86, Z + 0.51, "#e8c35a");
+        for (const k of [0.3, 0.5, 0.7]) K.box(X + k - 0.05, y, Z + 0.86, X + k + 0.05, y + 0.26, Z + 0.87, "#6b4a2a");
+        winGrid(W, X + 0.14, Z + 0.14, X + 0.86, Z + 0.86, y + 0.1, y + 0.42, 0.3, "ew");
+      } else if (v === "folk") {
+        K.box(X + 0.18, y, Z + 0.22, X + 0.82, y + 0.3, Z + 0.84, "#b8322a");
+        K.hip(X + 0.06, Z + 0.1, X + 0.94, Z + 0.96, y + 0.3, 0.16, "#2e7d4f");
+        K.box(X + 0.3, y + 0.46, Z + 0.35, X + 0.7, y + 0.52, Z + 0.7, "#b8322a");
+        K.hip(X + 0.22, Z + 0.28, X + 0.78, Z + 0.78, y + 0.52, 0.12, "#2e7d4f");
+        for (const k of [0.28, 0.72]) {
+          K.cyl(X + k, Z + 0.9, y + 0.16, y + 0.24, 0.035, 8, "#e8584a");
+        }
+        K.box(X + 0.44, y, Z + 0.84, X + 0.56, y + 0.2, Z + 0.85, "#f2c14e");
+      } else {
+        K.box(X + 0.22, y, Z + 0.3, X + 0.78, y + 0.3, Z + 0.95, "#f7f4ec");
+        K.gable(X + 0.19, Z + 0.28, X + 0.81, Z + 0.97, y + 0.3, 0.2, "#7d8a92", false, "#f7f4ec");
+        K.box(X + 0.38, y, Z + 0.1, X + 0.62, y + 0.62, Z + 0.34, "#f7f4ec");
+        K.cone(X + 0.5, Z + 0.22, y + 0.62, y + 0.9, 0.15, 4, "#5f7a6e");
+        K.box(X + 0.49, y + 0.9, Z + 0.21, X + 0.51, y + 0.98, Z + 0.23, "#3b3f45");
+        K.box(X + 0.46, y + 0.94, Z + 0.21, X + 0.54, y + 0.955, Z + 0.23, "#3b3f45");
+        winGrid(W, X + 0.22, Z + 0.3, X + 0.78, Z + 0.95, y + 0.05, y + 0.3, 0.3, "ew");
+      }
+      break;
+    }
+    case "hall": {
+      const col = typeof ORIGINS !== "undefined" && ORIGINS[b.v] ? ORIGINS[b.v].col : "#b4561a";
+      K.box(X + 0.1, y, Z + 0.15, X + 1.9, y + 0.52, Z + 0.85, "#f3ead6");
+      K.hip(X + 0.06, Z + 0.11, X + 1.94, Z + 0.89, y + 0.52, 0.14, "#b5523b");
+      K.box(X + 0.08, y + 0.24, Z + 0.85, X + 1.92, y + 0.28, Z + 1, col);
+      for (let k = 0; k < 7; k++) K.cyl(X + 0.2 + k * 0.265, Z + 0.95, y, y + 0.24, 0.022, 6, "#ffffff");
+      K.box(X + 0.75, y + 0.52, Z + 0.84, X + 1.25, y + 0.62, Z + 0.86, "#f7f2e6");
+      winGrid(W, X + 0.1, Z + 0.15, X + 1.9, Z + 0.85, y + 0.02, y + 0.52, 0.26, "ns");
+      K.box(X + 1.86, y, Z + 0.92, X + 1.88, y + 0.9, Z + 0.94, "#555");
+      K.box(X + 1.88, y + 0.72, Z + 0.92, X + 2.12, y + 0.86, Z + 0.94, col);
+      break;
+    }
+    case "ballpark": {
+      K.box(X + 0.05, y, Z + 0.05, X + 2.95, y + 0.01, Z + 2.95, "#4f9a45");
+      const hx = X + 1.5, hz = Z + 2.4;
+      K.quad([hx, y + 0.012, hz + 0.1], [hx + 0.68, y + 0.012, hz - 0.58], [hx, y + 0.012, hz - 1.3], [hx - 0.68, y + 0.012, hz - 0.58], rgbF("#c8955a"), [hx, y - 1, hz - 0.6]);
+      K.quad([hx, y + 0.014, hz - 0.2], [hx + 0.46, y + 0.014, hz - 0.62], [hx, y + 0.014, hz - 1.08], [hx - 0.46, y + 0.014, hz - 0.62], rgbF("#4f9a45"), [hx, y - 1, hz - 0.6]);
+      for (const [dx, dz] of [[0, 0], [0.56, -0.6], [0, -1.18], [-0.56, -0.6]]) K.box(hx + dx - 0.035, y + 0.012, hz + dz - 0.035, hx + dx + 0.035, y + 0.03, hz + dz + 0.035, "#ffffff");
+      for (let r2 = 0; r2 < 4; r2++) {
+        K.box(X + 0.15, y, Z + 2.55 + r2 * 0.09, X + 2.85, y + 0.06 + r2 * 0.07, Z + 2.64 + r2 * 0.09, r2 % 2 ? "#c0392b" : "#2a6fb0");
+        K.box(X + 0.08 + r2 * 0.09, y, Z + 1.3, X + 0.17 + r2 * 0.09, y + 0.06 + r2 * 0.07, Z + 2.5, r2 % 2 ? "#c0392b" : "#2a6fb0");
+      }
+      K.box(X + 1.2, y, Z + 0.1, X + 1.8, y + 0.35, Z + 0.16, "#2b3a33");
+      for (const px of [0.2, 2.8]) for (const pz of [0.2, 2.8]) {
+        K.box(X + px - 0.02, y, Z + pz - 0.02, X + px + 0.02, y + 0.8, Z + pz + 0.02, "#8a9096");
+        K.box(X + px - 0.08, y + 0.8, Z + pz - 0.03, X + px + 0.08, y + 0.86, Z + pz + 0.03, "#fff3c4");
+      }
       break;
     }
     default: {
@@ -18067,7 +18368,7 @@ function stAnchor(G2, near) {
   }
   return { x: d.x + d.w / 2, y: d.y - 2 };
 }
-function stSpots(G2, type, near, n = 3) {
+function stSpots(G2, type, near, n = 3, front = false) {
   if (G2.netDirty) recomputeNetwork(G2);
   const D = netField(G2);
   const d = BLD[type];
@@ -18110,6 +18411,10 @@ function stSpots(G2, type, near, n = 3) {
       if (G2.dockId && Math.abs(G2.blds.get(G2.dockId).x - x) + Math.abs(G2.blds.get(G2.dockId).y - y) < 3) s -= 3;
     }
     cand.push({ x, y, s, rd, f: fa });
+  }
+  if (front !== false) {
+    const fl = front === true ? 0 : front;
+    for (let k = cand.length - 1; k >= 0; k--) if (cand[k].rd > fl) cand.splice(k, 1);
   }
   const lim = d.fertile ? 12 : 7;
   if (cand.some((c) => c.rd <= lim)) {
@@ -19687,6 +19992,19 @@ function stAwayText(a) {
   return [st("awayA", { h: a.h }), a.v > 0 ? st("awayB", { v: fmtMoney(a.v) }) : "", a.m > 0 ? st("awayC", { m: fmtMoney(a.m) }) : "", st("awayD")].filter(Boolean).join(" ");
 }
 function stShow() {
+  if (G.story.open && G.gov && typeof govEnterFull === "function") {
+    if (typeof closeModal === "function" && !$("#modal").hidden) closeModal();
+    showTip && showTip(null);
+    $("#title").hidden = true;
+    if (!Music.ready) Music.init();
+    govEnterFull(G, false);
+    if (ST.away) {
+      const a = ST.away;
+      ST.away = null;
+      toast({ title: "While you were away", body: stAwayText(a), tone: "report", timeout: 9e3 });
+    }
+    return;
+  }
   if (G.story.open) {
     G.noShips = false;
     G.noMoves = false;
@@ -22950,7 +23268,7 @@ const ownerGroup = (t) => GROUP_OF[t] === "farm" ? "farm" : GROUP_OF[t] === "fis
 const PUB_T = /* @__PURE__ */ new Set(["dock", "townhall", "school", "clinic", "hospital", "university", "park", "pier", "terminal", "airport", "coalplant", "gasplant", "windmill", "solar", "nuclear", "fusion", "seawall", "maglev", "spaceport"]);
 const isPub = (b) => b.pub != null ? !!b.pub : PUB_T.has(b.type);
 const isEnterprise = (d) => d.kind === "goods" || d.kind === "retail" || d.kind === "commerce" || d.kind === "service" && !!d.income;
-const YEAR_MIN = { airport: 1935, terminal: 1965, nuclear: 1965, windmill: 1978, solar: 1985, office: 1950, tower: 1950, pastel: 1990, seawall: 1990, vfarm: 2025, floathome: 2030, fusion: 2035, maglev: 2030, spaceport: 2040, road5: 1930 };
+const YEAR_MIN = { airport: 1935, terminal: 1965, nuclear: 1965, windmill: 1978, solar: 1985, office: 1950, tower: 1950, pastel: 1990, seawall: 1990, vfarm: 2025, floathome: 2030, fusion: 2035, maglev: 2030, spaceport: 2040, road5: 1930, ballpark: 1915 };
 const FUTURE_T = /* @__PURE__ */ new Set(["vfarm", "floathome", "fusion", "maglev", "spaceport"]);
 const HIDE_T = /* @__PURE__ */ new Set(["garage", "dock", "pastel"]);
 const STAGES = {
@@ -23078,11 +23396,17 @@ function govStart(G2) {
   govLogAdd(G2, { k: "found", y: GOV_Y0 });
   recomputeServices(G2);
   assignJobs(G2);
+  if (typeof civInit === "function") civInit(G2);
 }
 function govOwnInit(G2, b) {
   const d = BLD[b.type];
   if (b.type === "church") {
     b.own = "parish";
+    b.pub = false;
+    return;
+  }
+  if (b.type === "chapel" || b.type === "hall") {
+    b.own = "org";
     b.pub = false;
     return;
   }
@@ -23124,7 +23448,7 @@ function govEarn(G2, b, v) {
     D.pubSales += v;
     return v;
   }
-  if (b.own === "parish") return 0;
+  if (b.own === "parish" || b.own === "org") return 0;
   const tax = v * V.laws.biz / 100;
   const L = led(b);
   L.tax = (L.tax || 0) + tax;
@@ -23179,6 +23503,7 @@ function govOutput(G2, b) {
   let m = { 12: 1, 10: 0.95, 8: 0.9 }[G2.gov.laws.hours] || 1;
   if (isPub(b) && d.kind === "goods") m *= 0.92;
   if (G2.gov.laws.tariff && d.fertile) m *= 1.08;
+  if (typeof civOutput === "function") m *= civOutput(G2, b);
   return m;
 }
 function govEndOfDay(G2, rec) {
@@ -23191,13 +23516,13 @@ function govEndOfDay(G2, rec) {
     wagesAll += w;
     const rent = d.kind === "home" ? b.res.length * RENT[era] : 0;
     if (pub) {
-      if (isEnterprise(d)) wagesPub += w;
+      wagesPub += w;
       upPub += d.upkeep;
       rentPub += rent;
       b.pnl = null;
       continue;
     }
-    if (b.own === "parish") {
+    if (b.own === "parish" || b.own === "org") {
       b.pnl = null;
       continue;
     }
@@ -23214,12 +23539,13 @@ function govEndOfDay(G2, rec) {
   const pop = G2.cits.size, unemp = Math.max(0, pop - employed);
   const incTax = wagesAll * L.inc / 100;
   const social = (L.dole ? unemp * WAGE[era] * 0.5 : 0) + (L.health === "free" ? pop * 0.05 * era : 0) + (L.school === "free" ? pop * 0.04 * era : 0);
+  const admin = pop * 0.16 * eraK;
   const interest = V.debt * govRate(G2) / GOV_DAYS;
   const grant = govGrant(G2);
   const cb = rec.commerceBy || {}, ib = rec.importsBy || {};
   const util = (rec.fares || 0) + (cb.power || 0) + (cb.airport || 0);
   const pubImports = Math.max(0, (rec.imports || 0) - D.privImports);
-  G2.money += incTax + rentPub + grant - wagesPub - upPub - roads - social - interest;
+  G2.money += incTax + rentPub + grant - wagesPub - upPub - roads - social - interest - admin;
   Object.assign(A, {
     days: A.days + 1,
     incTax: A.incTax + incTax,
@@ -23227,7 +23553,7 @@ function govEndOfDay(G2, rec) {
     grant: A.grant + grant,
     util: A.util + util,
     wagesPub: A.wagesPub + wagesPub,
-    upkeep: A.upkeep + upPub,
+    upkeep: A.upkeep + upPub + admin,
     roads: A.roads + roads,
     social: A.social + social,
     interest: A.interest + interest,
@@ -23266,7 +23592,7 @@ function govEndOfDay(G2, rec) {
     V.queue.push({ k: "overdraft" });
   }
   rec.taxes = incTax + D.bizTax;
-  rec.upkeep = wagesPub + upPub + roads + social + interest;
+  rec.upkeep = wagesPub + upPub + admin + roads + social + interest;
   rec.gov = { inc: incTax, biz: D.bizTax, pub: D.pubSales, wagesPub, upPub, roads, social, interest, grant, rent: rentPub };
   V.day = govDayAcc();
   const y = govY(G2);
@@ -23365,6 +23691,7 @@ function govOpenYear(G2, y) {
     V.gen = gen;
   }
   G2.svcDirty = true;
+  if (typeof civYear === "function") civYear(G2, y);
 }
 const govGen = (y) => y < 1932 ? 1 : y < 1980 ? 2 : y < 2030 ? 3 : 4;
 function govGroupOf(G2, c) {
@@ -23395,7 +23722,7 @@ function govMoods(G2, withReasons) {
     const o = out[g];
     o.n++;
     o.hap += c.happy;
-    if (govVotes(G2, g)) o.voters++;
+    if (govVotes(G2, g) && (!G2.civ || civVoter(G2, c))) o.voters++;
     if (withReasons) for (const [k, p] of govReasons(G2, c)) o.reasons[k] = (o.reasons[k] || 0) + p;
   }
   for (const g of GROUP_IDS) {
@@ -23435,10 +23762,11 @@ function govPoll(G2) {
   const votes = { isla: 0 };
   let tot = 0;
   const by = {};
+  const E = typeof civEndorse === "function" ? civEndorse(G2) : null;
   for (const g of GROUP_IDS) {
     const o = M[g];
     const n = govVotes(G2, g) ? o.voters : 0;
-    const p = govSupport(o.mood);
+    const p = clamp(govSupport(o.mood) + (E ? E[g] : 0), 0.08, 0.85);
     votes.isla += n * p;
     votes[g] = n * (1 - p);
     tot += n;
@@ -23532,6 +23860,7 @@ function govHappyKeys(G2, c, h) {
   } else if (L.dole) out.push(["Dole", 5]);
   if (L.health === "free" && s.health) out.push(["FreeHealth", 3]);
   if (L.school === "free" && s.school) out.push(["FreeSchool", 2]);
+  if (typeof civHappyKeys === "function") for (const kp of civHappyKeys(G2, c, h)) out.push(kp);
   return out.filter((p) => p[1]);
 }
 const govHappyParts = (G2, c, h) => govHappyKeys(G2, c, h).map(([k, p]) => [st("g_r" + k), p]);
@@ -23551,7 +23880,8 @@ function govReasons(G2, c) {
   if (s.school) out.push(["School", 6]);
   else if (G2.era >= 4) out.push(["NoSchool", -4]);
   if (s.park) out.push(["Park", 5]);
-  if (s.faith) out.push(["Faith", 4]);
+  if (typeof civFaithOK === "function" ? civFaithOK(G2, c, h) : s.faith) out.push(["Faith", 4]);
+  if (s.sport) out.push(["Sport", 4]);
   if (s.fun) out.push(["Fun", 5]);
   if (s.coffee) out.push(["Coffee", 3]);
   if (s.booze) out.push(["Booze", 3]);
@@ -23591,8 +23921,17 @@ function govInvestTick(G2) {
     }
   } else if (hands) type = govPickHome(G2);
   if (!type || BLD[type].cost > V.inv) return;
-  const sp = govRich(G2, () => stSpots(G2, type, near, 1))[0];
-  if (!sp) return;
+  const front = !!G2.civ;
+  const sp = govRich(G2, () => front ? stSpots(G2, type, near, 1, 0)[0] || stSpots(G2, type, near, 1, 2)[0] : stSpots(G2, type, near, 1)[0]);
+  if (!sp) {
+    if (front) {
+      G2.civ.noLot = (G2.civ.noLot || 0) + 1;
+      G2.civ.noLotT = G2.t;
+      G2.civ.noLotType = type;
+    }
+    return;
+  }
+  if (front) G2.civ.noLot = 0;
   const fam = govNewFam(G2);
   const r = { id: V.reqSeq++, type, x: sp.x, y: sp.y, w: sp.w, h: sp.h, fam, cost: BLD[type].cost, t: G2.t, until: G2.t + GOV_DAYS * 1440 };
   if (BLD[type].fertile) r.crop = govBestCrop(G2);
@@ -23675,7 +24014,7 @@ function govApprove(G2, r, auto) {
   }
   let x = r.x, y = r.y;
   if (!govRich(G2, () => checkBuilding(G2, r.type, x, y).ok)) {
-    const sp = govRich(G2, () => stSpots(G2, r.type, BLD[r.type].fertile ? "soil" : "homes", 1))[0];
+    const sp = govRich(G2, () => stSpots(G2, r.type, BLD[r.type].fertile ? "soil" : "homes", 1, G2.civ ? 2 : false))[0];
     if (!sp) return false;
     x = sp.x;
     y = sp.y;
@@ -23716,8 +24055,9 @@ function govOwnBuilt(G2, b) {
   b.pub = b.type === "church" ? false : true;
   if (b.type === "church") b.own = "parish";
   G2.gov.acc.pubBuilt += BLD[b.type].cost;
+  if (typeof civBuilt === "function") civBuilt(G2, b);
 }
-const govCompensation = (G2, b) => govOn(G2) && !isPub(b) && b.own !== "parish" ? Math.round(BLD[b.type].cost * 0.5) : 0;
+const govCompensation = (G2, b) => govOn(G2) && !isPub(b) && b.own !== "parish" && b.own !== "org" ? Math.round(BLD[b.type].cost * 0.5) : 0;
 function govGoalItems(G2) {
   const S = STAGES[govStage(G2)];
   if (!S) return [];
@@ -23821,6 +24161,7 @@ function govExpect(G2, id, val) {
     e.lines.push(["g_xFarm", val ? 8 : -8]);
   }
   if (id === "liquor") e.lines.push(["g_xDrink", val ? -1 : 1]);
+  if (typeof civExpect === "function") civExpect(G2, id, val, old, e);
   e.money = Math.round(e.money);
   return e;
 }
@@ -23870,6 +24211,1239 @@ function govRepay(G2) {
   govLogAdd(G2, { k: "repay", m: s });
   return true;
 }
+const ORIGINS = {
+  isl: { name: "Islanders", one: "islander", col: "#b4561a", faith: "cath", native: true },
+  main: { name: "Mainlanders", one: "mainlander", from: "Havana and Santiago", col: "#8f9aa0", faith: "cath", native: true, waves: [[1912, 2200, 0.6]] },
+  gal: { name: "Galicians", one: "Galician", from: "Vigo, A Coruña and Gijón", col: "#2a6fb0", faith: "cath", soc: "Centro Gallego", waves: [[1912, 1930, 3], [1946, 1958, 1]], edu: 0.3 },
+  can: { name: "Canary Islanders", one: "Canarian", from: "Santa Cruz de Tenerife", col: "#e39a2a", faith: "cath", soc: "Asociación Canaria", waves: [[1912, 1930, 2], [1947, 1956, 1.2]] },
+  afc: { name: "Jamaicans and Haitians", one: "Antillean", from: "Kingston and Port-au-Prince", col: "#3f8f4a", faith: "prot", soc: "Antillean Benevolent Society", waves: [[1913, 1931, 1.2], [2010, 2016, 0.8]] },
+  lev: { name: "Levantines", one: "Levantine", from: "Beirut, Damascus and Mersin", col: "#8c4a9c", faith: "cath", soc: "Sociedad Libanesa", waves: [[1912, 1932, 1]], edu: 0.25 },
+  chi: { name: "Chinese", one: "Chinese", from: "Canton, by way of Havana", col: "#d9483b", faith: "folk", soc: "Casino Chung Wah", waves: [[1912, 1930, 0.7], [1946, 1959, 0.3]] },
+  jew: { name: "Jewish families", one: "Jewish newcomer", from: "Istanbul, Izmir, Hamburg and Vienna", col: "#48a6c9", faith: "jew", soc: "Centro Hebreo", waves: [[1920, 1930, 0.5], [1936, 1945, 0.6]], edu: 0.6 },
+  cze: { name: "Czechs and Slovaks", one: "Czech or Slovak", from: "Prague and Bratislava, by way of Hamburg", col: "#e0708f", faith: "cath", soc: "Sokol", waves: [[1948, 1950, 0.4], [1968, 1970, 0.5]], edu: 0.75 },
+  us: { name: "Americans", one: "American", from: "Miami and New Orleans", col: "#34495e", faith: "prot", soc: "American Club", waves: [[1946, 1959, 0.8], [1992, 2030, 0.5]], edu: 0.6 },
+  ven: { name: "Venezuelans", one: "Venezuelan", from: "Caracas and Maracaibo", col: "#c9a21a", faith: "cath", soc: "Casa de Venezuela", waves: [[2015, 2026, 2]], edu: 0.5 },
+  cli: { name: "Climate refugees", one: "climate refugee", from: "the Pacific atolls and the Bay of Bengal", col: "#56b4a0", faith: "mix", soc: "New Shores Society", waves: [[2040, 2200, 1.5]] }
+};
+const ORIG_IDS = Object.keys(ORIGINS);
+const FAITHS = { cath: { name: "Catholic", house: "Church" }, prot: { name: "Protestant", house: "Chapel" }, jew: { name: "Jewish", house: "Synagogue" }, folk: { name: "Chinese folk", house: "Temple" }, mix: { name: "many faiths", house: null } };
+const CHAPEL_V = ["prot", "jew", "folk"];
+const IMM_MULT = { open: 1, quota: 0.55, closed: 0.2 };
+const ORGS = {
+  parish: {
+    name: "Parish of San Rafael",
+    short: "Parish",
+    icon: "⛪",
+    col: "#c75b3a",
+    faith: "cath",
+    reach: 0.5,
+    laws: { liquor: (v) => v ? 2 : -0.5, school: (v) => v === "free" ? 1 : 0, health: (v) => v === "free" ? 1 : 0 }
+  },
+  chapel: { name: "Protestant Chapel", short: "Chapel", icon: "✝", col: "#6a8caf", faith: "prot", need: 12 },
+  shul: { name: "Jewish Community", short: "Jewish Community", icon: "✡", col: "#48a6c9", faith: "jew", need: 8 },
+  temple: { name: "Chinese Temple Society", short: "Temple Society", icon: "☯", col: "#d9483b", faith: "folk", need: 8 },
+  union: {
+    name: "Dockers’ and Workers’ Union",
+    short: "Union",
+    icon: "✊",
+    col: "#c0504d",
+    y0: 1918,
+    groups: { work: 0.55, fish: 0.4 },
+    laws: { hours: (v) => ({ 12: -2.5, 10: 0.8, 8: 2.5 })[v] || 0, minwage: (v) => v * 1.6 - 1, dole: (v) => v ? 1.5 : 0, natjobs: (v) => v ? 1.5 : 0, inc: (v) => (10 - v) / 10 }
+  },
+  chamber: {
+    name: "Chamber of Commerce",
+    short: "Chamber",
+    icon: "⚖",
+    col: "#d98b1f",
+    y0: 1914,
+    groups: { merc: 0.9 },
+    laws: { biz: (v) => (20 - v) / 5, tariff: (v) => v ? -2 : 0.5, minwage: (v) => -v, natjobs: (v) => v ? -1.5 : 0, imm: (v) => v === "open" ? 0.8 : v === "quota" ? 0 : -1.5 }
+  },
+  planters: {
+    name: "Planters’ Association",
+    short: "Planters",
+    icon: "🌾",
+    col: "#6aa84f",
+    groups: { farm: 0.9 },
+    laws: { tariff: (v) => v ? 2.5 : -0.5, imm: (v) => v === "open" ? 1.2 : v === "quota" ? -0.6 : -2, minwage: (v) => -v * 1.4, hours: (v) => ({ 12: 0.8, 10: -0.6, 8: -1.8 })[v] || 0 }
+  },
+  coop: {
+    name: "Fishermen’s Co-op",
+    short: "Co-op",
+    icon: "⚓",
+    col: "#2a8fb0",
+    groups: { fish: 0.9 },
+    laws: { inc: (v) => (10 - v) / 5, health: (v) => v === "free" ? 1.5 : 0 }
+  },
+  women: {
+    name: "Women’s League",
+    short: "Women’s League",
+    icon: "✿",
+    col: "#d97a9c",
+    y0: 1923,
+    share: 0.07,
+    laws: { health: (v) => v === "free" ? 2.5 : -0.8, school: (v) => v === "free" ? 2.5 : -0.8, liquor: (v) => v ? 1.5 : -0.5, dole: (v) => v ? 1 : 0 }
+  },
+  ball: { name: "Baseball Club", short: "Baseball Club", icon: "⚾", col: "#37843c", y0: 1916, share: 0.09, minPop: 160 }
+};
+for (const o of ORIG_IDS) {
+  const O = ORIGINS[o];
+  if (!O.soc) continue;
+  ORGS["s_" + o] = {
+    name: O.soc,
+    short: O.soc,
+    icon: "●",
+    col: O.col,
+    orig: o,
+    need: 15,
+    laws: { imm: (v) => v === "open" ? 1.5 : v === "quota" ? -1 : -3, natjobs: (v) => v ? -2.5 : 0, school: (v) => v === "free" ? 0.8 : 0 }
+  };
+}
+const ORG_IDS = Object.keys(ORGS);
+Object.assign(STT.en, {
+  g_law_imm: "Immigration",
+  g_law_imm_d: "Who may land at the harbor and settle. Newcomers fill jobs and homes; they also compete for work.",
+  g_lv_imm_open: "Open harbor",
+  g_lv_imm_quota: "Quota",
+  g_lv_imm_closed: "Closed",
+  g_law_natjobs: "Island jobs law",
+  g_law_natjobs_d: "Half of every workforce must be island-born. Islanders feel protected, newcomers feel pushed aside, employers hire more slowly.",
+  g_lv_natjobs_0: "No",
+  g_lv_natjobs_1: "Half for islanders",
+  g_rSociety: "Their society’s hall",
+  g_rNoTemple: "No place of worship",
+  g_rInteg: "Belonging",
+  g_rJobsLaw: "Island jobs law",
+  g_rFiesta: "Fiesta",
+  g_rSport: "Ballpark nearby",
+  g_rFaith: "Place of worship nearby",
+  g_xArrivals: "Newcomers {v}%",
+  g_xNewcomers: "Newcomers’ mood",
+  g_xIslanders: "Islanders’ jobs",
+  g_dImmOpen: "An open harbor",
+  g_dNatjobs: "The island jobs law",
+  g_b_wagesPub: "Pay for the town’s staff: harbor, schools, clinics, plants",
+  g_b_upkeep: "Running the town: buildings, clerks, police, street lights"
+});
+LAWS.push({ id: "imm", opts: ["open", "quota", "closed"] }, { id: "natjobs", opts: [0, 1] });
+STANCE.imm = (g, v) => v === "closed" ? { farm: -2, fish: 0, merc: -1.2, work: 2.5 }[g] : v === "quota" ? { farm: -0.8, fish: 0, merc: -0.3, work: 1.2 }[g] : 0;
+STANCE.natjobs = (g, v) => v ? { farm: -1, fish: 1, merc: -1.5, work: 2.5 }[g] : 0;
+function civInit(G2) {
+  if (!G2.gov) return;
+  const V = G2.gov;
+  if (V.laws.imm == null) V.laws.imm = "open";
+  if (V.laws.natjobs == null) V.laws.natjobs = 0;
+  if (G2.civ) {
+    const C = G2.civ;
+    C.wave = C.wave || {};
+    C.joy = C.joy || {};
+    C.pre = C.pre || {};
+    C.arrHist = C.arrHist || [];
+    C.arrNow = C.arrNow || {};
+    C.turnedNow = C.turnedNow || {};
+    return;
+  }
+  G2.civ = { orgs: {}, pets: [], petSeq: 1, wave: {}, joy: {}, pre: {}, ev: {}, arrHist: [], arrNow: {}, turnedNow: {}, strike: null, lastAsk: 0, noLot: 0, lastDay: -1, seenY: 0 };
+  const y = govY(G2);
+  for (const c of G2.cits.values()) if (!c.orig) civGuessOrigin(G2, c, y);
+  civFound(G2, y, true);
+}
+function civGuessOrigin(G2, c, y) {
+  const h = ihash(c.id * 131 + 17);
+  if (y <= 1914 || h % 100 < 42) {
+    c.orig = "isl";
+    return;
+  }
+  const opts = [];
+  for (const o of ORIG_IDS) {
+    const O = ORIGINS[o];
+    if (!O.waves || O.native) continue;
+    for (const [a, b, m] of O.waves) {
+      const lo = Math.max(1912, a), hi = Math.min(y, b);
+      if (hi >= lo) opts.push([o, m * (hi - lo + 1), lo, hi]);
+    }
+  }
+  opts.push(["main", 0.5 * (y - 1911), 1912, y]);
+  let tot = opts.reduce((s, x) => s + x[1], 0), r = (h >>> 8) % 1e4 / 1e4 * tot;
+  for (const [o, w, lo, hi] of opts) {
+    r -= w;
+    if (r <= 0) {
+      c.orig = o;
+      c.oy = lo + (h >>> 3) % (hi - lo + 1);
+      return;
+    }
+  }
+  c.orig = "main";
+  c.oy = y;
+}
+const civOn = (G2) => !!(G2 && G2.civ && govOn(G2));
+function civOrig(G2, c) {
+  const o = c.orig || "isl";
+  if (o === "isl" || !ORIGINS[o] || ORIGINS[o].native) return ORIGINS[o] ? o : "isl";
+  return c.oy != null && govY(G2) - c.oy >= 35 ? "isl" : o;
+}
+const civFaith = (c) => (ORIGINS[c.orig || "isl"] || ORIGINS.isl).faith;
+const civVoter = (G2, c) => !c.oy || govY(G2) - c.oy >= 5;
+function civWaves(G2, y) {
+  const C = G2.civ, out = [];
+  for (const o of ORIG_IDS) {
+    const O = ORIGINS[o];
+    if (!O.waves) continue;
+    let w = 0;
+    for (const [a, b, m] of O.waves) if (y >= a && y <= b) w += m;
+    const x = C.wave[o];
+    if (x && y <= x.until) w *= x.m;
+    if (w > 0.01) out.push([o, w]);
+  }
+  return out;
+}
+function civPick(G2, list) {
+  const tot = list.reduce((s, x) => s + x[1], 0);
+  let r = G2.rngSim() * tot;
+  for (const [k, w] of list) {
+    r -= w;
+    if (r <= 0) return k;
+  }
+  return list.length ? list[0][0] : "main";
+}
+function civShip(G2, s) {
+  if (!civOn(G2)) return;
+  const y = govY(G2);
+  const W = civWaves(G2, y);
+  s.orig = civPick(G2, W);
+  s.from = ORIGINS[s.orig].from || "the mainland";
+  s.pax = Math.max(2, Math.round(s.pax * IMM_MULT[G2.gov.laws.imm || "open"]));
+}
+function civNewcomer(G2, c, ship) {
+  if (!civOn(G2)) return;
+  const y = govY(G2);
+  let o = ship && ship.orig ? ship.orig : "main";
+  if (!(ship && ship.special) && G2.rngSim() < 0.18) o = civPick(G2, civWaves(G2, y));
+  c.orig = o;
+  c.oy = y;
+  const O = ORIGINS[o];
+  if (O.edu && G2.rngSim() < O.edu) c.edu = Math.max(c.edu || 0, G2.rngSim() < O.edu * 0.4 && G2.era >= 3 ? 2 : 1);
+  c.happy = Math.max(c.happy, 62);
+}
+function civLanded(G2, ship, landed, turned) {
+  if (!civOn(G2)) return;
+  const C = G2.civ, o = ship.orig || "main";
+  if (landed) C.arrNow[o] = (C.arrNow[o] || 0) + landed;
+  if (turned) C.turnedNow[o] = (C.turnedNow[o] || 0) + turned;
+  C.lastShip = { t: G2.t, orig: o, from: ship.from || ORIGINS[o].from || "the mainland", landed, turned, special: ship.special || null };
+}
+function civShipNow(G2, orig, n, special) {
+  G2.ships.push({ x: G2.berth.x, y: MAP_H + 4, phase: "in", pax: n, wait: 0, steam: G2.era >= 3, orig, from: ORIGINS[orig].from, special: special || "special" });
+}
+function civServices(G2, homes, svcs) {
+  const halls = svcs.filter((s) => s.type === "hall" || s.type === "chapel" || s.type === "church");
+  for (const h of homes) {
+    h.faiths = [];
+    h.clubs = [];
+    for (const s of halls) {
+      const d = BLD[s.type];
+      if (bDist(h, s) > d.radius + 0.01) continue;
+      if (s.type === "church") {
+        if (!h.faiths.includes("cath")) h.faiths.push("cath");
+      } else if (s.type === "chapel") {
+        const f = s.v || "prot";
+        if (!h.faiths.includes(f)) h.faiths.push(f);
+      } else if (s.v && !h.clubs.includes(s.v)) h.clubs.push(s.v);
+    }
+  }
+}
+function civFaithOK(G2, c, h) {
+  const s = h.svc || {};
+  if (!civOn(G2)) return s.faith || s.chapel || 0;
+  const f = civFaith(c);
+  if (f === "cath") return s.faith || 0;
+  if (f === "mix") return s.faith || h.faiths && h.faiths.length ? 1 : 0;
+  return h.faiths && h.faiths.includes(f) ? 1 : 0;
+}
+function civFaithLabel(G2, c) {
+  if (!civOn(G2)) return "Church nearby";
+  const f = civFaith(c);
+  return f === "cath" || f === "mix" ? "Church nearby" : FAITHS[f].house + " nearby";
+}
+function civPickVariant(G2, b) {
+  const near = /* @__PURE__ */ new Map();
+  const mode = b.type === "chapel" ? "faith" : "orig";
+  for (const h of G2.blds.values()) {
+    if (BLD[h.type].kind !== "home" || bDist(h, b) > 12) continue;
+    for (const id of h.res) {
+      const c = G2.cits.get(id);
+      if (!c) continue;
+      if (mode === "faith") {
+        const f = civFaith(c);
+        if (!CHAPEL_V.includes(f) || h.faiths && h.faiths.includes(f)) continue;
+        near.set(f, (near.get(f) || 0) + 1);
+      } else {
+        const o = civOrig(G2, c);
+        if (!ORGS["s_" + o] || h.clubs && h.clubs.includes(o)) continue;
+        near.set(o, (near.get(o) || 0) + 1);
+      }
+    }
+  }
+  let best = null, bn2 = 0;
+  for (const [k, n] of near) if (n > bn2) {
+    bn2 = n;
+    best = k;
+  }
+  if (best) return best;
+  if (mode === "faith") return "prot";
+  const K = civComms(G2);
+  const big = ORIG_IDS.filter((o) => ORGS["s_" + o] && K[o] && K[o].n).sort((a, b2) => K[b2].n - K[a].n)[0];
+  return big || "gal";
+}
+function civBuilt(G2, b, byOrg) {
+  if (b.type === "chapel" || b.type === "hall") {
+    if (!b.v) b.v = civPickVariant(G2, b);
+    b.pub = false;
+    b.own = "org";
+    b.org = byOrg || civHouseOrg(b);
+    if (G2.civ && !byOrg) {
+      const O = civOrgState(G2, b.org);
+      if (O) O.rel += 18;
+    }
+  } else if (b.type === "church") {
+    b.pub = false;
+    b.own = "parish";
+    b.org = "parish";
+    if (G2.civ && !byOrg) {
+      const O = civOrgState(G2, "parish");
+      if (O) O.rel += 6;
+    }
+  } else if (b.type === "ballpark" && G2.civ && !byOrg) {
+    const O = civOrgState(G2, "ball");
+    if (O) O.rel += 20;
+  }
+}
+const civHouseOrg = (b) => b.type === "chapel" ? { prot: "chapel", jew: "shul", folk: "temple" }[b.v || "prot"] : "s_" + (b.v || "gal");
+function civSetVariant(G2, b, v) {
+  const old = b.org;
+  b.v = v;
+  b.org = civHouseOrg(b);
+  if (old !== b.org && G2.civ) {
+    const O = civOrgState(G2, b.org);
+    if (O) O.rel += 10;
+  }
+  G2.svcDirty = true;
+  recomputeServices(G2);
+}
+function civComms(G2) {
+  const C = G2.civ;
+  const key = Math.floor(G2.t / 60);
+  if (C && C._kT === key && C._k) return C._k;
+  const y = govY(G2), out = {};
+  for (const o of ORIG_IDS) out[o] = { n: 0, voters: 0, emp: 0, yrs: 0, hall: 0, faith: 0, faithNeed: 0, byG: { farm: 0, fish: 0, merc: 0, work: 0 }, newest: 0 };
+  const byF = {};
+  for (const f in FAITHS) byF[f] = { n: 0, covered: 0, byG: { farm: 0, fish: 0, merc: 0, work: 0 } };
+  for (const c of G2.cits.values()) {
+    if (c.home == null) continue;
+    const h = G2.blds.get(c.home);
+    if (!h) continue;
+    const o = civOrig(G2, c);
+    const K = out[o];
+    const g = govGroupOf(G2, c);
+    K.n++;
+    K.byG[g]++;
+    if (civVoter(G2, c)) K.voters++;
+    if (c.job != null) K.emp++;
+    K.yrs += c.oy != null ? y - c.oy : 30;
+    if (c.oy) K.newest = Math.max(K.newest, c.oy);
+    if (h.clubs && h.clubs.includes(o)) K.hall++;
+    const f = civFaith(c);
+    const F = byF[f];
+    F.n++;
+    F.byG[g]++;
+    if (civFaithOK(G2, c, h)) F.covered++;
+  }
+  for (const o of ORIG_IDS) {
+    const K = out[o];
+    K.yrs = K.n ? K.yrs / K.n : 0;
+    K.integ = civIntegOf(G2, o, K);
+  }
+  out._faith = byF;
+  if (C) {
+    C._kT = key;
+    C._k = out;
+  }
+  return out;
+}
+function civIntegOf(G2, o, K) {
+  if (ORIGINS[o].native) return 100;
+  if (!K.n) return 60;
+  const L = G2.gov.laws, C = G2.civ;
+  let I = 38 + Math.min(24, K.yrs * 1.3) + 16 * (K.hall / K.n) + 25 * (K.emp / K.n - 0.85) + (L.school === "free" ? 6 : 0) - (L.natjobs ? 12 : 0) - (L.imm === "closed" ? 6 : 0);
+  if (C && C.pre && C.pre["integ_" + o]) I += C.pre["integ_" + o];
+  const O = C && C.orgs["s_" + o];
+  if (O) I += clamp(O.rel, -30, 30) * 0.15;
+  return clamp(Math.round(I), 0, 100);
+}
+const civInteg = (G2, o) => {
+  const K = civComms(G2)[o];
+  return K ? K.integ : 60;
+};
+function civHappyKeys(G2, c, h) {
+  if (!civOn(G2)) return [];
+  const out = [], L = G2.gov.laws;
+  const o = civOrig(G2, c), O = ORIGINS[o] || ORIGINS.isl;
+  if (!O.native) {
+    if (h.clubs && h.clubs.includes(o)) out.push(["Society", 4]);
+    const f = civFaith(c);
+    if (f !== "cath" && f !== "mix" && !(h.faiths && h.faiths.includes(f))) {
+      const F = civComms(G2)._faith[f];
+      if (F && F.n >= 8) out.push(["NoTemple", -3]);
+    }
+    const p = Math.round(clamp((civInteg(G2, o) - 55) / 8, -6, 3));
+    if (p) out.push(["Integ", p]);
+    if (L.natjobs) out.push(["JobsLaw", -4]);
+  } else if (L.natjobs && c.job != null) out.push(["JobsLaw", 2]);
+  const J = G2.civ.joy;
+  if (J) {
+    const g = govGroupOf(G2, c);
+    for (const k of ["all", o, "f:" + civFaith(c), "g:" + g]) if (J[k] > G2.t) {
+      out.push(["Fiesta", 5]);
+      break;
+    }
+  }
+  return out;
+}
+function civOrgState(G2, id) {
+  return G2.civ && G2.civ.orgs[id] ? G2.civ.orgs[id] : null;
+}
+function civMembers(G2, id) {
+  const D = ORGS[id];
+  const K = civComms(G2);
+  const pop = G2.cits.size;
+  if (D.orig) return K[D.orig] ? K[D.orig].n : 0;
+  if (D.faith) return K._faith[D.faith] ? K._faith[D.faith].n : 0;
+  if (D.groups) {
+    const M = govMoods(G2);
+    let n = 0;
+    for (const g in D.groups) n += Math.round((M[g] ? M[g].n : 0) * D.groups[g]);
+    return n;
+  }
+  return Math.round(pop * (D.share || 0.05));
+}
+function civOrgGroups(G2, id) {
+  const D = ORGS[id], M = govMoods(G2), K = civComms(G2), out = {};
+  for (const g of GROUP_IDS) {
+    const n = Math.max(1, M[g].n);
+    out[g] = D.groups ? D.groups[g] || 0 : D.orig ? K[D.orig] ? K[D.orig].byG[g] / n : 0 : D.faith ? K._faith[D.faith] ? K._faith[D.faith].byG[g] / n * (D.reach || 1) : 0 : (D.share || 0.05) * 2;
+  }
+  return out;
+}
+function civHasBld(G2, t, v) {
+  for (const b of G2.blds.values()) if (b.type === t && (v == null || b.v === v)) return true;
+  return false;
+}
+function civOrgScore(G2, id, parts) {
+  const D = ORGS[id], O = civOrgState(G2, id), L = G2.gov.laws;
+  if (!O) return 0;
+  const P = parts || [];
+  let s = Math.round(O.rel);
+  if (Math.abs(s) >= 1) P.push(["What you did for them", s]);
+  if (D.laws) {
+    let l = 0;
+    for (const k in D.laws) if (L[k] != null) l += D.laws[k](L[k]) * 5;
+    l = Math.round(l);
+    if (l) {
+      s += l;
+      P.push(["The laws", l]);
+    }
+  }
+  const need = (label, v) => {
+    if (v) {
+      s += v;
+      P.push([label, v]);
+    }
+  };
+  const K = civComms(G2);
+  if (D.faith && id !== "parish") {
+    const F = K._faith[D.faith];
+    const cov = F && F.n ? F.covered / F.n : 0;
+    need(cov >= 0.5 ? "A ".concat(FAITHS[D.faith].house.toLowerCase(), " near their homes") : "No ".concat(FAITHS[D.faith].house.toLowerCase(), " near most of them"), cov >= 0.5 ? 10 : -10);
+  }
+  if (id === "parish") {
+    const F = K._faith.cath;
+    const cov = F && F.n ? F.covered / F.n : 0;
+    need(cov >= 0.75 ? "Churches within reach" : "Too far from a church", cov >= 0.75 ? 6 : cov < 0.4 ? -8 : -3);
+  }
+  if (D.orig) {
+    const k = K[D.orig];
+    if (k && k.n) {
+      need(civHasBld(G2, "hall", D.orig) ? "Their society hall" : "No hall of their own", civHasBld(G2, "hall", D.orig) ? 10 : k.n >= 20 ? -8 : -3);
+      const I = k.integ;
+      need("How they are treated", Math.round((I - 55) / 4));
+    }
+  }
+  if (id === "ball") need(civHasBld(G2, "ballpark") ? "A ballpark" : "Nowhere to play", civHasBld(G2, "ballpark") ? 12 : govY(G2) >= O.since + 4 ? -6 : 0);
+  if (id === "coop") need(((G2.blds.get(G2.dockId) || {}).lv || 1) >= 2 ? "A deep-water quay" : "The old wooden wharf", ((G2.blds.get(G2.dockId) || {}).lv || 1) >= 2 ? 6 : -3);
+  if (id === "union") {
+    const k = counts();
+    const u = k.pop ? (k.pop - k.employed) / k.pop : 0;
+    need(u > 0.1 ? "Too many out of work" : u < 0.04 ? "Plenty of work" : "", u > 0.1 ? -6 : u < 0.04 ? 4 : 0);
+  }
+  if (id === "women") {
+    let cov = 0, n = 0;
+    for (const h of G2.blds.values()) if (BLD[h.type].kind === "home") {
+      n += h.res.length;
+      if (h.svc && h.svc.health) cov += h.res.length;
+    }
+    if (G2.era >= 2) need(n && cov / n >= 0.7 ? "Clinics within reach" : "Families far from a clinic", n && cov / n >= 0.7 ? 5 : -5);
+  }
+  return clamp(s, -60, 60);
+}
+const civMood = (s) => s >= 25 ? "Warm" : s >= 8 ? "Friendly" : s > -8 ? "Neutral" : s > -25 ? "Cool" : "Hostile";
+const civStance = (s) => s >= 18 ? 1 : s <= -18 ? -1 : 0;
+function civEndorse(G2) {
+  const out = { farm: 0, fish: 0, merc: 0, work: 0 };
+  if (!civOn(G2)) return out;
+  for (const id of civActive(G2)) {
+    const sg = civStance(civOrgScore(G2, id));
+    if (!sg) continue;
+    const W = civOrgGroups(G2, id);
+    const k = ORGS[id].groups ? 0.14 : ORGS[id].orig || ORGS[id].faith && id !== "parish" ? 0.3 : 0.12;
+    for (const g of GROUP_IDS) out[g] += sg * W[g] * k;
+  }
+  for (const g of GROUP_IDS) out[g] = clamp(out[g], -0.12, 0.12);
+  return out;
+}
+const civActive = (G2) => G2.civ ? ORG_IDS.filter((id) => G2.civ.orgs[id]) : [];
+function civFound(G2, y, quiet) {
+  const C = G2.civ;
+  const pop = G2.cits.size;
+  for (const id of ORG_IDS) {
+    if (C.orgs[id]) continue;
+    const D = ORGS[id];
+    if (D.y0 && y < D.y0) continue;
+    if (D.minPop && pop < D.minPop) continue;
+    if (D.groups) {
+      const M = govMoods(G2);
+      let n = 0;
+      for (const g in D.groups) n += M[g] ? M[g].n : 0;
+      if (n < 12) continue;
+    } else if ((D.need || 0) > civMembers(G2, id)) continue;
+    C.orgs[id] = { rel: C.pre[id] || 0, since: y };
+    if (!quiet) {
+      govLogAdd(G2, { k: "c_found", org: id, y });
+      G2.gov.queue.push({ k: "c_found", org: id });
+    }
+  }
+}
+const LANDMARK_T = ["market", "church", "chapel", "hall", "school", "clinic", "hospital", "cafe", "cantina", "cinema", "hotel", "distillery", "factory", "cannery", "mill", "townhall", "park", "fishery", "workshop", "ballpark", "press", "radio", "boutique", "office", "winery", "palenica", "carpentry", "university"];
+function civPlace(G2, x, y) {
+  let best = null, bd = 7.5;
+  for (const b of G2.blds.values()) {
+    if (!LANDMARK_T.includes(b.type) && b.id !== G2.dockId) continue;
+    const d2 = Math.hypot(b.x + b.w / 2 - x - 0.5, b.y + b.h / 2 - y - 0.5);
+    if (d2 < bd) {
+      bd = d2;
+      best = b;
+    }
+  }
+  if (best) return best.id === G2.dockId ? "by the harbor" : "by the ".concat(best.type === "hall" ? (ORGS["s_" + best.v] || {}).name || "society hall" : best.type === "chapel" ? FAITHS[best.v || "prot"].house.toLowerCase() : BLD[best.type].name);
+  const d = G2.blds.get(G2.dockId);
+  const dx = x - d.x, dy = y - d.y;
+  const ns = dy < -6 ? "north" : dy > 6 ? "south" : "", ew = dx < -6 ? "west" : dx > 6 ? "east" : "";
+  return ns || ew ? "".concat(ns).concat(ns && ew ? "-" : "").concat(ew, " of the harbor") : "near the harbor";
+}
+function civSumNear(G2, arr, x, y, r) {
+  let s = 0;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    const X = x + dx, Y = y + dy;
+    if (inMap(X, Y)) s += arr[idx(X, Y)];
+  }
+  return s;
+}
+function civHomesNear(G2, x, y, r, f) {
+  for (const b of G2.blds.values()) if (BLD[b.type].kind === "home" && Math.abs(b.x + b.w / 2 - x - 0.5) <= r && Math.abs(b.y + b.h / 2 - y - 0.5) <= r) f(b);
+}
+function civCommuteNear(G2, x, y, r) {
+  let s = 0, n = 0;
+  civHomesNear(G2, x, y, r, (b) => {
+    for (const id of b.res) {
+      const c = G2.cits.get(id);
+      if (c && c.commuteAvg != null) {
+        s += c.commuteAvg;
+        n++;
+      }
+    }
+  });
+  return n >= 5 ? Math.round(s / n * 10) / 10 : null;
+}
+function civUncovered(G2, x, y, r, key) {
+  let n = 0;
+  civHomesNear(G2, x, y, r, (b) => {
+    if (!b.svc || !b.svc[key]) n += b.res.length;
+  });
+  return n;
+}
+const PETK = {
+  jam: { icon: "🚗", lens: "traffic", dir: "down", unit: "veh-min of delay a day", m: (G2, p) => Math.round(civSumNear(G2, G2.delayDay, p.x, p.y, 2)), tgt: (b) => Math.round(b * 0.55) },
+  crash: { icon: "⚠", lens: "safety", dir: "down", unit: "crashes a day", m: (G2, p) => civSumNear(G2, G2.crashTilePrev, p.x, p.y, 2), tgt: () => 0 },
+  commute: { icon: "⏱", lens: "traffic", dir: "down", unit: "min to work", m: (G2, p) => civCommuteNear(G2, p.x, p.y, 4), tgt: (b) => Math.max(22, Math.round(b * 0.8)) },
+  port: { icon: "🚛", lens: "traffic", dir: "down", unit: "veh-min of delay a day", m: (G2, p) => Math.round(civSumNear(G2, G2.delayDay, p.x, p.y, 3)), tgt: (b) => Math.round(b * 0.5) },
+  health: { icon: "🏥", lens: "coverage", dir: "down", unit: "people without a clinic", m: (G2, p) => civUncovered(G2, p.x, p.y, 6, "health"), tgt: () => 0 },
+  school: { icon: "🏫", lens: "coverage", dir: "down", unit: "people without a school", m: (G2, p) => civUncovered(G2, p.x, p.y, 6, "school"), tgt: () => 0 },
+  market: { icon: "🧺", lens: "coverage", dir: "down", unit: "people without a market", m: (G2, p) => civUncovered(G2, p.x, p.y, 6, "market"), tgt: () => 0 },
+  housing: { icon: "🏠", lens: "none", dir: "up", unit: "free homes", m: (G2) => counts().vacant, tgt: () => 12 },
+  law: { icon: "📜", lens: "none", dir: "up", unit: "", m: (G2, p) => G2.gov.laws[p.law] === p.val ? 1 : 0, tgt: () => 1 },
+  site: { icon: "🏛", lens: "none", dir: "up", unit: "", m: () => 0, tgt: () => 1 }
+};
+const PET_HINT = {
+  jam: "Watch it at 7:00 in the Traffic lens: the fix goes where the red starts. Lights or a roundabout at the crossing, a wider road or a second route usually do it. City → forecast tests a change before you pay.",
+  crash: "Uncontrolled crossings and busy undivided four-lane roads crash most. Traffic lights or a roundabout calm a junction; an avenue’s median stops head-on crashes.",
+  commute: "Work closer to these homes, a bus line, or a faster road to where they work. Families also move closer to their jobs when there are free homes.",
+  port: "A cargo pier elsewhere on the coast, a bigger harbor, or a second road into the port splits the queue.",
+  health: "A clinic within 9 tiles of these homes.",
+  school: "A school within 10 tiles of these homes.",
+  market: "A market within 7 tiles of these homes.",
+  housing: "Approve the families’ home plans, build casitas or town housing, and lay out new streets for them.",
+  law: "Town hall → Laws: put it to the council. If your side lacks the votes, find partners first."
+};
+function civPetTitle(G2, p) {
+  switch (p.k) {
+    case "jam":
+      return "Unjam the road ".concat(p.place);
+    case "crash":
+      return "Make the crossing ".concat(p.place, " safe");
+    case "commute":
+      return "A shorter way to work for the homes ".concat(p.place);
+    case "port":
+      return "Clear the queue at the harbor gate";
+    case "health":
+      return "A clinic for the homes ".concat(p.place);
+    case "school":
+      return "A school for the children ".concat(p.place);
+    case "market":
+      return "A market for the homes ".concat(p.place);
+    case "housing":
+      return "Homes for the newcomers";
+    case "law":
+      return "".concat(st("g_law_" + p.law), ": ").concat(gLawVal(p.law, p.val));
+    case "site":
+      return p.bld === "ballpark" ? "A ballpark for the island" : p.bld === "church" ? "A lot for a new church" : p.bld === "chapel" ? "A lot for a ".concat(FAITHS[p.v].house.toLowerCase()) : "A lot for the ".concat(ORGS["s_" + p.v].name);
+  }
+  return p.k;
+}
+function civPetBody(G2, p) {
+  const who = ORGS[p.org].name;
+  const due = p.due;
+  switch (p.k) {
+    case "jam":
+      return "The ".concat(who, " counts ").concat(p.base, " vehicle-minutes lost every day in the jam ").concat(p.place, ": late deliveries and late workers. They ask you to cut it to ").concat(p.tgt, " or less by ").concat(due, ".");
+    case "crash":
+      return "".concat(p.base, " crash").concat(p.base > 1 ? "es" : "", " ").concat(p.place, " yesterday alone. The ").concat(who, " asks for one whole day without a crash there by ").concat(due, ".");
+    case "commute":
+      return "Families living ".concat(p.place, " spend ").concat(Math.round(p.base), " minutes getting to work. The ").concat(who, " asks for ").concat(p.tgt, " minutes or less by ").concat(due, ".");
+    case "port":
+      return "Trucks queue at the harbor and block the streets around it: ".concat(p.base, " vehicle-minutes lost a day. The ").concat(who, " asks you to halve it by ").concat(due, ".");
+    case "health":
+    case "school":
+    case "market":
+      return "".concat(p.base, " people living ").concat(p.place, " have no ").concat(p.k === "health" ? "clinic" : p.k, " within reach. The ").concat(who, " asks that every one of them has one by ").concat(due, ".");
+    case "housing":
+      return "".concat(p.base, " settlers sailed on last year: there was no free home for them. The ").concat(who, " asks for at least ").concat(p.tgt, " free homes waiting on the day ships come, by ").concat(due, ".");
+    case "law":
+      return "The ".concat(who, " asks you to put it to the council and win the vote by ").concat(due, ".");
+    case "site":
+      return p.bld === "church" ? "Many Catholic families live far from a church. The ".concat(who, " has collected for a new one and asks for a lot on a street where they live. The town pays nothing.") : p.bld === "ballpark" ? "The ".concat(who, " has raised ").concat(fmtMoney(p.paid), " for a ballpark with stands for the whole island. It costs ").concat(fmtMoney(BLD.ballpark.cost), ": will the town pay the other ").concat(fmtMoney(p.cost), "?") : "The ".concat(who, " (").concat(civMembers(G2, p.org), " people) has saved the money for a ").concat(p.bld === "chapel" ? FAITHS[p.v].house.toLowerCase() : "society hall", " and asks for a lot on a street near their homes. The town pays nothing.");
+  }
+  return "";
+}
+function civPetFmt(p, v) {
+  if (v == null) return "–";
+  if (p.k === "law" || p.k === "site") return v ? "done" : "not yet";
+  if (p.k === "commute") return fmt1(v) + " min";
+  return String(Math.round(v));
+}
+function civPetAdd(G2, p) {
+  const C = G2.civ, y = govY(G2);
+  p.id = C.petSeq++;
+  p.st = "ask";
+  p.y0 = y;
+  p.t0 = G2.t;
+  p.hist = [];
+  if (p.x != null && !p.place) p.place = civPlace(G2, p.x, p.y);
+  const K = PETK[p.k];
+  if (p.tgt == null) p.tgt = K.tgt(p.base);
+  p.due = y + (p.k === "law" ? 2 : 2);
+  C.pets.push(p);
+  C.lastAsk = y;
+  G2.gov.queue.push({ k: "c_pet", id: p.id });
+  return p;
+}
+const civPet = (G2, id) => G2.civ.pets.find((p) => p.id === id);
+const civOpenPets = (G2) => G2.civ ? G2.civ.pets.filter((p) => p.st === "on") : [];
+const civAskPets = (G2) => G2.civ ? G2.civ.pets.filter((p) => p.st === "ask") : [];
+function civAccept(G2, p) {
+  const O = civOrgState(G2, p.org);
+  p.st = "on";
+  const y = govY(G2);
+  p.y0 = y;
+  p.due = y + 2;
+  if (O) O.rel += 3;
+  if (p.k === "site") {
+    const ok = civBuildSite(G2, p);
+    if (!ok) {
+      p.st = "ask";
+      return false;
+    }
+    p.st = "won";
+    if (O) O.rel += p.bld === "ballpark" ? 20 : 15;
+    govLogAdd(G2, { k: "c_site", org: p.org, bld: p.bld, v: p.v });
+    return true;
+  }
+  govLogAdd(G2, { k: "c_acc", org: p.org, pk: p.k, title: civPetTitle(G2, p) });
+  civPetCheck(G2, p, true);
+  return true;
+}
+function civDecline(G2, p) {
+  const O = civOrgState(G2, p.org);
+  p.st = "no";
+  if (O) O.rel -= p.k === "site" ? 10 : 6;
+  govLogAdd(G2, { k: "c_dec", org: p.org, title: civPetTitle(G2, p) });
+}
+function civBuildSite(G2, p) {
+  const t = p.bld;
+  const K = civComms(G2);
+  if (t === "ballpark" && G2.money < p.cost) {
+    toast({ title: "Not enough in the treasury", body: "The town’s share is ".concat(fmtMoney(p.cost), "."), tone: "bad", timeout: 4e3 });
+    return false;
+  }
+  let cx = 0, cy = 0, n = 0;
+  for (const h of G2.blds.values()) {
+    if (BLD[h.type].kind !== "home") continue;
+    for (const id of h.res) {
+      const c = G2.cits.get(id);
+      if (!c) continue;
+      if (p.v && (t === "chapel" ? civFaith(c) === p.v : civOrig(G2, c) === p.v) || t === "ballpark" || t === "church" && civFaith(c) === "cath" && !(h.svc && h.svc.faith)) {
+        cx += h.x;
+        cy += h.y;
+        n++;
+      }
+    }
+  }
+  let spots = govRich(G2, () => stSpots(G2, t, "homes", 8, 0));
+  if (!spots.length) spots = govRich(G2, () => stSpots(G2, t, "homes", 8, 2));
+  if (!spots.length) {
+    toast({ title: "No free lot on a street", body: "Lay out a new street first, then accept again.", tone: "bad", timeout: 5e3 });
+    return false;
+  }
+  if (n) {
+    cx /= n;
+    cy /= n;
+    spots.sort((a, b2) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b2.x - cx, b2.y - cy));
+  }
+  const sp = spots[0];
+  const m0 = G2.money, b0 = G2.dayAcc.build;
+  G2.money += 1e7;
+  const r = placeBuilding(G2, t, sp.x, sp.y);
+  G2.money = m0;
+  G2.dayAcc.build = b0;
+  if (!r.ok) return false;
+  const b = r.b;
+  b.v = p.v;
+  b.bornReal = performance.now();
+  if (t === "ballpark") {
+    G2.money -= p.cost;
+    G2.dayAcc.build += p.cost;
+    b.pub = true;
+    G2.gov.acc.pubBuilt += p.cost;
+  } else civBuilt(G2, b, p.org);
+  stConnect(G2, b);
+  recomputeNetwork(G2);
+  recomputeServices(G2);
+  assignJobs(G2);
+  if (typeof ST !== "undefined") ST.fx.push({ x: (b.x + b.w / 2) * TILE, y: (b.y + b.h / 2) * TILE, t0: performance.now(), text: "" });
+  p.bx = b.x;
+  p.by = b.y;
+  return b;
+}
+function civPetCheck(G2, p, first) {
+  const K = PETK[p.k];
+  const v = K.m(G2, p);
+  p.now = v;
+  if (!first) {
+    p.hist.push(v);
+    if (p.hist.length > 8) p.hist.shift();
+  }
+  if (first) return;
+  const ok = v != null && (K.dir === "down" ? v <= p.tgt : v >= p.tgt);
+  const O = civOrgState(G2, p.org);
+  const gs = ORGS[p.org].groups ? Object.keys(ORGS[p.org].groups) : [];
+  if (ok) {
+    p.st = "won";
+    p.yEnd = govY(G2);
+    if (O) O.rel += 25;
+    for (const g of gs) G2.gov.mem[g] = (G2.gov.mem[g] || 0) + 1.2;
+    govLogAdd(G2, { k: "c_won", org: p.org, title: civPetTitle(G2, p) });
+    G2.gov.queue.push({ k: "c_won", id: p.id });
+  } else if (govY(G2) > p.due) {
+    p.st = "lost";
+    p.yEnd = govY(G2);
+    if (O) O.rel -= 20;
+    for (const g of gs) G2.gov.mem[g] = (G2.gov.mem[g] || 0) - 1;
+    govLogAdd(G2, { k: "c_lost", org: p.org, title: civPetTitle(G2, p) });
+    G2.gov.queue.push({ k: "c_lost", id: p.id });
+  }
+}
+function civCandidates(G2) {
+  const C = G2.civ, y = govY(G2), out = [], act = civActive(G2);
+  const has = (id) => act.includes(id);
+  const busy = (k2, x, y2) => C.pets.some((p) => (p.st === "on" || p.st === "ask") && p.k === k2 && (x == null || Math.abs(p.x - x) + Math.abs(p.y - y2) < 6));
+  const pickOrg = (...ids) => ids.find(has);
+  const bn2 = G2.bottlenecks && G2.bottlenecks[0];
+  const dock = G2.blds.get(G2.dockId);
+  if (bn2 && bn2.delay > 55) {
+    const nearDock = Math.abs(bn2.x - dock.x) + Math.abs(bn2.y - dock.y) <= 5;
+    const k2 = nearDock ? "port" : "jam";
+    const org = nearDock ? pickOrg("coop", "planters", "chamber") : pickOrg("chamber", "union");
+    if (org && !busy(k2, bn2.x, bn2.y)) {
+      const base = Math.round(civSumNear(G2, G2.delayDay, bn2.x, bn2.y, k2 === "port" ? 3 : 2));
+      if (base > 40) out.push({ w: Math.min(10, base / 40), p: { k: k2, org, x: bn2.x, y: bn2.y, base } });
+    }
+  }
+  let ci = -1, cn = 0;
+  for (let i = 0; i < MAP_N; i++) if (G2.crashTilePrev[i] > cn) {
+    cn = G2.crashTilePrev[i];
+    ci = i;
+  }
+  if (ci >= 0 && cn >= 2) {
+    const x = ci % MAP_W, yy = ci / MAP_W | 0;
+    const org = pickOrg("women", "parish");
+    if (org && !busy("crash", x, yy)) out.push({ w: 3 + cn, p: { k: "crash", org, x, y: yy, base: civSumNear(G2, G2.crashTilePrev, x, yy, 2) } });
+  }
+  {
+    let best = null;
+    for (const b of G2.blds.values()) {
+      if (BLD[b.type].kind !== "home" || b.res.length < 3) continue;
+      const cm = civCommuteNear(G2, b.x, b.y, 4);
+      if (cm != null && cm > 34 && (!best || cm > best.cm)) best = { b, cm };
+    }
+    if (best && !busy("commute", best.b.x, best.b.y)) {
+      const maj = civMajority(G2, best.b.x, best.b.y, 4);
+      const org = maj && has("s_" + maj) ? "s_" + maj : pickOrg("union", "women");
+      if (org) out.push({ w: (best.cm - 30) / 3, p: { k: "commute", org, x: best.b.x, y: best.b.y, base: best.cm } });
+    }
+  }
+  for (const [key, era, orgs] of [["health", 2, ["women", "parish"]], ["school", 2, ["parish", "women"]], ["market", 1, ["women", "chamber"]]]) {
+    if (G2.era < era) continue;
+    let best = null;
+    for (const b of G2.blds.values()) {
+      if (BLD[b.type].kind !== "home" || b.svc && b.svc[key]) continue;
+      const n = civUncovered(G2, b.x, b.y, 6, key);
+      if (n >= 24 && (!best || n > best.n)) best = { b, n };
+    }
+    if (best && !busy(key, best.b.x, best.b.y)) {
+      const org = pickOrg(...orgs);
+      if (org) out.push({ w: best.n / 12, p: { k: key, org, x: best.b.x, y: best.b.y, base: best.n } });
+    }
+  }
+  {
+    const last = G2.gov.years[G2.gov.years.length - 1];
+    const turned = last ? last.turned || 0 : 0;
+    if (turned >= 8 && !busy("housing")) {
+      const tb = G2.civ.turnedLast || {};
+      const o = Object.keys(tb).sort((a, b) => tb[b] - tb[a]).find((k2) => has("s_" + k2));
+      const org = o ? "s_" + o : pickOrg("chamber", "planters");
+      if (org) out.push({ w: turned / 6, p: { k: "housing", org, base: turned } });
+    }
+  }
+  const L = G2.gov.laws;
+  const law = (org, id, val, w) => {
+    if (!has(org) || L[id] === val || C.pets.some((p) => p.k === "law" && p.law === id && (p.st === "on" || p.st === "ask" || p.st === "no" && y - p.y0 < 6))) return;
+    if (civOrgScore(G2, org) > 12) return;
+    out.push({ w, p: { k: "law", org, law: id, val, base: 0 } });
+  };
+  const k = counts();
+  const unemp = k.pop ? (k.pop - k.employed) / k.pop : 0;
+  if (L.hours === 12) law("union", "hours", 10, 2.5);
+  else if (L.hours === 10 && y >= 1945) law("union", "hours", 8, 1.5);
+  if (!L.minwage && y >= 1925) law("union", "minwage", 1, 1.8);
+  if (y >= 1933 && unemp > 0.06 && !L.natjobs) law("union", "natjobs", 1, 2 + unemp * 20);
+  if (L.biz > 15) law("chamber", "biz", 15, (L.biz - 15) / 3);
+  if (!L.tariff) law("planters", "tariff", 1, 1.2);
+  if (L.health !== "free" && G2.era >= 2) law("women", "health", "free", 1.6);
+  if (L.school !== "free" && G2.era >= 2) law("women", "school", "free", 1.3);
+  if (!L.liquor) law("parish", "liquor", 1, 0.8);
+  for (const o of ORIG_IDS) {
+    const id = "s_" + o;
+    if (!has(id)) continue;
+    if (L.imm !== "open") law(id, "imm", "open", 2);
+    if (L.natjobs) law(id, "natjobs", 0, 2.5);
+  }
+  for (const id of act) {
+    const D = ORGS[id];
+    const busyS = C.pets.some((p) => p.k === "site" && p.org === id && (p.st === "ask" || p.st === "no" && y - p.y0 < 5));
+    if (busyS) continue;
+    if (id === "parish") {
+      const F = civComms(G2)._faith.cath;
+      if (F && F.n >= 40 && F.covered / F.n < 0.6) out.push({ w: 3.5, p: { k: "site", org: id, bld: "church", base: 0 } });
+      continue;
+    }
+    if (D.faith && id !== "parish" && !civHasBld(G2, "chapel", D.faith)) out.push({ w: 3, p: { k: "site", org: id, bld: "chapel", v: D.faith, base: 0 } });
+    if (D.orig && !civHasBld(G2, "hall", D.orig) && civMembers(G2, id) >= 18) out.push({ w: 2.5, p: { k: "site", org: id, bld: "hall", v: D.orig, base: 0 } });
+    if (id === "ball" && !civHasBld(G2, "ballpark") && y >= 1920 && G2.era >= 2) {
+      const paid = Math.round(BLD.ballpark.cost * 0.4);
+      out.push({ w: 1.5, p: { k: "site", org: id, bld: "ballpark", base: 0, paid, cost: BLD.ballpark.cost - paid } });
+    }
+  }
+  return out.sort((a, b) => b.w - a.w);
+}
+function civMajority(G2, x, y, r) {
+  const n = {};
+  civHomesNear(G2, x, y, r, (b) => {
+    for (const id of b.res) {
+      const c = G2.cits.get(id);
+      if (c) {
+        const o = civOrig(G2, c);
+        n[o] = (n[o] || 0) + 1;
+      }
+    }
+  });
+  let best = null, bn2 = 0;
+  for (const o in n) if (!ORIGINS[o].native && n[o] > bn2) {
+    bn2 = n[o];
+    best = o;
+  }
+  return bn2 >= 6 ? best : null;
+}
+function civTick(G2) {
+  if (!govOn(G2)) return;
+  if (!G2.civ) civInit(G2);
+  const C = G2.civ;
+  const last = G2.history[G2.history.length - 1];
+  const d = last ? last.day : 0;
+  if (d !== C.lastDay) {
+    const first = C.lastDay < 0;
+    C.lastDay = d;
+    if (!first) civDay(G2);
+  }
+  if (C.strike && C.strike.until <= G2.t) {
+    C.strike = null;
+  }
+}
+function civDay(G2) {
+  const C = G2.civ, y = govY(G2);
+  for (const p of C.pets) if (p.st === "on") civPetCheck(G2, p);
+  for (const p of C.pets) if (p.st === "ask" && y - p.y0 >= 1 && G2.t - p.t0 > GOV_DAYS * 1440) {
+    p.st = "no";
+    p.lapsed = true;
+    const O = civOrgState(G2, p.org);
+    if (O) O.rel -= 3;
+  }
+  if (C.pets.length > 60) C.pets = C.pets.filter((p) => p.st === "on" || p.st === "ask" || y - (p.yEnd || p.y0) < 12);
+  const open = C.pets.filter((p) => p.st === "on" || p.st === "ask").length;
+  if (open < 3 && C.lastAsk < y && y >= GOV_Y0 + 1 && G2.rngSim() < 0.75) {
+    const c = civCandidates(G2)[0];
+    if (c) civPetAdd(G2, c.p);
+  }
+}
+function civYear(G2, y) {
+  if (!civOn(G2)) return;
+  const C = G2.civ;
+  for (const id in C.orgs) C.orgs[id].rel *= 0.85;
+  civFound(G2, y, false);
+  C.arrHist.push({ y: y - 1, by: C.arrNow, turned: C.turnedNow });
+  if (C.arrHist.length > 90) C.arrHist.shift();
+  C.turnedLast = C.turnedNow;
+  C.arrNow = {};
+  C.turnedNow = {};
+  for (const e of CIV_EV) if (e.y === y && !C.ev[e.id]) {
+    C.ev[e.id] = "asked";
+    G2.gov.queue.push({ k: "c_ev", id: e.id });
+  }
+  if (C.orgs.union && !C.strike && y - (C.lastStrike || 0) >= 5 && civOrgScore(G2, "union") <= -22 && G2.rngSim() < 0.6) {
+    C.lastStrike = y;
+    G2.gov.queue.push({ k: "c_strike" });
+  }
+  if (G2.rngSim() < 0.55) {
+    const warm = civActive(G2).filter((id) => civOrgScore(G2, id) >= 18);
+    if (warm.length) {
+      const id = warm[Math.floor(G2.rngSim() * warm.length)];
+      civFiesta(G2, id);
+    }
+  }
+}
+function civFiesta(G2, id) {
+  const D = ORGS[id], C = G2.civ;
+  const key = D.orig ? D.orig : D.faith && id !== "parish" ? "f:" + D.faith : D.groups ? "g:" + Object.keys(D.groups)[0] : "all";
+  C.joy[key] = G2.t + 1440;
+  C.lastFiesta = { org: id, t: G2.t };
+  govLogAdd(G2, { k: "c_fiesta", org: id });
+  G2.gov.queue.push({ k: "c_fiesta", org: id });
+}
+const FIESTA_TXT = {
+  parish: "The Fiesta de San Rafael: a procession to the harbor, the fishing boats blessed, fireworks over the bay.",
+  chapel: "Harvest festival at the chapel: a choir, a long table and a lot of ginger cake.",
+  shul: "Hanukkah lights in every window of the Jewish families’ street, and doughnuts for the neighbours.",
+  temple: "Chinese New Year: firecrackers and a lion dancing down the main street.",
+  union: "The union’s May Day picnic on the beach, with a brass band.",
+  chamber: "The merchants’ trade fair: stalls along the harbor and a raffle for a radio.",
+  planters: "The end of the harvest: a feast of roast pork in the fields.",
+  coop: "The regatta: every fishing boat on the island races around the reef.",
+  women: "The Women’s League opens a free reading room, with a party.",
+  ball: "The Baseball Club wins the island cup: the whole town at the ballpark."
+};
+function civFiestaText(id) {
+  const D = ORGS[id];
+  if (FIESTA_TXT[id]) return FIESTA_TXT[id];
+  const o = D.orig;
+  return { gal: "Día de Galicia: bagpipes and octopus at the Centro Gallego.", can: "The Canarian society dances the isa until dawn.", afc: "Emancipation Day: steel drums and dancing in the street.", lev: "The Sociedad Libanesa’s night of dabke, kibbeh and arak.", chi: "The Casino Chung Wah’s mid-autumn lanterns along the harbor.", jew: "Purim at the Centro Hebreo: children in costumes all over town.", cze: "The Sokol’s gymnastics display in the park, and beer.", us: "Fourth of July: a barbecue and a very loud band.", ven: "Arepas for everyone at the Casa de Venezuela.", cli: "The New Shores Society’s boat-building festival." }[o] || "A fiesta.";
+}
+const CIV_EV = [
+  {
+    id: "cane",
+    y: 1913,
+    head: "Cane cutters from Jamaica and Haiti",
+    body: "The Caribbean Sugar Company wants to bring contract labourers from Jamaica and Haiti for the harvest: strong hands for the planters, and lower pay for everyone who cuts cane now.",
+    ch: [
+      { t: "Let the company bring them", d: "Planters pleased, workers fear for their pay. Many more Antillean arrivals until 1931.", fx: (G2) => {
+        civWave(G2, "afc", 2.4, 1931);
+        civRel(G2, "planters", 15);
+        civPre(G2, "union", -10);
+        G2.gov.mem.work -= 1;
+        civShipNow(G2, "afc", 16, "The first contract ship");
+      } },
+      { t: "Only with fair contracts and a school", d: "Costs the town $150. Some arrivals; they settle in well.", fx: (G2) => {
+        G2.money -= 150;
+        civWave(G2, "afc", 1.2, 1931);
+        civPre(G2, "integ_afc", 12);
+        civRel(G2, "planters", 5);
+      } },
+      { t: "No contract labour", d: "Workers pleased, planters angry. Few Antilleans come.", fx: (G2) => {
+        civWave(G2, "afc", 0.3, 1931);
+        civRel(G2, "planters", -15);
+        G2.gov.mem.work += 1;
+        G2.gov.mem.farm -= 1;
+      } }
+    ]
+  },
+  {
+    id: "peddlers",
+    y: 1921,
+    head: "Peddlers from the Levant",
+    body: "Ships from Beirut and Mersin bring young men with packs of lace, buttons and cloth, walking from farm to farm. On the quay they are called “los turcos”, for the Ottoman passports they carry. The shopkeepers want them stopped.",
+    ch: [
+      { t: "Sell them peddlers’ licences", d: "+$60 a year in licences, more Levantine arrivals, shopkeepers grumble.", fx: (G2) => {
+        G2.money += 60;
+        civWave(G2, "lev", 1.6, 1932);
+        civRel(G2, "chamber", -6);
+        civPre(G2, "s_lev", 10);
+      } },
+      { t: "Shops only: they must rent a shop", d: "Shopkeepers pleased. Fewer come.", fx: (G2) => {
+        civWave(G2, "lev", 0.6, 1932);
+        civRel(G2, "chamber", 6);
+        civPre(G2, "s_lev", -8);
+      } }
+    ]
+  },
+  {
+    id: "exiles",
+    y: 1939,
+    head: "Exiles from the Spanish war",
+    body: "The Republic has lost the war in Spain. Teachers, doctors and printers wait in camps in France. The Centro Gallego offers to pay the passage for thirty of them.",
+    ch: [
+      { t: "Welcome them", d: "Educated newcomers, the Galician society delighted. The parish is wary of republicans.", fx: (G2) => {
+        civShipNow(G2, "gal", 24, "Exiles from France");
+        civRel(G2, "s_gal", 20);
+        civRel(G2, "parish", -8);
+      } },
+      { t: "Politics stay out of the island", d: "The parish approves; the Galician society is bitter.", fx: (G2) => {
+        civRel(G2, "s_gal", -15);
+        civRel(G2, "parish", 5);
+      } }
+    ]
+  },
+  {
+    id: "ship39",
+    y: 1939,
+    head: "A ship nobody will take",
+    body: "The liner Esperanza left Hamburg with Jewish refugees. Havana refused to let them land and Miami did the same. Her captain radios the harbor master: may we come ashore here?",
+    ch: [
+      { t: "Let them land", d: "The town houses them for a while ($400). Doctors, tailors and teachers join the island.", fx: (G2) => {
+        G2.money -= 400;
+        civShipNow(G2, "jew", 30, "The Esperanza");
+        civPre(G2, "s_jew", 30);
+        civPre(G2, "shul", 25);
+        civRel(G2, "s_jew", 30);
+        civRel(G2, "shul", 25);
+      } },
+      { t: "We cannot take them", d: "The Esperanza turns back towards Europe. The island will remember.", fx: (G2) => {
+        civPre(G2, "s_jew", -25);
+        civPre(G2, "shul", -25);
+        civRel(G2, "s_jew", -25);
+        civRel(G2, "shul", -25);
+      } }
+    ]
+  },
+  {
+    id: "prague48",
+    y: 1948,
+    head: "Letters from Hamburg",
+    body: "After the February coup in Prague, Czech and Slovak engineers and doctors have fled west. A few write from Hamburg: is there work on the island?",
+    ch: [
+      { t: "Offer them work permits", d: "A small group of engineers arrives; they found a Sokol gymnastics club.", fx: (G2) => {
+        civShipNow(G2, "cze", 14, "From Hamburg");
+        civWave(G2, "cze", 1.5, 1950);
+      } },
+      { t: "Not now", d: "Nobody comes.", fx: (G2) => civWave(G2, "cze", 0, 1950) }
+    ]
+  },
+  {
+    id: "prague68",
+    y: 1968,
+    head: "Tanks in Prague",
+    body: "Soviet tanks have ended the Prague Spring. Thousands of Czechs and Slovaks are crossing into Austria. The Sokol asks the town to sponsor families.",
+    ch: [
+      { t: "Sponsor twenty families", d: "Costs $300. The Sokol grows; skilled newcomers.", fx: (G2) => {
+        G2.money -= 300;
+        civShipNow(G2, "cze", 20, "From Vienna");
+        civRel(G2, "s_cze", 20);
+      } },
+      { t: "The island is full", d: "The Sokol is disappointed.", fx: (G2) => civRel(G2, "s_cze", -15) }
+    ]
+  },
+  {
+    id: "boats80",
+    y: 1980,
+    head: "Boats from the mainland",
+    body: "A flotilla of fishing boats has left the mainland, crowded with people who want out. Some are heading for the island.",
+    ch: [
+      { t: "Open the harbor", d: "Forty arrivals at once; the union worries about jobs.", fx: (G2) => {
+        civShipNow(G2, "main", 40, "The flotilla");
+        civRel(G2, "union", -8);
+      } },
+      { t: "Take fifteen families", d: "A compromise.", fx: (G2) => civShipNow(G2, "main", 15, "The flotilla") },
+      { t: "Turn the boats away", d: "The coast guard sends them on.", fx: (G2) => {
+        civRel(G2, "parish", -6);
+        civRel(G2, "women", -6);
+      } }
+    ]
+  },
+  {
+    id: "haiti",
+    y: 2010,
+    head: "Earthquake in Haiti",
+    body: "An earthquake has destroyed much of Port-au-Prince. The Antillean society asks for visas for relatives, and every church is collecting blankets.",
+    ch: [
+      { t: "Humanitarian visas and aid", d: "Aid costs $600; families join relatives here.", fx: (G2) => {
+        G2.money -= 600;
+        civShipNow(G2, "afc", 24, "Relief ship");
+        civWave(G2, "afc", 1.6, 2016);
+        civRel(G2, "s_afc", 25);
+        civRel(G2, "parish", 8);
+      } },
+      { t: "Send aid only", d: "Costs $600.", fx: (G2) => {
+        G2.money -= 600;
+        civRel(G2, "parish", 6);
+        civRel(G2, "s_afc", 5);
+      } },
+      { t: "Nothing we can do", d: "The churches are ashamed.", fx: (G2) => {
+        civRel(G2, "s_afc", -15);
+        civRel(G2, "parish", -8);
+      } }
+    ]
+  },
+  {
+    id: "venez",
+    y: 2017,
+    head: "Venezuelans at the door",
+    body: "Hyperinflation has emptied Venezuela’s shops. Families arrive with a suitcase each, many of them nurses, engineers and teachers.",
+    ch: [
+      { t: "Temporary protection and work permits", d: "Many arrivals over the next years.", fx: (G2) => {
+        civWave(G2, "ven", 1.5, 2026);
+        civRel(G2, "chamber", 5);
+      } },
+      { t: "A strict quota", d: "Fewer come; the union is relieved.", fx: (G2) => {
+        civWave(G2, "ven", 0.4, 2026);
+        civRel(G2, "union", 5);
+      } }
+    ]
+  },
+  {
+    id: "climate",
+    y: 2045,
+    head: "The sea takes the atolls",
+    body: "The low atolls of the Pacific are being abandoned to the sea. The United Nations asks every island state to take a share of the families, and pays towards their homes.",
+    ch: [
+      { t: "Take our share", d: "+$800 from the UN; thirty families arrive, more follow.", fx: (G2) => {
+        G2.money += 800;
+        civShipNow(G2, "cli", 30, "UN charter");
+        civWave(G2, "cli", 1.5, 2200);
+      } },
+      { t: "Only money, no people", d: "The island sends $500.", fx: (G2) => {
+        G2.money -= 500;
+        civWave(G2, "cli", 0.3, 2200);
+      } }
+    ]
+  }
+];
+function civWave(G2, o, m, until) {
+  G2.civ.wave[o] = { m, until };
+}
+function civRel(G2, id, d) {
+  const O = civOrgState(G2, id);
+  if (O) O.rel += d;
+  else civPre(G2, id, d);
+}
+function civPre(G2, id, d) {
+  const P = G2.civ.pre;
+  P[id] = (P[id] || 0) + d;
+}
+function civEvDo(G2, id, k) {
+  const e = CIV_EV.find((x) => x.id === id);
+  if (!e) return;
+  const c = e.ch[k];
+  if (!c) return;
+  G2.civ.ev[id] = k;
+  c.fx(G2);
+  govLogAdd(G2, { k: "c_ev", id, ch: k });
+  G2.gov._moodT = null;
+}
+function civStrikeStart(G2, negotiate) {
+  const C = G2.civ;
+  const O = civOrgState(G2, "union");
+  if (negotiate) {
+    const cost = Math.round(Math.max(200, G2.cits.size * 0.6));
+    G2.money -= cost;
+    if (O) O.rel += 18;
+    govLogAdd(G2, { k: "c_strikeDeal", m: cost });
+    const L = G2.gov.laws;
+    if (L.hours === 12) civPetAdd(G2, { k: "law", org: "union", law: "hours", val: 10, base: 0 }).st = "on";
+    else if (!L.minwage) civPetAdd(G2, { k: "law", org: "union", law: "minwage", val: 1, base: 0 }).st = "on";
+    return cost;
+  }
+  C.strike = { until: G2.t + 1440, y: govY(G2) };
+  if (O) O.rel -= 5;
+  civRel(G2, "chamber", 6);
+  G2.gov.mem.work -= 1;
+  govLogAdd(G2, { k: "c_strike" });
+  return 0;
+}
+function civOutput(G2, b) {
+  const C = G2.civ;
+  if (!C) return 1;
+  let m = 1;
+  if (C.strike && C.strike.until > G2.t && (GROUP_OF[b.type] === "work" || GROUP_OF[b.type] === "fish")) m *= 0.35;
+  if (G2.gov.laws.natjobs && !isPub(b)) m *= 0.97;
+  return m;
+}
+function civExpect(G2, id, val, old, e) {
+  if (id === "imm") {
+    const a = IMM_MULT[val] / IMM_MULT[old || "open"];
+    e.lines.push(["g_xArrivals", Math.round((a - 1) * 100)]);
+  }
+  if (id === "natjobs") {
+    e.lines.push(["g_xIslanders", val ? 1 : -1]);
+    e.lines.push(["g_xNewcomers", val ? -1 : 1]);
+    e.lines.push(["g_xOutput", val ? -3 : 3]);
+  }
+}
 const GV = { pause: 0, speed: 1, tool: null, undo: null, toastUntil: 0, lastSave: 0, hallTab: "gov", moneyTab: "budget", buildTab: "roads", lawOpen: null, voteRes: null };
 const gEsc = (t) => stEsc(t == null ? "" : t);
 const gMoney = (v) => fmtMoney(Math.round(v || 0));
@@ -23897,6 +25471,11 @@ function govBusy() {
 function govBegin(G2) {
   govStart(G2);
   stSave();
+  if (typeof govEnterFull === "function") {
+    govEnterFull(G2, true);
+    Music.swell();
+    return;
+  }
   ST.spots = [];
   ST.placing = null;
   UI.tool = "inspect";
@@ -24077,6 +25656,7 @@ function govTick(G2) {
     const u = $("#gUndo");
     if (u) u.hidden = true;
   }
+  if (typeof civTick === "function") civTick(G2);
   if (performance.now() - GV.lastSave > 6e4 && !DV.on) {
     GV.lastSave = performance.now();
     stSave();
@@ -25063,6 +26643,1171 @@ function govBind() {
     if (G && govOn(G)) govHallOpen("people");
   };
 }
+const GF = { on: false, sub: { hall: "council", people: "groups", money: "budget" }, sel: null, law: null, lawPick: null, voteRes: null, lastShipT: -1, shipToastAt: 0, noLotAt: 0 };
+const GF_TABS = [["goals", "Goals"], ["hall", "Town hall"], ["people", "People"], ["money", "Money"], ["stats", "City"], ["lines", "Transit"], ["inspect", "Info"]];
+const STD_TABS = [["goals", "Goals"], ["stats", "Stats"], ["economy", "Money"], ["lines", "Lines"], ["notes", "Notes"], ["inspect", "Info"], ["booba", "Booba"]];
+const ROMAN = ["", "I", "II", "III", "IV", "V"];
+const govFullOn = () => !!(GF.on && G && govOn(G) && !ST.on);
+const gfGo = (x, y, z, lens) => {
+  View.cam.x = (x + 0.5) * TILE;
+  View.cam.y = (y + 0.5) * TILE;
+  View.cam.z = Math.max(View.cam.z, z || 1.5);
+  UI.follow = false;
+  if (lens) setLens(lens);
+  clampCam();
+};
+const gfPct = (v) => Math.round(clamp(v, 0, 1) * 100);
+const gfSign = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(Math.round(v));
+function govEnterFull(G2, welcome) {
+  if (!G2.civ) civInit(G2);
+  ST.lang = "en";
+  GF.on = true;
+  GF.sel = null;
+  GF.law = null;
+  ST.on = false;
+  ST.placing = null;
+  ST.removing = false;
+  ST.spots = [];
+  ST.custom = null;
+  GV.tool = null;
+  GV.pause = 0;
+  const S = $("#story");
+  S.hidden = false;
+  S.classList.add("g-full");
+  for (const id of ["#stOver", "#stCelebrate", "#stCard", "#stPraise", "#stInfo", "#gTool", "#gToast", "#gReq", "#gLens", "#stWish"]) {
+    const e = $(id);
+    if (e) e.hidden = true;
+  }
+  G2.noShips = false;
+  G2.noMoves = false;
+  if (G2.story) G2.story.full = false;
+  UI.seedLabel = G2.story && G2.story.name ? G2.story.name : "Isla Nueva";
+  startGame(true);
+  gfTabs(true);
+  $("#btnBackStory").hidden = true;
+  {
+    const lp = document.querySelector('#lensbar [data-lens="people"]');
+    if (lp) lp.hidden = false;
+  }
+  $("#panel").classList.add("g-wide");
+  layout();
+  {
+    const a = stAnchor(G2, "homes");
+    View.cam.z = clamp(Math.min(View.W, View.H) / (30 * TILE), 0.9, 2);
+    View.cam.x = a.x * TILE + (UI.panelOpen && View.W > 760 ? 200 / View.cam.z : 0);
+    View.cam.y = a.y * TILE;
+    clampCam();
+  }
+  gfHudBind();
+  setSpeed(1);
+  setTab("goals");
+  stSave();
+  if (welcome) gfWelcome(G2);
+}
+function govLeaveFull() {
+  if (!GF.on) return;
+  GF.on = false;
+  GF.sel = null;
+  const S = $("#story");
+  S.classList.remove("g-full");
+  S.hidden = true;
+  gfTabs(false);
+  $("#panel").classList.remove("g-wide");
+  {
+    const lp = document.querySelector('#lensbar [data-lens="people"]');
+    if (lp) lp.hidden = true;
+  }
+  for (const id of ["#hudYear", "#hudCouncil"]) {
+    const e = $(id);
+    if (e) e.hidden = true;
+  }
+}
+function gfTabs(gov) {
+  const box = document.querySelector(".tabs");
+  box.innerHTML = "";
+  for (const [k, lab] of gov ? GF_TABS : STD_TABS) {
+    const b = el("button", null, lab);
+    b.setAttribute("role", "tab");
+    b.dataset.tab = k;
+    b.setAttribute("aria-selected", String(UI.tab === k));
+    b.onclick = () => setTab(k);
+    box.append(b);
+  }
+}
+function gfWelcome(G2) {
+  const S = G2.story, L = G2.gov.laws;
+  modal('<span class="label">'.concat(govY(G2), " · Isla Nueva</span><h2>The island is yours").concat(S.name ? ", " + esc(S.name) : "", '</h2>\n    <ul class="gf-list"><li><b>Two days make a year.</b> Speed and pause are in the top bar.</li>\n    <li><b>You are the Mayor.</b> Roads, ports and public buildings come out of the town’s treasury: taxes and the town’s own enterprises.</li>\n    <li><b>Families build with their own savings</b> on lots along your streets, and ask you for a permit. Lay out streets and they will fill them.</li>\n    <li><b>A council of nine</b> votes on taxes and laws. The island elects it every ').concat(L.term, ' years.</li>\n    <li><b>Newcomers arrive by ship</b> from Galicia, the Levant, Jamaica and further. Their churches, unions and societies will petition you, and remember what you did.</li></ul>\n    <div class="btnrow"><button class="primary" id="mOk">Let’s go</button></div>'), (m) => {
+    m.querySelector("#mOk").onclick = closeModal;
+  });
+}
+{
+  const _praise = stPraise;
+  stPraise = function(text, tone) {
+    if (!govFullOn()) return _praise(text, tone);
+    if (tone === "hint") return;
+    toast({ body: text, tone: tone === "soft" ? "bad" : "good", timeout: 5e3 });
+    if (tone !== "hint") Music.sfx(tone === "soft" ? "error" : "report");
+  };
+}
+{
+  const _card = stCard;
+  stCard = function(o) {
+    if (!govFullOn()) return _card(o);
+    modal("<p>".concat(o.text, "</p>").concat(o.extra || "", '<div class="btnrow">').concat((o.buttons || []).map(([l], k) => '<button class="'.concat(k ? "secondary" : "primary", '" data-k="').concat(k, '">').concat(l, "</button>")).join(""), "</div>"), (m) => {
+      for (const b of m.querySelectorAll("[data-k]")) b.onclick = () => {
+        const f = o.buttons[+b.dataset.k][1];
+        closeModal();
+        if (f) f();
+      };
+    });
+  };
+}
+{
+  const _hide = stCardHide;
+  stCardHide = function() {
+    if (govFullOn()) {
+      if (!$("#modal").hidden) closeModal();
+      return;
+    }
+    return _hide();
+  };
+}
+{
+  const _hud = govHud;
+  govHud = function(f) {
+    if (GF.on) return;
+    return _hud(f);
+  };
+}
+{
+  const _busy = govBusy;
+  govBusy = function() {
+    return _busy() || GF.on && !$("#modal").hidden;
+  };
+}
+{
+  const _toast = govToast;
+  govToast = function(text, onTap) {
+    if (!govFullOn()) return _toast(text, onTap);
+    toast({ body: text.replace(/<[^>]+>/g, ""), tone: "report", timeout: 7e3, actions: onTap ? [["Open", onTap]] : [] });
+  };
+}
+{
+  const _ev = govEvent;
+  govEvent = function(G2, e) {
+    if (!govFullOn()) return _ev(G2, e);
+    return gfEvent(G2, e, _ev);
+  };
+}
+function govFullTick() {
+  govTick(G);
+  const C = G.civ;
+  if (!C) return;
+  const sh = C.lastShip;
+  if (sh && sh.t !== GF.lastShipT && sh.landed + sh.turned > 0) {
+    GF.lastShipT = sh.t;
+    if (sh.special || performance.now() - GF.shipToastAt > 15e3) {
+      GF.shipToastAt = performance.now();
+      const O = ORIGINS[sh.orig] || ORIGINS.main;
+      toast({ title: sh.special && sh.special !== "special" ? "".concat(sh.special, " · from ").concat(sh.from) : "Ship from ".concat(sh.from), body: sh.landed ? "".concat(sh.landed, " ").concat(sh.landed === 1 ? O.one : O.name, " landed").concat(sh.turned ? "; ".concat(sh.turned, " sailed on, finding no free home") : "", ".") : "No free homes: all ".concat(sh.turned, " ").concat(O.name, " sailed on."), tone: sh.turned ? "bad" : "report", timeout: 6e3, actions: [["People", () => {
+        GF.sub.people = "origins";
+        gfOpen("people");
+      }]] });
+    }
+  }
+  if (C.noLot >= 3 && performance.now() - GF.noLotAt > 9e4) {
+    GF.noLotAt = performance.now();
+    toast({ title: "No free lots on the streets", body: "Families have saved for a ".concat(BLD[C.noLotType] ? BLD[C.noLotType].name.toLowerCase() : "building", " but every lot along a street is taken. Lay out a new street and they will build there."), tone: "report", timeout: 9e3, actions: [["Roads", () => setTool("road" + (G.era >= 2 ? 2 : 1))]] });
+  }
+}
+function gfOpen(tab) {
+  if (!UI.panelOpen) togglePanel(true);
+  setTab(tab);
+}
+function gfEvent(G2, e, story) {
+  const V = G2.gov;
+  switch (e.k) {
+    case "year": {
+      const r = V.years[V.years.length - 1];
+      if (!r) return;
+      const inc = Object.values(r.inc).reduce((a, v) => a + v, 0), out = Object.values(r.out).reduce((a, v) => a + v, 0);
+      Music.sfx("report");
+      toast({ title: "".concat(r.y, " closes"), body: "The island earned ".concat(fmtMoney(r.gdp), ". Town budget ").concat(gSigned(inc - out), ". ").concat(r.arrivals || 0, " arrived, ").concat(r.departures || 0, " left."), tone: inc >= out ? "good" : "bad", timeout: 9e3, actions: [["Budget", () => {
+        GF.sub.money = "budget";
+        gfOpen("money");
+      }]] });
+      return;
+    }
+    case "req": {
+      const q = V.req[V.req.length - 1];
+      if (!q) return;
+      Music.sfx("ding");
+      UI.goalsBadge = UI.tab !== "goals";
+      toast({ title: "A permit request", body: "The ".concat(q.fam, " family wants to build a ").concat(BLD[q.type].name.toLowerCase(), " with their own ").concat(fmtMoney(q.cost), "."), tone: "report", timeout: 7e3, actions: [["Look", () => {
+        GF.sel = { k: "req", id: q.id };
+        gfGo(q.x, q.y, 1.6);
+        gfOpen("inspect");
+      }]] });
+      return;
+    }
+    case "overdraft":
+      if ((V.odY || 0) >= govY(G2)) return;
+      V.odY = govY(G2);
+      toast({ title: "The treasury ran dry", body: "The bank covered the bills: the town now owes ".concat(fmtMoney(V.debt), " at ").concat(Math.round(govRate(G2) * 100), "% a year."), tone: "bad", timeout: 1e4, actions: [["Budget", () => {
+        GF.sub.money = "budget";
+        gfOpen("money");
+      }]] });
+      Music.sfx("error");
+      return;
+    case "dealDone":
+      toast({ title: "Promise kept", body: "".concat(gPartyName(e.p), ": ").concat(st("g_" + e.id), "."), tone: "good" });
+      Music.sfx("cash");
+      return;
+    case "left":
+      toast({ title: "".concat(gPartyName(e.p), " left the government"), body: "The promise was not kept in time. Your side now has ".concat(govGovSeats(G2), " of 9 seats."), tone: "bad", timeout: 1e4, actions: [["Town hall", () => {
+        GF.sub.hall = "council";
+        gfOpen("hall");
+      }]] });
+      Music.sfx("error");
+      return;
+    case "gen":
+      return;
+    case "c_pet": {
+      const p = civPet(G2, e.id);
+      if (!p || p.st !== "ask") return;
+      Music.sfx("ding");
+      UI.goalsBadge = UI.tab !== "goals";
+      toast({ title: "Petition from the ".concat(ORGS[p.org].short || ORGS[p.org].name), body: civPetTitle(G2, p), tone: "report", timeout: 9e3, actions: [["Read it", () => {
+        GF.sel = { k: "pet", id: p.id };
+        if (p.x != null) gfGo(p.x, p.y, 1.4, PETK[p.k].lens);
+        gfOpen("inspect");
+      }]] });
+      return;
+    }
+    case "c_won": {
+      const p = civPet(G2, e.id);
+      if (!p) return;
+      Music.sfx("cash");
+      toast({ title: "Promise kept", body: "".concat(civPetTitle(G2, p), ". The ").concat(ORGS[p.org].name, " will remember it."), tone: "good", timeout: 8e3 });
+      return;
+    }
+    case "c_lost": {
+      const p = civPet(G2, e.id);
+      if (!p) return;
+      Music.sfx("error");
+      toast({ title: "Promise broken", body: "".concat(civPetTitle(G2, p), ": the deadline passed. The ").concat(ORGS[p.org].name, " is angry."), tone: "bad", timeout: 9e3 });
+      return;
+    }
+    case "c_found": {
+      const D = ORGS[e.org];
+      toast({ title: "Founded: ".concat(D.name), body: "".concat(civMembers(G2, e.org), " members. Watch how they feel in People → Societies."), tone: "report", timeout: 7e3, actions: [["Societies", () => {
+        GF.sub.people = "orgs";
+        gfOpen("people");
+      }]] });
+      return;
+    }
+    case "c_fiesta":
+      toast({ title: "Fiesta · ".concat(ORGS[e.org].short || ORGS[e.org].name), body: civFiestaText(e.org), tone: "good", timeout: 8e3 });
+      Music.sfx("report");
+      return;
+    case "c_ev":
+      gfCivEvent(G2, e.id);
+      return;
+    case "c_strike":
+      gfStrike(G2);
+      return;
+  }
+  story(G2, e);
+}
+function gfCivEvent(G2, id) {
+  const E = CIV_EV.find((x) => x.id === id);
+  if (!E) return;
+  govPause();
+  Music.sfx("report");
+  modal(
+    '<span class="label">'.concat(st("g_paper"), " · ").concat(govY(G2), "</span><h2>").concat(E.head, "</h2><p>").concat(E.body, '</p><div class="gf-choices">').concat(E.ch.map((c, k) => '<button class="gf-choice" data-k="'.concat(k, '"><b>').concat(c.t, "</b><small>").concat(c.d, "</small></button>")).join(""), "</div>"),
+    (m) => {
+      for (const b of m.querySelectorAll("[data-k]")) b.onclick = () => {
+        civEvDo(G2, id, +b.dataset.k);
+        closeModal();
+        govResume();
+        Music.sfx("place");
+        UI.panelSig = "";
+        stSave();
+      };
+    }
+  );
+}
+function gfStrike(G2) {
+  const cost = Math.round(Math.max(200, G2.cits.size * 0.6));
+  govPause();
+  Music.sfx("error");
+  const ask = G2.gov.laws.hours === 12 ? "a ten-hour working day" : "a minimum wage";
+  modal(
+    '<span class="label">'.concat(govY(G2), " · Union</span><h2>General strike</h2><p>The Dockers’ and Workers’ Union has called everyone out. The harbor, the factories and the canneries stand still. They want ").concat(ask, '.</p>\n    <div class="gf-choices"><button class="gf-choice" data-k="0"><b>Negotiate</b><small>A one-off payment of ').concat(fmtMoney(cost), " from the treasury, and your promise to put ").concat(ask, ' to the council. Work resumes at once.</small></button>\n    <button class="gf-choice" data-k="1"><b>Wait it out</b><small>Industry and the port run at a third for half a year. Employers are grateful; workers are not.</small></button></div>'),
+    (m) => {
+      for (const b of m.querySelectorAll("[data-k]")) b.onclick = () => {
+        civStrikeStart(G2, b.dataset.k === "0");
+        closeModal();
+        govResume();
+        UI.panelSig = "";
+        stSave();
+      };
+    }
+  );
+}
+function govFullHud() {
+  const V = G.gov, y = govY(G), s = govStage(G);
+  $("#eraChip").textContent = "".concat(ROMAN[s], " · ").concat(gStageName(s));
+  $("#clockDay").textContent = "".concat(y, " · ").concat(govYF(G) < 0.5 ? "first half" : "second half");
+  let yb = $("#hudYear");
+  if (!yb) {
+    yb = el("i", "gf-yearbar");
+    yb.id = "hudYear";
+    yb.append(el("i"));
+    document.querySelector(".clock").append(yb);
+  }
+  yb.hidden = false;
+  yb.firstChild.style.width = Math.round(govYF(G) * 100) + "%";
+  let cb = $("#hudCouncil");
+  if (!cb) {
+    cb = el("div", "stat gf-click");
+    cb.id = "hudCouncil";
+    cb.innerHTML = '<span class="label">Council</span><b id="stCouncil"></b>';
+    $("#stPowerBox").before(cb);
+    cb.onclick = () => {
+      GF.sub.hall = "council";
+      gfOpen("hall");
+    };
+  }
+  cb.hidden = false;
+  const gs = govGovSeats(G);
+  const t = "".concat(gs, "/9 <small>vote ").concat(V.elec.next, "</small>");
+  const e = $("#stCouncil");
+  if (e.dataset.t !== t) {
+    e.dataset.t = t;
+    e.innerHTML = t;
+    e.className = gs >= 5 ? "good" : "bad";
+  }
+  const due = civAskPets(G).length + V.req.length;
+  if (due && UI.tab !== "goals") UI.goalsBadge = true;
+}
+function gfHudBind() {
+  const on = (sel, f) => {
+    const b = $(sel);
+    if (b && b.parentElement) {
+      b.parentElement.classList.add("gf-click");
+      b.parentElement.onclick = () => {
+        if (govFullOn()) f();
+      };
+    }
+  };
+  on("#stMoney", () => {
+    GF.sub.money = "budget";
+    gfOpen("money");
+  });
+  on("#stHappy", () => {
+    GF.sub.people = "groups";
+    gfOpen("people");
+  });
+  on("#stPop", () => {
+    GF.sub.people = "origins";
+    gfOpen("people");
+  });
+  on("#stShip", () => {
+    GF.sub.people = "origins";
+    gfOpen("people");
+  });
+}
+function gfSubtabs(tab, opts) {
+  const cur = GF.sub[tab];
+  return '<div class="subtabs" role="tablist">'.concat(opts.map(([k, l]) => '<button data-sub="'.concat(tab, ":").concat(k, '" aria-pressed="').concat(k === cur, '">').concat(l, "</button>")).join(""), "</div>");
+}
+function govFullPanel(tab) {
+  let html = "", after = null;
+  if (tab === "goals") {
+    html = gfGoalsHTML();
+    after = gfBindGoals;
+  } else if (tab === "hall") {
+    html = gfSubtabs("hall", [["council", "Council"], ["laws", "Laws"], ["chron", "Chronicle"]]) + (GF.sub.hall === "laws" ? GF.law ? gfLawHTML(GF.law) : gfLawsHTML() : GF.sub.hall === "chron" ? gfChronHTML() : gfCouncilHTML());
+    after = gfBindHall;
+  } else if (tab === "people") {
+    html = gfSubtabs("people", [["groups", "Groups"], ["origins", "Origins"], ["orgs", "Societies"]]) + (GF.sub.people === "origins" ? gfOriginsHTML() : GF.sub.people === "orgs" ? gfOrgsHTML() : gfGroupsHTML());
+    after = gfBindPeople;
+  } else if (tab === "money") {
+    const S = GF.sub.money;
+    html = gfSubtabs("money", [["budget", "Budget"], ["economy", "Economy"], ["taxes", "Taxes"], ["industry", "Industry"]]) + (S === "economy" ? gfEconHTML() : S === "taxes" ? gfTaxHTML() : S === "industry" ? economyHTML() : gfBudgetHTML());
+    after = () => {
+      gfBindMoney();
+      if (S === "industry") bindEconomy();
+    };
+  } else if (tab === "inspect") {
+    const r = gfSelHTML();
+    if (r) {
+      html = r;
+      after = gfBindSel;
+    } else return null;
+  }
+  const bindSub = () => {
+    for (const b of document.querySelectorAll("#pbody [data-sub]")) b.onclick = () => {
+      const [t, k] = b.dataset.sub.split(":");
+      GF.sub[t] = k;
+      if (t === "hall") {
+        GF.law = null;
+        GF.voteRes = null;
+      }
+      UI.panelSig = "";
+      renderPanel(true);
+    };
+  };
+  return { html, after: () => {
+    bindSub();
+    if (after) after();
+  } };
+}
+const rer = () => {
+  UI.panelSig = "";
+  renderPanel(true);
+};
+function gfGoalsHTML() {
+  const V = G.gov, s = govStage(G), items = govGoalItems(G), met = govGoalsMet(G), next = s < 5 ? gStageName(s + 1) : null;
+  const lead = st("g_stageB" + s);
+  let h = '<div><span class="label">Stage '.concat(ROMAN[s], " · ").concat(govY(G), "</span><h2>").concat(gStageName(s), "</h2>").concat(lead !== "g_stageB" + s ? "<p>".concat(lead, "</p>") : "", "</div>");
+  if (next) {
+    h += '<div class="gf-sec"><span class="label">To become '.concat(next, "</span>").concat(items.map((i) => '<div class="goal"><span class="gl">'.concat(st("g_goal_" + i.key), '</span><span class="gv ').concat(i.ok ? "ok" : "", '">').concat(i.txt, '</span><div class="bar ').concat(i.ok ? "ok" : "", '"><i style="width:').concat(gfPct(i.frac || 0), '%"></i></div></div>')).join(""), "</div>");
+    h += met ? '<button class="primary" id="gfAdv">Move on: '.concat(next, "</button>") : "";
+  } else h += "<p>".concat(st("g_stage5more"), "</p>");
+  const on = civOpenPets(G);
+  if (on.length) h += '<div class="gf-sec"><span class="label">Promises you made</span>'.concat(on.map(gfPetRow).join(""), "</div>");
+  const deals = V.deals.filter((d) => !d.done && !d.broken && V.coal.includes(d.p));
+  if (deals.length) h += '<div class="gf-sec"><span class="label">Coalition promises</span>'.concat(deals.map((d) => {
+    var _a2;
+    const ok = (_a2 = govDemand(d.p, d.id)) == null ? void 0 : _a2.ok(G);
+    return '<div class="goal"><span class="gl">'.concat(st("g_" + d.id), '</span><span class="gv ').concat(ok ? "ok" : "", '">').concat(ok ? "done" : "by " + d.due, '</span><small class="gf-sub">').concat(gPartyName(d.p), " leaves your government if it is not done by ").concat(d.due, "</small></div>");
+  }).join(""), "</div>");
+  const ask = civAskPets(G);
+  if (ask.length) h += '<div class="gf-sec"><span class="label">Petitions waiting · '.concat(ask.length, "</span>").concat(ask.map(gfPetCard).join(""), "</div>");
+  if (V.req.length) h += '<div class="gf-sec"><span class="label">Permits waiting · '.concat(V.req.length, "</span>").concat(V.req.map(gfReqCard).join(""), '<label class="pol"><input type="checkbox" id="gfAuto" ').concat(V.auto ? "checked" : "", "><span><b>Approve family plans automatically</b><small>Every home and business a family can pay for goes ahead.</small></span></label></div>");
+  else h += '<label class="pol"><input type="checkbox" id="gfAuto" '.concat(V.auto ? "checked" : "", "><span><b>Approve family plans automatically</b><small>Every home and business a family can pay for goes ahead.</small></span></label>");
+  if (G.civ && G.civ.noLot >= 2) h += '<div class="issue s2"><b>No free lots along the streets</b><span>Families have saved up to build, but every lot beside a street is taken. They only build where a street already runs.</span><button class="secondary" id="gfRoads">Lay out a street</button></div>';
+  const att = gfAttention();
+  if (att.length) h += '<div class="gf-sec"><span class="label">Needs attention</span>'.concat(att.map((a, k) => '<div class="bn"><span class="n" style="background:'.concat(a.col || "var(--mango)", '">').concat(a.ic, "</span><span>").concat(a.t, "</span>").concat(a.go ? '<button class="link" data-att="'.concat(k, '">Show</button>') : "<span></span>", "</div>")).join(""), "</div>");
+  const log2 = V.log.slice(-4).reverse();
+  if (log2.length) h += '<div class="gf-sec"><span class="label">Lately</span><ul class="events">'.concat(log2.map((e) => {
+    const [ic, t] = gfChronLine(e);
+    return "<li><time>".concat(e.y, "</time>").concat(ic, " ").concat(t, "</li>");
+  }).join(""), "</ul></div>");
+  GF._att = att;
+  return h;
+}
+function gfPetProgress(p) {
+  const K = PETK[p.k];
+  const v = p.now;
+  if (v == null) return 0;
+  if (K.dir === "up") return clamp(v / Math.max(1e-6, p.tgt), 0, 1);
+  const span = Math.max(1e-6, p.base - p.tgt);
+  return clamp((p.base - v) / span, 0, 1);
+}
+function gfPetRow(p) {
+  const K = PETK[p.k], D = ORGS[p.org];
+  const ok = p.now != null && (K.dir === "down" ? p.now <= p.tgt : p.now >= p.tgt);
+  const val = p.k === "law" ? ok ? "in force" : "not yet" : "".concat(civPetFmt(p, p.now), " <small>/ ").concat(civPetFmt(p, p.tgt), "</small>");
+  return '<div class="gf-pet"><div class="goal"><span class="gl">'.concat(K.icon, " ").concat(civPetTitle(G, p), '</span><span class="gv ').concat(ok ? "ok" : "", '">').concat(val, '</span><div class="bar ').concat(ok ? "ok" : "", '"><i style="width:').concat(gfPct(gfPetProgress(p)), '%"></i></div></div>\n    <div class="gf-pmeta"><span class="odot" style="background:').concat(D.col, '"></span><small>').concat(D.short || D.name, " · by ").concat(p.due).concat(p.k !== "law" ? " · was ".concat(civPetFmt(p, p.base), " ").concat(K.unit) : "", "</small>").concat(p.x != null ? '<button class="link" data-pgo="'.concat(p.id, '">Show</button>') : p.k === "law" ? '<button class="link" data-plaw="'.concat(p.law, '">Council</button>') : "", "</div></div>");
+}
+function gfPetCard(p) {
+  const K = PETK[p.k], D = ORGS[p.org];
+  const gs = D.groups ? Object.keys(D.groups).map(gGroupName).join(", ") : "";
+  return '<div class="issue s1 gf-card"><b><span class="odot" style="background:'.concat(D.col, '"></span>').concat(K.icon, " ").concat(civPetTitle(G, p), "</b><span>").concat(civPetBody(G, p), "</span>\n    ").concat(PET_HINT[p.k] ? '<small class="gf-hint">'.concat(PET_HINT[p.k], "</small>") : "", '\n    <small class="gf-sub">').concat(p.k === "site" ? "Accept: ".concat(D.short || D.name, " +").concat(p.bld === "ballpark" ? 20 : 15, ". Decline: −10.") : "Keep it: ".concat(D.short || D.name, " +25").concat(gs ? ", ".concat(gs, " remember") : "", ". Break it: −20. Decline now: −6."), '</small>\n    <div class="btnrow"><button class="secondary" data-pacc="').concat(p.id, '">').concat(p.k === "site" ? p.bld === "ballpark" ? "Pay ".concat(fmtMoney(p.cost)) : "Grant a lot" : "Promise it", '</button><button class="secondary" data-pdec="').concat(p.id, '">Decline</button>').concat(p.x != null ? '<button class="link" data-pgo="'.concat(p.id, '">Show</button>') : "", "</div></div>");
+}
+function gfReqCard(r) {
+  const d = BLD[r.type];
+  let near = 0;
+  if (d.noise) {
+    for (const o of G.blds.values()) if (BLD[o.type].kind === "home" && bDist(o, r) <= d.noise + 1.5) near += o.res.length;
+  }
+  return '<div class="issue s0 gf-card"><b>The '.concat(esc(r.fam), " family · ").concat(d.name, "</b><span>").concat(d.housing ? "".concat(d.housing, " homes") : "".concat(d.jobs, " jobs"), " · their own ").concat(fmtMoney(r.cost), " · pays ").concat(G.gov.laws.biz, "% sales tax").concat(near ? ' · <b class="neg">noisy for '.concat(near, " neighbours</b>") : "", '</span>\n    <div class="btnrow"><button class="secondary" data-rok="').concat(r.id, '">Approve</button><button class="secondary" data-rno="').concat(r.id, '">Refuse</button><button class="link" data-rgo="').concat(r.id, '">Show</button></div></div>');
+}
+function gfAttention() {
+  const V = G.gov, k = counts(), out = [], last = V.years[V.years.length - 1];
+  const un = k.pop - k.employed;
+  if (un >= Math.max(4, k.pop * 0.05)) out.push({ w: un, ic: "🔧", t: "".concat(un, " people are looking for work."), go: () => setLens("money") });
+  const rec = G.history[G.history.length - 1];
+  const turned = rec && rec.turned || 0;
+  if (turned > 0) out.push({ w: turned + 2, ic: "🏠", t: "".concat(turned, " settlers sailed on yesterday: no free homes."), col: "var(--coral)" });
+  if (G.pw && G.pw.active && G.pw.ratio < 0.9) out.push({ w: 9, ic: "⚡", t: "Only ".concat(Math.round(G.pw.ratio * 100), "% of the electricity is covered."), col: "var(--coral)", go: () => {
+    GF.sub.money = "industry";
+    gfOpen("money");
+  } });
+  const bn0 = G.bottlenecks && G.bottlenecks[0];
+  if (bn0 && bn0.delay > 40) out.push({ w: Math.min(9, bn0.delay / 30), ic: "🚗", t: "Worst jam: ".concat(Math.round(bn0.delay), " vehicle-minutes lost ").concat(civPlace(G, bn0.x, bn0.y), "."), go: () => gfGo(bn0.x, bn0.y, 1.8, "traffic") });
+  if (last) {
+    const inc = Object.values(last.inc).reduce((a, v) => a + v, 0), sp = Object.values(last.out).reduce((a, v) => a + v, 0) - last.out.build;
+    if (inc - sp < 0) out.push({ w: 7, ic: "$", t: "The town ran a deficit of ".concat(fmtMoney(sp - inc), " last year."), col: "var(--coral)", go: () => {
+      GF.sub.money = "budget";
+      gfOpen("money");
+    } });
+  }
+  const M = govMoods(G, true);
+  const low = GROUP_IDS.filter((g) => M[g].n >= 3).sort((a, b) => M[a].mood - M[b].mood)[0];
+  if (low && M[low].mood < 55) {
+    const r = gTopReasons(M[low], -1)[0];
+    out.push({ w: (60 - M[low].mood) / 3, ic: gIcon(low), t: "".concat(gGroupName(low), " are unhappy (").concat(Math.round(M[low].mood), "%)").concat(r ? ", mostly: " + st("g_r" + r[0]).toLowerCase() : "", "."), go: () => {
+      GF.sub.people = "groups";
+      gfOpen("people");
+    } });
+  }
+  if (V.elec.next - govY(G) <= 1) {
+    const P = govPoll(G);
+    out.push({ w: 6, ic: "🗳", t: "Election in ".concat(V.elec.next, ": the polls give your party ").concat(P.seats.isla, " of 9 seats."), go: () => {
+      GF.sub.hall = "council";
+      gfOpen("hall");
+    } });
+  }
+  if (G.civ && G.civ.strike && G.civ.strike.until > G.t) out.push({ w: 10, ic: "✊", t: "General strike: industry and the port run at a third.", col: "var(--coral)" });
+  return out.sort((a, b) => b.w - a.w).slice(0, 4);
+}
+function gfBindGoals() {
+  const b = (id, f) => {
+    const e = document.getElementById(id);
+    if (e) e.onclick = f;
+  };
+  b("gfAdv", () => {
+    govStageUp(G);
+    buildDock();
+    rer();
+  });
+  b("gfRoads", () => setTool("road" + (G.era >= 2 ? 2 : 1)));
+  {
+    const a = $("#gfAuto");
+    if (a) a.onchange = () => {
+      G.gov.auto = a.checked;
+      stSave();
+    };
+  }
+  for (const x of document.querySelectorAll("#pbody [data-att]")) x.onclick = () => {
+    const a = GF._att[+x.dataset.att];
+    if (a && a.go) a.go();
+  };
+  gfBindCards();
+}
+function gfBindCards() {
+  for (const x of document.querySelectorAll("#pbody [data-pgo]")) x.onclick = () => {
+    const p = civPet(G, +x.dataset.pgo);
+    if (p && p.x != null) gfGo(p.x, p.y, 1.5, PETK[p.k].lens);
+  };
+  for (const x of document.querySelectorAll("#pbody [data-plaw]")) x.onclick = () => {
+    GF.sub.hall = "laws";
+    GF.law = x.dataset.plaw;
+    GF.lawPick = null;
+    GF.voteRes = null;
+    gfOpen("hall");
+  };
+  for (const x of document.querySelectorAll("#pbody [data-pacc]")) x.onclick = () => {
+    const p = civPet(G, +x.dataset.pacc);
+    if (!p) return;
+    if (civAccept(G, p)) {
+      Music.sfx(p.k === "site" ? "place" : "cash");
+      if (p.k === "site" && p.bx != null) gfGo(p.bx, p.by, 1.6);
+      GF.sel = null;
+    }
+    stSave();
+    rer();
+  };
+  for (const x of document.querySelectorAll("#pbody [data-pdec]")) x.onclick = () => {
+    const p = civPet(G, +x.dataset.pdec);
+    if (!p) return;
+    civDecline(G, p);
+    Music.sfx("error");
+    GF.sel = null;
+    stSave();
+    rer();
+  };
+  for (const x of document.querySelectorAll("#pbody [data-rok]")) x.onclick = () => {
+    const r = G.gov.req.find((q) => q.id === +x.dataset.rok);
+    if (!r) return;
+    const b = govApprove(G, r);
+    if (b) {
+      Music.sfx("cash");
+      toast({ body: "Permit granted. The ".concat(r.fam, " family starts building."), tone: "good", timeout: 3e3 });
+    }
+    GF.sel = null;
+    stSave();
+    rer();
+  };
+  for (const x of document.querySelectorAll("#pbody [data-rno]")) x.onclick = () => {
+    const r = G.gov.req.find((q) => q.id === +x.dataset.rno);
+    if (!r) return;
+    govRefuse(G, r);
+    Music.sfx("error");
+    GF.sel = null;
+    stSave();
+    rer();
+  };
+  for (const x of document.querySelectorAll("#pbody [data-rgo]")) x.onclick = () => {
+    const r = G.gov.req.find((q) => q.id === +x.dataset.rgo);
+    if (!r) return;
+    GF.sel = { k: "req", id: r.id };
+    gfGo(r.x, r.y, 1.6);
+    setTab("inspect");
+  };
+}
+function gfCouncilHTML() {
+  const V = G.gov, S = G.story, y = govY(G), gs = govGovSeats(G);
+  const E = V.elec.hist[V.elec.hist.length - 1] || { y: GOV_Y0, pct: S.votePct || 0 };
+  const status = V.seats.isla >= 5 ? "Majority: your party holds ".concat(V.seats.isla, " of 9 seats. Your laws pass.") : gs >= 5 ? "Coalition: ".concat(gs, " of 9 seats with ").concat(V.coal.map(gPartyName).join(", "), ".") : "No majority: your side holds ".concat(gs, " of 9 seats. A law passes only if other parties like it.");
+  const P = govPoll(G);
+  const act = civActive(G);
+  const endo = act.map((id) => [id, civStance(civOrgScore(G, id))]).filter((x) => x[1]);
+  let h = '<div><span class="label">Mayor · Isla Unida</span><h2>'.concat(S.name ? esc(S.name) : "The Mayor", "</h2><p>Elected ").concat(E.y, " with ").concat(E.pct, "% of the vote. Next election ").concat(V.elec.next, '.</p></div>\n    <div class="gf-council">').concat(gSeatsSVG(V.seats, V.coal), '<div class="legend gf-legend">').concat(PARTIES.filter((p) => V.seats[p]).map((p) => '<span><i style="background:'.concat(PARTY_COL[p], ';border-radius:50%"></i>').concat(gPartyName(p), " <b>").concat(V.seats[p], "</b>").concat(p !== "isla" && V.coal.includes(p) ? " · in government" : "", "</span>")).join(""), '</div></div>\n    <p class="').concat(gs >= 5 ? "pos" : "neg", '" style="font-weight:600">').concat(status, '</p>\n    <div class="btnrow">').concat(gs < 5 ? '<button class="primary" id="gfCoal">Find partners</button>' : V.seats.isla < 5 ? '<button class="secondary" id="gfCoal">Change partners</button>' : "", '</div>\n    <div class="gf-sec"><span class="label">If the island voted today</span><div class="kv"><span class="k">Isla Unida</span><span class="v">').concat(P.pct, "% · ").concat(P.seats.isla, " of 9 seats</span>").concat(GROUP_IDS.filter((g) => P.by[g] && P.by[g].n).map((g) => '<span class="k">'.concat(gIcon(g), " ").concat(gGroupName(g), " · ").concat(P.by[g].n, ' voters</span><span class="v">').concat(Math.round(P.by[g].p * 100), "% for you</span>")).join(""), "</div></div>");
+  if (endo.length) h += '<div class="gf-sec"><span class="label">Organisations before the vote</span><div class="chips">'.concat(endo.map(([id, s]) => '<span class="'.concat(s > 0 ? "ok" : "bad", '">').concat(ORGS[id].short || ORGS[id].name, ": ").concat(s > 0 ? "backs you" : "campaigns against you", "</span>")).join(""), "</div></div>");
+  if (V.deals.length) h += '<div class="gf-sec"><span class="label">Promises to partners</span>'.concat(V.deals.filter((d) => V.coal.includes(d.p) || d.done).map((d) => '<div class="goal"><span class="gl">'.concat(st("g_" + d.id), '</span><span class="gv ').concat(d.done ? "ok" : d.broken ? "neg" : "", '">').concat(d.done ? "kept" : d.broken ? "broken" : "by " + d.due, '</span><small class="gf-sub">').concat(gPartyName(d.p), "</small></div>")).join(""), "</div>");
+  h += '<div class="gf-sec"><span class="label">Who decides what</span><div class="kv gf-who"><span class="k">You, the Mayor</span><span class="v">roads, public buildings, permits; you propose laws</span><span class="k">The council, 9 seats</span><span class="v">votes on every tax and law; 5 votes pass it</span><span class="k">The voters</span><span class="v">'.concat(V.laws.vote === "land" ? "landowners only" : "every adult", '; newcomers after 5 years</span><span class="k">The families</span><span class="v">build with their own savings</span><span class="k">Societies and unions</span><span class="v">petition you, strike, and back or oppose you</span></div></div>');
+  return h;
+}
+function gfLawsHTML() {
+  const V = G.gov;
+  const avail = LAWS.filter((l) => !l.era || l.era <= G.era);
+  return '<p>You propose, the council decides. Organisations watch every change.</p><div class="gf-laws">'.concat(avail.map((l) => '<button class="gf-law" data-lawopen="'.concat(l.id, '"><span><b>').concat(st("g_law_" + l.id), "</b><small>").concat(st("g_law_" + l.id + "_d"), "</small></span><em>").concat(gLawVal(l.id, V.laws[l.id]), "</em></button>")).join(""), "</div>");
+}
+function gfLawHTML(id) {
+  const V = G.gov, l = LAWS.find((q) => q.id === id);
+  const cur = V.laws[id];
+  const pickRaw = GF.lawPick != null ? GF.lawPick : String(cur);
+  const pick2 = l.opts.find((o) => String(o) === pickRaw);
+  const val = pick2 != null ? pick2 : cur;
+  const same = val === cur;
+  let h = '<button class="link" id="gfLawBack">‹ All laws</button><div><span class="label">Law</span><h2>'.concat(st("g_law_" + id), "</h2><p>").concat(st("g_law_" + id + "_d"), '</p></div>\n    <div class="gf-opts">').concat(l.opts.map((o) => '<button data-opt="'.concat(o, '" aria-pressed="').concat(o === val, '">').concat(gLawVal(id, o)).concat(o === cur ? "<small>now</small>" : "", "</button>")).join(""), "</div>");
+  if (same) return h + "<p>Pick a new value to see what it would do.</p>";
+  const vote = govCouncilVote(G, id, val), exp = govExpect(G, id, val);
+  const R = GF.voteRes;
+  const lines = [];
+  if (exp.money) lines.push('<span class="'.concat(exp.money > 0 ? "ok" : "bad", '">Town budget ').concat(gSigned(exp.money), " a year</span>"));
+  for (const [k, v] of exp.lines) lines.push('<span class="'.concat((k === "g_xPrices" ? -v : v) > 0 ? "ok" : "bad", '">').concat(st(k, { v: Math.abs(v) }), " ").concat(v > 0 ? "▲" : "▼", "</span>"));
+  for (const g of GROUP_IDS) {
+    const d = STANCE[id] ? STANCE[id](g, val) - STANCE[id](g, cur) : 0;
+    if (Math.abs(d) >= 0.5) lines.push('<span class="'.concat(d > 0 ? "ok" : "bad", '">').concat(gIcon(g), " ").concat(gGroupName(g), " ").concat(gfSign(d), "</span>"));
+  }
+  const orgs = civActive(G).map((o) => {
+    const f = ORGS[o].laws && ORGS[o].laws[id];
+    if (!f) return null;
+    const d = Math.round((f(val) - f(cur)) * 5);
+    return Math.abs(d) >= 2 ? '<span class="'.concat(d > 0 ? "ok" : "bad", '">').concat(ORGS[o].short || ORGS[o].name, " ").concat(gfSign(d), "</span>") : null;
+  }).filter(Boolean);
+  h += '<div class="gf-sec"><span class="label">What to expect</span><div class="chips">'.concat(lines.join("") || "<span>No change in money</span>", "</div></div>");
+  if (orgs.length) h += '<div class="gf-sec"><span class="label">Organisations</span><div class="chips">'.concat(orgs.join(""), "</div></div>");
+  h += '<div class="gf-sec"><span class="label">The council</span><div class="chips">'.concat(PARTIES.filter((p) => vote.by[p]).map((p) => '<span class="'.concat(vote.by[p].yes ? "ok" : "bad", '"><i class="odot" style="background:').concat(PARTY_COL[p], '"></i>').concat(gPartyName(p), " ").concat(vote.by[p].n, " ").concat(vote.by[p].yes ? "✓" : "✗", "</span>")).join(""), '</div>\n    <p class="').concat(vote.pass ? "pos" : "neg", '" style="font-weight:600">').concat(vote.pass ? "It would pass: ".concat(vote.yes, " of 9 votes.") : "It would fail: only ".concat(vote.yes, " of 9 votes."), "</p></div>");
+  h += R ? '<p class="'.concat(R.pass ? "pos" : "neg", '" style="font-weight:700">').concat(R.pass ? "Passed with ".concat(R.yes, " of 9 votes.") : "Rejected: only ".concat(R.yes, " of 9 votes."), "</p>") : '<button class="primary" id="gfVote">Put it to the vote</button>';
+  return h;
+}
+function gfChronLine(e) {
+  const on = (o) => ORGS[o] ? ORGS[o].short || ORGS[o].name : o;
+  switch (e.k) {
+    case "c_found":
+      return ["🏛", "Founded: ".concat(ORGS[e.org].name)];
+    case "c_acc":
+      return ["🤝", "Promised the ".concat(on(e.org), ": ").concat(esc(e.title))];
+    case "c_dec":
+      return ["✗", "Declined the ".concat(on(e.org), ": ").concat(esc(e.title))];
+    case "c_won":
+      return ["✓", "Kept a promise to the ".concat(on(e.org), ": ").concat(esc(e.title))];
+    case "c_lost":
+      return ["✗", "Broke a promise to the ".concat(on(e.org), ": ").concat(esc(e.title))];
+    case "c_site":
+      return ["🏗", "The ".concat(on(e.org), " built ").concat(e.bld === "chapel" ? "its " + FAITHS[e.v].house.toLowerCase() : e.bld === "hall" ? "its hall" : e.bld === "church" ? "a new church" : "a ballpark")];
+    case "c_ev": {
+      const E = CIV_EV.find((x) => x.id === e.id);
+      return ["⛴", E ? "".concat(E.head, ": ").concat(E.ch[e.ch].t.toLowerCase()) : e.id];
+    }
+    case "c_strike":
+      return ["✊", "General strike"];
+    case "c_strikeDeal":
+      return ["✊", "Strike settled for ".concat(fmtMoney(e.m))];
+    case "c_fiesta":
+      return ["🎉", "Fiesta: ".concat(on(e.org))];
+    case "found":
+      return ["🏛", st("g_cFound")];
+    case "election":
+      return ["🗳", st("g_cElec", { p: e.pct, s: e.seats })];
+    case "coal":
+      return ["🤝", st("g_cCoal", { p: gPartyName(e.p) })];
+    case "left":
+      return ["💔", st("g_cLeft", { p: gPartyName(e.p) })];
+    case "stage":
+      return ["🎉", st("g_cStage", { s: gStageName(e.to) })];
+    case "news":
+      return ["📰", st("g_n_" + e.id + "_h")];
+    case "loan":
+      return ["🏦", st("g_cLoan", { m: gMoney(e.m) })];
+    case "repay":
+      return ["🏦", st("g_cRepay", { m: gMoney(e.m) })];
+    case "lawFail":
+      return ["✗", st("g_cLawFail", { l: st("g_law_" + e.id), v: gLawVal(e.id, e.to), y: e.yes })];
+    case "law": {
+      let t = st("g_cLaw", { l: st("g_law_" + e.id), a: gLawVal(e.id, e.from), b: gLawVal(e.id, e.to) });
+      if (e.meas) t += "<br><small>a year later: budget ".concat(gSigned(e.meas.inc), ", residents ").concat(gfSign(e.meas.pop), ", moods ").concat(GROUP_IDS.map((g) => "".concat(gIcon(g)).concat(gfSign(e.meas.moods[g]))).join(" "), "</small>");
+      else if (e.exp && e.exp.money) t += "<br><small>expected ".concat(gSigned(e.exp.money), " a year · measuring…</small>");
+      return ["📜", t];
+    }
+  }
+  return ["•", e.k];
+}
+function gfChronHTML() {
+  const L = G.gov.log.slice().reverse().slice(0, 80);
+  return '<ul class="events gf-chron">'.concat(L.map((e) => {
+    const [ic, t] = gfChronLine(e);
+    return "<li><time>".concat(e.y, "</time>").concat(ic, " ").concat(t, "</li>");
+  }).join(""), "</ul>");
+}
+function gfBindHall() {
+  const b = (id, f) => {
+    const e = document.getElementById(id);
+    if (e) e.onclick = f;
+  };
+  b("gfCoal", () => govCoalitionOpen(G));
+  for (const x of document.querySelectorAll("#pbody [data-lawopen]")) x.onclick = () => {
+    GF.law = x.dataset.lawopen;
+    GF.lawPick = null;
+    GF.voteRes = null;
+    rer();
+  };
+  for (const x of document.querySelectorAll("#pbody [data-opt]")) x.onclick = () => {
+    GF.lawPick = x.dataset.opt;
+    GF.voteRes = null;
+    rer();
+  };
+  b("gfLawBack", () => {
+    GF.law = null;
+    GF.voteRes = null;
+    rer();
+  });
+  b("gfVote", () => {
+    const id = GF.law, l = LAWS.find((q) => q.id === id);
+    const val = l.opts.find((o) => String(o) === String(GF.lawPick));
+    if (val == null) return;
+    const v = govCouncilVote(G, id, val);
+    GF.voteRes = { pass: v.pass, yes: v.yes };
+    if (v.pass) {
+      govSetLaw(G, id, val);
+      Music.sfx("cash");
+      toast({ title: "Law passed", body: "".concat(st("g_law_" + id), " is now ").concat(gLawVal(id, val), " (").concat(v.yes, " of 9 votes)."), tone: "good", timeout: 5e3 });
+      GF.lawPick = null;
+      GF.law = null;
+      GF.voteRes = null;
+    } else {
+      Music.sfx("error");
+      govLogAdd(G, { k: "lawFail", id, to: val, yes: v.yes });
+    }
+    stSave();
+    rer();
+  });
+}
+function gfGroupsHTML() {
+  const M = govMoods(G, true);
+  return "<p>Everyone belongs to a group by the work they do. How content a group is decides how it votes.</p>".concat(GROUP_IDS.map((g) => {
+    const o = M[g];
+    if (!o.n && g !== "work") return "";
+    const col = GROUPS.find((x) => x[0] === g)[2];
+    const neg = gTopReasons(o, -1), pos = gTopReasons(o, 1);
+    const law = Math.round(o.law);
+    return '<div class="gf-grp"><div class="gf-gh"><span class="oico" style="background:'.concat(col, '">').concat(gIcon(g), "</span><div><b>").concat(gGroupName(g), "</b><small>").concat(o.n, " people · ").concat(o.voters, " voters · party: ").concat(gPartyName(g), "</small></div><em>").concat(Math.round(o.mood), '%</em></div>\n      <div class="bar"><i style="width:').concat(Math.round(o.mood), "%;background:").concat(col, '"></i></div>\n      <div class="chips">').concat(pos.map(([k, v]) => '<span class="ok">'.concat(st("g_r" + k), " +").concat(Math.round(v), "</span>")).join("")).concat(neg.map(([k, v]) => '<span class="bad">'.concat(st("g_r" + k), " ").concat(Math.round(v), "</span>")).join("")).concat(Math.abs(law) >= 1 ? '<span class="'.concat(law > 0 ? "ok" : "bad", '">Laws ').concat(gfSign(law), "</span>") : "", '</div>\n      <small class="gf-sub">They want: ').concat(govAsks(G, g).map((d) => (d.ok(G) ? "✓ " : "") + st("g_" + d.id)).join(" · "), "</small></div>");
+  }).join(""));
+}
+function gfOriginsHTML() {
+  const K = civComms(G), C = G.civ, L = G.gov.laws;
+  const pop = Math.max(1, G.cits.size);
+  const here = ORIG_IDS.filter((o) => K[o].n > 0).sort((a, b) => K[b].n - K[a].n);
+  let h = '<div><span class="label">'.concat(G.cits.size, ' people · where their families came from</span><div class="split gf-split">').concat(here.map((o) => '<i style="width:'.concat(K[o].n / pop * 100, "%;background:").concat(ORIGINS[o].col, '" title="').concat(ORIGINS[o].name, '"></i>')).join(""), "</div></div>");
+  h += '<div class="gf-otbl"><div class="gf-ohead"><span>Community</span><span>People</span><span>Voters</span><span>Belong</span></div>'.concat(here.map((o) => {
+    const k = K[o], O = ORIGINS[o];
+    const f = O.faith;
+    const soc = ORGS["s_" + o];
+    const flags = O.native ? "" : "".concat(soc ? civHasBld(G, "hall", o) ? '<span class="ok">hall</span>' : '<span class="bad">no hall</span>' : "").concat(f !== "cath" && f !== "mix" ? civHasBld(G, "chapel", f) ? '<span class="ok">'.concat(FAITHS[f].house.toLowerCase(), "</span>") : '<span class="bad">no '.concat(FAITHS[f].house.toLowerCase(), "</span>") : "");
+    return '<div class="gf-orow"><span><i class="odot" style="background:'.concat(O.col, '"></i><b>').concat(O.name, "</b>").concat(O.native ? "" : "<small>from ".concat(O.from).concat(k.newest ? " · latest ".concat(k.newest) : "", "</small>")).concat(flags ? '<span class="chips sm">'.concat(flags, "</span>") : "", '</span><span class="num">').concat(k.n, '</span><span class="num">').concat(k.voters, "</span><span>").concat(O.native ? "<small>–</small>" : '<div class="bar"><i style="width:'.concat(k.integ, "%;background:").concat(k.integ >= 60 ? "var(--palm)" : k.integ >= 40 ? "var(--mango)" : "var(--coral)", '"></i></div><small class="num">').concat(k.integ, "%</small>"), "</span></div>");
+  }).join(""), "</div>");
+  h += '<small class="gf-sub">Belonging grows with the years, with work, with a society hall and a place of worship of their own. After a generation and a half, a family counts as islanders. Newcomers may vote after five years.</small>';
+  const H = C.arrHist.slice(-20);
+  if (H.length) {
+    const W = 320, Hh = 96;
+    const tot = H.map((r) => Object.values(r.by || {}).reduce((a, v) => a + v, 0));
+    const tur = H.map((r) => Object.values(r.turned || {}).reduce((a, v) => a + v, 0));
+    const mx = Math.max(4, ...tot.map((v, k) => v + tur[k]));
+    const bw = W / H.length;
+    let svg = "";
+    H.forEach((r, k) => {
+      let y0 = Hh - 14;
+      for (const o of ORIG_IDS) {
+        const n = (r.by || {})[o] || 0;
+        if (!n) continue;
+        const hh = n / mx * (Hh - 24);
+        y0 -= hh;
+        svg += '<rect x="'.concat((k * bw + bw * 0.15).toFixed(1), '" y="').concat(y0.toFixed(1), '" width="').concat((bw * 0.7).toFixed(1), '" height="').concat(hh.toFixed(1), '" fill="').concat(ORIGINS[o].col, '"/>');
+      }
+      if (tur[k]) {
+        const hh = tur[k] / mx * (Hh - 24);
+        svg += '<rect x="'.concat((k * bw + bw * 0.15).toFixed(1), '" y="').concat((y0 - hh).toFixed(1), '" width="').concat((bw * 0.7).toFixed(1), '" height="').concat(hh.toFixed(1), '" fill="none" stroke="var(--coral)" stroke-dasharray="2 2"/>');
+      }
+      if (H.length <= 10 || k % Math.ceil(H.length / 8) === 0 || k === H.length - 1) svg += '<text x="'.concat((k * bw + bw / 2).toFixed(1), '" y="').concat(Hh - 2, '" text-anchor="middle">').concat(String(r.y).slice(2), "</text>");
+    });
+    h += '<div class="gf-sec"><span class="label">Arrivals by year · <span style="color:var(--coral)">dashed: turned away</span></span><svg class="gf-chart" viewBox="0 0 '.concat(W, " ").concat(Hh, '" role="img" aria-label="Arrivals by year">').concat(svg, '<text x="2" y="10" class="ax">').concat(mx, "</text></svg></div>");
+  }
+  h += '<div class="gf-sec"><span class="label">The harbor’s rules</span><div class="gf-laws">'.concat(["imm", "natjobs"].map((id) => '<button class="gf-law" data-lawgo="'.concat(id, '"><span><b>').concat(st("g_law_" + id), "</b><small>").concat(st("g_law_" + id + "_d"), "</small></span><em>").concat(gLawVal(id, L[id]), "</em></button>")).join(""), "</div></div>");
+  return h;
+}
+function gfOrgsHTML() {
+  const act = civActive(G);
+  if (!act.length) return "<p>No societies yet. Unions, churches and clubs form as the island grows.</p>";
+  const rows = act.map((id) => {
+    const P = [];
+    const s = civOrgScore(G, id, P);
+    return { id, s, P };
+  }).sort((a, b) => civMembers(G, b.id) - civMembers(G, a.id));
+  return "<p>Churches, unions, clubs and the newcomers’ societies. They petition you, back you or oppose you at elections, strike, and throw fiestas when they are happy.</p>".concat(rows.map(({ id, s, P }) => {
+    const D = ORGS[id], O = G.civ.orgs[id];
+    const st0 = civStance(s);
+    const w = Math.abs(s) / 60 * 50;
+    const pet = G.civ.pets.find((p) => p.org === id && (p.st === "on" || p.st === "ask"));
+    return '<div class="gf-org"><div class="gf-gh"><span class="oico" style="background:'.concat(D.col, '">').concat(D.icon, "</span><div><b>").concat(D.name, "</b><small>").concat(civMembers(G, id), " ").concat(D.groups && id === "chamber" ? "members" : "members", " · since ").concat(O.since, '</small></div><em class="').concat(s >= 8 ? "pos" : s <= -8 ? "neg" : "", '">').concat(civMood(s), '</em></div>\n      <div class="gf-rel"><i style="left:').concat(s >= 0 ? 50 : 50 - w, "%;width:").concat(w, "%;background:").concat(s >= 0 ? "var(--palm)" : "var(--coral)", '"></i><b></b></div>\n      <div class="chips sm">').concat(P.filter((p) => p[0] && Math.abs(p[1]) >= 1).map(([l, v]) => '<span class="'.concat(v > 0 ? "ok" : "bad", '">').concat(l, " ").concat(gfSign(v), "</span>")).join(""), '</div>\n      <small class="gf-sub">').concat(st0 > 0 ? "Backs you at the next election." : st0 < 0 ? "Will campaign against you at the next election." : "Neutral before the next election.").concat(pet ? " · ".concat(pet.st === "ask" ? "Waiting for your answer" : "Your promise", ": ").concat(civPetTitle(G, pet)) : "", "</small></div>");
+  }).join(""));
+}
+function gfBindPeople() {
+  for (const x of document.querySelectorAll("#pbody [data-lawgo]")) x.onclick = () => {
+    GF.sub.hall = "laws";
+    GF.law = x.dataset.lawgo;
+    GF.lawPick = null;
+    GF.voteRes = null;
+    setTab("hall");
+  };
+}
+function gfBudgetHTML() {
+  const V = G.gov, A = V.acc, last = V.years[V.years.length - 1];
+  const y = govY(G);
+  const inK = ["incTax", "bizTax", "pubSales", "rent", "util", "grant"], outK = ["wagesPub", "upkeep", "roads", "social", "interest", "imports", "build"];
+  const cur = { inc: { incTax: A.incTax, bizTax: A.bizTax + V.day.bizTax, pubSales: A.pubSales + V.day.pubSales, rent: A.rent, util: A.util, grant: A.grant }, out: { wagesPub: A.wagesPub, upkeep: A.upkeep, roads: A.roads, social: A.social, interest: A.interest, imports: A.imports, build: A.build + (G.dayAcc.build || 0) } };
+  const sum = (o) => Object.values(o).reduce((a, v) => a + v, 0);
+  const row = (k, grp) => {
+    const a = cur[grp][k] || 0, b = last ? last[grp][k] || 0 : 0;
+    if (Math.abs(a) < 0.5 && Math.abs(b) < 0.5) return "";
+    return "<tr><td>".concat(st("g_b_" + k, { i: V.laws.inc, b: V.laws.biz }), "</td><td>").concat(gMoney(a), "</td><td>").concat(last ? gMoney(b) : "–", "</td></tr>");
+  };
+  const rI = sum(cur.inc), rO = sum(cur.out), lI = last ? sum(last.inc) : 0, lO = last ? sum(last.out) : 0;
+  return '<div class="gf-big"><div><small>Treasury</small><b>'.concat(gMoney(G.money), '</b></div><div><small>Debt</small><b class="').concat(V.debt > 0 ? "neg" : "", '">').concat(gMoney(V.debt), "</b></div><div><small>Families’ savings</small><b>").concat(gMoney(V.inv), '</b></div></div>\n    <p>What the town hall took in and spent. Family businesses keep their own money and pay the sales tax.</p>\n    <div class="gf-scroll"><table class="gf-btbl"><thead><tr><th></th><th>').concat(y, "<small>so far</small></th><th>").concat(last ? last.y : "", '</th></tr></thead><tbody>\n    <tr class="h"><td colspan="3">Income</td></tr>').concat(inK.map((k) => row(k, "inc")).join(""), '<tr class="t"><td>Total</td><td>').concat(gMoney(rI), "</td><td>").concat(last ? gMoney(lI) : "–", '</td></tr>\n    <tr class="h"><td colspan="3">Spending</td></tr>').concat(outK.map((k) => row(k, "out")).join(""), '<tr class="t"><td>Total</td><td>').concat(gMoney(rO), "</td><td>").concat(last ? gMoney(lO) : "–", '</td></tr>\n    <tr class="r"><td>Result</td><td class="').concat(rI - rO >= 0 ? "pos" : "neg", '">').concat(gSigned(rI - rO), '</td><td class="').concat(lI - lO >= 0 ? "pos" : "neg", '">').concat(last ? gSigned(lI - lO) : "–", "</td></tr></tbody></table></div>");
+}
+function gfBars(vals, labels, col, fmt) {
+  const W = 320, H = 100, n = vals.length;
+  if (!n) return "<p>The first full year is not over yet.</p>";
+  const mx = Math.max(1, ...vals);
+  const bw = W / n;
+  let out = "";
+  vals.forEach((v, k) => {
+    const h = Math.max(1, v / mx * (H - 24));
+    out += '<rect x="'.concat((k * bw + bw * 0.15).toFixed(1), '" y="').concat((H - 14 - h).toFixed(1), '" width="').concat((bw * 0.7).toFixed(1), '" height="').concat(h.toFixed(1), '" rx="2" fill="').concat(col, '"/>');
+    if (n <= 8 || k % Math.ceil(n / 8) === 0 || k === n - 1) out += '<text x="'.concat((k * bw + bw / 2).toFixed(1), '" y="').concat(H - 2, '" text-anchor="middle">').concat(labels[k], "</text>");
+  });
+  return '<svg class="gf-chart" viewBox="0 0 '.concat(W, " ").concat(H, '" role="img">').concat(out, '<text x="2" y="10" class="ax">').concat(fmt(mx), "</text></svg>");
+}
+function gfEconHTML() {
+  const V = G.gov, ys = V.years.slice(-16), last = ys[ys.length - 1], k = counts();
+  const un = k.pop - k.employed;
+  const pay = WAGE[G.era] * V.pay;
+  const ex = last ? Object.entries(last.exBy || {}).sort((a, b) => b[1] - a[1]).slice(0, 6) : [];
+  const trend = (g) => {
+    if (!GOODS3[g]) return "";
+    const r = priceOf(G, g) / GOODS3[g].price;
+    return r > 1.08 ? ' <span class="pos">▲</span>' : r < 0.92 ? ' <span class="neg">▼</span>' : "";
+  };
+  const news = (G.crises || []).filter((c) => c.gov && c.end > G.t).map((c) => st("g_n_" + c.kind.slice(2) + "_h"));
+  return '<div class="gf-sec"><span class="label">What the island earns each year</span>'.concat(gfBars(ys.map((r) => r.gdp), ys.map((r) => String(r.y).slice(2)), "var(--palm)", gMoney), '</div>\n    <div class="kv"><span class="k">Last year</span><span class="v">').concat(last ? gMoney(last.gdp) : "–", '</span><span class="k">Per resident</span><span class="v">').concat(last && last.pop ? gMoney(last.gdp / last.pop) : "–", '</span><span class="k">Jobs filled</span><span class="v">').concat(k.employed, " / ").concat(k.jobs, '</span><span class="k">Looking for work</span><span class="v ').concat(un / Math.max(1, k.pop) > 0.08 ? "neg" : "", '">').concat(un, " (").concat(Math.round(un / Math.max(1, k.pop) * 100), '%)</span>\n    <span class="k">Ordinary pay</span><span class="v">').concat(gMoney(pay), ' a day</span><span class="k">Cost of living</span><span class="v">').concat(Math.round(govPriceIdx(G) * 100), '</span><span class="k">Families invested last year</span><span class="v">').concat(last ? gMoney(last.invBuilt) : "–", '</span></div>\n    <div class="gf-sec"><span class="label">Residents</span>').concat(gfBars(ys.map((r) => r.pop), ys.map((r) => String(r.y).slice(2)), "var(--sea)", (v) => String(Math.round(v))), "</div>\n    ").concat(ex.length ? '<div class="gf-sec"><span class="label">Sold abroad in '.concat(last.y, '</span><div class="kv">').concat(ex.map(([g, v]) => '<span class="k">'.concat(gGood(g)).concat(trend(g), '</span><span class="v">').concat(gMoney(v), "</span>")).join(""), "</div></div>") : "", "\n    ").concat(news.length ? '<div class="gf-sec"><span class="label">In the world right now</span><div class="chips">'.concat(news.map((n) => "<span>".concat(n, "</span>")).join(""), "</div></div>") : "");
+}
+function gfTaxHTML() {
+  const V = G.gov, L = V.laws, last = V.years[V.years.length - 1];
+  return '<div class="gf-laws">'.concat(["inc", "biz", "tariff", "liquor"].map((id) => '<button class="gf-law" data-lawgo="'.concat(id, '"><span><b>').concat(st("g_law_" + id), "</b><small>").concat(st("g_law_" + id + "_d")).concat(last && id === "inc" ? " Brought in " + gMoney(last.inc.incTax) + " last year." : last && id === "biz" ? " Brought in " + gMoney(last.inc.bizTax) + " last year." : "", "</small></span><em>").concat(gLawVal(id, L[id]), "</em></button>")).join(""), '</div>\n    <div class="gf-sec"><span class="label">Loans</span><p>The bank lends to the town at ').concat(Math.round(govRate(G) * 100), "% a year, up to ").concat(gMoney(govLoanMax(G)), ' in all.</p>\n    <div class="gf-big"><div><small>Debt</small><b class="').concat(V.debt > 0 ? "neg" : "", '">').concat(gMoney(V.debt), "</b></div><div><small>Interest a year</small><b>").concat(gMoney(V.debt * govRate(G)), '</b></div></div>\n    <div class="btnrow"><button class="secondary" id="gfBorrow">Borrow ').concat(gMoney(govLoanStep(G)), "</button>").concat(V.debt > 0 ? '<button class="secondary" id="gfRepay">Repay '.concat(gMoney(Math.min(V.debt, govLoanStep(G))), "</button>") : "", "</div></div>");
+}
+function gfBindMoney() {
+  const b = (id, f) => {
+    const e = document.getElementById(id);
+    if (e) e.onclick = f;
+  };
+  b("gfBorrow", () => {
+    if (govBorrow(G)) Music.sfx("cash");
+    else toast({ body: "The bank will not lend more right now.", tone: "bad", timeout: 3e3 });
+    stSave();
+    rer();
+  });
+  b("gfRepay", () => {
+    if (govRepay(G)) Music.sfx("cash");
+    stSave();
+    rer();
+  });
+  for (const x of document.querySelectorAll("#pbody [data-lawgo]")) x.onclick = () => {
+    GF.sub.hall = "laws";
+    GF.law = x.dataset.lawgo;
+    GF.lawPick = null;
+    GF.voteRes = null;
+    setTab("hall");
+  };
+}
+function gfSelHTML() {
+  const S = GF.sel;
+  if (!S) return null;
+  if (S.k === "req") {
+    const r = G.gov.req.find((q) => q.id === S.id);
+    if (!r) {
+      GF.sel = null;
+      return null;
+    }
+    const d = BLD[r.type];
+    return '<div><span class="label">Permit request</span><h2>'.concat(d.name, "</h2><p>").concat(d.desc, "</p></div>").concat(gfReqCard(r), "<p>The family pays for it from its own savings; the town only grants the permit. ").concat(d.housing ? "New homes bring room for settlers." : "New work brings jobs and sales tax.", "</p>");
+  }
+  if (S.k === "pet") {
+    const p = civPet(G, S.id);
+    if (!p) {
+      GF.sel = null;
+      return null;
+    }
+    const D = ORGS[p.org];
+    return '<div><span class="label">'.concat(p.st === "ask" ? "Petition" : p.st === "on" ? "Promise" : p.st === "won" ? "Promise kept" : "Closed", " · ").concat(D.name, "</span><h2>").concat(civPetTitle(G, p), "</h2></div>").concat(p.st === "ask" ? gfPetCard(p) : "".concat(gfPetRow(p), "<p>").concat(civPetBody(G, p), "</p>").concat(PET_HINT[p.k] ? '<div class="issue s1"><b>What usually works</b><span>'.concat(PET_HINT[p.k], "</span></div>") : "").concat(p.hist && p.hist.length ? '<div class="gf-sec"><span class="label">Measured each day since you promised</span><div class="chips sm">'.concat(p.hist.map((v) => "<span>".concat(civPetFmt(p, v), "</span>")).join(""), "</div></div>") : ""));
+  }
+  return null;
+}
+function gfBindSel() {
+  gfBindCards();
+}
+function govInfoHTML(b) {
+  const d = BLD[b.type];
+  const lines = [];
+  let h = "";
+  const own = b.id === G.dockId ? "The town" : isPub(b) ? d.kind === "home" ? "The town (town housing)" : "The town" : b.own === "parish" ? ORGS.parish.name : b.own === "org" ? ORGS[b.org] ? ORGS[b.org].name : "A society" : b.own ? "The ".concat(esc(b.own), " family") : "–";
+  lines.push(["Owner", own]);
+  if (d.jobs && b.wrk.length) lines.push(["Pay", "".concat(gMoney(govWage(G, b)), " a day each")]);
+  if (b.pnl != null && isEnterprise(d)) lines.push(["Profit", '<span class="'.concat(b.pnl >= 0 ? "pos" : "neg", '">').concat(b.pnl >= 0 ? "+" : "−").concat(gMoney(Math.abs(b.pnl)), " a day</span>")]);
+  if (b.ledPrev && b.ledPrev.tax) lines.push(["Sales tax paid", "".concat(gMoney(b.ledPrev.tax), " yesterday")]);
+  if (isPub(b) && d.upkeep && !isEnterprise(d)) lines.push(["Costs the town", "".concat(gMoney(d.upkeep), " a day")]);
+  h += '<div class="gf-sec"><span class="label">The town</span><div class="kv">'.concat(lines.map(([k, v]) => '<span class="k">'.concat(k, '</span><span class="v">').concat(v, "</span>")).join(""), "</div></div>");
+  const ppl = (d.kind === "home" ? b.res : b.wrk).map((id) => G.cits.get(id)).filter(Boolean);
+  if (ppl.length && G.civ) {
+    const n = {};
+    for (const c of ppl) {
+      const o = civOrig(G, c);
+      n[o] = (n[o] || 0) + 1;
+    }
+    h += '<div class="gf-sec"><span class="label">'.concat(d.kind === "home" ? "Who lives here" : "Who works here", '</span><div class="chips sm">').concat(Object.entries(n).sort((a, b2) => b2[1] - a[1]).map(([o, k]) => '<span><i class="odot" style="background:'.concat(ORIGINS[o].col, '"></i>').concat(k, " ").concat(k === 1 ? ORIGINS[o].one : ORIGINS[o].name, "</span>")).join(""), "</div></div>");
+  }
+  if (b.type === "chapel" || b.type === "hall") {
+    const opts = b.type === "chapel" ? CHAPEL_V.map((v) => [v, FAITHS[v].house + " · " + FAITHS[v].name]) : ORIG_IDS.filter((o) => ORGS["s_" + o]).map((o) => [o, ORGS["s_" + o].name]);
+    const K = civComms(G);
+    h += '<div class="gf-sec"><span class="label">'.concat(b.type === "chapel" ? "Congregation" : "Society", '</span><div class="cropgrid">').concat(opts.map(([v, lab]) => '<button class="crop" data-var="'.concat(v, '" aria-pressed="').concat(b.v === v, '">').concat(lab, "<small>").concat(b.type === "chapel" ? K._faith[v] ? K._faith[v].n : 0 : K[v] ? K[v].n : 0, " on the island</small></button>")).join(""), "</div></div>");
+  }
+  return h;
+}
+function govDemolishHTML(b) {
+  const d = BLD[b.type];
+  if (b.id === G.dockId) return "";
+  if (b.own === "parish" || b.own === "org") return '<p class="gf-sub">It belongs to the '.concat(b.own === "parish" ? ORGS.parish.name : ORGS[b.org] ? ORGS[b.org].name : "society", "; only they could pull it down.</p>");
+  if (!isPub(b)) {
+    const comp = govCompensation(G, b) + Math.round(d.cost * 0.25);
+    return UI.confirmBulldoze ? '<div class="btnrow"><button class="primary" id="gfBuyout">Pay '.concat(gMoney(comp), ' and demolish</button><button class="secondary" id="btnCancelDemolish">Keep it</button></div>') : '<button class="secondary" id="gfBuyout">Buy it out and demolish · '.concat(gMoney(comp), "</button>");
+  }
+  return UI.confirmBulldoze ? '<div class="btnrow"><button class="primary" id="btnDemolish">Remove '.concat(d.name, '</button><button class="secondary" id="btnCancelDemolish">Keep it</button></div>') : '<button class="secondary" id="btnDemolish">Demolish · the town gets '.concat(gMoney(d.cost * 0.25), " back</button>");
+}
+function govFullBindInspect() {
+  if (!govFullOn()) return;
+  const bo = $("#gfBuyout");
+  if (bo) bo.onclick = () => {
+    if (!UI.confirmBulldoze) {
+      UI.confirmBulldoze = true;
+      rer();
+      return;
+    }
+    const b = G.blds.get(UI.selected);
+    if (!b) return;
+    const comp = govCompensation(G, b) + Math.round(BLD[b.type].cost * 0.25);
+    if (G.money < comp) {
+      toast({ body: "Not enough in the treasury.", tone: "bad", timeout: 2500 });
+      return;
+    }
+    G.money -= comp;
+    G.gov.mem[ownerGroup(b.type)] = (G.gov.mem[ownerGroup(b.type)] || 0) - 0.5;
+    removeBuilding(G, b);
+    recomputeNetwork(G);
+    recomputeServices(G);
+    assignJobs(G);
+    Music.sfx("bulldoze");
+    UI.selected = null;
+    UI.confirmBulldoze = false;
+    stSave();
+    rer();
+  };
+  for (const x of document.querySelectorAll("#pbody [data-var]")) x.onclick = () => {
+    const b = G.blds.get(UI.selected);
+    if (!b) return;
+    civSetVariant(G, b, x.dataset.var);
+    Music.sfx("place");
+    stSave();
+    rer();
+  };
+}
+function govFullTap(t) {
+  if (!govFullOn()) return false;
+  const V = G.gov;
+  const rq = V.req.find((r) => t.x >= r.x && t.x < r.x + r.w && t.y >= r.y && t.y < r.y + r.h);
+  if (rq) {
+    GF.sel = { k: "req", id: rq.id };
+    UI.selected = null;
+    UI.selTile = -1;
+    gfOpen("inspect");
+    UI.panelSig = "";
+    return true;
+  }
+  const p = civOpenPets(G).concat(civAskPets(G)).find((q) => q.x != null && Math.abs(q.x - t.x) <= 1 && Math.abs(q.y - t.y) <= 1 && G.bldAt[idx(t.x, t.y)] < 0 && !G.road[idx(t.x, t.y)]);
+  if (p) {
+    GF.sel = { k: "pet", id: p.id };
+    gfOpen("inspect");
+    UI.panelSig = "";
+    return true;
+  }
+  GF.sel = null;
+  return false;
+}
+function govFullDraw(c, G2) {
+  if (!govFullOn()) return;
+  const z = View.cam.z, zz = Math.min(z, 2), now = performance.now();
+  if (UI.lens === "people" && G2.civ) {
+    for (const b of G2.blds.values()) {
+      if (BLD[b.type].kind !== "home" || !b.res.length) continue;
+      const n = {};
+      for (const id of b.res) {
+        const ci = G2.cits.get(id);
+        if (ci) {
+          const o = civOrig(G2, ci);
+          n[o] = (n[o] || 0) + 1;
+        }
+      }
+      let best = "isl", bn2 = 0;
+      for (const o in n) if (n[o] > bn2) {
+        bn2 = n[o];
+        best = o;
+      }
+      c.globalAlpha = 0.72;
+      c.fillStyle = ORIGINS[best].col;
+      c.fillRect(b.x * TILE + 1, b.y * TILE + 1, b.w * TILE - 2, b.h * TILE - 2);
+      c.globalAlpha = 1;
+    }
+    for (const b of G2.blds.values()) if (b.type === "hall" || b.type === "chapel") {
+      const R = BLD[b.type].radius * TILE;
+      c.strokeStyle = b.type === "hall" && ORIGINS[b.v] ? ORIGINS[b.v].col : "#fff";
+      c.lineWidth = 2 / z;
+      c.setLineDash([5 / z, 4 / z]);
+      c.beginPath();
+      c.arc((b.x + b.w / 2) * TILE, (b.y + b.h / 2) * TILE, R, 0, 7);
+      c.stroke();
+      c.setLineDash([]);
+    }
+  }
+  govDraw(c, G2, z, now);
+  const sel = GF.sel;
+  const pulse = 0.5 + 0.5 * Math.sin(now / 300);
+  if (sel && sel.k === "req") {
+    const r = G2.gov.req.find((q) => q.id === sel.id);
+    if (r) {
+      c.strokeStyle = "#ffffff";
+      c.lineWidth = 3 / zz;
+      rrect(c, r.x * TILE - 4, r.y * TILE - 4, r.w * TILE + 8, r.h * TILE + 8, 6);
+      c.stroke();
+    }
+  }
+  if (!G2.civ) return;
+  for (const p of G2.civ.pets) {
+    if (p.st !== "on" && p.st !== "ask" || p.x == null) continue;
+    const D = ORGS[p.org];
+    const K = PETK[p.k];
+    const cx = (p.x + 0.5) * TILE, cy = (p.y + 0.5) * TILE;
+    const R = (p.k === "commute" ? 4.5 : p.k === "health" || p.k === "school" || p.k === "market" ? 6 : p.k === "port" ? 3.5 : 2.5) * TILE;
+    const isSel = sel && sel.k === "pet" && sel.id === p.id;
+    c.strokeStyle = D.col;
+    c.globalAlpha = isSel ? 1 : 0.8;
+    c.lineWidth = (isSel ? 3.5 : 2.2) / zz;
+    c.setLineDash(p.st === "ask" ? [7 / zz, 5 / zz] : []);
+    c.beginPath();
+    c.arc(cx, cy, R, 0, 7);
+    c.stroke();
+    c.setLineDash([]);
+    c.globalAlpha = 1;
+    const px = cx, py = cy - R - (6 + pulse * 3) / zz, r = 12 / zz + 3;
+    c.fillStyle = "#fffaf0";
+    c.strokeStyle = D.col;
+    c.lineWidth = 3 / zz;
+    c.beginPath();
+    c.arc(px, py, r, 0, 7);
+    c.fill();
+    c.stroke();
+    c.beginPath();
+    c.moveTo(px - r * 0.45, py + r * 0.8);
+    c.lineTo(px, py + r * 1.5);
+    c.lineTo(px + r * 0.45, py + r * 0.8);
+    c.fillStyle = D.col;
+    c.fill();
+    c.font = "".concat(Math.round(r * 1.15), 'px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif');
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillStyle = "#3a2410";
+    c.fillText(K.icon, px, py + 0.5);
+    if (p.st === "on" && z >= 0.8) {
+      const txt = p.k === "law" ? "" : "".concat(civPetFmt(p, p.now), " → ").concat(civPetFmt(p, p.tgt));
+      if (txt) {
+        c.font = "700 ".concat(Math.round(11 / zz + 2), "px system-ui, sans-serif");
+        const tw = c.measureText(txt).width + 8;
+        c.fillStyle = "rgba(12,32,36,0.82)";
+        rrect(c, px - tw / 2, py - r - 20 / zz, tw, 16 / zz + 2, 4);
+        c.fill();
+        c.fillStyle = "#fff";
+        c.fillText(txt, px, py - r - 12 / zz + 1);
+      }
+    }
+  }
+  if (G2.civ.strike && G2.civ.strike.until > G2.t) {
+    for (const b of G2.blds.values()) {
+      const g = GROUP_OF[b.type];
+      if (g !== "work" && g !== "fish") continue;
+      if (!b.wrk.length) continue;
+      const x = (b.x + b.w / 2) * TILE, y = b.y * TILE - 4 / zz;
+      c.font = "".concat(Math.round(14 / zz + 4), "px system-ui, sans-serif");
+      c.textAlign = "center";
+      c.fillText("✊", x, y);
+    }
+  }
+}
+function govFullMenu() {
+  var _a2;
+  const wasPaused = UI.paused;
+  setSpeed(0);
+  modal('<span class="label">'.concat(govY(G), ' · Isla Nueva</span><h2>Paused</h2>\n    <label class="label" for="vol">Music and sound volume</label><input id="vol" type="range" min="0" max="1" step="0.05" value="').concat((_a2 = UI.volume) != null ? _a2 : 0.7, '">\n    <p>Keys: Q inspect · R roads · X bulldoze · L lens · V 3D view · Space pause · [ ] speed · M music.</p>\n    <div class="btnrow"><button class="primary" id="mResume">Resume</button><button class="secondary" id="mLetters">Letters</button><button class="secondary" id="mAlbum">Photo album</button><button class="secondary" id="mSave">Save</button><button class="secondary" id="mTitle">Title screen</button></div>'), (m) => {
+    m.querySelector("#mResume").onclick = () => {
+      closeModal();
+      setSpeed(wasPaused ? 0 : UI.speed);
+    };
+    m.querySelector("#mLetters").onclick = () => {
+      closeModal();
+      stLettersOpen();
+    };
+    m.querySelector("#mAlbum").onclick = () => {
+      closeModal();
+      stAlbumOpen();
+    };
+    m.querySelector("#mSave").onclick = () => {
+      stSave();
+      toast({ title: "Island saved", body: "Saved in this browser.", tone: "good", timeout: 2500 });
+    };
+    m.querySelector("#mTitle").onclick = () => {
+      stSave();
+      closeModal();
+      showTitle();
+    };
+    m.querySelector("#vol").oninput = (e) => {
+      UI.volume = +e.target.value;
+      Music.setVolume(UI.volume);
+    };
+  });
+}
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
@@ -25151,7 +27896,7 @@ function serialize(G2) {
     noShips: !!G2.noShips,
     noMoves: !!G2.noMoves,
     noWeather: !!G2.noWeather,
-    blds: [...G2.blds.values()].map((b) => [b.id, b.type, b.x, b.y, b.color, Math.round(b.stock), { lv: b.lv || 0, inp: Math.round(b.inp || 0), stays: b.stays, hist: b.hist || [], lp: b.ledPrev || null, wt: b.waiting || 0, crop: b.crop, lux: b.lux ? Math.round(b.lux * 10) / 10 : 0, lv$: b.luxVal ? Math.round(b.luxVal) : 0, lg: b.luxG || null, fl: b.felled ? Math.round(b.felled) : 0, own: b.own || void 0, pub: b.pub == null ? void 0 : b.pub ? 1 : 0, pnl: b.pnl != null ? Math.round(b.pnl) : void 0 }]),
+    blds: [...G2.blds.values()].map((b) => [b.id, b.type, b.x, b.y, b.color, Math.round(b.stock), { lv: b.lv || 0, inp: Math.round(b.inp || 0), stays: b.stays, hist: b.hist || [], lp: b.ledPrev || null, wt: b.waiting || 0, crop: b.crop, lux: b.lux ? Math.round(b.lux * 10) / 10 : 0, lv$: b.luxVal ? Math.round(b.luxVal) : 0, lg: b.luxG || null, fl: b.felled ? Math.round(b.felled) : 0, own: b.own || void 0, pub: b.pub == null ? void 0 : b.pub ? 1 : 0, pnl: b.pnl != null ? Math.round(b.pnl) : void 0, v: b.v || void 0, org: b.org || void 0 }]),
     fert: Array.from(G2.fert, (v) => Math.round(v * 100)),
     nextFlight: G2.nextFlight,
     twin: !!G2.twin,
@@ -25160,10 +27905,11 @@ function serialize(G2) {
     booba: G2.booba || null,
     story: G2.story || null,
     gov: G2.gov ? { ...G2.gov, _mood: void 0, _moodT: void 0, _hr: void 0 } : null,
+    civ: G2.civ ? { ...G2.civ, _k: void 0, _kT: void 0 } : null,
     classic: !!G2.classic,
     noPortCap: !!G2.noPortCap,
     econ: G2.mkt ? { mkt: G2.mkt, peso: G2.peso, pesoHist: G2.pesoHist, gold: G2.gold, crises: G2.crises, policy: G2.policy, alc: G2.alc, felled: G2.felled || [], pwOn: !!G2.pwOn, wind: G2.wind || 0.6, pwStart: (_a2 = G2.pwStart) != null ? _a2 : null } : null,
-    cits: [...G2.cits.values()].filter((c) => c.home != null && G2.blds.has(c.home)).map((c) => [c.id, c.home, c.job, Math.round(c.happy), c.commuteAvg == null ? -1 : Math.round(c.commuteAvg * 10) / 10, Math.round(c.depart), Math.round(c.leave), c.lowDays, c.hue, MODE_KEYS.indexOf(c.mode === "transit" ? "bus" : c.mode), c.edu || 0, c.alc ? 1 : 0, c.sick ? 1 : 0, c.fam || null]),
+    cits: [...G2.cits.values()].filter((c) => c.home != null && G2.blds.has(c.home)).map((c) => [c.id, c.home, c.job, Math.round(c.happy), c.commuteAvg == null ? -1 : Math.round(c.commuteAvg * 10) / 10, Math.round(c.depart), Math.round(c.leave), c.lowDays, c.hue, MODE_KEYS.indexOf(c.mode === "transit" ? "bus" : c.mode), c.edu || 0, c.alc ? 1 : 0, c.sick ? 1 : 0, c.fam || null, c.orig || null, c.oy || 0]),
     nextId: G2.nextId,
     citId: _citId,
     dockId: G2.dockId,
@@ -25237,6 +27983,8 @@ function deserialize(str, forUI = true) {
       if (ex.own) b.own = ex.own;
       if (ex.pub != null) b.pub = !!ex.pub;
       if (ex.pnl != null) b.pnl = ex.pnl;
+      if (ex.v) b.v = ex.v;
+      if (ex.org) b.org = ex.org;
     }
     for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) W.bldAt[idx(x + dx, y + dy)] = id;
   }
@@ -25258,6 +28006,7 @@ function deserialize(str, forUI = true) {
   W.booba = s.booba || null;
   W.story = s.story || null;
   W.gov = s.gov || null;
+  W.civ = s.civ || null;
   if (W.story && !W.story.open) {
     W.noShips = true;
     W.noMoves = true;
@@ -25284,11 +28033,15 @@ function deserialize(str, forUI = true) {
   }
   const tod = W.t % 1440, day = Math.floor(W.t / 1440) + 1;
   W.cits.clear();
-  for (const [id, home, job, happy, cm, depart, leave, lowDays, hue, mode, edu, alc, sick, fam] of s.cits) {
+  for (const [id, home, job, happy, cm, depart, leave, lowDays, hue, mode, edu, alc, sick, fam, orig, oy] of s.cits) {
     const h = W.blds.get(home);
     if (!h) continue;
     const j = job != null ? W.blds.get(job) : null;
     const c = { id, home, job: j ? job : null, state: "home", trip: null, depart, leave, goDay: 0, backDay: 0, happy, commuteAvg: cm < 0 ? null : cm, lowDays, hue, mode: mode > 0 ? mode <= 2 ? "transit" : MODE_KEYS[mode] : "car", edu: edu != null ? edu : ihash(id * 17) % 10 < 3 ? 1 : 0, alc: !!alc, sick: sick ? 1 : 0, fam: fam || void 0 };
+    if (orig) {
+      c.orig = orig;
+      if (oy) c.oy = oy;
+    }
     h.res.push(id);
     if (j) j.wrk.push(id);
     if (tod >= depart) c.goDay = day;
@@ -25520,7 +28273,7 @@ function buildDock() {
     const wrap = el("div", "tgroup");
     wrap.append(el("span", "label", g));
     const row = el("div", "row");
-    for (const t of TOOLS.filter((x) => x.group === g)) {
+    for (const t of TOOLS.filter((x) => x.group === g && !(typeof govFullOn === "function" && govFullOn() && x.bld && (HIDE_T.has(x.bld) || x.bld === "townhall" && govHas(G, "townhall"))))) {
       const b = el("button", "tool");
       b.dataset.tool = t.id;
       b.setAttribute("aria-pressed", String(UI.tool === t.id));
@@ -25545,11 +28298,12 @@ function refreshDock() {
     const tc = b.querySelector(".tc");
     const era = toolEra(t);
     const cost = toolCost(t);
-    const locked = G && era > G.era;
+    const gl = typeof govFullOn === "function" && govFullOn() ? t.bld ? govLocked(G, t.bld) : t.road && YEAR_MIN["road" + t.road] && govY(G) < YEAR_MIN["road" + t.road] ? "year" : null : null;
+    const locked = G && (era > G.era || !!gl);
     b.disabled = !!locked;
     b.setAttribute("aria-pressed", String(UI.tool === t.id));
     b.classList.toggle("cant", !!(G && cost != null && G.money < cost && !locked));
-    tc.textContent = locked ? "Era ".concat(ERAS[era].roman) : cost != null ? t.road || t.lane ? "$".concat(cost, "/tile") : t.landfill ? "$".concat(cost, "+/tile") : t.transit ? "$".concat(cost, "/stop") : "$".concat(cost) : t.id === "inspect" ? "look" : "remove";
+    tc.textContent = gl && era <= G.era ? t.bld && FUTURE_T.has(t.bld) && !G.gov.future ? "Stage V" : String(YEAR_MIN[t.bld || "road" + t.road] || "") : locked ? "".concat(typeof govFullOn === "function" && govFullOn() ? "Stage" : "Era", " ").concat(ERAS[era].roman) : cost != null ? t.road || t.lane ? "$".concat(cost, "/tile") : t.landfill ? "$".concat(cost, "+/tile") : t.transit ? "$".concat(cost, "/stop") : "$".concat(cost) : t.id === "inspect" ? "look" : "remove";
     const d = t.bld ? BLD[t.bld] : null;
     b.title = t.transit ? "".concat(TRANSIT[t.transit].name, " line: click road tiles to place stops in order, click the last stop again (or press Enter) to open the line. ").concat(t.transit === "tram" ? "Trams need paved roads and lay tracks as they go; in an Avenue median they run on their own track." : "Buses share the road with cars unless you paint bus lanes.") : t.lane === "bus" ? "Bus lane: paint on 4-Lane Roads and Avenues. Buses skip the queue; cars lose one lane each way." : t.lane === "bike" ? "Bike lane: paint on paved roads. Cyclists get their own safe space; a two-lane street loses some car capacity." : t.landfill ? "Landfill: drag a rectangle over the sea to make new land. ".concat(fmtMoney(LANDFILL.shallow), " a tile in shallow water, ").concat(fmtMoney(LANDFILL.deep), " in deep water. The sea around new land turns shallow, so you can bridge to it.") : t.road ? "".concat(ROADS[t.road].name, ": ").concat(ROADS[t.road].desc, " Capacity ").concat(ROADS[t.road].cap, " vehicles per tile, ").concat(ROADS[t.road].speed, " tiles/min.") : t.ctrl ? "".concat(CTRL[t.ctrl].name, ": ").concat(CTRL[t.ctrl].desc) : d ? "".concat(d.name, ": ").concat(d.desc) : t.label;
   }
@@ -25613,6 +28367,13 @@ function placeAt(t) {
   if (r.ok) {
     r.b.bornReal = performance.now();
     Music.sfx("place");
+    if (typeof govFullOn === "function" && govFullOn()) {
+      govOwnBuilt(G, r.b);
+      if (r.b.type === "chapel" || r.b.type === "hall") {
+        recomputeServices(G);
+        toast({ title: "".concat(BLD[r.b.type].name, " given to the ").concat(ORGS[r.b.org] ? ORGS[r.b.org].name : "community"), body: "They will run it. Change the congregation or society in Info.", tone: "good", timeout: 5e3 });
+      }
+    }
     if (!perimeterRoads(G, r.b).length && !UI.warnedRoad) {
       UI.warnedRoad = true;
       toast({ title: "Needs a road", body: "".concat(d.name, " has no road on any side yet. Draw one next to it so people can reach it."), tone: "bad" });
@@ -25659,8 +28420,17 @@ function finishDrag(t) {
   } else if (d.kind === "bulldoze" && t) {
     const ax = Math.min(d.x0, t.x), ay = Math.min(d.y0, t.y), bx = Math.max(d.x0, t.x), by = Math.max(d.y0, t.y);
     let n = 0, blocked = null;
+    const gm = typeof govFullOn === "function" && govFullOn();
     for (let y = ay; y <= by; y++) for (let x = ax; x <= bx; x++) {
-      const r = bulldozeTile(G, idx(x, y));
+      const i = idx(x, y);
+      if (gm && G.bldAt[i] >= 0) {
+        const bb = G.blds.get(G.bldAt[i]);
+        if (bb && !isPub(bb) && bb.id !== G.dockId) {
+          blocked = bb.own === "parish" || bb.own === "org" ? "It belongs to a church or society." : "It belongs to the ".concat(bb.own || "", " family. Select it and buy it out in Info.");
+          continue;
+        }
+      }
+      const r = bulldozeTile(G, i);
       if (r.ok) n++;
       else if (r.reason) blocked = r.reason;
     }
@@ -25737,6 +28507,7 @@ function selectAt(t, w) {
     storyTap(t);
     return;
   }
+  if (typeof govFullTap === "function" && govFullTap(t)) return;
   const v = w ? pickVehicle(G, w[0], w[1]) : null;
   if (v) {
     UI.selVeh = v.key;
@@ -26064,7 +28835,7 @@ function bindInput() {
     } else if (k === "r") cycleRoad();
     else if (k === "x") setTool("bulldoze");
     else if (k === "l") {
-      const L = ["none", "traffic", "safety", "transit", "happy", "coverage", "money", "land"];
+      const L = ["none", "traffic", "safety", "transit", "happy", "coverage", "money", "land"].concat(typeof govFullOn === "function" && govFullOn() ? ["people"] : []);
       setLens(L[(L.indexOf(UI.lens) + 1) % L.length]);
     } else if (k === "m") toggleMusic();
     else if (k === "v") v3Toggle();
@@ -26128,7 +28899,11 @@ function renderPanel(force) {
   const body = $("#pbody");
   let html = "", after = null;
   const tab = UI.tab;
-  if (tab === "goals" && G.challenge) {
+  const gfp = typeof govFullOn === "function" && govFullOn() && ["goals", "hall", "people", "money", "inspect"].includes(tab) ? govFullPanel(tab) : null;
+  if (gfp) {
+    html = gfp.html;
+    after = gfp.after;
+  } else if (tab === "goals" && G.challenge) {
     const ch = G.challenge, def = challengeDef(G);
     const day = Math.floor(G.t / 1440) + 1;
     const last = G.history[G.history.length - 1];
@@ -26308,6 +29083,7 @@ function renderPanel(force) {
         UI.panelSig = "";
         renderPanel(true);
       };
+      if (typeof govFullBindInspect === "function") govFullBindInspect();
     };
   }
   if (!force && (html === UI.panelSig || UI.panelHover)) return;
@@ -26515,6 +29291,7 @@ function inspectHTML() {
     h += '<span class="k">Coverage</span><span class="v">'.concat(d.radius, " tiles</span></div>");
   }
   if (b.id === G.dockId) h += harborHTML(b);
+  if (typeof govFullOn === "function" && govFullOn()) return h + govInfoHTML(b) + govDemolishHTML(b);
   if (b.id !== G.dockId) h += UI.confirmBulldoze ? '<div class="btnrow"><button class="primary" id="btnDemolish">Remove '.concat(d.name, '</button><button class="secondary" id="btnCancelDemolish">Keep it</button></div>') : '<button class="secondary" id="btnDemolish">Bulldoze · refund '.concat(fmtMoney(d.cost * 0.25), "</button>");
   return h;
 }
@@ -26775,7 +29552,7 @@ function macroHTML(last) {
   const pesoTone = peso < 0.8 ? "neg" : peso > 1.05 ? "pos" : "";
   h += '<div style="display:flex;flex-direction:column;gap:6px"><span class="label">Peso and gold</span><div class="pesobox"><div><small>Peso</small><b class="'.concat(pesoTone, '">').concat(peso.toFixed(2), "</b><small>").concat(peso < 0.8 ? "weak · dear imports" : peso > 1.05 ? "strong · cheap imports" : "steady", "</small></div>").concat(lineSpark(G.pesoHist.concat([peso]), "var(--sea)", 1), "<div><small>Reserve</small><b>").concat(Math.floor(G.gold), " oz</b><small>worth ").concat(fmtMoney(G.gold * gp), '</small></div></div>\n    <div class="kv"><span class="k">Exports earn</span><span class="v">×').concat(pesoExport(G).toFixed(2), '</span><span class="k">Imports cost</span><span class="v">×').concat(pesoImport(G).toFixed(2), '</span><span class="k">Gold price</span><span class="v">').concat(fmtMoney(gp), ' an ounce</span></div>\n    <div class="btnrow"><button class="secondary" id="btnSell10" ').concat(G.gold < 10 ? "disabled" : "", ">Sell 10 oz · +").concat(fmtMoney(10 * gp * pesoExport(G)), '</button><button class="secondary" id="btnSell50" ').concat(G.gold < 50 ? "disabled" : "", '>Sell 50 oz</button><button class="secondary" id="btnBuy10" ').concat(G.money < 10 * gp * pesoImport(G) ? "disabled" : "", ">Buy 10 oz · −").concat(fmtMoney(10 * gp * pesoImport(G)), '</button></div>\n    <small style="color:var(--ink-3)">Selling reserve gold brings cash and props up the peso for a while; a small reserve leaves the peso exposed to every bad trade day. Gold Mines add to the reserve.</small></div>');
   const pols = [["imports", "Allow imports", "Factories and boutiques short of supplies buy them abroad at 130% of the world price."], ["liquorTax", "Liquor tax", "Adds a duty to every bottle sold in cantinas and boutiques. Cuts drinking by 40%."], ["keepGold", "Mined gold to the reserve", "Off: gold mines truck their gold to the port and sell it."]];
-  h += '<div style="display:flex;flex-direction:column;gap:6px"><span class="label">Policy</span>'.concat(pols.map(([k, n, t]) => '<label class="pol"><input type="checkbox" data-pol="'.concat(k, '" ').concat(policy(G, k) ? "checked" : "", "><span><b>").concat(n, "</b><small>").concat(t, "</small></span></label>")).join(""), "</div>");
+  h += '<div style="display:flex;flex-direction:column;gap:6px"><span class="label">Policy</span>'.concat(pols.filter((p) => !(typeof govFullOn === "function" && govFullOn() && p[0] === "liquorTax")).map(([k, n, t]) => '<label class="pol"><input type="checkbox" data-pol="'.concat(k, '" ').concat(policy(G, k) ? "checked" : "", "><span><b>").concat(n, "</b><small>").concat(t, "</small></span></label>")).join(""), "</div>");
   let e0 = 0, e1 = 0, e2 = 0, drink = 0;
   for (const c of G.cits.values()) {
     const e = c.edu || 0;
@@ -26791,7 +29568,7 @@ function macroHTML(last) {
 }
 function bindEconomy() {
   drawEconChart($("#chEcon"));
-  const rer = () => {
+  const rer2 = () => {
     UI.panelSig = "";
     renderPanel(true);
   };
@@ -26802,7 +29579,7 @@ function bindEconomy() {
       Music.sfx("place");
       toast({ title: "Gold sold", body: "10 oz for ".concat(fmtMoney(v), ". The peso firms up."), tone: "good", timeout: 2500 });
     }
-    rer();
+    rer2();
   };
   const s50 = $("#btnSell50");
   if (s50) s50.onclick = () => {
@@ -26811,17 +29588,17 @@ function bindEconomy() {
       Music.sfx("place");
       toast({ title: "Gold sold", body: "50 oz for ".concat(fmtMoney(v), ". The peso firms up."), tone: "good", timeout: 2500 });
     }
-    rer();
+    rer2();
   };
   const b10 = $("#btnBuy10");
   if (b10) b10.onclick = () => {
     const v = buyGold(G, 10);
     if (v) Music.sfx("place");
-    rer();
+    rer2();
   };
   for (const cb of document.querySelectorAll("#pbody [data-pol]")) cb.onchange = () => {
     G.policy[cb.dataset.pol] = cb.checked;
-    rer();
+    rer2();
   };
   for (const b of document.querySelectorAll("#pbody [data-sel]")) b.onclick = () => {
     const bb = G.blds.get(+b.dataset.sel);
@@ -27336,6 +30113,7 @@ function updateHud() {
     if (!show && V3.chase) V3.chase = false;
     ride.setAttribute("aria-pressed", String(V3.chase));
   }
+  if (typeof govFullOn === "function" && govFullOn()) govFullHud();
 }
 function consumeEvents() {
   if (DV.on || ST.on) {
@@ -27348,17 +30126,26 @@ function consumeEvents() {
     G.shipArrived = null;
     return;
   }
+  const gm = typeof govFullOn === "function" && govFullOn();
+  if (gm) {
+    G.newNotes.length = 0;
+    G.reportReady = false;
+    G.boobaEvent = null;
+    G.boobaNews = 0;
+  }
   while (UI.eventsSeen < G.events.length) {
     const e = G.events[UI.eventsSeen++];
+    if (gm && (e.tone === "good" || /settler/.test(e.text))) continue;
     if (e.tone === "bad" || e.tone === "good") toast({ title: e.tone === "good" ? "Harbor" : "Heads up", body: e.text, tone: e.tone, timeout: 5e3 });
-    else if (e.tone === "warn") toast({ title: "Weather", body: e.text, tone: "report", timeout: 8e3 });
-    else if (e.tone === "crash") {
+    else if (e.tone === "warn") {
+      if (!gm) toast({ title: "Weather", body: e.text, tone: "report", timeout: 8e3 });
+    } else if (e.tone === "crash") {
       const d = Math.floor(e.t / 1440);
       if (UI.crashToastDay !== d) {
         UI.crashToastDay = d;
         UI.crashToasts = 0;
       }
-      if (UI.crashToasts++ < 3) {
+      if (UI.crashToasts++ < (gm ? 1 : 3)) {
         toast({ title: "Crash", body: e.text, tone: "bad", timeout: 7e3, actions: [["Show", () => {
           const m = e.text.match(/at (\d+),(\d+)/);
           if (m) {
@@ -27499,7 +30286,7 @@ function consumeEvents() {
     }]] });
     UI.panelSig = "";
   }
-  if (!G.challenge && goalsMet(G) && UI.goalToastEra !== G.era && !(G.era === 4 && G.completed)) {
+  if (!G.challenge && !gm && goalsMet(G) && UI.goalToastEra !== G.era && !(G.era === 4 && G.completed)) {
     UI.goalToastEra = G.era;
     UI.goalsBadge = UI.tab !== "goals";
     toast({ title: "Goals met", body: G.era < 4 ? "You can advance to ".concat(ERAS[G.era + 1].name, " whenever you are ready.") : "You can complete the island now.", tone: "good", timeout: 9e3, actions: [["Go to goals", () => {
@@ -27557,6 +30344,10 @@ function toggleMusic() {
 }
 function openMenu() {
   var _a2;
+  if (typeof govFullOn === "function" && govFullOn()) {
+    govFullMenu();
+    return;
+  }
   const wasPaused = UI.paused;
   setSpeed(0);
   let best = {};
@@ -27590,6 +30381,7 @@ function openMenu() {
 let previewTimer = null;
 function showTitle() {
   if (V3.on) v3Toggle(false);
+  if (typeof govLeaveFull === "function") govLeaveFull();
   UI.started = false;
   $("#title").hidden = false;
   $("#hud").hidden = true;
@@ -27786,6 +30578,7 @@ function frame(now) {
     }
     if (DV.on) driveFrame(dt);
     else if (ST.on) storyTick();
+    else if (typeof GF !== "undefined" && GF.on && govOn(G)) govFullTick();
     if (V3.on) {
       layoutMovers(G);
       v3Frame(G, dt, now);
