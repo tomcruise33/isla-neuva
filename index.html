@@ -300,7 +300,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .gf-pet .gv small { color: var(--ink-3); font-weight: 500; }
 .gf-pmeta { display: flex; align-items: center; gap: 6px; } .gf-pmeta small { flex: 1; color: var(--ink-3); font-size: 12px; }
 .odot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; flex: none; }
-.gf-card b { display: flex; align-items: center; gap: 2px; }
+.gf-card > b { display: flex; align-items: center; gap: 2px; }
 .gf-card .btnrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
 .gf-card .btnrow button { margin-top: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 5px; } .chips span { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 99px; background: var(--paper-2); font-size: 12.5px; color: var(--ink-2); }
@@ -564,6 +564,26 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .st-card.folded .st-body { flex-direction: row; flex-wrap: wrap; align-items: center; }
 .st-card.folded .st-body > .st-btns { position: static; background: none; padding-top: 0; margin-top: 0; }
 .st-card.peek { opacity: 0.16; pointer-events: none; }
+/* Rosa's chapters in the modern interface: the card sits above the dock and wears the game's colours */
+body.st-modern #story .st-top { display: none !important; }
+body.st-modern .st-card { bottom: calc(var(--dockh, 118px) + 14px + env(safe-area-inset-bottom, 0px)); width: min(640px, calc(100% - 24px)); grid-template-columns: 64px minmax(0, 1fr); gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--ink); font-family: var(--f-ui); }
+body.st-modern .st-card { max-height: min(40vh, 460px); } body.st-modern .st-body { max-height: calc(min(40vh, 460px) - 28px); }
+@media (orientation: portrait) { body.st-modern .st-card { max-height: 36vh; } body.st-modern .st-body { max-height: calc(36vh - 28px); } }
+body.st-modern .st-face { width: 64px; height: 64px; box-shadow: 0 0 0 3px var(--mango); }
+body.st-modern .st-card.folded { grid-template-columns: 44px minmax(0, 1fr); } body.st-modern .st-card.folded .st-face { width: 44px; height: 44px; }
+body.st-modern .st-who { color: var(--sea); font-size: 13px; }
+body.st-modern .st-body p { font-size: 17px; line-height: 1.45; color: var(--ink); }
+body.st-modern .st-body > .st-btns { background: linear-gradient(transparent, var(--paper) 40%); }
+body.st-modern .st-primary { border: 0; background: var(--sea); color: var(--sea-ink); box-shadow: 0 3px 0 rgba(0, 40, 44, 0.35); font-size: 17px; min-height: 48px; padding: 10px 20px; border-radius: 11px; }
+body.st-modern .st-primary:active { box-shadow: 0 1px 0 rgba(0, 40, 44, 0.35); }
+body.st-modern .st-secondary { border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: 17px; min-height: 48px; padding: 10px 20px; border-radius: 11px; }
+body.st-modern .st-hint { background: var(--mango-soft); color: var(--ink); font-size: 14px; }
+body.st-modern .st-min { background: var(--paper-2); color: var(--ink-2); }
+body.st-modern .st-praise { font-size: 17px; border-radius: 12px; background: var(--palm); padding: 11px 18px; }
+body.st-modern .st-praise.soft { background: var(--ink-2); } body.st-modern .st-praise.hint { background: var(--mango-soft); color: var(--ink); border-color: var(--mango); }
+body.st-modern .st-wish { bottom: calc(var(--dockh, 118px) + 14px + env(safe-area-inset-bottom, 0px)); }
+.st-acts { position: fixed; top: calc(var(--hudh, 96px) + 12px); left: 50%; transform: translateX(-50%); z-index: 26; display: flex; gap: 8px; padding: 8px; border-radius: 14px; background: var(--glass); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.st-acts button { margin: 0; min-height: 44px; }
 .st-face { width: 84px; height: 84px; border-radius: 50%; box-shadow: 0 0 0 3px #f2b85a; }
 .st-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .st-who { font: 700 14px var(--f-cond); letter-spacing: 0.05em; text-transform: uppercase; color: #b4561a; }
@@ -15640,7 +15660,7 @@ const STT = {
     chFeed: "The feed",
     photoHeart: "The new heart of town",
     letterHeart: "Dear Mayor, since the new streets opened I walk my granddaughter to school every morning. I have lost six kilos and gained a friend: the baker. Señora Kaya",
-    uHeart: "The hospital is in your Build menu.",
+    uHeart: "The hospital is in the build bar at the bottom.",
     lHeb: "Towns built for cars make people drive, sit and grow heavier.",
     lHea: "A lively centre with trees, cafés and short walks keeps people happy and healthy.",
     heEnd: "The heart of town beats again.",
@@ -15686,7 +15706,7 @@ const STT = {
     taxQ: "The town plan, the new roads and the garage all cost money, dear. The assembly must decide how the island collects its taxes. Who should pay the most?",
     photoSweet: "The voice on the radio",
     letterSweet: "Dear Mayor, my father says the most precious thing a small island can own is a newspaper that is allowed to be rude to the Mayor. I did not understand it before this year. Now I do. Elena Varga",
-    uSweet: "The radio station is in your Build menu.",
+    uSweet: "The radio station is in the build bar at the bottom.",
     lSwb: "Say no at the first small step that removes a limit on power. The second no is always harder.",
     lSwa: "A dictator never arrives looking like one: he arrives with sweets.",
     swEnd: "The sweet man came with sweets and a microphone. The island will never forget how he sounded.",
@@ -15758,7 +15778,7 @@ const STT = {
     chLaunch: "Launch day",
     photoSea: "Holding back the sea",
     letterSea: "Dear Mayor, my grandfather fished from the old harbor for sixty years. Today he showed me where the water used to end. He says this island always finds an answer. Luis Ortega, 11 years old",
-    uSea: "Sea walls, floating homes and nuclear power are in your Build menu.",
+    uSea: "Sea walls, floating homes and nuclear power are in the build bar at the bottom.",
     lSeb: "When machines take the old jobs, an island must decide who shares the gains.",
     lSea: "A rising sea can be walled off, floated on or moved away from, but never ignored.",
     seEnd: "The island faced the rising sea and the robots, and found its own answers.",
@@ -15784,7 +15804,7 @@ const STT = {
     rosa4: "Hello! I am Rosa too, the fourth one. My grandmother told me every story about you, and I have read all the diaries. Shall we see what the future brings?",
     y2045: "The sea keeps rising, and machines are learning to do almost any job.",
     chSea: "The rising sea",
-    uCarn: "Cafés, churches and cinemas are in your Build menu.",
+    uCarn: "Cafés, churches and cinemas are in the build bar at the bottom.",
     photoQuiet: "The mask workshop",
     letterQuiet: "Dear Mayor, the clinic thanks the whole Pastel Textile team for three thousand masks. Special thanks to Booba, who called us every morning to ask what else we needed. Doctor {d}",
     uQuiet: "Nothing new to build this time: the most important thing this year was each other.",
@@ -15806,7 +15826,7 @@ const STT = {
     psSide: "Booba stopped by this morning with a big coffee and a complaint. The mill workers walk to the bus stop along the road, because there is no pavement. She wrote to the council, and nobody answered. “So I will just go to the assembly myself,” she said. Tonight she is going to speak!",
     photoStorm: "After the storm",
     letterStorm: "Dear Mayor, we lost our roof but not each other. The whole street came to help us rebuild. Thank you for the new house: it does not even creak in the wind. The Novák family",
-    uStorm: "Towers are in your Build menu.",
+    uStorm: "Towers are in the build bar at the bottom.",
     lStb: "Engineers and building rules save more houses than luck.",
     lSta: "Build back better: stronger, and away from the shore.",
     stEnd: "The island bent in the storm, but it did not break.",
@@ -15822,7 +15842,7 @@ const STT = {
     chStorm: "The hurricane",
     photoWall: "A new era",
     letterWall: "Dear Mayor, my grandfather says he has seen the island change its mind three times in his life. He says that is not weakness, it is the island learning. Mateo Flores",
-    uWall: "Offices and boutiques are in your Build menu.",
+    uWall: "Offices and boutiques are in the build bar at the bottom.",
     lWab: "Free elections, free newspapers and education help any system correct its mistakes.",
     lWaa: "A system that depends on one rich friend falls when the friend falls.",
     waEnd: "The Cold War is over. The island is still standing, and a little wiser.",
@@ -15856,7 +15876,7 @@ const STT = {
     chWall: "The wall falls",
     photoUni: "The first students",
     letterUni: "Dear Mayor, I am the first in my family to go to university. My grandmother cannot read, and she cried when she held my student card. I promise I will come back and help. Ana Castillo",
-    uUni: "Universities and factories are in your Build menu.",
+    uUni: "Universities and factories are in the build bar at the bottom.",
     lUnb: "Educated people need good jobs, or they leave. Jobs without education are easy to lose to machines.",
     lUna: "Education pays slowly but for a long time: higher wages, better health, fewer people fooled.",
     unEnd: "The island chose its future. Education does not show today; it shows in twenty years.",
@@ -15875,7 +15895,7 @@ const STT = {
     chUni: "The university",
     photoOil: "The first solar panels",
     letterOil: "Dear Mayor, our class went to see the solar panels. Our teacher says one day the whole island will run on sunshine. I drew you a picture of it. Mateo, 10 years old",
-    uOil: "Solar farms and wind turbines are in your Build menu.",
+    uOil: "Solar farms and wind turbines are in the build bar at the bottom.",
     lOib: "Every road has hidden costs that only show after many years.",
     lOia: "Oil comes from far away, and so do its shocks. Nobody can embargo the sun or the wind.",
     oiEnd: "The oil shock taught the island to look up: at the sun and the wind.",
@@ -15899,7 +15919,7 @@ const STT = {
     chOil: "The oil shock",
     photoRoads: "The great debate",
     letterRoads: "Dear Mayor, the assembly lasted until three in the morning, and my father and my uncle are still not speaking to each other. But everybody spoke, and everybody was heard. Is that democracy? Lucía, 14 years old",
-    uRoads: "Hotels and cinemas are in your Build menu.",
+    uRoads: "Hotels and cinemas are in the build bar at the bottom.",
     lRob: "Equality without freedom, and freedom without fairness, both end badly.",
     lRoa: "Every economic system promises something and costs something.",
     roEnd: "Two visitors, three roads, one choice. Whatever happens next, remember why you chose it.",
@@ -15923,7 +15943,7 @@ const STT = {
     chRoads: "Two roads",
     photoCrash: "The hard winter",
     letterCrash: "Dear Mayor, it was a hard winter, but nobody on our street went hungry. The neighbours shared what they had, and you listened to us at the assembly. Thank you. Carmen Morales",
-    uCrash: "The cargo pier is in your Build menu.",
+    uCrash: "The cargo pier is in the build bar at the bottom.",
     lCrb: "Public works, the free market and cooperatives each have a price: debt, hardship or slow change.",
     lCra: "An island depends on the world: prices abroad decide wages at home.",
     crEnd: "The island came through the Great Depression. Poorer, wiser, and still together.",
@@ -16192,8 +16212,8 @@ const STT = {
     s_ch1end: "You welcomed the first families, built their homes and planted the first fields. Every town on Earth began exactly like this.",
     l1a: "Homes need a road to the harbor, so people can come and go.",
     l1b: "Work close to home means happy people and short walks.",
-    u1: "You can now build homes and fields whenever you like, from the Build button.",
-    tbc: "That is all of the story for tonight, dear. New chapters are on their way. Until then the island is yours: tap Build to add homes and fields wherever you like.",
+    u1: "You can now build homes and fields whenever you like, from the build bar at the bottom.",
+    tbc: "That is all of the story for tonight, dear. New chapters are on their way. Until then the island is yours: use the build bar at the bottom to add homes and fields wherever you like.",
     s2_intro: "Good morning, dear! People back home have heard about Isla Nueva. Another ship is on its way with two more families. Let’s get ready for them.",
     s2_ship: "Here comes the ship! When it ties up, tap the glowing harbor to welcome the Yılmaz and Kováč families.",
     s2_shipwait: "The ship is sailing in…",
@@ -16212,7 +16232,7 @@ const STT = {
     s2_end: "A harbor, homes, fields, fish and a market. What began as a wooden quay is now a real village.",
     l2a: "Markets and other services make the homes around them happier.",
     l2b: "You can draw roads yourself: slide along the ground, starting from a road.",
-    u2: "Roads, fisheries and markets are now in your Build menu.",
+    u2: "Roads, fisheries and markets are now in the build bar at the bottom.",
     letter2: "Dear neighbour, the market sells the best mangoes I have ever tasted, and my husband already caught a fish as big as our son. We feel at home. Warmly, Ayşe Yılmaz",
     photo2: "A real village",
     drawRoad: "Slide your finger along the ground to draw a road",
@@ -16232,7 +16252,7 @@ const STT = {
     s3_end: "Rain, mosquitoes and fever are the oldest enemies of every tropical town. You met them with a clinic, medicine and a calm head.",
     l3a: "A clinic heals every home inside its circle.",
     l3b: "Standing water breeds mosquitoes. Drains and clean streets keep a town healthy.",
-    u3: "Clinics, parks and casitas are in your Build menu now, and new roads are paved.",
+    u3: "Clinics, parks and casitas are in the build bar at the bottom now, and new roads are paved.",
     letter3: "Dear friend, our little Ema had the fever for three nights. The nurse sat with her until morning. Today she is building sandcastles again. We will never forget it. The Kováč family",
     photo3: "The healthy island",
     s4_grow: "Good news travels fast: three more families sailed in last night. This time they can afford painted casitas. Tap three glowing spots.",
@@ -16258,7 +16278,7 @@ const STT = {
     s4_end: "An assembly, a constitution, a Town Hall and an election. You listened to the farmers, the fishermen and the merchants, and they trusted you with the island.",
     l4a: "Every choice pleases some people more than others. That is what politics is.",
     l4b: "Listening to every group keeps an island together.",
-    u4: "Schools, distilleries and cantinas are in your Build menu. And you are the Mayor now!",
+    u4: "Schools, distilleries and cantinas are in the build bar at the bottom. And you are the Mayor now!",
     letter4: "Dear Mayor, congratulations from the whole market! We have made you a cake in the shape of the island. It is already half eaten. Respectfully, Señor Castillo, merchant",
     photo4: "Election day",
     farmers: "farmers",
@@ -16284,7 +16304,7 @@ const STT = {
     s5_end: "Electric light, cold drinks and a radio in every kitchen. You brought Isla Nueva into the modern age.",
     l5a: "Electricity lets workshops work faster and makes homes happier after dark.",
     l5b: "Every power source has a price: smoke or fuel bills. Most countries use a mix.",
-    u5: "Power plants are in your Build menu now.",
+    u5: "Power plants are in the build bar at the bottom now.",
     letter5: "Dear Mayor, last night I read a whole book under our new lamp, and Grandma listened to the radio until midnight. Thank you! Ömer, 9 years old",
     photo5: "The first lights",
     power: "Power",
@@ -16297,7 +16317,7 @@ const STT = {
     s6_end: "Trucks, drivers and a garage. The island’s goods roll smoothly to the harbor now, and you know every family by name.",
     l6a: "Goods only earn money once trucks carry them. With too few trucks, the yards overflow.",
     l6b: "Every job is a profession, and many professions need the right schooling.",
-    u6: "Truck Garages are in your Build menu.",
+    u6: "Truck Garages are in the build bar at the bottom.",
     letter6: "Dear Mayor, I have driven donkeys, carts and fishing boats, but never a truck with a radio! My children wave every time I pass the school. With respect, Mehmet Demir, driver",
     photo6: "On the road",
     peopleT: "The people of Isla Nueva",
@@ -16325,7 +16345,7 @@ const STT = {
     s7_end: "Cotton fields, a mill, a design studio and samples sailing to Germany. Isla Nueva now makes things the world wants to wear.",
     l7a: "Design and merchandising turn cheap cloth into garments worth far more.",
     l7b: "Fields, mill and studio close together keep deliveries fast.",
-    u7: "Textile mills, Pastel Textile, boutiques, hotels and more are in your Build menu.",
+    u7: "Textile mills, Pastel Textile, boutiques, hotels and more are in the build bar at the bottom.",
     letter7: "Dear Mayor, thank you for Pastel! Five coffees a day, three calls with Germany and a mill that actually listens to me. Best job in the world. Kisses, Booba",
     photo7: "Pastel Textile",
     s8_intro: "Can you believe it, dear? My grandmother’s grandmother wrote in her diary about an empty beach in 1902. Now there is a harbor, a clinic, a Town Hall, a power plant, a mill and a Mayor. The islanders want to celebrate: Carnival!",
@@ -16626,7 +16646,7 @@ const STT = {
     chFeed: "Haber akışı",
     photoHeart: "Kasabanın yeni kalbi",
     letterHeart: "Sevgili Başkan Hanım, yeni sokaklar açıldığından beri her sabah torunumu okula yürüyerek götürüyorum. Altı kilo verdim, bir de yeni bir dost edindim: fırıncı. Señora Kaya",
-    uHeart: "Hastane artık İnşa et menünde.",
+    uHeart: "Hastane artık alttaki inşa çubuğunda.",
     lHeb: "Arabalar için kurulan kasabalar insanları araba kullanmaya, oturmaya ve kilo almaya iter.",
     lHea: "Ağaçları, kafeleri ve kısa yürüyüş mesafeleriyle canlı bir merkez insanları mutlu ve sağlıklı tutar.",
     heEnd: "Kasabanın kalbi yeniden atıyor.",
@@ -16672,7 +16692,7 @@ const STT = {
     taxQ: "Şehir planı, yeni yollar ve garaj; hepsi para tutuyor canım. Meclis, adanın vergilerini nasıl toplayacağına karar vermeli. En çok kim ödesin?",
     photoSweet: "Radyodaki ses",
     letterSweet: "Sevgili Başkan Hanım, babam, küçük bir adanın sahip olabileceği en değerli şeyin, belediye başkanına kabalık etmesine bile izin verilen bir gazete olduğunu söylüyor. Bu yıla kadar bunu anlamamıştım. Şimdi anlıyorum. Elena Varga",
-    uSweet: "Radyo istasyonu artık İnşa et menünde.",
+    uSweet: "Radyo istasyonu artık alttaki inşa çubuğunda.",
     lSwb: "Güce konan bir sınırı kaldıran ilk küçük adımda hayır de. İkinci hayır her zaman daha zordur.",
     lSwa: "Bir diktatör asla diktatör kılığında gelmez: elinde şekerlerle gelir.",
     swEnd: "Tatlı dilli adam elinde şekerler ve bir mikrofonla geldi. Ada onun sesini asla unutmayacak.",
@@ -16744,7 +16764,7 @@ const STT = {
     chLaunch: "Fırlatma günü",
     photoSea: "Denize karşı",
     letterSea: "Sevgili Başkan Hanım, dedem eski limandan altmış yıl balık tuttu. Bugün bana suyun eskiden nerede bittiğini gösterdi. Bu adanın her zaman bir çare bulduğunu söylüyor. Luis Ortega, 11 yaşında",
-    uSea: "Deniz duvarları, yüzen evler ve nükleer santraller artık İnşa et menünde.",
+    uSea: "Deniz duvarları, yüzen evler ve nükleer santraller artık alttaki inşa çubuğunda.",
     lSeb: "Makineler eski işleri aldığında ada, kazancı kimlerin paylaşacağına karar vermelidir.",
     lSea: "Yükselen denizin önüne duvar örülebilir, üstünde yüzülebilir ya da ondan uzaklaşılabilir; ama asla görmezden gelinemez.",
     seEnd: "Ada yükselen denizle ve robotlarla yüzleşti ve kendi cevaplarını buldu.",
@@ -16770,7 +16790,7 @@ const STT = {
     rosa4: "Merhaba! Ben de Rosa'yım, dördüncüsü. Anneannem bana seninle ilgili bütün hikâyeleri anlattı, bütün günlükleri de okudum. Bakalım gelecek neler getirecek?",
     y2045: "Deniz yükselmeye devam ediyor, makineler de neredeyse her işi yapmayı öğreniyor.",
     chSea: "Yükselen deniz",
-    uCarn: "Kafeler, kiliseler ve sinemalar artık İnşa et menünde.",
+    uCarn: "Kafeler, kiliseler ve sinemalar artık alttaki inşa çubuğunda.",
     photoQuiet: "Maske atölyesi",
     letterQuiet: "Sayın Başkan, klinik olarak üç bin maske için bütün Pastel Tekstil ekibine teşekkür ederiz. Her sabah arayıp başka neye ihtiyacımız olduğunu soran Booba'ya ayrıca teşekkürler. Doktor {d}",
     uQuiet: "Bu sefer inşa edilecek yeni bir şey yok: bu yıl en önemli şey birbirimizdik.",
@@ -16792,7 +16812,7 @@ const STT = {
     psSide: "Booba bu sabah elinde kocaman bir kahve ve bir şikâyetle uğradı. Kaldırım olmadığı için fabrika işçileri otobüs durağına yolun kenarından yürüyormuş. Belediyeye yazmış, kimse cevap vermemiş. “O zaman meclis toplantısına kendim giderim” dedi. Bu akşam konuşma yapacak!",
     photoStorm: "Fırtınadan sonra",
     letterStorm: "Sevgili Başkan Hanım, çatımızı kaybettik ama birbirimizi kaybetmedik. Evi yeniden yapmamız için bütün sokak yardıma geldi. Yeni ev için teşekkürler: rüzgârda gıcırdamıyor bile. Novák ailesi",
-    uStorm: "Kuleler artık İnşa et menünde.",
+    uStorm: "Kuleler artık alttaki inşa çubuğunda.",
     lStb: "Mühendisler ve yapı kuralları, şanstan daha çok ev kurtarır.",
     lSta: "Yıkılanı daha iyisiyle yeniden yap: daha sağlam ve kıyıdan uzakta.",
     stEnd: "Ada fırtınada eğildi ama kırılmadı.",
@@ -16808,7 +16828,7 @@ const STT = {
     chStorm: "Kasırga",
     photoWall: "Yeni bir dönem",
     letterWall: "Sevgili Başkan Hanım, dedem hayatı boyunca adanın üç kez fikir değiştirdiğini gördüğünü söylüyor. Ona göre bu zayıflık değil; ada öğreniyor. Mateo Flores",
-    uWall: "Ofisler ve lüks butikler artık İnşa et menünde.",
+    uWall: "Ofisler ve lüks butikler artık alttaki inşa çubuğunda.",
     lWab: "Serbest seçimler, özgür gazeteler ve eğitim, her sistemin hatalarını düzeltmesine yardım eder.",
     lWaa: "Tek bir zengin dosta bağlı bir sistem, o dost düşünce düşer.",
     waEnd: "Soğuk Savaş bitti. Ada hâlâ ayakta, üstelik biraz daha bilge.",
@@ -16842,7 +16862,7 @@ const STT = {
     chWall: "Duvar yıkılıyor",
     photoUni: "İlk öğrenciler",
     letterUni: "Sevgili Başkan Hanım, ailemde üniversiteye giden ilk kişi benim. Babaannem okuma yazma bilmiyor; öğrenci kartımı eline aldığında ağladı. Söz veriyorum, geri dönüp yardım edeceğim. Ana Castillo",
-    uUni: "Üniversiteler ve fabrikalar artık İnşa et menünde.",
+    uUni: "Üniversiteler ve fabrikalar artık alttaki inşa çubuğunda.",
     lUnb: "Eğitimli insanların iyi işlere ihtiyacı var, yoksa giderler. Eğitim gerektirmeyen işler kolayca makinelere kaptırılır.",
     lUna: "Eğitimin karşılığı yavaş ama uzun soluklu gelir: daha yüksek ücretler, daha iyi sağlık, daha az kandırılan insan.",
     unEnd: "Ada geleceğini seçti. Eğitimin meyvesi bugün değil, yirmi yıl sonra görülür.",
@@ -16861,7 +16881,7 @@ const STT = {
     chUni: "Üniversite",
     photoOil: "İlk güneş panelleri",
     letterOil: "Sayın Başkan, sınıfça güneş panellerini görmeye gittik. Öğretmenimiz bir gün bütün adanın güneşle çalışacağını söylüyor. Size bunun resmini çizdim. Mateo, 10 yaşında",
-    uOil: "Güneş tarlaları ve rüzgâr türbinleri artık İnşa et menünde.",
+    uOil: "Güneş tarlaları ve rüzgâr türbinleri artık alttaki inşa çubuğunda.",
     lOib: "Her yolun, ancak uzun yıllar sonra ortaya çıkan gizli bedelleri vardır.",
     lOia: "Petrol uzaktan gelir, krizleri de. Güneşe ya da rüzgâra kimse ambargo koyamaz.",
     oiEnd: "Petrol krizi adaya yukarı bakmayı öğretti: güneşe ve rüzgâra.",
@@ -16885,7 +16905,7 @@ const STT = {
     chOil: "Petrol krizi",
     photoRoads: "Büyük tartışma",
     letterRoads: "Sevgili Başkan Hanım, meclis sabahın üçüne kadar sürdü; babamla amcam hâlâ birbirleriyle konuşmuyor. Ama herkes söz aldı ve herkesin sözü dinlendi. Demokrasi denen şey bu mu? Lucía, 14 yaşında",
-    uRoads: "Oteller ve sinemalar artık İnşa et menünde.",
+    uRoads: "Oteller ve sinemalar artık alttaki inşa çubuğunda.",
     lRob: "Özgürlüksüz eşitlik de, adaletsiz özgürlük de kötü biter.",
     lRoa: "Her ekonomik sistemin bir vaadi, bir de bedeli vardır.",
     roEnd: "İki misafir, üç yol, tek bir seçim. Bundan sonra ne olursa olsun, bu yolu neden seçtiğini hatırla.",
@@ -16909,7 +16929,7 @@ const STT = {
     chRoads: "İki yol",
     photoCrash: "Zor kış",
     letterCrash: "Sevgili Başkan Hanım, zor bir kış geçirdik ama sokağımızda kimse aç kalmadı. Komşular ellerindekini paylaştı, siz de mecliste bizi dinlediniz. Teşekkürler. Carmen Morales",
-    uCrash: "Yük iskelesi artık İnşa et menünde.",
+    uCrash: "Yük iskelesi artık alttaki inşa çubuğunda.",
     lCrb: "Kamu işlerinin de, serbest piyasanın da, kooperatifin de bir bedeli var: borç, sıkıntı ya da yavaş değişim.",
     lCra: "Bir ada dünyaya bağlıdır: dışarıdaki fiyatlar adadaki ücretleri belirler.",
     crEnd: "Ada Büyük Buhran'ı atlattı. Daha yoksul, daha bilge ve hâlâ bir arada.",
@@ -17177,8 +17197,8 @@ const STT = {
     s_ch1end: "İlk aileleri karşıladın, evlerini kurdun ve ilk tarlaları ektin. Dünyadaki her kasaba tam da böyle başladı.",
     l1a: "Evlerin limana giden bir yola ihtiyacı var, insanlar gelip gidebilsin.",
     l1b: "Eve yakın iş, mutlu insanlar ve kısa yürüyüşler demek.",
-    u1: "Artık İnşa et düğmesiyle istediğin zaman ev ve tarla yapabilirsin.",
-    tbc: "Bu geceki hikâye bu kadar canım. Yeni bölümler yolda. O zamana kadar ada senin: “İnşa et” düğmesine dokun ve istediğin yere ev ve tarla ekle.",
+    u1: "Artık alttaki inşa çubuğuyla istediğin zaman ev ve tarla yapabilirsin.",
+    tbc: "Bu geceki hikâye bu kadar canım. Yeni bölümler yolda. O zamana kadar ada senin: alttaki inşa çubuğuyla istediğin yere ev ve tarla ekle.",
     s2_intro: "Günaydın canım! Memlekettekiler Isla Nueva'yı duymuş. İki aile daha getiren bir gemi yolda. Hadi onlar için hazırlanalım.",
     s2_ship: "İşte gemi geliyor! Yanaşınca Yılmaz ve Kováč ailelerini karşılamak için parlayan limana dokun.",
     s2_shipwait: "Gemi limana yaklaşıyor…",
@@ -17197,7 +17217,7 @@ const STT = {
     s2_end: "Bir liman, evler, tarlalar, balık ve bir pazar. Tahta bir iskele olarak başlayan yer artık gerçek bir köy.",
     l2a: "Pazar gibi hizmetler çevresindeki evleri daha mutlu eder.",
     l2b: "Yolları kendin çizebilirsin: bir yoldan başlayıp parmağını zeminde kaydır.",
-    u2: "Yol, balıkçı barınağı ve pazar artık İnşa et menünde.",
+    u2: "Yol, balıkçı barınağı ve pazar artık alttaki inşa çubuğunda.",
     letter2: "Sevgili komşum, pazarda hayatımda yediğim en güzel mangolar var, kocam da şimdiden oğlumuz kadar büyük bir balık tuttu. Kendimizi evimizde hissediyoruz. Sevgiyle, Ayşe Yılmaz",
     photo2: "Gerçek bir köy",
     drawRoad: "Yol çizmek için parmağını zeminde kaydır",
@@ -17217,7 +17237,7 @@ const STT = {
     s3_end: "Yağmur, sivrisinek ve ateş her tropik kasabanın en eski düşmanlarıdır. Sen onları bir klinik, ilaç ve sakin bir kafayla karşıladın.",
     l3a: "Klinik, çemberinin içindeki her evi iyileştirir.",
     l3b: "Durgun suda sivrisinek ürer. Su giderleri ve temiz sokaklar kasabayı sağlıklı tutar.",
-    u3: "Klinik, park ve renkli ev artık İnşa et menünde; yeni yollar da artık asfalt.",
+    u3: "Klinik, park ve renkli ev artık alttaki inşa çubuğunda; yeni yollar da artık asfalt.",
     letter3: "Sevgili dostumuz, küçük Ema'mız üç gece ateşler içinde yattı. Hemşire sabaha kadar yanında oturdu. Bugün yine kumdan kaleler yapıyor. Bunu asla unutmayacağız. Kováč ailesi",
     photo3: "Sağlıklı ada",
     s4_grow: "İyi haber çabuk yayılır: dün gece üç aile daha geldi. Bu sefer renkli evlere güçleri yetiyor. Üç parlayan yere dokun.",
@@ -17243,7 +17263,7 @@ const STT = {
     s4_end: "Bir meclis, bir anayasa, bir belediye binası ve bir seçim. Çiftçileri, balıkçıları ve tüccarları dinledin; onlar da adayı sana emanet etti.",
     l4a: "Her karar bazılarını diğerlerinden daha çok memnun eder. Siyaset de budur.",
     l4b: "Her grubu dinlemek adayı bir arada tutar.",
-    u4: "Okullar, rom imalathaneleri ve meyhaneler artık İnşa et menüsünde. Üstelik artık belediye başkanısın!",
+    u4: "Okullar, rom imalathaneleri ve meyhaneler artık alttaki inşa çubuğunda. Üstelik artık belediye başkanısın!",
     letter4: "Sayın Başkan, bütün pazar adına tebrikler! Size ada şeklinde bir pasta yaptık. Yarısı şimdiden yendi. Saygılarımla, Señor Castillo, tüccar",
     photo4: "Seçim günü",
     farmers: "çiftçiler",
@@ -17269,7 +17289,7 @@ const STT = {
     s5_end: "Elektrik ışığı, soğuk içecekler ve her mutfakta bir radyo. Isla Nueva'yı modern çağa sen taşıdın.",
     l5a: "Elektrik atölyeleri hızlandırır ve karanlıkta evleri daha mutlu eder.",
     l5b: "Her enerji kaynağının bir bedeli var: duman ya da yakıt faturası. Çoğu ülke birkaçını bir arada kullanır.",
-    u5: "Santraller artık İnşa et menünde.",
+    u5: "Santraller artık alttaki inşa çubuğunda.",
     letter5: "Sevgili Başkan Hanım, dün gece yeni lambamızın altında koca bir kitap okudum, babaannem de gece yarısına kadar radyo dinledi. Teşekkürler! Ömer, 9 yaşında",
     photo5: "İlk ışıklar",
     power: "Elektrik",
@@ -17282,7 +17302,7 @@ const STT = {
     s6_end: "Kamyonlar, şoförler ve bir garaj. Adanın malları artık limana su gibi akıyor ve her aileyi adıyla tanıyorsun.",
     l6a: "Mallar ancak kamyonlar taşıdığında para kazandırır. Kamyon azsa avlular taşar.",
     l6b: "Her iş bir meslektir ve birçok meslek doğru eğitimi gerektirir.",
-    u6: "Kamyon Garajı artık İnşa et menünde.",
+    u6: "Kamyon Garajı artık alttaki inşa çubuğunda.",
     letter6: "Sevgili Başkan Hanım, eşek de sürdüm, at arabası da, balıkçı teknesi de; ama radyolu bir kamyonu hiç sürmemiştim! Okulun önünden her geçişimde çocuklarım el sallıyor. Saygılarımla, Mehmet Demir, şoför",
     photo6: "Yollarda",
     peopleT: "Isla Nueva halkı",
@@ -17310,7 +17330,7 @@ const STT = {
     s7_end: "Pamuk tarlaları, bir fabrika, bir tasarım stüdyosu ve Almanya'ya giden numuneler. Isla Nueva artık dünyanın giymek istediği şeyleri üretiyor.",
     l7a: "Tasarım ve merchandising ucuz kumaşı çok daha değerli kıyafetlere dönüştürür.",
     l7b: "Birbirine yakın tarla, fabrika ve stüdyo teslimatları hızlandırır.",
-    u7: "Tekstil fabrikası, Pastel Tekstil, butik, otel ve daha fazlası İnşa et menünde.",
+    u7: "Tekstil fabrikası, Pastel Tekstil, butik, otel ve daha fazlası alttaki inşa çubuğunda.",
     letter7: "Sevgili Başkanım, Pastel için teşekkürler! Günde beş kahve, Almanya ile üç görüşme ve sonunda beni dinleyen bir fabrika. Dünyanın en güzel işi. Öptüm, Booba",
     photo7: "Pastel Tekstil",
     s8_intro: "İnanabiliyor musun canım? Anneannemin anneannesi 1902'de günlüğüne bomboş bir kumsaldan söz etmiş. Şimdi bir liman, bir klinik, bir belediye binası, bir santral, bir tekstil fabrikası ve bir belediye başkanı var. Adalılar kutlamak istiyor: Karnaval!",
@@ -17611,7 +17631,7 @@ const STT = {
     chFeed: "Sociálne siete",
     photoHeart: "Nové srdce mesta",
     letterHeart: "Milá pani starostka, odkedy otvorili nové ulice, vodím vnučku každé ráno do školy pešo. Schudla som šesť kíl a získala priateľa: pekára. Señora Kaya",
-    uHeart: "Nemocnica je v tvojom menu Stavať.",
+    uHeart: "Nemocnica je v lište na stavanie dole.",
     lHeb: "Mestá stavané pre autá nútia ľudí jazdiť, sedieť a priberať.",
     lHea: "Živé centrum so stromami, kaviarňami a krátkymi cestami pešo udržiava ľudí šťastných a zdravých.",
     heEnd: "Srdce mesta znova bije.",
@@ -17657,7 +17677,7 @@ const STT = {
     taxQ: "Územný plán, nové cesty aj garáž niečo stoja, zlatko. Zhromaždenie musí rozhodnúť, ako bude ostrov vyberať dane. Kto by mal platiť najviac?",
     photoSweet: "Hlas z rádia",
     letterSweet: "Milá pani starostka, otec hovorí, že najcennejšie, čo môže malý ostrov mať, sú noviny, ktoré smú byť drzé aj k pani starostke. Až do tohto roka som tomu nerozumela. Teraz už áno. Elena Varga",
-    uSweet: "Rozhlasová stanica je v tvojom menu Stavať.",
+    uSweet: "Rozhlasová stanica je v lište na stavanie dole.",
     lSwb: "Povedz „nie“ už pri prvom malom kroku, ktorý odstraňuje hranice moci. Druhé „nie“ je vždy ťažšie.",
     lSwa: "Diktátor nikdy neprichádza ako diktátor: prichádza s cukríkmi.",
     swEnd: "Prišiel s cukríkmi, mikrofónom a sladkými rečami. Ostrov nikdy nezabudne, ako znel jeho hlas.",
@@ -17729,7 +17749,7 @@ const STT = {
     chLaunch: "Deň štartu",
     photoSea: "Zoči-voči moru",
     letterSea: "Milá pani starostka, dedko chytal ryby zo starého prístavu šesťdesiat rokov. Dnes mi ukázal, kde voda kedysi končila. Hovorí, že tento ostrov si vždy nájde odpoveď. Luis Ortega, 11 rokov",
-    uSea: "Morské hrádze, plávajúce domy a jadrové elektrárne sú v tvojom menu Stavať.",
+    uSea: "Morské hrádze, plávajúce domy a jadrové elektrárne sú v lište na stavanie dole.",
     lSeb: "Keď stroje vezmú starú prácu, ostrov musí rozhodnúť, kto sa podelí o zisky.",
     lSea: "Stúpajúce more môžeš zahradiť hrádzou, plávať na ňom alebo mu ustúpiť, ale nikdy ho nesmieš prehliadať.",
     seEnd: "Ostrov sa postavil stúpajúcemu moru aj robotom a našiel vlastné odpovede.",
@@ -17755,7 +17775,7 @@ const STT = {
     rosa4: "Ahoj! Aj ja som Rosa, už štvrtá. Babka mi o tebe porozprávala všetky príbehy a prečítala som všetky denníky. Pozrieme sa, čo prinesie budúcnosť?",
     y2045: "More stále stúpa a stroje sa učia robiť takmer každú prácu.",
     chSea: "Stúpajúce more",
-    uCarn: "Kaviarne, kostoly a kiná sú v tvojom menu Stavať.",
+    uCarn: "Kaviarne, kostoly a kiná sú v lište na stavanie dole.",
     photoQuiet: "Dielňa na rúška",
     letterQuiet: "Milá pani starostka, klinika ďakuje celému tímu Pastel Textile za tritisíc rúšok. Zvlášť ďakujeme Boobe, ktorá nám každé ráno volala a pýtala sa, čo ešte potrebujeme. MUDr. {d}",
     uQuiet: "Tentoraz nič nové na stavanie. Tento rok bolo najdôležitejšie, že sme mali jeden druhého.",
@@ -17777,7 +17797,7 @@ const STT = {
     psSide: "Dnes ráno sa u mňa zastavila Booba s veľkou kávou a so sťažnosťou. Ľudia z textilky chodia na autobusovú zastávku po kraji cesty, lebo tam nie je chodník. Napísala ostrovnej rade a nikto jej neodpovedal. „Tak pôjdem na zhromaždenie sama,“ povedala. Dnes večer bude hovoriť pred všetkými!",
     photoStorm: "Po búrke",
     letterStorm: "Milá pani starostka, prišli sme o strechu, ale nie o seba navzájom. Celá ulica nám prišla pomôcť so stavbou. Ďakujeme za nový dom: vo vetre ani nevŕzga. Novákovci",
-    uStorm: "Veže sú v tvojom menu Stavať.",
+    uStorm: "Veže sú v lište na stavanie dole.",
     lStb: "Inžinieri a stavebné pravidlá zachránia viac domov ako šťastie.",
     lSta: "Po búrke stavaj lepšie: pevnejšie a ďalej od pobrežia.",
     stEnd: "Ostrov sa v búrke ohol, ale nezlomil.",
@@ -17793,7 +17813,7 @@ const STT = {
     chStorm: "Hurikán",
     photoWall: "Nová doba",
     letterWall: "Milá pani starostka, môj dedo hovorí, že za život videl ostrov trikrát zmeniť názor. Vraj to nie je slabosť, ale ostrov sa tak učí. Mateo Flores",
-    uWall: "Kancelárie a butiky sú v tvojom menu Stavať.",
+    uWall: "Kancelárie a butiky sú v lište na stavanie dole.",
     lWab: "Slobodné voľby, slobodné noviny a vzdelanie pomáhajú každému systému napraviť vlastné chyby.",
     lWaa: "Systém, ktorý závisí od jedného bohatého priateľa, padne, keď padne ten priateľ.",
     waEnd: "Studená vojna sa skončila. Ostrov stále stojí a je o čosi múdrejší.",
@@ -17827,7 +17847,7 @@ const STT = {
     chWall: "Pád múru",
     photoUni: "Prví študenti",
     letterUni: "Milá pani starostka, som prvá z našej rodiny, kto ide na univerzitu. Moja babka nevie čítať, a keď držala v rukách môj študentský preukaz, plakala. Sľubujem, že sa vrátim a budem pomáhať. Ana Castillo",
-    uUni: "Univerzity a továrne sú v tvojom menu Stavať.",
+    uUni: "Univerzity a továrne sú v lište na stavanie dole.",
     lUnb: "Vzdelaní ľudia potrebujú dobrú prácu, inak odídu. Prácu bez vzdelania ľahko vezmú stroje.",
     lUna: "Vzdelanie sa vypláca pomaly, ale dlho: vyššie mzdy, lepšie zdravie a menej oklamaných ľudí.",
     unEnd: "Ostrov si vybral budúcnosť. Vzdelanie nie je vidieť dnes, ale o dvadsať rokov.",
@@ -17846,7 +17866,7 @@ const STT = {
     chUni: "Univerzita",
     photoOil: "Prvé solárne panely",
     letterOil: "Milá pani starostka, celá naša trieda sa išla pozrieť na solárne panely. Pani učiteľka hovorí, že raz pôjde celý ostrov na slnečnú energiu. Nakreslil som vám to. Mateo, 10 rokov",
-    uOil: "Solárne polia a veterné turbíny sú v tvojom menu Stavať.",
+    uOil: "Solárne polia a veterné turbíny sú v lište na stavanie dole.",
     lOib: "Každá cesta má skryté náklady, ktoré sa ukážu až po rokoch.",
     lOia: "Ropa prichádza zďaleka a jej otrasy tiež. Na slnko ani vietor nikto embargo neuvalí.",
     oiEnd: "Ropný šok naučil ostrov dvíhať zrak k slnku a k vetru.",
@@ -17870,7 +17890,7 @@ const STT = {
     chOil: "Ropný šok",
     photoRoads: "Veľká debata",
     letterRoads: "Milá pani starostka, zhromaždenie trvalo až do tretej ráno a otec so strýkom spolu ešte stále nehovoria. Ale hovoriť mohol každý a každého bolo počuť. Tak toto je demokracia? Lucía, 14 rokov",
-    uRoads: "Hotely a kiná sú v tvojom menu Stavať.",
+    uRoads: "Hotely a kiná sú v lište na stavanie dole.",
     lRob: "Rovnosť bez slobody aj sloboda bez spravodlivosti sa končia zle.",
     lRoa: "Každý hospodársky systém niečo sľubuje a niečo stojí.",
     roEnd: "Dvaja hostia, tri cesty, jedna voľba. Nech sa stane čokoľvek, pamätaj si, prečo si si vybrala práve túto.",
@@ -17894,7 +17914,7 @@ const STT = {
     chRoads: "Dve cesty",
     photoCrash: "Ťažká zima",
     letterCrash: "Milá pani starostka, bola to ťažká zima, ale na našej ulici nikto nehladoval. Susedia sa podelili o všetko, čo mali, a vy ste nás na zhromaždení vypočuli. Ďakujem. Carmen Morales",
-    uCrash: "Nákladné mólo je v tvojom menu Stavať.",
+    uCrash: "Nákladné mólo je v lište na stavanie dole.",
     lCrb: "Verejné práce, voľný trh aj družstvá majú svoju cenu: dlhy, strádanie alebo pomalé zmeny.",
     lCra: "Ostrov závisí od sveta: ceny v zahraničí rozhodujú o mzdách doma.",
     crEnd: "Ostrov prečkal Veľkú hospodársku krízu. Chudobnejší, múdrejší a stále pospolu.",
@@ -18162,8 +18182,8 @@ const STT = {
     s_ch1end: "Privítala si prvé rodiny, postavila im domy a založila prvé polia. Presne takto začalo každé mesto na svete.",
     l1a: "Domy potrebujú cestu do prístavu, aby ľudia mohli prichádzať a odchádzať.",
     l1b: "Práca blízko domova znamená spokojných ľudí a krátke cesty.",
-    u1: "Domy a polia teraz môžeš pridávať kedykoľvek cez tlačidlo Stavať.",
-    tbc: "To je z príbehu na dnes všetko, zlatko. Nové kapitoly sú na ceste. Dovtedy je ostrov tvoj: ťukni na Stavať a pridávaj domy a polia, kam chceš.",
+    u1: "Domy a polia teraz môžeš pridávať kedykoľvek cez lištu na stavanie dole.",
+    tbc: "To je z príbehu na dnes všetko, zlatko. Nové kapitoly sú na ceste. Dovtedy je ostrov tvoj: cez lištu na stavanie dole pridávaj domy a polia, kam chceš.",
     s2_intro: "Dobré ráno, zlatko! Za morom sa o Isla Nueva už hovorí. Pláva sem ďalšia loď s dvomi rodinami. Pripravme sa na ne.",
     s2_ship: "Pozri, prichádza loď! Keď zakotví, ťukni na svietiaci prístav a privítaj rodiny Yılmaz a Kováč.",
     s2_shipwait: "Loď sa blíži k prístavu…",
@@ -18182,7 +18202,7 @@ const STT = {
     s2_end: "Prístav, domy, polia, ryby a trh. Z dreveného móla je teraz skutočná dedina.",
     l2a: "Trh a iné služby robia domy v okolí spokojnejšími.",
     l2b: "Cesty môžeš kresliť sama: začni pri ceste a posúvaj prst po zemi.",
-    u2: "Cesta, rybárska chata a trh sú teraz v tvojom menu Stavať.",
+    u2: "Cesta, rybárska chata a trh sú teraz v lište na stavanie dole.",
     letter2: "Milá susedka, na trhu majú najlepšie mangá, aké som kedy jedla, a môj muž už chytil rybu veľkú ako náš syn. Cítime sa tu ako doma. Srdečne, Ayşe Yılmaz",
     photo2: "Skutočná dedina",
     drawRoad: "Posúvaj prst po zemi a nakresli cestu",
@@ -18202,7 +18222,7 @@ const STT = {
     s3_end: "Dážď, komáre a horúčka sú najstarší nepriatelia každého tropického mestečka. Postavila si sa im s klinikou, liekmi a pokojnou hlavou.",
     l3a: "Klinika uzdravuje každý dom vo svojom kruhu.",
     l3b: "V stojatej vode sa liahnu komáre. Odtoky a čisté ulice udržia mesto zdravé.",
-    u3: "Klinika, park a farebný domček sú teraz v menu Stavať a nové cesty sú už asfaltové.",
+    u3: "Klinika, park a farebný domček sú teraz v lište na stavanie dole a nové cesty sú už asfaltové.",
     letter3: "Milá priateľka, naša malá Ema mala tri noci horúčku. Sestrička pri nej sedela až do rána. Dnes už zase stavia hrady z piesku. Nikdy na to nezabudneme. Kováčovci",
     photo3: "Zdravý ostrov",
     s4_grow: "Dobré správy sa šíria rýchlo: v noci priplávali ďalšie tri rodiny. Tentoraz si môžu dovoliť farebné domčeky. Ťukni na tri svietiace miesta.",
@@ -18228,7 +18248,7 @@ const STT = {
     s4_end: "Zhromaždenie, ústava, radnica a voľby. Vypočula si roľníkov, rybárov aj obchodníkov a oni ti zverili ostrov.",
     l4a: "Každé rozhodnutie poteší niekoho viac a niekoho menej. Presne to je politika.",
     l4b: "Keď počúvaš všetky skupiny, ostrov drží pokope.",
-    u4: "Školy, liehovary a krčmy nájdeš v ponuke Stavať. A si starostka!",
+    u4: "Školy, liehovary a krčmy nájdeš v lište na stavanie dole. A si starostka!",
     letter4: "Milá pani starostka, celý trh vám srdečne blahoželá! Upiekli sme vám tortu v tvare ostrova. Polovica je už zjedená. S úctou, Señor Castillo, obchodník",
     photo4: "Deň volieb",
     farmers: "roľníci",
@@ -18254,7 +18274,7 @@ const STT = {
     s5_end: "Elektrické svetlo, studené nápoje a rádio v každej kuchyni. Priviedla si Isla Nueva do modernej doby.",
     l5a: "Elektrina zrýchli dielne a po zotmení robí domovy šťastnejšími.",
     l5b: "Každý zdroj energie má svoju cenu: dym alebo účty za palivo. Väčšina krajín kombinuje viacero.",
-    u5: "Elektrárne sú teraz v tvojom menu Stavať.",
+    u5: "Elektrárne sú teraz v lište na stavanie dole.",
     letter5: "Milá pani starostka, včera večer som pod našou novou lampou prečítal celú knihu a babka počúvala rádio až do polnoci. Ďakujem! Ömer, 9 rokov",
     photo5: "Prvé svetlá",
     power: "Elektrina",
@@ -18267,7 +18287,7 @@ const STT = {
     s6_end: "Kamióny, vodiči a garáž. Tovar z ostrova plynulo putuje do prístavu a ty poznáš každú rodinu po mene.",
     l6a: "Tovar zarába až vtedy, keď ho kamióny odvezú. Keď je kamiónov málo, dvory sa preplnia.",
     l6b: "Každá práca je povolanie a mnohé povolania potrebujú správne vzdelanie.",
-    u6: "Garáž pre kamióny je teraz v tvojom menu Stavať.",
+    u6: "Garáž pre kamióny je teraz v lište na stavanie dole.",
     letter6: "Vážená pani starostka, jazdil som na osloch, vozoch aj rybárskych loďkách, ale nikdy na kamióne s rádiom! Moje deti mi mávajú zakaždým, keď idem popri škole. S úctou, Mehmet Demir, vodič",
     photo6: "Na cestách",
     peopleT: "Ľudia z Isla Nueva",
@@ -18295,7 +18315,7 @@ const STT = {
     s7_end: "Bavlnené polia, textilka, dizajnové štúdio a vzorky na ceste do Nemecka. Isla Nueva teraz vyrába veci, ktoré chce nosiť celý svet.",
     l7a: "Dizajn a merchandising robia z lacnej látky oveľa cennejšie oblečenie.",
     l7b: "Polia, textilka a štúdio blízko seba znamenajú rýchle dodávky.",
-    u7: "Textilka, Pastel Textile, butiky, hotely a ďalšie sú v tvojom menu Stavať.",
+    u7: "Textilka, Pastel Textile, butiky, hotely a ďalšie sú v lište na stavanie dole.",
     letter7: "Milá pani starostka, ďakujem za Pastel! Päť káv denne, tri hovory s Nemeckom a textilka, ktorá ma konečne počúva. Najlepšia práca na svete. Pusa, Booba",
     photo7: "Pastel Textile",
     s8_intro: "Veríš tomu, zlatko? Babka mojej babky si v roku 1902 zapísala do denníka prázdnu pláž. Dnes je tu prístav, klinika, radnica, elektráreň, textilka a starostka. Ostrovania chcú oslavovať: karneval!",
@@ -20268,6 +20288,7 @@ function stShow() {
   $("#panel").hidden = true;
   UI.panelOpen = false;
   $("#story").hidden = false;
+  if (typeof stChromeOn === "function") stChromeOn();
   viewResize();
   stFrame(true);
   if (!Music.ready) Music.init();
@@ -20332,6 +20353,7 @@ function stSave() {
   }
 }
 function stExit() {
+  if (typeof stChromeOff === "function") stChromeOff();
   stSave();
   ST.on = false;
   $("#story").hidden = true;
@@ -20365,8 +20387,7 @@ function stCardH() {
 function stReframe() {
   const f = ST.frameT;
   if (!f || !ST.on) return;
-  const topEl = document.querySelector(".st-top");
-  const top = topEl ? topEl.getBoundingClientRect().bottom : 70;
+  const top = typeof stTopY === "function" ? stTopY() : 70;
   const vc = (top + View.H - stCardH()) / 2;
   const oy = (vc - View.H / 2) / f.z;
   ST.pan = { x: f.x * TILE, y: f.y * TILE - oy, z: f.z };
@@ -20375,8 +20396,7 @@ function stFrame(first, tx, ty, z) {
   const d = G.blds.get(G.dockId);
   const x = tx != null ? tx : d.x + 1, y = ty != null ? ty : d.y - 4;
   const zz = first ? z || 1.7 : z || Math.max(View.cam.z, 1.5);
-  const topEl = document.querySelector(".st-top");
-  const top = topEl ? topEl.getBoundingClientRect().bottom : 70, cardH = stCardH();
+  const top = typeof stTopY === "function" ? stTopY() : 70, cardH = stCardH();
   const vc = (top + View.H - cardH) / 2;
   ST.frameT = { x, y, z: zz };
   const oy = (vc - View.H / 2) / zz;
@@ -21322,8 +21342,7 @@ function stCardRestore(G2) {
   else stCardHide();
 }
 function stBelowTop() {
-  const t = document.querySelector(".st-top");
-  return Math.round((t ? t.getBoundingClientRect().bottom : 70) + 12);
+  return Math.round((typeof stTopY === "function" ? stTopY() : 70) + 12);
 }
 function stPraise(text, tone) {
   stInfoHide();
@@ -21473,7 +21492,7 @@ function stBuildOpen() {
 }
 function stMenuOpen() {
   const el2 = $("#stOver");
-  el2.innerHTML = '<div class="st-panel"><h2>'.concat(st("menu"), '</h2><div class="dv-seg"><span>').concat(st("lang"), "</span>").concat(["en", "tr", "sk"].map((l) => '<button data-l="'.concat(l, '" aria-pressed="').concat(ST.lang === l, '">').concat({ en: "English", tr: "Türkçe", sk: "Slovenčina" }[l], "</button>")).join(""), "</div>\n    ").concat(canSpeak() ? '<label class="st-toggle"><input type="checkbox" id="stVoice" '.concat(stVoiceOn() ? "checked" : "", "> ").concat(st("voiceOn"), "</label>") : "", "\n    ").concat(typeof soundRowHTML === "function" ? soundRowHTML("st-secondary") : "", "\n    ").concat(G.story.open ? '<div class="g-menurow"><button class="st-secondary" id="gmLetters">✉ '.concat(st("letters")).concat(G.story.newLetters ? " (".concat(G.story.newLetters, ")") : "", '</button><button class="st-secondary" id="gmAlbum">🖼 ').concat(st("album"), '</button><button class="st-secondary" id="gmDrive">🚚 ').concat(st("driveBtn"), "</button></div>") : "", '<button class="st-primary" id="stOverClose">').concat(st("resume"), "</button>").concat(!G.story.open && (G.story.ch >= 2 || G.story.done) ? '<button class="st-secondary" id="stToAll">'.concat(st("allTools"), '</button><small class="st-mhint">').concat(st("allToolsHint"), "</small>") : "", '<button class="st-secondary" id="stToTitle">').concat(st("exit"), "</button></div>");
+  el2.innerHTML = '<div class="st-panel"><h2>'.concat(st("menu"), '</h2><div class="dv-seg"><span>').concat(st("lang"), "</span>").concat(["en", "tr", "sk"].map((l) => '<button data-l="'.concat(l, '" aria-pressed="').concat(ST.lang === l, '">').concat({ en: "English", tr: "Türkçe", sk: "Slovenčina" }[l], "</button>")).join(""), "</div>\n    ").concat(canSpeak() ? '<label class="st-toggle"><input type="checkbox" id="stVoice" '.concat(stVoiceOn() ? "checked" : "", "> ").concat(st("voiceOn"), "</label>") : "", "\n    ").concat(typeof soundRowHTML === "function" ? soundRowHTML("st-secondary") : "", "\n    ").concat(G.story.open || typeof stModern === "function" && stModern() ? '<div class="g-menurow"><button class="st-secondary" id="gmLetters">✉ '.concat(st("letters")).concat(G.story.newLetters ? " (".concat(G.story.newLetters, ")") : "", '</button><button class="st-secondary" id="gmAlbum">🖼 ').concat(st("album"), "</button>").concat(G.story.open || G.story.ch >= 1 ? '<button class="st-secondary" id="gmDrive">🚚 '.concat(st("driveBtn"), "</button>") : "", "</div>") : "", '<button class="st-primary" id="stOverClose">').concat(st("resume"), "</button>").concat(!G.story.open && (G.story.ch >= 2 || G.story.done) ? '<button class="st-secondary" id="stToAll">'.concat(st("allTools"), '</button><small class="st-mhint">').concat(st("allToolsHint"), "</small>") : "", '<button class="st-secondary" id="stToTitle">').concat(st("exit"), "</button></div>");
   el2.hidden = false;
   setSpeed(0);
   for (const b of el2.querySelectorAll("[data-l]")) b.onclick = () => {
@@ -26985,7 +27004,7 @@ function govBind() {
     if (G && govOn(G)) govHallOpen("people");
   };
 }
-const GAME_VERSION = "36.0 · 30 Sep 2026";
+const GAME_VERSION = "36.1 · 30 Sep 2026";
 const GOV_SKIP = '{"v":1,"seed":4125171816,"label":"","t":6425.382080000085,"money":2976.7833470135743,"era":2,"nextShip":660,"terrain":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011111111111111000000000000000000000000000000000000000000000110001111011111111111100000000000000000000000000000000000001111111111111101111122111111000000000000000000000000000000011111111112211111111111112222111110000000000000000000000000000111111122223332221221111122222222221100000000000000000000000000111122222223333333334222222222444332210000000000000000000000001111224333333333333333444444442244443442100000000000000000000000112224433333333333333344443334444333333211000000000000000000000112334443333333333333334443333433333333332100000000000000000011111233334333333333333333333333333333443333211000000000000000011222223333333333333333333333333333333333333321100000000000000011233333333333333333333333333333333333333333333211000000000000011233333333333333333333333333333333333333333333321100000000000001223333333333333333333333333333333333333333333332111000000000011123333333333333333333333333333333333333333333333211100000000011112333333333333333333333333333333333333333333333322100000000111122233333333333333333333333333333333333333333333332210000000111222223333333333333333343333333333333333333333333333321100000012223222333333333333333333444443333334443333333333333332110000002232233333333333333333333334444433333344344333333333333321100000233223333333333333333333333444444444444444433333333333332111000033333333333343333333333333344444444444444443433333333334421000002223332223344443333333333333444444444444444444333333333442100000122222222234333333333333333333334444444444444443333333344210000011122322222333333333333333333333333444444444444444333333321000001111222233333333333333333333333333334444444444444443333332100000011112233333333333333333333333333333334444333444444433332110000000111222333333333333333333333333333333344433334444444432211000000011122222233333333433333333333333333334443333444444444211000000001111222223333333344333333333333333333443333344444444421100000000111112212333333334333333333333333333333333333344444442110000000011111111223333333443333333333333333333333333333333444110000000000111111122333333334443333333333333333333333333333333210000000000000111112223334333444333333223333333333333333333333321000000000000000011111223333334433333322233333333333333333333321000000000000000000001112223333333332211111233333333222443333322100000000000000000000001122222222111111000111222222211124433221100000000000000000000000011121111110000000000011111111111243221100000000000000000000000000111111000000000000000000000011111211110000000000000000000000000000110000000000000000000000000111111110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","road":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001010000000000000000000000000000000000000000000000000000000000022111220000000000000000000000000000000000000000000000000000000022010102000000000000000000000000000000000000000000000000000000002011010200000000000000000000000000000000000000000000000000000000001001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","ctrl":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","bike":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","buslane":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","track":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","lineSeq":0,"lines":[],"baseRoad":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001010000000000000000000000000000000000000000000000000000000000022111220000000000000000000000000000000000000000000000000000000022010102000000000000000000000000000000000000000000000000000000002011010200000000000000000000000000000000000000000000000000000000001001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","baseCtrl":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","storm":null,"crashesYesterday":0,"challenge":null,"noShips":true,"noMoves":true,"noWeather":false,"blds":[[1,"dock",31,35,"#a8d672",0,{"lv":1,"inp":0,"stays":[],"hist":[-3,-3,-4,-4],"lp":{"rev":0,"inCost":0,"bonus":-1.4603865289561035,"units":0,"bought":0,"loads":4,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":194.75791251780845,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[2,"shack",32,31,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[3,"shack",31,30,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[4,"shack",30,31,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[5,"farm",33,27,"#f4a6b8",12,{"lv":0,"inp":0,"stays":[],"hist":[81,116,87,84],"lp":{"rev":85.19481631594815,"inCost":0,"bonus":0,"units":48.11864678205565,"bought":0,"loads":3,"tripSum":144.39359999999942,"made":60.77969224895095,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"crop":"sugar","lux":0,"lv$":0,"lg":null,"fl":0}],[6,"shack",32,30,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[7,"shack",32,29,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[8,"fishery",30,36,"#7fd1c8",11,{"lv":0,"inp":0,"stays":[],"hist":[-1,59,57,61],"lp":{"rev":61.30566523267591,"inCost":0,"bonus":0,"units":32.05132883333339,"bought":0,"loads":2,"tripSum":16.26639999999861,"made":36.753599666666865,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[9,"market",34,30,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,20,20,20],"lp":{"rev":21.196196000000064,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[10,"house",34,29,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,-1,-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[11,"clinic",34,31,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[-4,-4,-4],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[12,"house",35,31,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,-1,-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[13,"house",36,32,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[14,"house",29,31,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[15,"house",28,32,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[16,"house",36,33,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[17,"townhall",36,34,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-2],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[18,"school",26,32,"#f4a6b8",0,{"lv":0,"inp":0,"stays":[],"hist":[-8],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[19,"distillery",26,34,"#8cc3ef",14,{"lv":0,"inp":2,"stays":[],"hist":[46],"lp":{"rev":134.91263381408862,"inCost":85.19481631594815,"bonus":0,"units":32.09013273583368,"bought":48.11864678205565,"loads":2,"tripSum":55,"made":33.343466069167086,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[20,"press",32,33,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-2],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[21,"house",30,33,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[22,"house",34,33,"#f4a6b8",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[23,"farm",34,35,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"crop":"fruit","lux":0,"lv$":0,"lg":null,"fl":0}]],"fert":[69,71,75,75,71,66,65,65,65,69,81,90,88,84,88,98,104,103,95,81,68,62,60,58,52,48,44,40,40,40,40,40,40,40,40,40,40,50,59,66,74,80,80,70,60,61,70,72,59,40,40,40,40,40,40,40,40,40,42,55,68,81,95,111,76,76,77,77,74,70,70,71,72,73,79,83,82,81,86,94,100,99,90,77,65,58,56,56,55,54,49,43,40,40,40,40,40,40,40,40,40,51,63,72,77,80,79,72,65,66,71,70,58,42,40,40,40,40,40,40,40,40,42,54,65,78,92,107,88,86,83,81,79,78,79,82,84,80,72,68,69,73,79,86,90,89,80,68,60,54,51,54,62,65,59,51,45,40,40,40,40,40,40,40,40,54,72,83,83,80,79,77,76,76,74,67,56,47,40,40,40,40,40,40,40,40,43,52,62,73,87,101,97,94,89,86,85,85,84,87,88,80,67,58,60,65,70,74,76,75,68,62,59,57,56,60,70,73,65,57,52,49,46,41,40,40,40,40,45,62,81,91,89,83,82,83,84,84,79,69,57,50,45,40,40,40,40,44,45,45,47,54,62,72,83,95,102,101,99,97,91,85,82,81,77,68,57,50,52,57,60,60,60,58,56,56,61,70,76,76,75,70,65,62,61,58,53,49,48,49,49,52,60,73,87,94,94,93,94,91,87,86,84,76,61,45,40,40,40,40,44,53,55,52,51,56,61,69,79,90,104,106,108,107,95,81,76,70,61,52,44,41,43,49,51,49,45,43,45,50,61,80,92,88,75,63,62,67,71,67,60,58,62,67,67,69,76,86,94,96,99,104,105,96,86,85,87,82,63,40,40,40,40,40,46,61,64,58,54,56,59,65,74,85,101,103,105,103,91,76,70,63,53,43,40,40,40,42,45,42,40,40,40,46,57,77,91,86,71,60,61,70,76,75,70,70,76,82,82,84,89,96,102,102,103,106,105,95,84,84,86,82,63,40,40,40,40,40,50,66,68,62,56,57,59,63,71,80,92,90,87,84,79,74,69,60,50,42,40,40,40,43,46,43,40,40,41,47,57,72,83,79,66,56,58,64,72,77,81,85,89,91,92,92,95,102,110,110,106,102,99,93,87,86,85,79,65,47,40,40,47,52,58,63,63,60,58,58,61,64,71,78,81,76,68,64,66,69,66,57,48,43,40,40,40,48,51,48,43,42,45,50,56,67,75,71,59,51,52,57,66,78,90,100,104,104,104,103,102,107,117,117,107,97,91,89,88,87,83,77,70,60,55,59,66,69,64,58,57,57,57,58,61,65,70,77,73,69,61,57,59,61,58,51,45,45,44,44,46,52,54,52,50,49,50,51,53,61,67,63,52,45,47,54,65,82,101,116,123,125,125,122,118,117,122,119,106,93,85,81,81,80,79,78,76,73,71,73,75,73,64,55,54,56,58,58,59,61,64,71,72,69,64,60,58,55,50,46,44,48,54,57,56,52,50,53,60,61,57,52,51,56,60,56,45,40,43,52,65,88,114,135,143,145,145,144,138,132,128,121,104,85,75,72,72,72,73,75,80,85,88,84,75,66,56,49,48,55,62,60,54,51,54,62,73,71,67,64,59,52,47,44,44,50,60,66,61,51,46,54,66,69,62,53,50,53,57,53,41,40,40,51,65,91,122,145,150,150,150,150,150,140,132,122,103,80,68,66,66,67,69,74,81,92,98,90,73,60,51,44,45,55,64,62,51,44,48,56,68,68,66,65,60,53,48,48,51,55,59,62,59,52,48,54,64,66,60,53,51,55,59,55,43,40,42,54,68,90,118,140,150,150,150,150,147,135,124,113,97,78,68,66,66,67,69,74,81,91,96,91,78,67,57,49,49,57,64,61,52,46,50,59,59,62,67,69,65,58,54,60,67,66,59,53,53,54,55,58,61,62,59,55,54,61,67,63,51,45,51,62,75,92,111,130,150,150,150,150,138,123,107,94,83,74,68,67,67,68,71,75,79,87,93,92,88,84,75,64,63,64,64,59,53,50,54,65,60,65,74,79,77,71,68,75,82,75,60,49,51,57,62,65,67,67,66,64,64,72,78,74,63,58,66,77,89,101,113,129,150,150,150,148,132,115,95,81,74,71,70,70,72,72,74,75,76,82,87,90,94,97,92,83,81,78,72,63,55,51,55,68,73,76,84,90,90,87,85,90,93,82,64,52,56,67,76,80,81,82,83,83,83,86,89,87,81,80,89,101,112,118,124,134,150,150,150,145,125,107,89,75,72,76,79,80,80,80,78,75,72,75,80,85,91,100,104,104,103,97,85,72,61,55,57,67,89,89,93,98,102,103,101,105,105,92,71,59,66,82,95,99,98,98,102,106,105,101,99,99,100,103,112,125,135,135,132,138,150,150,150,140,117,99,83,70,73,85,91,90,88,87,81,74,69,70,75,80,88,100,114,123,123,114,99,82,69,62,60,65,99,99,102,108,112,114,112,116,116,102,83,71,78,94,108,112,111,111,115,120,118,113,109,109,111,115,123,134,142,140,135,139,150,150,150,136,113,96,80,68,72,86,93,92,89,87,81,73,69,71,77,84,92,106,123,134,135,126,109,90,76,67,63,66,105,108,116,122,124,121,119,121,120,110,98,91,93,100,109,117,122,123,123,123,120,117,116,115,112,114,120,128,134,137,139,141,144,146,143,132,117,101,84,72,73,81,86,84,80,79,74,68,65,68,75,87,103,120,133,138,139,134,122,104,89,78,73,75,109,115,126,134,130,123,120,121,119,113,110,110,107,104,109,121,132,134,130,123,118,116,117,114,109,109,116,121,125,134,143,143,134,125,125,125,120,107,91,78,75,77,78,74,70,68,64,59,58,63,72,89,112,132,140,140,139,140,136,122,107,95,89,89,110,116,126,132,126,118,115,117,118,115,115,116,113,110,116,129,140,142,136,127,118,114,113,111,106,109,118,124,127,135,142,138,125,114,114,117,116,108,96,85,80,79,77,69,63,61,59,56,56,61,71,88,113,134,142,142,142,145,145,135,125,114,105,100,108,112,118,121,116,109,107,111,113,113,115,118,117,118,126,138,146,147,142,132,120,111,107,106,104,110,121,129,132,137,141,135,120,109,108,109,107,105,104,97,91,86,81,69,58,57,58,59,59,61,69,85,106,126,139,144,145,146,145,141,138,131,119,108,106,108,112,113,109,103,101,106,110,111,115,118,118,123,133,143,149,149,145,136,122,110,103,103,103,110,123,133,136,139,141,134,119,108,106,104,101,104,109,106,99,92,85,69,56,55,59,63,62,62,68,83,100,119,135,145,147,146,143,141,143,139,126,111,111,112,112,112,109,105,103,106,109,109,112,114,116,122,132,140,143,143,139,131,118,106,100,100,103,112,123,131,133,135,135,128,116,107,106,103,101,103,107,104,96,90,83,70,58,57,59,61,61,62,70,84,101,120,137,148,150,148,145,143,143,138,124,108,126,122,114,112,112,111,110,109,107,105,104,104,109,120,130,130,124,122,119,114,105,95,89,93,103,114,120,122,123,121,117,112,108,105,105,103,101,99,99,94,88,84,78,70,63,61,57,54,58,66,76,90,106,122,140,150,150,150,149,145,139,131,116,99,138,130,118,114,116,118,117,113,108,104,101,99,104,116,122,115,103,98,98,97,92,86,82,87,100,109,109,106,106,104,100,100,103,105,105,103,99,94,90,84,79,77,71,66,62,60,53,51,60,72,84,97,111,123,138,150,150,150,147,142,133,123,110,93,139,135,128,126,127,128,126,123,119,112,104,99,101,106,105,95,82,78,80,84,84,82,80,82,88,91,91,91,93,92,91,96,105,112,111,105,97,90,86,80,74,69,62,56,53,53,53,59,70,81,92,104,117,126,132,137,137,135,131,127,124,119,108,96,136,137,138,140,139,137,135,134,131,122,106,95,94,90,83,73,65,61,65,72,76,76,75,74,72,69,71,80,86,85,85,94,110,122,120,109,96,89,85,81,72,62,54,48,45,46,57,72,84,89,95,109,125,132,126,118,116,114,111,111,118,120,112,104,130,132,136,139,138,135,133,132,130,120,102,90,87,80,70,60,53,49,53,60,65,65,64,63,58,53,58,70,78,79,79,90,109,123,121,108,94,87,84,81,71,60,53,47,44,46,60,78,89,92,95,109,125,132,122,108,105,105,103,105,116,123,117,112,120,119,117,118,118,117,116,115,114,109,101,96,93,84,72,60,50,44,42,44,49,55,59,58,53,49,51,60,68,74,81,93,105,113,111,101,90,84,80,76,70,64,57,49,43,45,61,80,91,95,99,111,125,131,122,108,106,108,110,113,123,129,124,117,108,102,93,90,92,94,93,94,95,97,103,107,103,92,78,62,48,40,40,40,40,49,59,58,53,49,48,51,58,71,86,99,102,101,100,95,88,82,77,72,71,69,63,50,41,43,61,82,94,99,104,115,127,134,126,113,111,117,123,125,132,137,133,122,94,88,77,73,75,77,77,79,84,91,103,110,105,92,75,58,42,40,40,40,40,43,54,52,48,44,44,47,54,69,86,99,100,98,97,94,90,85,80,76,75,74,66,53,42,44,61,81,93,100,105,115,128,136,131,122,120,126,131,134,141,146,142,132,82,77,67,63,67,72,72,74,79,90,104,113,105,84,62,46,40,40,40,40,40,40,41,40,40,40,40,45,55,69,84,96,98,95,95,96,94,90,85,81,77,71,61,54,52,53,60,73,86,96,103,112,123,132,137,138,138,138,139,140,143,147,147,143,76,71,62,58,65,73,74,73,77,90,106,115,104,76,52,40,40,40,40,40,41,40,40,40,40,40,40,45,56,69,83,94,96,93,94,97,98,94,87,82,76,66,55,55,60,61,59,65,79,93,102,109,118,128,140,150,150,147,143,143,143,144,148,150,74,71,64,61,67,74,74,72,75,87,104,113,103,78,55,41,40,40,40,40,42,40,40,40,40,40,40,46,57,69,83,94,96,94,94,96,96,93,88,84,77,67,56,56,62,62,60,65,79,92,100,108,117,127,138,148,149,145,141,142,143,146,149,150,72,72,72,72,74,76,75,70,69,79,94,103,99,86,71,56,45,40,40,40,44,40,40,40,46,49,48,51,58,70,84,94,97,96,95,92,89,89,91,90,82,70,61,61,65,66,65,70,81,91,97,105,116,123,127,129,129,130,132,137,146,150,150,150,74,77,82,85,85,83,80,72,67,72,84,93,93,90,82,70,59,53,49,49,51,48,44,48,60,66,61,57,61,71,83,92,95,94,92,86,81,84,91,94,87,75,69,72,76,76,76,80,87,93,96,102,111,114,110,105,105,110,118,129,145,150,150,150,85,87,91,93,93,92,88,79,72,72,80,85,85,85,82,74,66,62,61,62,64,59,55,59,70,75,68,62,62,71,82,88,88,86,85,83,82,86,92,96,92,87,85,90,95,95,92,92,98,103,105,105,104,99,92,87,87,91,100,116,138,150,150,150,101,100,99,99,99,96,92,86,81,77,78,79,79,79,78,73,67,66,70,76,79,73,67,72,83,86,76,65,62,70,81,85,81,75,77,84,90,94,98,101,102,104,107,111,115,114,108,105,109,118,121,111,95,81,75,75,75,74,79,100,130,150,150,150,111,109,104,104,102,98,93,89,84,78,76,76,76,76,77,74,71,72,80,90,94,88,83,87,97,99,86,71,65,71,80,82,75,68,71,82,92,96,100,104,109,115,120,125,128,127,119,113,116,125,127,112,86,67,62,64,64,60,64,87,121,146,150,150,120,116,110,107,105,102,96,90,83,78,75,74,75,78,80,76,72,75,89,104,111,107,101,103,106,103,92,83,77,75,76,73,66,61,63,74,85,90,94,100,107,114,121,126,129,128,124,119,118,118,115,99,76,57,50,49,48,48,55,78,108,131,140,145,133,127,117,109,107,105,99,90,82,78,76,75,77,81,83,77,69,73,94,117,128,125,120,119,113,104,98,97,92,81,69,62,55,51,53,64,76,83,87,92,102,110,116,121,123,124,124,122,114,104,94,79,62,46,40,40,40,40,46,67,91,111,123,133,146,139,125,112,106,102,94,86,80,79,79,79,81,84,83,74,65,71,96,124,141,142,139,136,127,114,108,109,103,87,69,57,48,42,45,56,70,80,86,93,103,111,115,118,120,121,121,116,105,90,76,61,45,40,40,40,40,40,40,55,77,95,109,122,150,149,132,116,103,92,84,80,79,81,81,81,81,80,77,69,65,74,98,126,148,150,150,150,146,129,121,119,111,94,74,58,45,40,40,48,62,77,90,102,108,110,111,118,124,123,117,106,93,79,65,47,40,40,40,40,40,40,40,51,68,83,99,114,150,150,137,119,100,84,76,75,80,83,82,80,79,75,69,65,66,77,99,126,150,150,150,150,150,139,130,126,116,99,79,62,46,40,40,43,55,74,94,109,112,108,107,117,128,127,114,97,84,73,60,40,40,40,40,40,40,40,40,53,64,75,93,110,150,150,137,119,100,85,76,75,79,82,81,79,78,75,69,66,68,79,99,124,148,150,150,150,150,142,131,125,115,98,78,62,47,40,40,45,57,75,94,108,112,108,108,118,127,126,113,96,83,72,58,40,40,40,40,40,40,40,40,53,63,74,92,109,143,140,131,117,103,92,83,79,77,78,77,75,76,75,73,72,76,85,98,115,135,150,150,150,150,145,131,117,105,89,72,59,52,50,52,58,69,81,90,100,108,113,116,119,122,120,110,96,83,70,56,40,40,40,40,40,40,40,40,48,60,74,90,105,124,125,122,113,104,98,91,82,75,72,70,68,70,74,78,80,86,93,99,106,119,131,137,140,144,142,128,110,96,84,70,61,62,67,69,75,83,88,87,92,105,118,122,121,119,117,110,100,88,74,59,45,40,40,40,40,40,40,40,46,57,71,85,99],"nextFlight":null,"twin":false,"village":null,"eraT0":2374.693760000033,"booba":null,"story":{"layout":3,"ch":4,"step":0,"prog":0,"fam":13,"letters":[{"key":"letter1","day":1,"vars":{"d":"Ayd\\u0131n"}},{"key":"letter2","day":2,"vars":{"d":"Ayd\\u0131n"}},{"key":"letter3","day":4,"vars":{"d":"Nov\\u00e1k"}},{"key":"letter4","day":5,"vars":{"d":"Nov\\u00e1k"}}],"photos":[],"tools":["shack","farm","road1","fishery","market","clinic","park","house","school","distillery","cantina","press"],"sold":20,"newLetters":0,"started":1790688701584,"waitFrom":null,"choice":null,"seen":1790689001890,"soldValue":690.328249680288,"shortage":false,"flood":false,"resting":false,"yearSeen":1926,"ditches":[],"fnDone":"sick","sickN":7,"docFam":"Nov\\u00e1k","council":{"farmers":23,"fishers":12,"merchants":27},"decisions":[{"ch":3,"label":"s4_a1a"},{"ch":3,"label":"s4_a2a"},{"ch":3,"label":"s4_a3a"},{"ch":3,"label":"s4_q1a"},{"ch":3,"label":"prA"}],"laws":{"vote":"all","term":4,"child":"school","pressOwner":"free"},"charter":true,"press":"free","votePct":94,"mayor":true,"terms":1,"lastVoteYear":1912},"classic":false,"noPortCap":false,"econ":{"mkt":{"m":{"fruit":1.0488149563975875,"sugar":1.182483323294051,"cotton":1.035413367017254,"grapes":1.0638285989453211,"plums":1.0963905483688574,"wood":0.9646439900466266,"fish":1.0282259813509684,"gold":0.9360247593544294,"crafts":0.9322055075259081,"goods":0.9201768450234393,"rum":0.9394157526385041,"wine":1.0336428397830644,"slivo":0.929176556560146,"coal":1.0139352203419347,"gas":1.0581179648778958,"canned":1.0032223585932356,"garments":1.0440114357114643,"furniture":0.8637356961264608},"hist":{"fruit":[1.82,1.83,1.74,1.78],"sugar":[1.7,1.78,1.77,1.89],"cotton":[1.93,2.1,2.06,2.07],"grapes":[1.65,1.75,1.86,1.91],"plums":[1.46,1.47,1.55,1.64],"wood":[1.67,1.58,1.54,1.54],"fish":[1.85,1.81,1.91,1.75],"gold":[38.99,40.43,39.88,37.44],"crafts":[1.79,1.84,1.71,1.77],"goods":[1.79,1.8,1.74,1.75],"rum":[4.52,4.54,4.2,4.13],"wine":[4.6,4.97,4.92,4.96],"slivo":[4.66,4.61,4.53,4.65],"coal":[1.18,1.16,1.19,1.22],"gas":[1.74,1.73,1.8,1.69],"canned":[3.86,3.75,3.98,4.01],"garments":[4.75,4.55,4.67,4.8],"furniture":[4.24,4.19,4.06,3.8]}},"peso":1.0206884147787807,"pesoHist":[1.005,1.01,1.015,1.021],"gold":60,"crises":[],"policy":{"imports":true,"liquorTax":false,"keepGold":true},"alc":0.012401,"felled":[],"pwOn":false,"wind":0.8617121038725599,"pwStart":null},"cits":[[13,2,1,78,9.9,445,1064,0,31,4,1,0,0,"Santos"],[14,2,1,78,9.9,421,1054,0,9,4,1,0,0,"Santos"],[15,2,1,78,9.9,441,1032,0,354,4,0,0,0,"Santos"],[16,2,1,78,9.9,397,992,0,346,4,1,0,0,"Santos"],[17,3,1,78,9.9,458,1029,0,217,4,1,0,0,"Y\\u0131lmaz"],[18,3,1,78,9.9,474,1007,0,204,4,1,0,0,"Y\\u0131lmaz"],[19,3,5,76,27.7,459,1067,0,82,3,0,0,0,"Y\\u0131lmaz"],[20,3,5,78,19.9,411,1011,0,294,4,0,0,0,"Y\\u0131lmaz"],[21,4,5,78,19.9,469,1063,0,63,4,1,0,0,"Kov\\u00e1\\u010d"],[22,4,5,78,19.9,456,1071,0,297,4,1,0,0,"Kov\\u00e1\\u010d"],[23,4,5,78,19.9,443,1077,0,208,4,1,0,0,"Kov\\u00e1\\u010d"],[24,4,5,78,19.9,479,1038,0,289,4,0,0,0,"Kov\\u00e1\\u010d"],[25,6,9,72,-1,463,1051,0,259,4,1,1,0,"Rivera"],[26,6,8,72,34.3,436,999,0,359,4,1,0,0,"Rivera"],[27,6,9,78,-1,398,1074,0,145,4,1,0,0,"Rivera"],[28,6,8,70,37.1,409,1002,0,159,3,1,0,0,"Rivera"],[29,7,8,73,32.9,461,1048,0,216,0,0,0,0,"Demir"],[30,7,11,78,13,450,1023,0,324,4,1,0,0,"Demir"],[31,7,8,73,33,423,1059,0,2,3,0,0,0,"Demir"],[32,7,9,78,3,436,997,0,179,4,1,0,0,"Demir"],[33,10,18,75,37.9,446,1002,0,229,0,1,0,0,"Mendoza"],[34,10,11,84,13.2,473,1005,0,214,4,1,0,0,"Mendoza"],[35,10,19,78,34.9,432,1065,0,98,0,0,0,0,"Mendoza"],[36,10,19,76,37.6,398,1037,0,85,3,0,0,0,"Mendoza"],[37,10,11,84,16.7,407,1047,0,239,4,1,0,0,"Mendoza"],[38,10,11,84,13,469,1012,0,8,4,1,0,0,"Mendoza"],[39,12,11,84,3,456,992,0,255,4,2,0,0,"Nov\\u00e1k"],[40,12,11,84,3,476,1062,0,119,4,1,0,0,"Nov\\u00e1k"],[41,12,19,79,29.3,425,1051,0,133,0,1,0,0,"Nov\\u00e1k"],[42,12,20,84,10,442,1020,0,350,4,1,0,0,"Nov\\u00e1k"],[43,12,null,62,-1,412,1051,0,237,-1,1,0,0,"Nov\\u00e1k"],[44,12,19,78,31.4,407,1022,0,209,0,1,0,0,"Nov\\u00e1k"],[45,13,20,84,10,440,1010,0,138,4,1,0,0,"Ayd\\u0131n"],[46,13,18,80,29.2,453,1004,0,28,0,1,0,0,"Ayd\\u0131n"],[47,13,19,76,34.2,419,1007,0,124,3,1,0,0,"Ayd\\u0131n"],[48,13,19,80,28.7,449,998,0,260,0,1,0,0,"Ayd\\u0131n"],[49,13,18,83,26.2,448,1047,0,267,4,1,0,0,"Ayd\\u0131n"],[50,13,18,83,26.2,430,1002,0,117,4,1,0,0,"Ayd\\u0131n"],[51,14,null,62,-1,475,1048,0,267,-1,1,0,0,"Castillo"],[52,14,17,83,24,440,1057,0,104,0,1,0,0,"Castillo"],[53,14,null,62,-1,425,1014,0,85,-1,1,0,0,"Castillo"],[54,14,null,62,-1,464,1064,0,244,-1,0,0,0,"Castillo"],[55,14,20,84,10,417,1005,0,37,4,1,0,0,"Castillo"],[56,14,null,62,-1,434,995,0,346,-1,1,0,0,"Castillo"],[57,15,18,84,-1,427,1002,0,282,4,1,0,0,"Horv\\u00e1th"],[58,15,null,62,-1,451,1075,0,79,-1,1,0,0,"Horv\\u00e1th"],[59,15,17,83,25.2,391,1015,0,205,0,0,0,0,"Horv\\u00e1th"],[60,15,19,84,3.1,415,998,0,138,4,1,0,0,"Horv\\u00e1th"],[61,15,23,62,-1,443,1001,0,259,3,0,0,0,"Horv\\u00e1th"],[62,15,18,84,-1,444,994,0,218,4,1,0,0,"Horv\\u00e1th"],[63,16,17,84,3.1,424,992,0,36,4,1,0,0,"Kaya"],[64,16,19,78,32.6,476,1043,0,214,0,1,0,0,"Kaya"],[65,16,23,62,2.8,421,1034,0,247,4,0,0,0,"Kaya"],[66,16,null,62,-1,436,1011,0,330,-1,1,0,0,"Kaya"],[67,16,null,62,-1,392,1001,0,135,-1,1,0,0,"Kaya"],[68,16,23,62,2.8,437,1008,0,327,4,1,0,0,"Kaya"],[69,21,null,70,-1,423,1020,0,265,-1,1,0,0,"Morales"],[70,21,null,70,-1,420,1052,0,92,-1,1,0,0,"Morales"],[71,21,null,70,-1,393,1049,0,44,-1,1,0,0,"Morales"],[72,21,null,70,-1,392,1055,0,87,-1,1,0,0,"Morales"],[73,21,null,70,-1,460,1000,0,312,-1,1,0,0,"Morales"],[74,21,23,70,-1,415,1058,0,285,4,1,0,0,"Morales"],[75,22,null,70,-1,455,1025,0,277,-1,1,0,0,"Bal\\u00e1\\u017e"],[76,22,null,70,-1,446,1026,0,297,-1,1,0,0,"Bal\\u00e1\\u017e"],[77,22,null,70,-1,438,1049,0,244,-1,1,0,0,"Bal\\u00e1\\u017e"],[78,22,null,70,-1,432,990,0,238,-1,1,0,0,"Bal\\u00e1\\u017e"],[79,22,23,70,-1,479,1027,0,247,4,1,0,0,"Bal\\u00e1\\u017e"],[80,22,23,70,-1,425,1061,0,257,4,1,0,0,"Bal\\u00e1\\u017e"]],"nextId":24,"citId":81,"dockId":1,"berth":{"x":32,"y":37.6},"history":[{"day":1,"pop":20,"happy":70,"commute":14.513700000000034,"trips":24,"exports":115.78734527676488,"commerce":70,"taxes":38.5,"upkeep":9.35,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":595,"net":214.9373452767649,"fares":0,"modes":{"car":0,"bus":0,"tram":0,"bike":0,"walk":12},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"shack":5,"farm":1,"road":11,"fishery":1,"market":1},"employed":19,"housing":20,"jobs":19,"crashes":0,"rainy":false,"upk":{"roads":2.2499999999999996,"bridges":0,"homes":1.5,"work":1.6,"services":1,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fruit":115.78734527676488},"commerceBy":{},"air":null,"delay":13.76926851272583,"trade":115.78734527676488,"peso":1.0045112826283733,"gold":60,"alc":0.017},{"day":2,"pop":32,"happy":66.31250000000001,"commute":17.900094117646898,"trips":34,"exports":175.38468284542546,"commerce":131.20700399999996,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":488,"net":344.64168684542545,"fares":0,"modes":{"car":2,"bus":0,"tram":0,"bike":0,"walk":17},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":2,"clinic":1,"road":2},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":true,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fruit":116.30941032817981,"fish":59.07527251724565},"commerceBy":{"market":21.207003999999962},"air":null,"delay":31.074433697387576,"trade":175.38468284542546,"peso":1.010353494433854,"gold":60,"alc":0.0149},{"day":3,"pop":32,"happy":67.00001200000003,"commute":15.666666666666666,"trips":42,"exports":145.11943517288242,"commerce":21.210000000000072,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":0,"net":204.3794351728825,"fares":0,"modes":{"car":1,"bus":0,"tram":0,"bike":4,"walk":18},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":false,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":57.59398767117109,"fruit":87.52544750171134},"commerceBy":{"market":21.210000000000072},"air":null,"delay":23.404140903759526,"trade":145.11943517288242,"peso":1.0150531687561333,"gold":60,"alc":0.013430000000000001},{"day":4,"pop":56,"happy":69.2201453257143,"commute":22.397590243903156,"trips":82,"exports":194.75791251780845,"commerce":21.196196000000064,"taxes":95.5,"upkeep":37,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":1998,"net":274.45410851780855,"fares":0,"modes":{"car":14,"bus":0,"tram":0,"bike":3,"walk":28},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":4,"road":7,"townhall":1,"school":1,"distillery":1,"press":1},"employed":45,"housing":56,"jobs":43,"crashes":0,"rainy":true,"upk":{"roads":6.300000000000003,"bridges":0,"homes":5.1,"work":9.6,"services":13,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":60.849387871749684,"rum":133.90852464605877},"commerceBy":{"market":21.196196000000064},"air":null,"delay":350.02583170662183,"trade":194.75791251780845,"peso":1.0206884147787807,"gold":60,"alc":0.012401}],"notes":{"freight":659.5272000000008,"storm":2413.0929600000395,"peak":3420.3324800000323,"chains":5034.45168000008,"modeshift":5760.85168000008},"hourly":[0,0,0,0,0,0,7,13,8,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hourlyPrev":[0,0,0,0,0,0,3,8,12,11,0,1,0,2,1,1,14,14,11,0,0,0,0,0],"dayAcc":{"exportsBy":{"fish":27.701022312745422,"rum":65.57785155466141},"commerceBy":{"market":8.09189733333332},"importsBy":{},"imports":0,"liquor":0,"air":null,"exports":93.27887386740683,"commerce":8.09189733333332,"build":360,"trips":43,"tripTime":720.5999999999967,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"crashes":0,"fares":0,"gaveUp":0,"modes":{"car":10,"bus":0,"tram":0,"bike":6,"walk":35},"graduates":1},"built":{"house":2,"farm":1},"avgHappy":75.90965003611436,"completed":false,"completeDay":null,"events":[],"bottlenecks":[{"i":2079,"x":31,"y":32,"delay":115.05460357666016,"peak":2.6363635063171387,"name":"Dirt Track"}],"lastReport":{"rec":{"day":4,"pop":56,"happy":69.2201453257143,"commute":22.397590243903156,"trips":82,"exports":194.75791251780845,"commerce":21.196196000000064,"taxes":95.5,"upkeep":37,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":1998,"net":274.45410851780855,"fares":0,"modes":{"car":14,"bus":0,"tram":0,"bike":3,"walk":28},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":4,"road":7,"townhall":1,"school":1,"distillery":1,"press":1},"employed":45,"housing":56,"jobs":43,"crashes":0,"rainy":true,"upk":{"roads":6.300000000000003,"bridges":0,"homes":5.1,"work":9.6,"services":13,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":60.849387871749684,"rum":133.90852464605877},"commerceBy":{"market":21.196196000000064},"air":null,"delay":350.02583170662183,"trade":194.75791251780845,"peso":1.0206884147787807,"gold":60,"alc":0.012401},"prev":{"day":3,"pop":32,"happy":67.00001200000003,"commute":15.666666666666666,"trips":42,"exports":145.11943517288242,"commerce":21.210000000000072,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":0,"net":204.3794351728825,"fares":0,"modes":{"car":1,"bus":0,"tram":0,"bike":4,"walk":18},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":false,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":57.59398767117109,"fruit":87.52544750171134},"commerceBy":{"market":21.210000000000072},"air":null,"delay":23.404140903759526,"trade":145.11943517288242,"peso":1.0150531687561333,"gold":60,"alc":0.013430000000000001}}}';
 const GF = { on: false, sub: { hall: "council", people: "groups", money: "budget" }, sel: null, law: null, lawPick: null, voteRes: null, lastShipT: -1, shipToastAt: 0, noLotAt: 0 };
 const GF_TABS = [["goals", "Goals"], ["hall", "Town hall"], ["people", "People"], ["money", "Money"], ["stats", "City"], ["lines", "Transit"], ["inspect", "Info"]];
@@ -27012,6 +27031,7 @@ function govPace(G2) {
   V._hr = null;
 }
 function govEnterFull(G2, welcome) {
+  if (typeof stChromeOff === "function") stChromeOff();
   govPace(G2);
   civInit(G2);
   if (!G2.pwOn) {
@@ -27531,7 +27551,7 @@ function gfPetRow(p) {
 }
 function gfDeclineHTML(p) {
   const D = ORGS[p.org], sc = Math.round(civOrgScore(G, p.org)), hit = p.k === "site" ? 10 : 6, after = sc - hit;
-  const gs = D.groups ? Object.keys(D.groups).map(gGroupName).join(" and ") : D.orig && ORIGINS[D.orig] ? ORIGINS[D.orig].name : D.faith && FAITHS[D.faith] ? FAITHS[D.faith].name : "their members";
+  const gs = D.groups ? Object.keys(D.groups).map(gGroupName).join(" and ") : D.orig && ORIGINS[D.orig] ? ORIGINS[D.orig].name : D.faith && FAITHS[D.faith] ? "".concat(FAITHS[D.faith].name, " families") : "their members";
   const y = govY(G), el2 = G.gov.elec.next;
   return '<div class="gf-decl"><b>Decline the '.concat(D.short || D.name, "?</b>\n    <span>Their mood falls from <b>").concat(civMood(sc), " (").concat(gfSign(sc), ')</b> to <b class="neg">').concat(civMood(after), " (").concat(gfSign(after), ")</b>.").concat(civStance(after) < 0 && civStance(sc) >= 0 ? ' <b class="neg">They will now speak against you</b> to '.concat(gs, " before the election in ").concat(el2, ".") : civStance(after) < 0 ? " They already speak against you to ".concat(gs, ".") : " ".concat(gs, " hear about it before the election in ").concat(el2, "."), ' A no fades slowly: about a sixth each year.</span>\n    <div class="btnrow"><button class="secondary gf-bad" data-pdec2="').concat(p.id, '">Decline anyway</button><button class="secondary" data-pkeep="').concat(p.id, '">Keep it open</button></div></div>');
 }
@@ -27700,6 +27720,7 @@ function gfBindCards() {
     govRefuse(G, r);
     Music.sfx("error");
     GF.sel = null;
+    toast({ title: "Permit refused: the ".concat(r.fam, " family"), body: "No ".concat(BLD[r.type].name.toLowerCase(), " for them. The ").concat(gGroupName(ownerGroup(r.type)).toLowerCase(), " remember it at the next election, and the family keeps its savings for later."), tone: "bad", timeout: 7e3 });
     stSave();
     rer();
   };
@@ -28066,9 +28087,9 @@ function govInfoHTML(b) {
   const own = b.id === G.dockId ? "The town" : isPub(b) ? d.kind === "home" ? "The town (town housing)" : "The town" : b.own === "parish" ? ORGS.parish.name : b.own === "org" ? ORGS[b.org] ? ORGS[b.org].name : "A society" : b.own ? "The ".concat(esc(b.own), " family") : "–";
   lines.push(["Owner", own]);
   if (d.jobs && b.wrk.length) lines.push(["Pay", "".concat(gMoney(govWage(G, b)), " a day each")]);
-  if (b.pnl != null && isEnterprise(d)) lines.push(["Profit", '<span class="'.concat(b.pnl >= 0 ? "pos" : "neg", '">').concat(b.pnl >= 0 ? "+" : "−").concat(gMoney(Math.abs(b.pnl)), " a day</span>")]);
+  if (b.pnl != null && isEnterprise(d)) lines.push(["Profit", '<span class="'.concat(b.pnl >= 0 ? "pos" : "neg", '">').concat(b.pnl >= 0 ? "+" : "−").concat(gMoney(Math.abs(b.pnl * GOV_DAYS)), " a year</span>")]);
   if (b.ledPrev && b.ledPrev.tax) lines.push(["Sales tax paid", "".concat(gMoney(b.ledPrev.tax), " yesterday")]);
-  if (isPub(b) && d.upkeep && !isEnterprise(d)) lines.push(["Costs the town", "".concat(gMoney(d.upkeep), " a day")]);
+  if (isPub(b) && d.upkeep && !isEnterprise(d)) lines.push(["Costs the town", "".concat(gMoney(d.upkeep * GOV_DAYS), " a year")]);
   h += '<div class="gf-sec"><span class="label">The town</span><div class="kv">'.concat(lines.map(([k, v]) => '<span class="k">'.concat(k, '</span><span class="v">').concat(v, "</span>")).join(""), "</div></div>");
   const ppl = (d.kind === "home" ? b.res : b.wrk).map((id) => G.cits.get(id)).filter(Boolean);
   if (ppl.length && G.civ) {
@@ -28399,7 +28420,8 @@ function bldFacts(G2, t) {
   const need = typeof pwNeed === "function" && G2.pwOn ? pwNeed(G2, t) : 0;
   if (need >= 0.05) {
     const spare = pwSpare(G2);
-    const rent = G2.pwStart != null && G2.t < G2.pwStart + 6 * 1440 && G2.gov ? govY(G2) + Math.max(0, Math.ceil((G2.pwStart + 4.5 * 1440 - G2.t) / (GOV_DAYS * 1440))) : null;
+    const p0 = G2.pwStart != null ? G2.pwStart : G2.t;
+    const rent = G2.t < p0 + 6 * 1440 && G2.gov ? govY(G2) + Math.max(0, Math.ceil((p0 + 4.5 * 1440 - G2.t) / (GOV_DAYS * 1440))) : null;
     F.push(["Electricity", "uses ".concat(need.toFixed(1), ' MW · <span class="').concat(spare >= need ? "pos" : "neg", '">').concat(Math.max(0, spare).toFixed(1), " MW to spare</span>").concat(spare < need && rent && !PW_INDUSTRY(t) ? " · rented diesel until about ".concat(rent) : "")]);
   }
   const run = yr((d.jobs || 0) * wage + (d.upkeep || 0) * eraK);
@@ -28652,7 +28674,7 @@ function gfAdvice(G2) {
   const plants = [...G2.blds.values()].filter((b) => BLD[b.type].power);
   const plant = G2.era >= 3 ? "gasplant" : "coalplant";
   if (G2.pwOn && !plants.length) {
-    const yl = G2.pwStart != null ? yearsLeft(G2.pwStart + 4.5 * 1440) : 0;
+    const yl = yearsLeft((G2.pwStart != null ? G2.pwStart : G2.t) + 4.5 * 1440);
     add(
       yl <= 1 ? 40 : 14,
       "⚡",
@@ -28831,6 +28853,117 @@ function civProtestHTML(G2, id, s) {
   if (id === "union") h += '<small class="gf-sub '.concat(s <= -15 ? "neg" : "", '"><b>Strike risk:</b> ').concat(s <= -22 ? "high: they strike when the year turns" : "they strike below −22 (now ".concat(gfSign(s), ")")).concat(G2.civ.strike && G2.civ.strike.until > G2.t ? ' · <b class="neg">on strike now</b>' : "", ".</small>");
   else if (s <= -25) h += '<small class="gf-sub neg"><b>Hostile:</b> they campaign against you and stop answering your people’s letters.</small>';
   return h;
+}
+const stModern = () => !!(typeof ST !== "undefined" && ST.on && G && G.story && !G.story.open && !DV.on);
+Object.assign(STT.en, { dockLater: "Grandma Rosa shows you this one in a later chapter.", dockNext: "Next chapter", dockDrive: "Drive a truck" });
+Object.assign(STT.tr, { dockLater: "Bunu Rosa Nine sana sonraki bir bölümde gösterecek.", dockNext: "Sonraki bölüm", dockDrive: "Kamyon sür" });
+Object.assign(STT.sk, { dockLater: "Toto ti babka Rosa ukáže v niektorej ďalšej kapitole.", dockNext: "Ďalšia kapitola", dockDrive: "Šoférovať kamión" });
+function stChromeOn() {
+  document.body.classList.add("st-modern");
+  $("#hud").hidden = false;
+  $("#dock").hidden = false;
+  $("#lensbar").hidden = false;
+  $("#panel").hidden = true;
+  UI.panelOpen = false;
+  const bs = $("#btnBackStory");
+  if (bs) bs.hidden = true;
+  const bp = $("#btnPanel");
+  if (bp) bp.hidden = true;
+  buildDock();
+  layout();
+  viewResize();
+  refreshDock();
+  updateHud();
+}
+function stChromeOff() {
+  document.body.classList.remove("st-modern");
+  const bp = $("#btnPanel");
+  if (bp) bp.hidden = false;
+  const a = $("#stActs");
+  if (a) a.hidden = true;
+}
+function stHudFull() {
+  const S = G.story, C = stChapter(G);
+  const chip = C ? "".concat(st("chapter"), " ").concat(S.ch + 1, " · ").concat(chName(S.ch)) : st("title");
+  const ec = $("#eraChip");
+  if (ec.textContent !== chip) ec.textContent = chip;
+  const yr = C && C.year ? C.year : gameYear(G);
+  $("#clockDay").textContent = "".concat(yr, " · ").concat(st("dayN", { d: Math.floor(G.t / 1440) + 1 }));
+  let yb = $("#hudYear");
+  if (!yb) {
+    yb = el("i", "gf-yearbar");
+    yb.id = "hudYear";
+    yb.append(el("i"));
+    document.querySelector(".clock").append(yb);
+  }
+  yb.hidden = false;
+  yb.firstChild.style.width = C ? Math.round(clamp(S.step / Math.max(1, C.steps.length), 0, 1) * 100) + "%" : "100%";
+  const hc = $("#hudCouncil");
+  if (hc) hc.hidden = true;
+  let a = $("#stActs");
+  if (!a) {
+    a = document.createElement("div");
+    a.id = "stActs";
+    a.className = "st-acts";
+    a.hidden = true;
+    document.body.append(a);
+  }
+  const goOn = !!(S.resting && stCh(S.ch)), drive = !!((S.resting || S.done) && (S.ch >= 1 || S.done)), nl = S.newLetters || 0;
+  const sig = "".concat(goOn, "|").concat(drive, "|").concat(nl, "|").concat(ST.lang);
+  if (a.dataset.sig !== sig) {
+    a.dataset.sig = sig;
+    a.innerHTML = "".concat(goOn ? '<button class="primary" id="saNext">'.concat(st("dockNext"), " →</button>") : "").concat(drive ? '<button class="secondary" id="saDrive">🚚 '.concat(st("dockDrive"), "</button>") : "").concat(nl ? '<button class="secondary" id="saLetters">✉ '.concat(st("letters"), " · ").concat(nl, "</button>") : "");
+    const n = a.querySelector("#saNext");
+    if (n) n.onclick = () => $("#stGoOn").click();
+    const d = a.querySelector("#saDrive");
+    if (d) d.onclick = () => $("#stDriveBtn").click();
+    const l = a.querySelector("#saLetters");
+    if (l) l.onclick = () => stLettersOpen();
+  }
+  a.hidden = !(goOn || drive || nl) || !$("#stCelebrate").hidden || !$("#stOver").hidden;
+}
+function stDockOK(t) {
+  const S = G.story;
+  if (!t || t.id === "inspect") return true;
+  if (t.bld) return S.tools.includes(t.bld) && BLD[t.bld].era <= G.era;
+  if (t.road) return S.tools.some((x) => x.startsWith("road")) && ROADS[t.road].era <= G.era && t.road <= 2;
+  return false;
+}
+function stDockPick(t) {
+  if (!stDockOK(t)) {
+    stPraise(st("dockLater"), "soft");
+    return;
+  }
+  if (t.id === "inspect") {
+    ST.placing = null;
+    ST.spots = [];
+    setTool("inspect");
+    stCardRestore(G);
+    return;
+  }
+  if (t.road) {
+    UI.tool = t.id;
+    refreshDock();
+    stCard({ text: st("drawRoad"), buttons: [[st("done"), () => {
+      UI.tool = "inspect";
+      refreshDock();
+      stCardRestore(G);
+    }]] });
+    return;
+  }
+  const b = t.bld;
+  ST.placing = b;
+  ST.spots = stSpots(G, b, BLD[b].kind === "home" ? "homes" : BLD[b].fertile ? "soil" : "homes", 3);
+  stCard({ text: "".concat(bn(b), " · ").concat(fmtMoney(BLD[b].cost)), hint: st("freeBuild"), buttons: [[st("cancel"), () => {
+    ST.placing = null;
+    ST.spots = [];
+    stCardRestore(G);
+  }]] });
+  if (BLD[b].fertile) setLens("land");
+}
+function stTopY() {
+  const t = stModern() ? document.getElementById("hud") : document.querySelector(".st-top");
+  return t ? t.getBoundingClientRect().bottom : 70;
 }
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => {
@@ -29320,7 +29453,8 @@ function buildDock() {
       b.append(cv, el("span", "tn", short), el("span", "tc", ""));
       if (t.key) b.append(el("span", "key", t.key));
       b.onclick = () => {
-        if (t.bld && typeof govFullOn === "function" && govFullOn()) gfBuildCard(t.bld);
+        if (typeof stModern === "function" && stModern()) stDockPick(t);
+        else if (t.bld && typeof govFullOn === "function" && govFullOn()) gfBuildCard(t.bld);
         else setTool(t.id);
       };
       row.append(b);
@@ -29339,6 +29473,15 @@ function refreshDock() {
     const gl = typeof govFullOn === "function" && govFullOn() ? t.bld ? govLocked(G, t.bld) : t.road && YEAR_MIN["road" + t.road] && govY(G) < YEAR_MIN["road" + t.road] ? "year" : null : null;
     const locked = G && (era > G.era || !!gl);
     const gfull = typeof govFullOn === "function" && govFullOn() && !!t.bld;
+    if (typeof stModern === "function" && stModern()) {
+      const ok = stDockOK(t);
+      b.disabled = false;
+      b.classList.toggle("locked", !ok);
+      b.setAttribute("aria-pressed", String(UI.tool === t.id || ST.placing && ST.placing === t.bld));
+      tc.textContent = ok ? cost != null ? t.road ? "$".concat(cost, "/tile") : "$".concat(cost) : "" : typeof st === "function" ? "·" : "";
+      if (!ok) tc.textContent = "Later";
+      continue;
+    }
     b.disabled = !!locked && !gfull;
     b.classList.toggle("locked", !!locked && gfull);
     b.setAttribute("aria-pressed", String(UI.tool === t.id));
@@ -31238,6 +31381,7 @@ function updateHud() {
     ride.setAttribute("aria-pressed", String(V3.chase));
   }
   if (typeof govFullOn === "function" && govFullOn()) govFullHud();
+  else if (typeof stModern === "function" && stModern()) stHudFull();
 }
 function consumeEvents() {
   if (DV.on || ST.on) {
@@ -31468,6 +31612,10 @@ function toggleMusic() {
 }
 function openMenu() {
   var _a2;
+  if (typeof stModern === "function" && stModern()) {
+    stMenuOpen();
+    return;
+  }
   if (typeof govFullOn === "function" && govFullOn()) {
     govFullMenu();
     return;
@@ -31535,6 +31683,7 @@ function bindSoundRow(root) {
 let previewTimer = null;
 function showTitle() {
   if (V3.on) v3Toggle(false);
+  if (typeof stChromeOff === "function") stChromeOff();
   if (typeof govLeaveFull === "function") govLeaveFull();
   UI.started = false;
   $("#title").hidden = false;
@@ -31687,6 +31836,7 @@ function layout() {
   const hud = $("#hud").getBoundingClientRect(), dock = $("#dock").getBoundingClientRect();
   const top = (hud.height || 60) + 10, bottom = (dock.height || 90) + 10;
   document.documentElement.style.setProperty("--dockh", Math.round(dock.height || 90) + "px");
+  document.documentElement.style.setProperty("--hudh", Math.round(hud.bottom || 96) + "px");
   const p = $("#panel");
   p.style.top = top + "px";
   p.style.bottom = bottom + "px";
