@@ -275,6 +275,24 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .subtabs button { flex: 1 1 0; min-width: 0; border: 0; background: transparent; padding: 7px 4px; border-radius: 7px; cursor: pointer; font: 700 13px var(--f-cond); letter-spacing: 0.02em; color: var(--ink-2); white-space: nowrap; }
 .subtabs button[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
 .gf-sec { display: flex; flex-direction: column; gap: 8px; }
+.gf-rosa { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 12px; background: var(--mango-soft); border: 1px solid color-mix(in srgb, var(--mango) 45%, transparent); }
+.gf-rosa img { width: 52px; height: 52px; border-radius: 50%; flex: none; background: #fff3dc; }
+.gf-rosa > div { display: flex; flex-direction: column; gap: 5px; min-width: 0; } .gf-rosa b { font-size: 15.5px; color: var(--ink); line-height: 1.3; } .gf-rosa p { font-size: 13.5px; color: var(--ink-2) !important; }
+.gf-rosa .btnrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .gf-rosa .btnrow button { margin: 0; }
+.goal .gf-sub { grid-column: 1 / -1; }
+.gf-also { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 4px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--mango) 35%, transparent); } .gf-also .link { text-align: left; font-size: 13.5px; padding: 3px 0; }
+.gf-decl { display: flex; flex-direction: column; gap: 6px; font-size: 14px; } .gf-decl > span { line-height: 1.45; color: var(--ink-2); }
+.gf-bad { color: var(--coral) !important; border-color: var(--coral) !important; font-weight: 700; }
+.gf-buildbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--dockh, 118px) + 12px + env(safe-area-inset-bottom, 0px)); z-index: 40; display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-radius: 14px; background: var(--glass); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: calc(100vw - 24px); }
+.gf-buildbar .gb-t { display: flex; flex-direction: column; min-width: 0; } .gf-buildbar .gb-t b { font-size: 16px; color: var(--ink); } .gf-buildbar .gb-t small { color: var(--ink-2); font-size: 13px; }
+.gf-buildbar button { margin: 0; white-space: nowrap; min-height: 44px; }
+.gf-tip { font-size: 13.5px; padding: 8px 10px; border-radius: 8px; background: var(--mango-soft); color: var(--ink) !important; }
+.tool.locked { opacity: 0.55; } .tool.locked .tc { color: var(--coral); }
+.gf-why { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: var(--paper-2); margin: 8px 0; }
+.gf-wl { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; } .gf-wl b { font-variant-numeric: tabular-nums; }
+.gf-end { font-size: 14px; }
+.gf-x { position: sticky; top: 0; align-self: flex-end; margin-bottom: -38px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--paper); color: var(--ink-2); font-size: 15px; line-height: 1; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+.gf-x:hover { color: var(--ink); border-color: var(--ink-3); }
 .gf-sub { color: var(--ink-3); font-size: 12px; line-height: 1.4; grid-column: 1 / -1; }
 .gf-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; color: var(--ink-2); line-height: 1.45; } .gf-list b { color: var(--ink); }
 .gf-pet { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
@@ -2038,8 +2056,8 @@ function recomputeServices(G2) {
   for (const b of G2.blds.values()) {
     const d = BLD[b.type];
     if (d.kind === "home") homes.push(b);
-    if (d.service) svcs.push(b);
-    if (d.noise) noisy.push(b);
+    if (d.service && !b.bt) svcs.push(b);
+    if (d.noise && !b.bt) noisy.push(b);
   }
   const airports = [...G2.blds.values()].filter((b) => BLD[b.type].airNoise);
   for (const h of homes) {
@@ -2266,16 +2284,16 @@ function distMap(G2, sources) {
 }
 const isHome = (b) => BLD[b.type].kind === "home";
 const isWork = (b) => (BLD[b.type].jobs || 0) > 0;
-const hasVacancy = (b) => isHome(b) && b.res.length < BLD[b.type].housing;
-const hasOpening = (b) => isWork(b) && b.wrk.length < BLD[b.type].jobs;
+const hasVacancy = (b) => isHome(b) && !b.bt && b.res.length < BLD[b.type].housing;
+const hasOpening = (b) => isWork(b) && !b.bt && b.wrk.length < BLD[b.type].jobs;
 function totalHousing(G2) {
   let n = 0;
-  for (const b of G2.blds.values()) if (isHome(b)) n += BLD[b.type].housing;
+  for (const b of G2.blds.values()) if (isHome(b) && !b.bt) n += BLD[b.type].housing;
   return n;
 }
 function totalJobs(G2) {
   let n = 0;
-  for (const b of G2.blds.values()) if (isWork(b)) n += BLD[b.type].jobs;
+  for (const b of G2.blds.values()) if (isWork(b) && !b.bt) n += BLD[b.type].jobs;
   return n;
 }
 function log(G2, text, tone = "info") {
@@ -2863,6 +2881,10 @@ function deliverFreight(G2, m) {
   P.cargo += v;
   P.bonus += v - m.value;
   P.loads++;
+  const Q = G2.quay || (G2.quay = {});
+  const q = Q[k] || (Q[k] = { v: 0, u: 0 });
+  q.v += v;
+  q.u += m.units;
 }
 function addLux(b, good, units, unit) {
   b.lux = (b.lux || 0) + units;
@@ -3044,12 +3066,27 @@ function updateShips(G2, dt) {
       }
     } else if (s.phase === "dock") {
       s.wait += dt;
-      if (s.wait > 70) s.phase = "out";
+      if (s.wait > 70) {
+        s.phase = "out";
+        if (!s.story) shipLoad(G2, s);
+      }
     } else {
       s.y += 0.11 * dt;
       if (s.y > MAP_H + 5) G2.ships.splice(k, 1);
     }
   }
+}
+function shipLoad(G2, s) {
+  const Q = G2.quay;
+  if (!Q) return;
+  const goods = Object.entries(Q).filter(([, q]) => q.v >= 1).sort((a, b) => b[1].v - a[1].v);
+  G2.quay = {};
+  if (!goods.length) return;
+  const tot = goods.reduce((a, [, q]) => a + q.v, 0);
+  const M = { t: G2.t, y: typeof govOn === "function" && govOn(G2) ? govY(G2) : null, day: Math.floor(G2.t / 1440) + 1, to: s.from || "the mainland", goods: goods.map(([k, q]) => [k, Math.round(q.u), Math.round(q.v)]), v: Math.round(tot) };
+  s.cargo = M.v;
+  (G2.manifests || (G2.manifests = [])).push(M);
+  if (G2.manifests.length > 40) G2.manifests.shift();
 }
 function disembark(G2, ship) {
   const dock = G2.blds.get(G2.dockId);
@@ -3178,6 +3215,7 @@ function computeHappy(G2, c) {
   const d = BLD[h.type], s = h.svc;
   let v = 45 + d.quality * 0.4;
   v += c.job != null ? 10 : -12;
+  if (G2.gov && G2._jobless > 0.05) v -= Math.min(15, Math.round((G2._jobless - 0.05) * 60));
   if (c.commuteAvg != null) v -= clamp((c.commuteAvg - 25) * 0.45, 0, 25);
   v += s.market * 7 + s.health * 7 + s.school * 6 + s.park * 5 + (typeof civFaithOK === "function" ? civFaithOK(G2, c, h) : s.faith || 0) * 4 + (s.fun || 0) * 5 + (s.coffee || 0) * 3 + (s.sport || 0) * 4;
   if (c.booba && typeof boobaExtras === "function") for (const [, x] of boobaExtras(G2, c)) v += x;
@@ -3208,6 +3246,7 @@ function happinessBreakdown(G2, c) {
   out.push(["Base", 45]);
   out.push([d.name, Math.round(d.quality * 0.4)]);
   out.push([c.job != null ? "Has a job" : "Unemployed", c.job != null ? 10 : -12]);
+  if (G2.gov && G2._jobless > 0.05) out.push(["Joblessness in town (".concat(Math.round(G2._jobless * 100), "%)"), -Math.min(15, Math.round((G2._jobless - 0.05) * 60))]);
   if (c.commuteAvg != null) {
     const p = -clamp((c.commuteAvg - 25) * 0.45, 0, 25);
     if (p) out.push(["Commute ".concat(Math.round(c.commuteAvg), " min"), Math.round(p)]);
@@ -3243,6 +3282,11 @@ function happinessBreakdown(G2, c) {
 function updateHappiness(G2) {
   let sum = 0, n = 0;
   const leaving = [];
+  {
+    let emp = 0;
+    for (const c of G2.cits.values()) if (c.job != null) emp++;
+    G2._jobless = G2.cits.size ? 1 - emp / G2.cits.size : 0;
+  }
   for (const c of G2.cits.values()) {
     if (c.home == null) continue;
     c.happy = computeHappy(G2, c);
@@ -4737,8 +4781,8 @@ function powerDemand(G2, b) {
   const tod = G2.t % 1440, h = tod / 60;
   const eve = h >= 18 || h < 6;
   if (d.power) return 0;
-  if (d.kind === "home") return b.res.length * (eve ? 0.11 : 0.06) * (G2.era >= 4 ? 1.4 : 1);
-  if (d.kind === "goods") return (d.jobs || 0) * 0.28 * (b.present ? 1 : 0.15);
+  if (d.kind === "home") return b.res.length * (eve ? 0.11 : 0.06) * (G2.era >= 4 ? 1.4 : G2.gov && G2.era < 3 ? 0.25 : 1);
+  if (d.kind === "goods") return (d.jobs || 0) * (G2.gov && !PW_INDUSTRY(b.type) ? 0.06 : 0.28) * (b.present ? 1 : 0.15);
   if (d.kind === "airport") return 9;
   if (d.kind === "port") return 1.5;
   if (d.jobs) return d.jobs * 0.14 * (b.present ? 1 : 0.2);
@@ -4835,6 +4879,44 @@ function powerTick(G2, dt) {
 const powerMult = (G2) => G2.pw && G2.pw.active ? 0.55 + 0.45 * G2.pw.ratio : 1;
 function powerNight(G2) {
   if (!G2.classic) G2.wind = clamp(0.25 + G2.rngSim() * 0.85, 0.2, 1);
+}
+const PW_INDUSTRY = (t) => {
+  const d = BLD[t];
+  return !!d && d.kind === "goods" && !d.fertile && !d.forest && !d.coastal && !d.mine;
+};
+function pwNeed(G2, t) {
+  const d = BLD[t];
+  if (!d || d.power) return 0;
+  if (d.kind === "home") return (d.housing || 0) * 0.11 * (G2.era >= 4 ? 1.4 : G2.gov && G2.era < 3 ? 0.25 : 1);
+  if (d.kind === "goods") return (d.jobs || 0) * (G2.gov && !PW_INDUSTRY(t) ? 0.06 : 0.28);
+  if (d.kind === "airport") return 9;
+  if (d.kind === "port") return 1.5;
+  return (d.jobs || 0) * 0.14;
+}
+function pwFirm(G2) {
+  let cap = G2.era < 3 ? 2 : 4;
+  for (const b of G2.blds.values()) {
+    const P = BLD[b.type].power;
+    if (!P) continue;
+    cap += P.mw * (P.solar ? 0.3 : P.wind ? 0.5 : 1) * (b.wrk.length || BLD[b.type].jobs === 0 ? 1 : 0.5);
+  }
+  return cap;
+}
+function pwPeak(G2) {
+  let d = 0;
+  for (const b of G2.blds.values()) {
+    const D = BLD[b.type];
+    if (D.power) continue;
+    d += D.kind === "home" ? b.res.length * 0.11 * (G2.era >= 4 ? 1.4 : G2.gov && G2.era < 3 ? 0.25 : 1) : pwNeed(G2, b.type);
+  }
+  return d;
+}
+const pwSpare = (G2) => pwFirm(G2) - pwPeak(G2);
+function govPowerLock(G2, t) {
+  if (!G2.gov || !G2.pwOn || !PW_INDUSTRY(t)) return null;
+  const need = pwNeed(G2, t), spare = pwSpare(G2);
+  if (spare >= need) return null;
+  return "Needs ".concat(need.toFixed(1), " MW of electricity and the island has ").concat(Math.max(0, spare).toFixed(1), " MW to spare. Build a power plant first.");
 }
 const LAND_TOOLS = { farm: "soil", orchard: "soil", vineyard: "vine", lumber: "forest", goldmine: "gold", fishery: "shore", pier: "shore" };
 function landModeFor(tool) {
@@ -8090,6 +8172,10 @@ function drawBuildings(c, G2, UI2, x0, y0, x1, y1, night) {
   const fy = G2.story && typeof gameYear === "function" ? gameYear(G2) : 0;
   const nowR = View.time * 1e3;
   for (const b of arr) {
+    if (b.bt && typeof drawSite === "function") {
+      drawSite(c, G2, b, View.cam.z);
+      continue;
+    }
     const age = b.bornReal ? nowR - b.bornReal : 1e9;
     if (age < 520) {
       const k = clamp(age / 420, 0, 1);
@@ -8120,7 +8206,10 @@ function drawBuildings(c, G2, UI2, x0, y0, x1, y1, night) {
       }
     }
     const bx = b.x * TILE + b.w * TILE - 5, by = b.y * TILE + 5;
-    if (b.id !== G2.dockId && b.ent < 0) badge(c, bx, by, "#d8393a", "!");
+    if (typeof govFullOn === "function" && govFullOn() && typeof bldIssue === "function") {
+      const is = bldIssue(G2, b);
+      if (is) drawIssue(c, b, is, View.cam.z);
+    } else if (b.id !== G2.dockId && b.ent < 0) badge(c, bx, by, "#d8393a", "!");
     else if (b.id !== G2.dockId && G2.comp[b.ent] !== G2.harborComp) badge(c, bx, by, "#ee7a36", "~");
     else if (BLD[b.type].kind === "goods" && b.stock >= 110) badge(c, bx, by, "#f0b23a", "■");
     else if (BLD[b.type].input && b.present && b.inp < 1) badge(c, bx, by, "#8e5ea2", "?");
@@ -11731,6 +11820,16 @@ function modelBuilding(K, W, b, G2) {
   const X = b.x, Z = b.y, Wd = b.w, Dp = b.h, y = BASE_Y;
   const r = mulberry32(b.id * 97 + 3);
   const inset = (p) => [X + p, Z + p, X + Wd - p, Z + Dp - p];
+  if (b.bt) {
+    const [a, c, e, f] = inset(0.1);
+    K.box(a, y, c, e, y + 0.05, f, "#b89a6a");
+    for (const [px, pz] of [[a, c], [e - 0.03, c], [a, f - 0.03], [e - 0.03, f - 0.03]]) K.box(px, y, pz, px + 0.03, y + 0.45, pz + 0.03, "#8a7456");
+    K.box(a, y + 0.22, c, e, y + 0.24, c + 0.03, "#8a7456");
+    K.box(a, y + 0.22, f - 0.03, e, y + 0.24, f, "#8a7456");
+    K.box(e - 0.2, y, f - 0.2, e - 0.14, y + 0.9, f - 0.14, "#e0960f");
+    K.box(a + 0.1, y + 0.86, f - 0.2, e - 0.14, y + 0.9, f - 0.14, "#e0960f");
+    return;
+  }
   switch (b.type) {
     case "shack": {
       const [a, c, e, f] = inset(0.22);
@@ -13380,7 +13479,7 @@ function v3Signature(G2) {
     if (v) h = Math.imul(h, 31) + i * 131 + v | 0;
   }
   let hb = 1;
-  for (const b of G2.blds.values()) hb = Math.imul(hb, 37) + b.id * 11 + b.x * 3 + b.y * 5 + (b.lv || 0) + (b.crop ? b.crop.charCodeAt(0) * 13 : 0) + (b.launched ? 977 : 0) + b.type.charCodeAt(0) * 17 + b.type.length * 3 | 0;
+  for (const b of G2.blds.values()) hb = Math.imul(hb, 37) + b.id * 11 + b.x * 3 + b.y * 5 + (b.lv || 0) + (b.crop ? b.crop.charCodeAt(0) * 13 : 0) + (b.launched ? 977 : 0) + (b.bt ? 1231 : 0) + b.type.charCodeAt(0) * 17 + b.type.length * 3 | 0;
   let hl = 3;
   for (const L of G2.lines) for (const s of L.stops) hl = Math.imul(hl, 29) + s + L.id * 7 | 0;
   return h + ":" + hb + ":" + hl;
@@ -21497,7 +21596,7 @@ function stTitleText() {
     S = null;
   }
   b.querySelector("b").textContent = st("title");
-  const openC = S && S.open && sv.gov ? "".concat(sv.gov.y0 + Math.floor((sv.t - sv.gov.t0) / (GOV_DAYS * 1440)), " · ").concat(st("g_stage" + (sv.gov.future ? 5 : sv.era))) : null;
+  const openC = S && S.open && sv.gov ? "".concat(sv.gov.y0 + Math.floor((sv.t - sv.gov.t0) / ((sv.gov.days || 2) * 1440)), " · ").concat(st("g_stage" + (sv.gov.future ? 5 : sv.era))) : null;
   b.querySelector("small").textContent = S ? st("contSub", { c: openC || (S.done && S.resting ? st("storyDone") : "".concat(st("chapter"), " ").concat(S.ch + 1, " · ").concat(chName(S.ch))) }) : st("titleSub");
   const c = $("#btnStoryCont");
   c.hidden = !S;
@@ -22081,7 +22180,7 @@ function drawSickHomes(c, G2) {
 const GOV_T = { en: {
   g_isYours: "The island is yours",
   g_welcome: "The island is yours now{n}. From today it lives on its own, day by day.",
-  g_w1: "🕰 Two days make a year. The buttons at the top speed time up or stop it.",
+  g_w1: "🕰 A day makes a year. The buttons at the top speed time up or stop it.",
   g_w2: "🏛 You are the Mayor. Roads and public buildings are yours, paid from the town’s money: taxes and the town’s own enterprises. The mainland sent $1,000 to start with.",
   g_w3: "🏠 Families build homes and businesses with their own savings. They ask for your permit.",
   g_w4: "🪑 A council of nine votes on taxes and laws. The island elects it every {t} years.",
@@ -22529,7 +22628,7 @@ GOV_T.tr = {
   g_aSurplusBig: "Geçen yıl belediye harcadığından {m} fazla topladı. Vergileri düşürmek aileleri sevindirir ve daha çok yatırım yaparlar; satış vergisi şu an %{t}.",
   g_isYours: "Ada artık senin",
   g_welcome: "Ada artık senin{n}. Bugünden itibaren gün gün, kendi kendine yaşıyor.",
-  g_w1: "🕰 İki gün bir yıl eder. Üstteki düğmeler zamanı hızlandırır ya da durdurur.",
+  g_w1: "🕰 Bir gün bir yıl eder. Üstteki düğmeler zamanı hızlandırır ya da durdurur.",
   g_w2: "🏛 Belediye Başkanı sensin. Yollar ve kamu binaları senin işin; parası belediye kasasından çıkar: vergilerden ve belediyenin kendi işletmelerinden. Anakara başlangıç için 1.000 $ gönderdi.",
   g_w3: "🏠 Aileler evlerini ve işyerlerini kendi birikimleriyle yapar. Bunun için senden izin isterler.",
   g_w4: "🪑 Dokuz sandalyeli bir meclis vergileri ve yasaları oylar. Ada meclisini her {t} yılda bir seçer.",
@@ -22969,7 +23068,7 @@ GOV_T.sk = {
   g_aSurplusBig: "Minulý rok mesto vybralo o {m} viac, než minulo. Nižšie dane by potešili rodiny a mohli by viac investovať; daň z predaja je teraz {t} %.",
   g_isYours: "Ostrov je tvoj",
   g_welcome: "Ostrov je odteraz tvoj{n}. Od dnešného dňa žije vlastným životom, deň za dňom.",
-  g_w1: "🕰 Dva dni sú jeden rok. Tlačidlami hore čas zrýchliš alebo zastavíš.",
+  g_w1: "🕰 Jeden deň je jeden rok. Tlačidlami hore čas zrýchliš alebo zastavíš.",
   g_w2: "🏛 Si starostka. Cesty a verejné budovy sú tvoje a platia sa z peňazí mesta: z daní a z mestských podnikov. Pevnina poslala na začiatok 1 000 $.",
   g_w3: "🏠 Rodiny si stavajú domy a podniky z vlastných úspor. Od teba si pýtajú povolenie.",
   g_w4: "🪑 O daniach a zákonoch hlasuje deväťčlenná rada. Ostrov ju volí každé {t} roky.",
@@ -23400,7 +23499,7 @@ GOV_T.sk = {
 };
 for (const l in GOV_T) Object.assign(STT[l] || (STT[l] = {}), GOV_T[l]);
 for (const l of ["tr", "sk"]) if (BN_T[l]) Object.assign(BN_T[l], { road3: { tr: "Bulvar", sk: "Bulvár" }[l], road4: { tr: "Dört şeritli yol", sk: "Štvorprúdová cesta" }[l], road5: { tr: "Tünel", sk: "Tunel" }[l] });
-const GOV_DAYS = 2, GOV_Y0 = 1912, SEATS = 9;
+const GOV_DAYS = 1, GOV_Y0 = 1912, SEATS = 9;
 const WAGE = [0, 2, 2, 3.5, 6];
 const RENT = [0, 0.25, 0.3, 0.5, 0.8];
 const GROUPS = [["farm", "👩‍🌾", "#6aa84f"], ["fish", "🎣", "#2a8fb0"], ["merc", "🛍️", "#d98b1f"], ["work", "🔧", "#c0504d"]];
@@ -23419,10 +23518,11 @@ const YEAR_MIN = { airport: 1935, terminal: 1965, nuclear: 1965, windmill: 1978,
 const FUTURE_T = /* @__PURE__ */ new Set(["vfarm", "floathome", "fusion", "maglev", "spaceport"]);
 const HIDE_T = /* @__PURE__ */ new Set(["garage", "dock", "pastel"]);
 const STAGES = {
-  2: { goals: [["pop", 180], ["happy", 58], ["commute", 40], ["gdp", 2500]] },
+  2: { goals: [["pop", 180], ["happy", 58], ["commute", 40], ["gdp", 1250]] },
   // families keep coming: the commute target has to survive growth
-  3: { goals: [["pop", 400], ["happy", 55], ["unemp", 8], ["gdp", 8e3], ["year", 1950]] },
-  4: { goals: [["pop", 700], ["happy", 56], ["commute", 35], ["gdp", 2e4], ["year", 2020]] },
+  3: { goals: [["pop", 400], ["happy", 55], ["unemp", 8], ["gdp", 4e3], ["year", 1950]] },
+  // earnings are a year's: a year is one day since v36
+  4: { goals: [["pop", 700], ["happy", 56], ["commute", 35], ["gdp", 1e4], ["year", 2020]] },
   5: { goals: [] }
 };
 const LAWS = [
@@ -23501,6 +23601,7 @@ function govStart(G2) {
   const L = S.laws || {};
   G2.gov = {
     v: 1,
+    days: GOV_DAYS,
     t0: Math.floor(G2.t / 1440) * 1440,
     y0: GOV_Y0,
     yNow: GOV_Y0,
@@ -23618,7 +23719,7 @@ function govWage(G2, b) {
 const govRate = (G2) => {
   let r = 0.05;
   for (const c of G2.crises || []) if (c.rate) r = Math.max(r, c.rate);
-  return r;
+  return r * GOV_DAYS / 2;
 };
 const govGrant = (G2) => {
   const y = govY(G2);
@@ -23665,7 +23766,7 @@ function govEndOfDay(G2, rec) {
     const rent = d.kind === "home" ? b.res.length * RENT[era] : 0;
     if (pub) {
       wagesPub += w;
-      upPub += d.upkeep;
+      if (!b.bt) upPub += d.upkeep;
       rentPub += rent;
       b.pnl = null;
       continue;
@@ -24157,6 +24258,10 @@ function govLocked(G2, t) {
   if (!d) return null;
   if (FUTURE_T.has(t) && !G2.gov.future) return st("g_lockFuture");
   if (YEAR_MIN[t] && govY(G2) < YEAR_MIN[t]) return st("g_lockYear", { y: YEAR_MIN[t] });
+  if (typeof govPowerLock === "function") {
+    const w = govPowerLock(G2, t);
+    if (w) return w;
+  }
   return null;
 }
 function govApprove(G2, r, auto) {
@@ -24185,6 +24290,7 @@ function govApprove(G2, r, auto) {
   b.own = r.fam;
   if (r.crop) b.crop = r.crop;
   b.bornReal = performance.now();
+  if (typeof bldStart === "function") bldStart(G2, b);
   stConnect(G2, b);
   recomputeNetwork(G2);
   const spent = m0 + 1e7 - G2.money;
@@ -24206,6 +24312,7 @@ function govRefuse(G2, r) {
 }
 function govOwnBuilt(G2, b) {
   if (!govOn(G2) || !b) return;
+  if (typeof bldStart === "function") bldStart(G2, b);
   b.pub = b.type === "church" ? false : true;
   if (b.type === "church") b.own = "parish";
   G2.gov.acc.pubBuilt += BLD[b.type].cost;
@@ -24335,6 +24442,7 @@ function govSetLaw(G2, id, val) {
   V._moodT = null;
   if (G2.civ) G2.civ._kT = -1;
   govLogAdd(G2, { k: "law", id, from: old, to: val, exp, base: govSnapshot(G2) });
+  if (typeof civLawChanged === "function") civLawChanged(G2, id, val);
 }
 function govFarmRoadsOK(G2) {
   for (const b of G2.blds.values()) {
@@ -25076,7 +25184,7 @@ function civAccept(G2, p) {
   }
   p.st = "on";
   p.y0 = y;
-  p.due = y + 2;
+  p.due = y + 3;
   if (O) O.rel += 3;
   govLogAdd(G2, { k: "c_acc", org: p.org, pk: p.k, title: civPetTitle(G2, p) });
   civPetCheck(G2, p, true);
@@ -25307,8 +25415,12 @@ function civTick(G2) {
     C.lastDay = d;
     if (!first) civDay(G2);
   }
+  if (typeof bldTick === "function") bldTick(G2);
   if (C.strike && C.strike.until <= G2.t) {
+    const a = C.strike.ask;
     C.strike = null;
+    G2.gov.queue.push({ k: "c_strikeEnd", how: "time", ask: a });
+    govLogAdd(G2, { k: "c_strikeOver" });
   }
 }
 function civDay(G2) {
@@ -25323,6 +25435,7 @@ function civDay(G2) {
     p.lapsed = true;
     const O = civOrgState(G2, p.org);
     if (O) O.rel -= 3;
+    G2.gov.queue.push({ k: "c_lapsed", id: p.id });
   }
   if (C.pets.length > 60) C.pets = C.pets.filter((p) => p.st === "on" || p.st === "ask" || y - (p.yEnd || p.y0) < 12);
   const open = C.pets.filter((p) => p.st === "on" || p.st === "ask").length;
@@ -25591,6 +25704,33 @@ function civEvDo(G2, id, k) {
   G2.gov._moodT = null;
   G2.civ._kT = -1;
 }
+function civStrikeAsk(G2) {
+  const L = G2.gov.laws;
+  return L.hours === 12 ? ["hours", 10] : !L.minwage ? ["minwage", 1] : L.hours === 10 ? ["hours", 8] : L.minwage < 2 ? ["minwage", 2] : null;
+}
+const civAskText = (a) => !a ? "a pay rise" : a[0] === "hours" ? a[1] === 10 ? "a ten-hour working day" : "an eight-hour working day" : a[1] === 1 ? "a minimum wage" : "a higher minimum wage";
+const civAskMet = (G2, a) => !!a && (a[0] === "hours" ? G2.gov.laws.hours <= a[1] : (G2.gov.laws.minwage || 0) >= a[1]);
+function civStrikeWhy(G2) {
+  const P = [];
+  civOrgScore(G2, "union", P);
+  const L = G2.gov.laws;
+  const out = [];
+  if (L.hours === 12) out.push(["Twelve-hour shifts in the mills and on the docks", -5]);
+  else if (L.hours === 10) out.push(["Ten-hour shifts (they want eight)", -2]);
+  if (!L.minwage) out.push(["No minimum wage: pay is whatever the owner offers", -5]);
+  for (const [k, v] of P) if (k !== "The laws" && v < 0) out.push([k === "What you did for them" ? "Promises broken and petitions refused" : k, v]);
+  return out.sort((a, b) => a[1] - b[1]);
+}
+function civLawChanged(G2, id, val) {
+  const C = G2.civ;
+  if (!C || !C.strike || C.strike.until <= G2.t || !civAskMet(G2, C.strike.ask)) return;
+  const a = C.strike.ask;
+  C.strike = null;
+  const O = civOrgState(G2, "union");
+  if (O) O.rel += 10;
+  G2.gov.queue.push({ k: "c_strikeEnd", how: "law", ask: a });
+  govLogAdd(G2, { k: "c_strikeWon", ask: a });
+}
 function civStrikeStart(G2, negotiate) {
   const C = G2.civ;
   C.pendingStrike = false;
@@ -25601,7 +25741,7 @@ function civStrikeStart(G2, negotiate) {
     if (O) O.rel += 18;
     govLogAdd(G2, { k: "c_strikeDeal", m: cost });
     const L = G2.gov.laws;
-    const ask = L.hours === 12 ? ["hours", 10] : !L.minwage ? ["minwage", 1] : null;
+    const ask = civStrikeAsk(G2);
     if (ask) {
       const open = C.pets.find((p) => p.k === "law" && p.law === ask[0] && (p.st === "on" || p.st === "ask"));
       const la = C.lastAsk;
@@ -25620,7 +25760,7 @@ function civStrikeStart(G2, negotiate) {
     }
     return cost;
   }
-  C.strike = { until: G2.t + 1440, y: govY(G2) };
+  C.strike = { until: G2.t + GOV_DAYS * 720, y: govY(G2), ask: civStrikeAsk(G2) };
   if (O) O.rel -= 5;
   civRel(G2, "chamber", 6);
   G2.gov.mem.work -= 1;
@@ -26845,12 +26985,13 @@ function govBind() {
     if (G && govOn(G)) govHallOpen("people");
   };
 }
-const GAME_VERSION = "35.3 · 29 Sep 2026";
+const GAME_VERSION = "36.0 · 30 Sep 2026";
 const GOV_SKIP = '{"v":1,"seed":4125171816,"label":"","t":6425.382080000085,"money":2976.7833470135743,"era":2,"nextShip":660,"terrain":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011111111111111000000000000000000000000000000000000000000000110001111011111111111100000000000000000000000000000000000001111111111111101111122111111000000000000000000000000000000011111111112211111111111112222111110000000000000000000000000000111111122223332221221111122222222221100000000000000000000000000111122222223333333334222222222444332210000000000000000000000001111224333333333333333444444442244443442100000000000000000000000112224433333333333333344443334444333333211000000000000000000000112334443333333333333334443333433333333332100000000000000000011111233334333333333333333333333333333443333211000000000000000011222223333333333333333333333333333333333333321100000000000000011233333333333333333333333333333333333333333333211000000000000011233333333333333333333333333333333333333333333321100000000000001223333333333333333333333333333333333333333333332111000000000011123333333333333333333333333333333333333333333333211100000000011112333333333333333333333333333333333333333333333322100000000111122233333333333333333333333333333333333333333333332210000000111222223333333333333333343333333333333333333333333333321100000012223222333333333333333333444443333334443333333333333332110000002232233333333333333333333334444433333344344333333333333321100000233223333333333333333333333444444444444444433333333333332111000033333333333343333333333333344444444444444443433333333334421000002223332223344443333333333333444444444444444444333333333442100000122222222234333333333333333333334444444444444443333333344210000011122322222333333333333333333333333444444444444444333333321000001111222233333333333333333333333333334444444444444443333332100000011112233333333333333333333333333333334444333444444433332110000000111222333333333333333333333333333333344433334444444432211000000011122222233333333433333333333333333334443333444444444211000000001111222223333333344333333333333333333443333344444444421100000000111112212333333334333333333333333333333333333344444442110000000011111111223333333443333333333333333333333333333333444110000000000111111122333333334443333333333333333333333333333333210000000000000111112223334333444333333223333333333333333333333321000000000000000011111223333334433333322233333333333333333333321000000000000000000001112223333333332211111233333333222443333322100000000000000000000001122222222111111000111222222211124433221100000000000000000000000011121111110000000000011111111111243221100000000000000000000000000111111000000000000000000000011111211110000000000000000000000000000110000000000000000000000000111111110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","road":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001010000000000000000000000000000000000000000000000000000000000022111220000000000000000000000000000000000000000000000000000000022010102000000000000000000000000000000000000000000000000000000002011010200000000000000000000000000000000000000000000000000000000001001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","ctrl":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","bike":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","buslane":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","track":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","lineSeq":0,"lines":[],"baseRoad":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001010000000000000000000000000000000000000000000000000000000000022111220000000000000000000000000000000000000000000000000000000022010102000000000000000000000000000000000000000000000000000000002011010200000000000000000000000000000000000000000000000000000000001001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","baseCtrl":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","storm":null,"crashesYesterday":0,"challenge":null,"noShips":true,"noMoves":true,"noWeather":false,"blds":[[1,"dock",31,35,"#a8d672",0,{"lv":1,"inp":0,"stays":[],"hist":[-3,-3,-4,-4],"lp":{"rev":0,"inCost":0,"bonus":-1.4603865289561035,"units":0,"bought":0,"loads":4,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":194.75791251780845,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[2,"shack",32,31,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[3,"shack",31,30,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[4,"shack",30,31,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[5,"farm",33,27,"#f4a6b8",12,{"lv":0,"inp":0,"stays":[],"hist":[81,116,87,84],"lp":{"rev":85.19481631594815,"inCost":0,"bonus":0,"units":48.11864678205565,"bought":0,"loads":3,"tripSum":144.39359999999942,"made":60.77969224895095,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"crop":"sugar","lux":0,"lv$":0,"lg":null,"fl":0}],[6,"shack",32,30,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[7,"shack",32,29,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[8,"fishery",30,36,"#7fd1c8",11,{"lv":0,"inp":0,"stays":[],"hist":[-1,59,57,61],"lp":{"rev":61.30566523267591,"inCost":0,"bonus":0,"units":32.05132883333339,"bought":0,"loads":2,"tripSum":16.26639999999861,"made":36.753599666666865,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[9,"market",34,30,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,20,20,20],"lp":{"rev":21.196196000000064,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[10,"house",34,29,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,-1,-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[11,"clinic",34,31,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[-4,-4,-4],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[12,"house",35,31,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,-1,-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[13,"house",36,32,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[14,"house",29,31,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[15,"house",28,32,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[16,"house",36,33,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[17,"townhall",36,34,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-2],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[18,"school",26,32,"#f4a6b8",0,{"lv":0,"inp":0,"stays":[],"hist":[-8],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[19,"distillery",26,34,"#8cc3ef",14,{"lv":0,"inp":2,"stays":[],"hist":[46],"lp":{"rev":134.91263381408862,"inCost":85.19481631594815,"bonus":0,"units":32.09013273583368,"bought":48.11864678205565,"loads":2,"tripSum":55,"made":33.343466069167086,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[20,"press",32,33,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-2],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[21,"house",30,33,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[22,"house",34,33,"#f4a6b8",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[23,"farm",34,35,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"crop":"fruit","lux":0,"lv$":0,"lg":null,"fl":0}]],"fert":[69,71,75,75,71,66,65,65,65,69,81,90,88,84,88,98,104,103,95,81,68,62,60,58,52,48,44,40,40,40,40,40,40,40,40,40,40,50,59,66,74,80,80,70,60,61,70,72,59,40,40,40,40,40,40,40,40,40,42,55,68,81,95,111,76,76,77,77,74,70,70,71,72,73,79,83,82,81,86,94,100,99,90,77,65,58,56,56,55,54,49,43,40,40,40,40,40,40,40,40,40,51,63,72,77,80,79,72,65,66,71,70,58,42,40,40,40,40,40,40,40,40,42,54,65,78,92,107,88,86,83,81,79,78,79,82,84,80,72,68,69,73,79,86,90,89,80,68,60,54,51,54,62,65,59,51,45,40,40,40,40,40,40,40,40,54,72,83,83,80,79,77,76,76,74,67,56,47,40,40,40,40,40,40,40,40,43,52,62,73,87,101,97,94,89,86,85,85,84,87,88,80,67,58,60,65,70,74,76,75,68,62,59,57,56,60,70,73,65,57,52,49,46,41,40,40,40,40,45,62,81,91,89,83,82,83,84,84,79,69,57,50,45,40,40,40,40,44,45,45,47,54,62,72,83,95,102,101,99,97,91,85,82,81,77,68,57,50,52,57,60,60,60,58,56,56,61,70,76,76,75,70,65,62,61,58,53,49,48,49,49,52,60,73,87,94,94,93,94,91,87,86,84,76,61,45,40,40,40,40,44,53,55,52,51,56,61,69,79,90,104,106,108,107,95,81,76,70,61,52,44,41,43,49,51,49,45,43,45,50,61,80,92,88,75,63,62,67,71,67,60,58,62,67,67,69,76,86,94,96,99,104,105,96,86,85,87,82,63,40,40,40,40,40,46,61,64,58,54,56,59,65,74,85,101,103,105,103,91,76,70,63,53,43,40,40,40,42,45,42,40,40,40,46,57,77,91,86,71,60,61,70,76,75,70,70,76,82,82,84,89,96,102,102,103,106,105,95,84,84,86,82,63,40,40,40,40,40,50,66,68,62,56,57,59,63,71,80,92,90,87,84,79,74,69,60,50,42,40,40,40,43,46,43,40,40,41,47,57,72,83,79,66,56,58,64,72,77,81,85,89,91,92,92,95,102,110,110,106,102,99,93,87,86,85,79,65,47,40,40,47,52,58,63,63,60,58,58,61,64,71,78,81,76,68,64,66,69,66,57,48,43,40,40,40,48,51,48,43,42,45,50,56,67,75,71,59,51,52,57,66,78,90,100,104,104,104,103,102,107,117,117,107,97,91,89,88,87,83,77,70,60,55,59,66,69,64,58,57,57,57,58,61,65,70,77,73,69,61,57,59,61,58,51,45,45,44,44,46,52,54,52,50,49,50,51,53,61,67,63,52,45,47,54,65,82,101,116,123,125,125,122,118,117,122,119,106,93,85,81,81,80,79,78,76,73,71,73,75,73,64,55,54,56,58,58,59,61,64,71,72,69,64,60,58,55,50,46,44,48,54,57,56,52,50,53,60,61,57,52,51,56,60,56,45,40,43,52,65,88,114,135,143,145,145,144,138,132,128,121,104,85,75,72,72,72,73,75,80,85,88,84,75,66,56,49,48,55,62,60,54,51,54,62,73,71,67,64,59,52,47,44,44,50,60,66,61,51,46,54,66,69,62,53,50,53,57,53,41,40,40,51,65,91,122,145,150,150,150,150,150,140,132,122,103,80,68,66,66,67,69,74,81,92,98,90,73,60,51,44,45,55,64,62,51,44,48,56,68,68,66,65,60,53,48,48,51,55,59,62,59,52,48,54,64,66,60,53,51,55,59,55,43,40,42,54,68,90,118,140,150,150,150,150,147,135,124,113,97,78,68,66,66,67,69,74,81,91,96,91,78,67,57,49,49,57,64,61,52,46,50,59,59,62,67,69,65,58,54,60,67,66,59,53,53,54,55,58,61,62,59,55,54,61,67,63,51,45,51,62,75,92,111,130,150,150,150,150,138,123,107,94,83,74,68,67,67,68,71,75,79,87,93,92,88,84,75,64,63,64,64,59,53,50,54,65,60,65,74,79,77,71,68,75,82,75,60,49,51,57,62,65,67,67,66,64,64,72,78,74,63,58,66,77,89,101,113,129,150,150,150,148,132,115,95,81,74,71,70,70,72,72,74,75,76,82,87,90,94,97,92,83,81,78,72,63,55,51,55,68,73,76,84,90,90,87,85,90,93,82,64,52,56,67,76,80,81,82,83,83,83,86,89,87,81,80,89,101,112,118,124,134,150,150,150,145,125,107,89,75,72,76,79,80,80,80,78,75,72,75,80,85,91,100,104,104,103,97,85,72,61,55,57,67,89,89,93,98,102,103,101,105,105,92,71,59,66,82,95,99,98,98,102,106,105,101,99,99,100,103,112,125,135,135,132,138,150,150,150,140,117,99,83,70,73,85,91,90,88,87,81,74,69,70,75,80,88,100,114,123,123,114,99,82,69,62,60,65,99,99,102,108,112,114,112,116,116,102,83,71,78,94,108,112,111,111,115,120,118,113,109,109,111,115,123,134,142,140,135,139,150,150,150,136,113,96,80,68,72,86,93,92,89,87,81,73,69,71,77,84,92,106,123,134,135,126,109,90,76,67,63,66,105,108,116,122,124,121,119,121,120,110,98,91,93,100,109,117,122,123,123,123,120,117,116,115,112,114,120,128,134,137,139,141,144,146,143,132,117,101,84,72,73,81,86,84,80,79,74,68,65,68,75,87,103,120,133,138,139,134,122,104,89,78,73,75,109,115,126,134,130,123,120,121,119,113,110,110,107,104,109,121,132,134,130,123,118,116,117,114,109,109,116,121,125,134,143,143,134,125,125,125,120,107,91,78,75,77,78,74,70,68,64,59,58,63,72,89,112,132,140,140,139,140,136,122,107,95,89,89,110,116,126,132,126,118,115,117,118,115,115,116,113,110,116,129,140,142,136,127,118,114,113,111,106,109,118,124,127,135,142,138,125,114,114,117,116,108,96,85,80,79,77,69,63,61,59,56,56,61,71,88,113,134,142,142,142,145,145,135,125,114,105,100,108,112,118,121,116,109,107,111,113,113,115,118,117,118,126,138,146,147,142,132,120,111,107,106,104,110,121,129,132,137,141,135,120,109,108,109,107,105,104,97,91,86,81,69,58,57,58,59,59,61,69,85,106,126,139,144,145,146,145,141,138,131,119,108,106,108,112,113,109,103,101,106,110,111,115,118,118,123,133,143,149,149,145,136,122,110,103,103,103,110,123,133,136,139,141,134,119,108,106,104,101,104,109,106,99,92,85,69,56,55,59,63,62,62,68,83,100,119,135,145,147,146,143,141,143,139,126,111,111,112,112,112,109,105,103,106,109,109,112,114,116,122,132,140,143,143,139,131,118,106,100,100,103,112,123,131,133,135,135,128,116,107,106,103,101,103,107,104,96,90,83,70,58,57,59,61,61,62,70,84,101,120,137,148,150,148,145,143,143,138,124,108,126,122,114,112,112,111,110,109,107,105,104,104,109,120,130,130,124,122,119,114,105,95,89,93,103,114,120,122,123,121,117,112,108,105,105,103,101,99,99,94,88,84,78,70,63,61,57,54,58,66,76,90,106,122,140,150,150,150,149,145,139,131,116,99,138,130,118,114,116,118,117,113,108,104,101,99,104,116,122,115,103,98,98,97,92,86,82,87,100,109,109,106,106,104,100,100,103,105,105,103,99,94,90,84,79,77,71,66,62,60,53,51,60,72,84,97,111,123,138,150,150,150,147,142,133,123,110,93,139,135,128,126,127,128,126,123,119,112,104,99,101,106,105,95,82,78,80,84,84,82,80,82,88,91,91,91,93,92,91,96,105,112,111,105,97,90,86,80,74,69,62,56,53,53,53,59,70,81,92,104,117,126,132,137,137,135,131,127,124,119,108,96,136,137,138,140,139,137,135,134,131,122,106,95,94,90,83,73,65,61,65,72,76,76,75,74,72,69,71,80,86,85,85,94,110,122,120,109,96,89,85,81,72,62,54,48,45,46,57,72,84,89,95,109,125,132,126,118,116,114,111,111,118,120,112,104,130,132,136,139,138,135,133,132,130,120,102,90,87,80,70,60,53,49,53,60,65,65,64,63,58,53,58,70,78,79,79,90,109,123,121,108,94,87,84,81,71,60,53,47,44,46,60,78,89,92,95,109,125,132,122,108,105,105,103,105,116,123,117,112,120,119,117,118,118,117,116,115,114,109,101,96,93,84,72,60,50,44,42,44,49,55,59,58,53,49,51,60,68,74,81,93,105,113,111,101,90,84,80,76,70,64,57,49,43,45,61,80,91,95,99,111,125,131,122,108,106,108,110,113,123,129,124,117,108,102,93,90,92,94,93,94,95,97,103,107,103,92,78,62,48,40,40,40,40,49,59,58,53,49,48,51,58,71,86,99,102,101,100,95,88,82,77,72,71,69,63,50,41,43,61,82,94,99,104,115,127,134,126,113,111,117,123,125,132,137,133,122,94,88,77,73,75,77,77,79,84,91,103,110,105,92,75,58,42,40,40,40,40,43,54,52,48,44,44,47,54,69,86,99,100,98,97,94,90,85,80,76,75,74,66,53,42,44,61,81,93,100,105,115,128,136,131,122,120,126,131,134,141,146,142,132,82,77,67,63,67,72,72,74,79,90,104,113,105,84,62,46,40,40,40,40,40,40,41,40,40,40,40,45,55,69,84,96,98,95,95,96,94,90,85,81,77,71,61,54,52,53,60,73,86,96,103,112,123,132,137,138,138,138,139,140,143,147,147,143,76,71,62,58,65,73,74,73,77,90,106,115,104,76,52,40,40,40,40,40,41,40,40,40,40,40,40,45,56,69,83,94,96,93,94,97,98,94,87,82,76,66,55,55,60,61,59,65,79,93,102,109,118,128,140,150,150,147,143,143,143,144,148,150,74,71,64,61,67,74,74,72,75,87,104,113,103,78,55,41,40,40,40,40,42,40,40,40,40,40,40,46,57,69,83,94,96,94,94,96,96,93,88,84,77,67,56,56,62,62,60,65,79,92,100,108,117,127,138,148,149,145,141,142,143,146,149,150,72,72,72,72,74,76,75,70,69,79,94,103,99,86,71,56,45,40,40,40,44,40,40,40,46,49,48,51,58,70,84,94,97,96,95,92,89,89,91,90,82,70,61,61,65,66,65,70,81,91,97,105,116,123,127,129,129,130,132,137,146,150,150,150,74,77,82,85,85,83,80,72,67,72,84,93,93,90,82,70,59,53,49,49,51,48,44,48,60,66,61,57,61,71,83,92,95,94,92,86,81,84,91,94,87,75,69,72,76,76,76,80,87,93,96,102,111,114,110,105,105,110,118,129,145,150,150,150,85,87,91,93,93,92,88,79,72,72,80,85,85,85,82,74,66,62,61,62,64,59,55,59,70,75,68,62,62,71,82,88,88,86,85,83,82,86,92,96,92,87,85,90,95,95,92,92,98,103,105,105,104,99,92,87,87,91,100,116,138,150,150,150,101,100,99,99,99,96,92,86,81,77,78,79,79,79,78,73,67,66,70,76,79,73,67,72,83,86,76,65,62,70,81,85,81,75,77,84,90,94,98,101,102,104,107,111,115,114,108,105,109,118,121,111,95,81,75,75,75,74,79,100,130,150,150,150,111,109,104,104,102,98,93,89,84,78,76,76,76,76,77,74,71,72,80,90,94,88,83,87,97,99,86,71,65,71,80,82,75,68,71,82,92,96,100,104,109,115,120,125,128,127,119,113,116,125,127,112,86,67,62,64,64,60,64,87,121,146,150,150,120,116,110,107,105,102,96,90,83,78,75,74,75,78,80,76,72,75,89,104,111,107,101,103,106,103,92,83,77,75,76,73,66,61,63,74,85,90,94,100,107,114,121,126,129,128,124,119,118,118,115,99,76,57,50,49,48,48,55,78,108,131,140,145,133,127,117,109,107,105,99,90,82,78,76,75,77,81,83,77,69,73,94,117,128,125,120,119,113,104,98,97,92,81,69,62,55,51,53,64,76,83,87,92,102,110,116,121,123,124,124,122,114,104,94,79,62,46,40,40,40,40,46,67,91,111,123,133,146,139,125,112,106,102,94,86,80,79,79,79,81,84,83,74,65,71,96,124,141,142,139,136,127,114,108,109,103,87,69,57,48,42,45,56,70,80,86,93,103,111,115,118,120,121,121,116,105,90,76,61,45,40,40,40,40,40,40,55,77,95,109,122,150,149,132,116,103,92,84,80,79,81,81,81,81,80,77,69,65,74,98,126,148,150,150,150,146,129,121,119,111,94,74,58,45,40,40,48,62,77,90,102,108,110,111,118,124,123,117,106,93,79,65,47,40,40,40,40,40,40,40,51,68,83,99,114,150,150,137,119,100,84,76,75,80,83,82,80,79,75,69,65,66,77,99,126,150,150,150,150,150,139,130,126,116,99,79,62,46,40,40,43,55,74,94,109,112,108,107,117,128,127,114,97,84,73,60,40,40,40,40,40,40,40,40,53,64,75,93,110,150,150,137,119,100,85,76,75,79,82,81,79,78,75,69,66,68,79,99,124,148,150,150,150,150,142,131,125,115,98,78,62,47,40,40,45,57,75,94,108,112,108,108,118,127,126,113,96,83,72,58,40,40,40,40,40,40,40,40,53,63,74,92,109,143,140,131,117,103,92,83,79,77,78,77,75,76,75,73,72,76,85,98,115,135,150,150,150,150,145,131,117,105,89,72,59,52,50,52,58,69,81,90,100,108,113,116,119,122,120,110,96,83,70,56,40,40,40,40,40,40,40,40,48,60,74,90,105,124,125,122,113,104,98,91,82,75,72,70,68,70,74,78,80,86,93,99,106,119,131,137,140,144,142,128,110,96,84,70,61,62,67,69,75,83,88,87,92,105,118,122,121,119,117,110,100,88,74,59,45,40,40,40,40,40,40,40,46,57,71,85,99],"nextFlight":null,"twin":false,"village":null,"eraT0":2374.693760000033,"booba":null,"story":{"layout":3,"ch":4,"step":0,"prog":0,"fam":13,"letters":[{"key":"letter1","day":1,"vars":{"d":"Ayd\\u0131n"}},{"key":"letter2","day":2,"vars":{"d":"Ayd\\u0131n"}},{"key":"letter3","day":4,"vars":{"d":"Nov\\u00e1k"}},{"key":"letter4","day":5,"vars":{"d":"Nov\\u00e1k"}}],"photos":[],"tools":["shack","farm","road1","fishery","market","clinic","park","house","school","distillery","cantina","press"],"sold":20,"newLetters":0,"started":1790688701584,"waitFrom":null,"choice":null,"seen":1790689001890,"soldValue":690.328249680288,"shortage":false,"flood":false,"resting":false,"yearSeen":1926,"ditches":[],"fnDone":"sick","sickN":7,"docFam":"Nov\\u00e1k","council":{"farmers":23,"fishers":12,"merchants":27},"decisions":[{"ch":3,"label":"s4_a1a"},{"ch":3,"label":"s4_a2a"},{"ch":3,"label":"s4_a3a"},{"ch":3,"label":"s4_q1a"},{"ch":3,"label":"prA"}],"laws":{"vote":"all","term":4,"child":"school","pressOwner":"free"},"charter":true,"press":"free","votePct":94,"mayor":true,"terms":1,"lastVoteYear":1912},"classic":false,"noPortCap":false,"econ":{"mkt":{"m":{"fruit":1.0488149563975875,"sugar":1.182483323294051,"cotton":1.035413367017254,"grapes":1.0638285989453211,"plums":1.0963905483688574,"wood":0.9646439900466266,"fish":1.0282259813509684,"gold":0.9360247593544294,"crafts":0.9322055075259081,"goods":0.9201768450234393,"rum":0.9394157526385041,"wine":1.0336428397830644,"slivo":0.929176556560146,"coal":1.0139352203419347,"gas":1.0581179648778958,"canned":1.0032223585932356,"garments":1.0440114357114643,"furniture":0.8637356961264608},"hist":{"fruit":[1.82,1.83,1.74,1.78],"sugar":[1.7,1.78,1.77,1.89],"cotton":[1.93,2.1,2.06,2.07],"grapes":[1.65,1.75,1.86,1.91],"plums":[1.46,1.47,1.55,1.64],"wood":[1.67,1.58,1.54,1.54],"fish":[1.85,1.81,1.91,1.75],"gold":[38.99,40.43,39.88,37.44],"crafts":[1.79,1.84,1.71,1.77],"goods":[1.79,1.8,1.74,1.75],"rum":[4.52,4.54,4.2,4.13],"wine":[4.6,4.97,4.92,4.96],"slivo":[4.66,4.61,4.53,4.65],"coal":[1.18,1.16,1.19,1.22],"gas":[1.74,1.73,1.8,1.69],"canned":[3.86,3.75,3.98,4.01],"garments":[4.75,4.55,4.67,4.8],"furniture":[4.24,4.19,4.06,3.8]}},"peso":1.0206884147787807,"pesoHist":[1.005,1.01,1.015,1.021],"gold":60,"crises":[],"policy":{"imports":true,"liquorTax":false,"keepGold":true},"alc":0.012401,"felled":[],"pwOn":false,"wind":0.8617121038725599,"pwStart":null},"cits":[[13,2,1,78,9.9,445,1064,0,31,4,1,0,0,"Santos"],[14,2,1,78,9.9,421,1054,0,9,4,1,0,0,"Santos"],[15,2,1,78,9.9,441,1032,0,354,4,0,0,0,"Santos"],[16,2,1,78,9.9,397,992,0,346,4,1,0,0,"Santos"],[17,3,1,78,9.9,458,1029,0,217,4,1,0,0,"Y\\u0131lmaz"],[18,3,1,78,9.9,474,1007,0,204,4,1,0,0,"Y\\u0131lmaz"],[19,3,5,76,27.7,459,1067,0,82,3,0,0,0,"Y\\u0131lmaz"],[20,3,5,78,19.9,411,1011,0,294,4,0,0,0,"Y\\u0131lmaz"],[21,4,5,78,19.9,469,1063,0,63,4,1,0,0,"Kov\\u00e1\\u010d"],[22,4,5,78,19.9,456,1071,0,297,4,1,0,0,"Kov\\u00e1\\u010d"],[23,4,5,78,19.9,443,1077,0,208,4,1,0,0,"Kov\\u00e1\\u010d"],[24,4,5,78,19.9,479,1038,0,289,4,0,0,0,"Kov\\u00e1\\u010d"],[25,6,9,72,-1,463,1051,0,259,4,1,1,0,"Rivera"],[26,6,8,72,34.3,436,999,0,359,4,1,0,0,"Rivera"],[27,6,9,78,-1,398,1074,0,145,4,1,0,0,"Rivera"],[28,6,8,70,37.1,409,1002,0,159,3,1,0,0,"Rivera"],[29,7,8,73,32.9,461,1048,0,216,0,0,0,0,"Demir"],[30,7,11,78,13,450,1023,0,324,4,1,0,0,"Demir"],[31,7,8,73,33,423,1059,0,2,3,0,0,0,"Demir"],[32,7,9,78,3,436,997,0,179,4,1,0,0,"Demir"],[33,10,18,75,37.9,446,1002,0,229,0,1,0,0,"Mendoza"],[34,10,11,84,13.2,473,1005,0,214,4,1,0,0,"Mendoza"],[35,10,19,78,34.9,432,1065,0,98,0,0,0,0,"Mendoza"],[36,10,19,76,37.6,398,1037,0,85,3,0,0,0,"Mendoza"],[37,10,11,84,16.7,407,1047,0,239,4,1,0,0,"Mendoza"],[38,10,11,84,13,469,1012,0,8,4,1,0,0,"Mendoza"],[39,12,11,84,3,456,992,0,255,4,2,0,0,"Nov\\u00e1k"],[40,12,11,84,3,476,1062,0,119,4,1,0,0,"Nov\\u00e1k"],[41,12,19,79,29.3,425,1051,0,133,0,1,0,0,"Nov\\u00e1k"],[42,12,20,84,10,442,1020,0,350,4,1,0,0,"Nov\\u00e1k"],[43,12,null,62,-1,412,1051,0,237,-1,1,0,0,"Nov\\u00e1k"],[44,12,19,78,31.4,407,1022,0,209,0,1,0,0,"Nov\\u00e1k"],[45,13,20,84,10,440,1010,0,138,4,1,0,0,"Ayd\\u0131n"],[46,13,18,80,29.2,453,1004,0,28,0,1,0,0,"Ayd\\u0131n"],[47,13,19,76,34.2,419,1007,0,124,3,1,0,0,"Ayd\\u0131n"],[48,13,19,80,28.7,449,998,0,260,0,1,0,0,"Ayd\\u0131n"],[49,13,18,83,26.2,448,1047,0,267,4,1,0,0,"Ayd\\u0131n"],[50,13,18,83,26.2,430,1002,0,117,4,1,0,0,"Ayd\\u0131n"],[51,14,null,62,-1,475,1048,0,267,-1,1,0,0,"Castillo"],[52,14,17,83,24,440,1057,0,104,0,1,0,0,"Castillo"],[53,14,null,62,-1,425,1014,0,85,-1,1,0,0,"Castillo"],[54,14,null,62,-1,464,1064,0,244,-1,0,0,0,"Castillo"],[55,14,20,84,10,417,1005,0,37,4,1,0,0,"Castillo"],[56,14,null,62,-1,434,995,0,346,-1,1,0,0,"Castillo"],[57,15,18,84,-1,427,1002,0,282,4,1,0,0,"Horv\\u00e1th"],[58,15,null,62,-1,451,1075,0,79,-1,1,0,0,"Horv\\u00e1th"],[59,15,17,83,25.2,391,1015,0,205,0,0,0,0,"Horv\\u00e1th"],[60,15,19,84,3.1,415,998,0,138,4,1,0,0,"Horv\\u00e1th"],[61,15,23,62,-1,443,1001,0,259,3,0,0,0,"Horv\\u00e1th"],[62,15,18,84,-1,444,994,0,218,4,1,0,0,"Horv\\u00e1th"],[63,16,17,84,3.1,424,992,0,36,4,1,0,0,"Kaya"],[64,16,19,78,32.6,476,1043,0,214,0,1,0,0,"Kaya"],[65,16,23,62,2.8,421,1034,0,247,4,0,0,0,"Kaya"],[66,16,null,62,-1,436,1011,0,330,-1,1,0,0,"Kaya"],[67,16,null,62,-1,392,1001,0,135,-1,1,0,0,"Kaya"],[68,16,23,62,2.8,437,1008,0,327,4,1,0,0,"Kaya"],[69,21,null,70,-1,423,1020,0,265,-1,1,0,0,"Morales"],[70,21,null,70,-1,420,1052,0,92,-1,1,0,0,"Morales"],[71,21,null,70,-1,393,1049,0,44,-1,1,0,0,"Morales"],[72,21,null,70,-1,392,1055,0,87,-1,1,0,0,"Morales"],[73,21,null,70,-1,460,1000,0,312,-1,1,0,0,"Morales"],[74,21,23,70,-1,415,1058,0,285,4,1,0,0,"Morales"],[75,22,null,70,-1,455,1025,0,277,-1,1,0,0,"Bal\\u00e1\\u017e"],[76,22,null,70,-1,446,1026,0,297,-1,1,0,0,"Bal\\u00e1\\u017e"],[77,22,null,70,-1,438,1049,0,244,-1,1,0,0,"Bal\\u00e1\\u017e"],[78,22,null,70,-1,432,990,0,238,-1,1,0,0,"Bal\\u00e1\\u017e"],[79,22,23,70,-1,479,1027,0,247,4,1,0,0,"Bal\\u00e1\\u017e"],[80,22,23,70,-1,425,1061,0,257,4,1,0,0,"Bal\\u00e1\\u017e"]],"nextId":24,"citId":81,"dockId":1,"berth":{"x":32,"y":37.6},"history":[{"day":1,"pop":20,"happy":70,"commute":14.513700000000034,"trips":24,"exports":115.78734527676488,"commerce":70,"taxes":38.5,"upkeep":9.35,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":595,"net":214.9373452767649,"fares":0,"modes":{"car":0,"bus":0,"tram":0,"bike":0,"walk":12},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"shack":5,"farm":1,"road":11,"fishery":1,"market":1},"employed":19,"housing":20,"jobs":19,"crashes":0,"rainy":false,"upk":{"roads":2.2499999999999996,"bridges":0,"homes":1.5,"work":1.6,"services":1,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fruit":115.78734527676488},"commerceBy":{},"air":null,"delay":13.76926851272583,"trade":115.78734527676488,"peso":1.0045112826283733,"gold":60,"alc":0.017},{"day":2,"pop":32,"happy":66.31250000000001,"commute":17.900094117646898,"trips":34,"exports":175.38468284542546,"commerce":131.20700399999996,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":488,"net":344.64168684542545,"fares":0,"modes":{"car":2,"bus":0,"tram":0,"bike":0,"walk":17},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":2,"clinic":1,"road":2},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":true,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fruit":116.30941032817981,"fish":59.07527251724565},"commerceBy":{"market":21.207003999999962},"air":null,"delay":31.074433697387576,"trade":175.38468284542546,"peso":1.010353494433854,"gold":60,"alc":0.0149},{"day":3,"pop":32,"happy":67.00001200000003,"commute":15.666666666666666,"trips":42,"exports":145.11943517288242,"commerce":21.210000000000072,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":0,"net":204.3794351728825,"fares":0,"modes":{"car":1,"bus":0,"tram":0,"bike":4,"walk":18},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":false,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":57.59398767117109,"fruit":87.52544750171134},"commerceBy":{"market":21.210000000000072},"air":null,"delay":23.404140903759526,"trade":145.11943517288242,"peso":1.0150531687561333,"gold":60,"alc":0.013430000000000001},{"day":4,"pop":56,"happy":69.2201453257143,"commute":22.397590243903156,"trips":82,"exports":194.75791251780845,"commerce":21.196196000000064,"taxes":95.5,"upkeep":37,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":1998,"net":274.45410851780855,"fares":0,"modes":{"car":14,"bus":0,"tram":0,"bike":3,"walk":28},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":4,"road":7,"townhall":1,"school":1,"distillery":1,"press":1},"employed":45,"housing":56,"jobs":43,"crashes":0,"rainy":true,"upk":{"roads":6.300000000000003,"bridges":0,"homes":5.1,"work":9.6,"services":13,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":60.849387871749684,"rum":133.90852464605877},"commerceBy":{"market":21.196196000000064},"air":null,"delay":350.02583170662183,"trade":194.75791251780845,"peso":1.0206884147787807,"gold":60,"alc":0.012401}],"notes":{"freight":659.5272000000008,"storm":2413.0929600000395,"peak":3420.3324800000323,"chains":5034.45168000008,"modeshift":5760.85168000008},"hourly":[0,0,0,0,0,0,7,13,8,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hourlyPrev":[0,0,0,0,0,0,3,8,12,11,0,1,0,2,1,1,14,14,11,0,0,0,0,0],"dayAcc":{"exportsBy":{"fish":27.701022312745422,"rum":65.57785155466141},"commerceBy":{"market":8.09189733333332},"importsBy":{},"imports":0,"liquor":0,"air":null,"exports":93.27887386740683,"commerce":8.09189733333332,"build":360,"trips":43,"tripTime":720.5999999999967,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"crashes":0,"fares":0,"gaveUp":0,"modes":{"car":10,"bus":0,"tram":0,"bike":6,"walk":35},"graduates":1},"built":{"house":2,"farm":1},"avgHappy":75.90965003611436,"completed":false,"completeDay":null,"events":[],"bottlenecks":[{"i":2079,"x":31,"y":32,"delay":115.05460357666016,"peak":2.6363635063171387,"name":"Dirt Track"}],"lastReport":{"rec":{"day":4,"pop":56,"happy":69.2201453257143,"commute":22.397590243903156,"trips":82,"exports":194.75791251780845,"commerce":21.196196000000064,"taxes":95.5,"upkeep":37,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":1998,"net":274.45410851780855,"fares":0,"modes":{"car":14,"bus":0,"tram":0,"bike":3,"walk":28},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":4,"road":7,"townhall":1,"school":1,"distillery":1,"press":1},"employed":45,"housing":56,"jobs":43,"crashes":0,"rainy":true,"upk":{"roads":6.300000000000003,"bridges":0,"homes":5.1,"work":9.6,"services":13,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":60.849387871749684,"rum":133.90852464605877},"commerceBy":{"market":21.196196000000064},"air":null,"delay":350.02583170662183,"trade":194.75791251780845,"peso":1.0206884147787807,"gold":60,"alc":0.012401},"prev":{"day":3,"pop":32,"happy":67.00001200000003,"commute":15.666666666666666,"trips":42,"exports":145.11943517288242,"commerce":21.210000000000072,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":0,"net":204.3794351728825,"fares":0,"modes":{"car":1,"bus":0,"tram":0,"bike":4,"walk":18},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":false,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":57.59398767117109,"fruit":87.52544750171134},"commerceBy":{"market":21.210000000000072},"air":null,"delay":23.404140903759526,"trade":145.11943517288242,"peso":1.0150531687561333,"gold":60,"alc":0.013430000000000001}}}';
 const GF = { on: false, sub: { hall: "council", people: "groups", money: "budget" }, sel: null, law: null, lawPick: null, voteRes: null, lastShipT: -1, shipToastAt: 0, noLotAt: 0 };
 const GF_TABS = [["goals", "Goals"], ["hall", "Town hall"], ["people", "People"], ["money", "Money"], ["stats", "City"], ["lines", "Transit"], ["inspect", "Info"]];
 const STD_TABS = [["goals", "Goals"], ["stats", "Stats"], ["economy", "Money"], ["lines", "Lines"], ["notes", "Notes"], ["inspect", "Info"], ["booba", "Booba"]];
 const ROMAN = ["", "I", "II", "III", "IV", "V"];
+const GF_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const govFullOn = () => !!(GF.on && G && govOn(G) && !ST.on);
 const gfGo = (x, y, z, lens) => {
   View.cam.x = (x + 0.5) * TILE;
@@ -26862,8 +27003,21 @@ const gfGo = (x, y, z, lens) => {
 };
 const gfPct = (v) => Math.round(clamp(v, 0, 1) * 100);
 const gfSign = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(Math.round(v));
+function govPace(G2) {
+  const V = G2.gov;
+  if (!V || V.days === GOV_DAYS) return;
+  const yrs = (G2.t - V.t0) / ((V.days || 2) * 1440);
+  V.t0 = G2.t - yrs * GOV_DAYS * 1440;
+  V.days = GOV_DAYS;
+  V._hr = null;
+}
 function govEnterFull(G2, welcome) {
+  govPace(G2);
   civInit(G2);
+  if (!G2.pwOn) {
+    G2.pwOn = true;
+    G2.pwStart = null;
+  }
   ST.lang = "en";
   GF.on = true;
   GF.sel = null;
@@ -26944,7 +27098,7 @@ function gfTabs(gov) {
 }
 function gfWelcome(G2) {
   const S = G2.story, L = G2.gov.laws;
-  modal('<span class="label">'.concat(govY(G2), " · Isla Nueva</span><h2>The island is yours").concat(S.name ? ", " + esc(S.name) : "", '</h2>\n    <ul class="gf-list"><li><b>Two days make a year.</b> Speed and pause are in the top bar.</li>\n    <li><b>You are the Mayor.</b> Roads, ports and public buildings come out of the town’s treasury: taxes and the town’s own enterprises.</li>\n    <li><b>Families build with their own savings</b> on lots along your streets, and ask you for a permit. Lay out streets and they will fill them.</li>\n    <li><b>A council of nine</b> votes on taxes and laws. The island elects it every ').concat(L.term, ' years.</li>\n    <li><b>Newcomers arrive by ship</b> from Galicia, the Levant, Jamaica and further. Their churches, unions and societies will petition you, and remember what you did.</li></ul>\n    <div class="btnrow"><button class="primary" id="mOk">Let’s go</button></div>'), (m) => {
+  modal('<span class="label">'.concat(govY(G2), " · Isla Nueva</span><h2>The island is yours").concat(S.name ? ", " + esc(S.name) : "", '</h2>\n    <ul class="gf-list"><li><b>A day makes a year:</b> from one sunrise to the next. Speed and pause are in the top bar.</li>\n    <li><b>You are the Mayor.</b> Roads, ports and public buildings come out of the town’s treasury: taxes and the town’s own enterprises.</li>\n    <li><b>Families build with their own savings</b> on lots along your streets, and ask you for a permit. Lay out streets and they will fill them.</li>\n    <li><b>A council of nine</b> votes on taxes and laws. The island elects it every ').concat(L.term, ' years.</li>\n    <li><b>Newcomers arrive by ship</b> from Galicia, the Levant, Jamaica and further. Their churches, unions and societies will petition you, and remember what you did.</li>\n    <li><b>Electricity has come.</b> Rented diesel generators light the island for about three years. Workshops and factories need a power plant behind them: build one before the diesel goes back.</li></ul>\n    <div class="btnrow"><button class="primary" id="mOk">Let’s go</button></div>'), (m) => {
     m.querySelector("#mOk").onclick = closeModal;
   });
 }
@@ -27009,6 +27163,10 @@ function gfWelcome(G2) {
 }
 function govFullTick() {
   govTick(G);
+  if (UI.pend && performance.now() - (GF.barAt || 0) > 400) {
+    GF.barAt = performance.now();
+    gfBuildBar();
+  }
   const C = G.civ;
   if (!C) return;
   const sh = C.lastShip;
@@ -27051,7 +27209,12 @@ function gfEvent(G2, e, story) {
       if (!q) return;
       Music.sfx("ding");
       UI.goalsBadge = UI.tab !== "goals";
-      toast({ title: "A permit request", body: "The ".concat(q.fam, " family wants to build a ").concat(BLD[q.type].name.toLowerCase(), " with their own ").concat(fmtMoney(q.cost), "."), tone: "report", timeout: 7e3, actions: [["Look", () => {
+      const nq = V.req.length;
+      toast({ key: "req", title: nq > 1 ? "".concat(nq, " permit requests") : "A permit request", body: "".concat(nq > 1 ? "Newest: t" : "T", "he ").concat(q.fam, " family wants to build a ").concat(BLD[q.type].name.toLowerCase(), " with their own ").concat(fmtMoney(q.cost), ".").concat(nq > 1 ? " The others wait in Goals." : ""), tone: "report", timeout: 7e3, actions: nq > 1 ? [["Goals", () => gfOpen("goals")], ["Look", () => {
+        GF.sel = { k: "req", id: q.id };
+        gfGo(q.x, q.y, 1.6);
+        gfOpen("inspect");
+      }]] : [["Look", () => {
         GF.sel = { k: "req", id: q.id };
         gfGo(q.x, q.y, 1.6);
         gfOpen("inspect");
@@ -27124,6 +27287,33 @@ function gfEvent(G2, e, story) {
     case "c_strike":
       gfStrike(G2);
       return;
+    case "c_lapsed": {
+      const p = civPet(G2, e.id);
+      if (!p) return;
+      const D = ORGS[p.org];
+      toast({ title: "No answer is an answer", body: "The ".concat(D.short || D.name, " waited a year for a reply to “").concat(civPetTitle(G2, p), "” and took it as a no."), tone: "bad", timeout: 8e3 });
+      return;
+    }
+    case "built": {
+      const b = G2.blds.get(e.id);
+      if (!b) return;
+      const d = BLD[b.type];
+      Music.sfx("ding");
+      toast({ title: "".concat(d.name, " is open"), body: d.housing ? "Room for ".concat(d.housing, " people.") : d.jobs ? "".concat(d.jobs, " jobs are open").concat(d.power ? "; ".concat(d.power.mw, " MW for the grid") : "", ".") : d.service ? "Homes within ".concat(d.radius, " tiles are served now.") : "Ready.", tone: "good", timeout: 6e3, actions: [["Show", () => {
+        GF.sel = null;
+        UI.selected = b.id;
+        gfGo(b.x, b.y, 1.6);
+        gfOpen("inspect");
+      }]] });
+      return;
+    }
+    case "c_strikeEnd":
+      if (e.how === "law") {
+        Music.sfx("cash");
+        toast({ title: "The strike is over", body: "The council gave the union ".concat(civAskText(e.ask), ". The harbor and the factories are back at work today."), tone: "good", timeout: 9e3 });
+      } else toast({ title: "The strike is over", body: "After half a year the workers went back".concat(e.ask ? " without ".concat(civAskText(e.ask), ". The union will not forget it") : "", "."), tone: "report", timeout: 9e3 });
+      UI.panelSig = "";
+      return;
   }
   story(G2, e);
 }
@@ -27155,9 +27345,9 @@ function gfStrike(G2) {
   GF.modalLock = true;
   govPause();
   Music.sfx("error");
-  const ask = G2.gov.laws.hours === 12 ? "a ten-hour working day" : "a minimum wage";
+  const a = civStrikeAsk(G2), ask = civAskText(a), why = civStrikeWhy(G2), sc = Math.round(civOrgScore(G2, "union"));
   modal(
-    '<span class="label">'.concat(govY(G2), " · Union</span><h2>General strike</h2><p>The Dockers’ and Workers’ Union has called everyone out. The harbor, the factories and the canneries stand still. They want ").concat(ask, '.</p>\n    <div class="gf-choices"><button class="gf-choice" data-k="0"><b>Negotiate</b><small>A one-off payment of ').concat(fmtMoney(cost), " from the treasury, and your promise to put ").concat(ask, ' to the council. Work resumes at once.</small></button>\n    <button class="gf-choice" data-k="1"><b>Wait it out</b><small>Industry and the port run at a third for half a year. Employers are grateful; workers are not.</small></button></div>'),
+    '<span class="label">'.concat(govY(G2), " · Union</span><h2>General strike</h2><p>The Dockers’ and Workers’ Union has called everyone out. The harbor, the factories and the canneries stand still. They want ").concat(ask, '.</p>\n    <div class="gf-why"><span class="label">Why they walked out · union mood ').concat(gfSign(sc), " (a strike comes below −22)</span>").concat(why.map(([t, v]) => '<div class="gf-wl"><span>'.concat(t, '</span><b class="neg">').concat(gfSign(v), "</b></div>")).join(""), '</div>\n    <p class="gf-end"><b>What ends it:</b> ').concat(a ? "the council passing ".concat(ask, " (Town hall → Laws) ends the strike the same day, or") : "", ' a deal now, or half a year of waiting.</p>\n    <div class="gf-choices"><button class="gf-choice" data-k="0"><b>Negotiate</b><small>A one-off payment of ').concat(fmtMoney(cost), " from the treasury, and your promise to put ").concat(ask, ' to the council. Work resumes at once.</small></button>\n    <button class="gf-choice" data-k="1"><b>Wait it out</b><small>Industry and the port run at a third until ').concat(a ? "".concat(ask, " passes, or ") : "", "half a year is over. Employers are grateful; workers are not.</small></button></div>"),
     (m) => {
       for (const b of m.querySelectorAll("[data-k]")) b.onclick = () => {
         GF.modalLock = false;
@@ -27173,7 +27363,7 @@ function gfStrike(G2) {
 function govFullHud() {
   const V = G.gov, y = govY(G), s = govStage(G);
   $("#eraChip").textContent = "".concat(ROMAN[s], " · ").concat(gStageName(s));
-  $("#clockDay").textContent = "".concat(y, " · ").concat(govYF(G) < 0.5 ? "first half" : "second half");
+  $("#clockDay").textContent = "".concat(y, " · ").concat(GF_MONTHS[clamp(Math.floor(govYF(G) * 12), 0, 11)]);
   let yb = $("#hudYear");
   if (!yb) {
     yb = el("i", "gf-yearbar");
@@ -27297,8 +27487,9 @@ function gfGoalsHTML() {
   const V = G.gov, s = govStage(G), items = govGoalItems(G), met = govGoalsMet(G), next = s < 5 ? gStageName(s + 1) : null;
   const lead = st("g_stageB" + s);
   let h = '<div><span class="label">Stage '.concat(ROMAN[s], " · ").concat(govY(G), "</span><h2>").concat(gStageName(s), "</h2>").concat(lead !== "g_stageB" + s ? "<p>".concat(lead, "</p>") : "", "</div>");
+  if (typeof gfAdviceHTML === "function") h += gfAdviceHTML();
   if (next) {
-    h += '<div class="gf-sec"><span class="label">To become '.concat(next, "</span>").concat(items.map((i) => '<div class="goal"><span class="gl">'.concat(st("g_goal_" + i.key), '</span><span class="gv ').concat(i.ok ? "ok" : "", '">').concat(i.txt, '</span><div class="bar ').concat(i.ok ? "ok" : "", '"><i style="width:').concat(gfPct(i.frac || 0), '%"></i></div></div>')).join(""), "</div>");
+    h += '<div class="gf-sec"><span class="label">To become '.concat(next, "</span>").concat(items.map((i) => '<div class="goal"><span class="gl">'.concat(st("g_goal_" + i.key), '</span><span class="gv ').concat(i.ok ? "ok" : "", '">').concat(i.txt, '</span><div class="bar ').concat(i.ok ? "ok" : "", '"><i style="width:').concat(gfPct(i.frac || 0), '%"></i></div>').concat(!i.ok && typeof gfGoalHow === "function" ? '<small class="gf-sub">'.concat(gfGoalHow(i.key), "</small>") : "", "</div>")).join(""), "</div>");
     h += met ? '<button class="primary" id="gfAdv">Move on: '.concat(next, "</button>") : "";
   } else h += "<p>".concat(st("g_stage5more"), "</p>");
   const on = civOpenPets(G);
@@ -27314,8 +27505,8 @@ function gfGoalsHTML() {
   if (V.req.length) h += '<div class="gf-sec"><span class="label">Permits waiting · '.concat(V.req.length, "</span>").concat(V.req.map(gfReqCard).join(""), '<label class="pol"><input type="checkbox" id="gfAuto" ').concat(V.auto ? "checked" : "", "><span><b>Approve family plans automatically</b><small>Every home and business a family can pay for goes ahead.</small></span></label></div>");
   else h += '<label class="pol"><input type="checkbox" id="gfAuto" '.concat(V.auto ? "checked" : "", "><span><b>Approve family plans automatically</b><small>Every home and business a family can pay for goes ahead.</small></span></label>");
   if (G.civ && G.civ.noLot >= 2) h += '<div class="issue s2"><b>No free lots along the streets</b><span>Every lot beside a street is taken, so families lay their own winding lanes to build. New streets keep the town tidy and its traffic flowing.</span><button class="secondary" id="gfRoads">Lay out a street</button></div>';
-  const att = gfAttention();
-  if (att.length) h += '<div class="gf-sec"><span class="label">Needs attention</span>'.concat(att.map((a, k) => '<div class="bn"><span class="n" style="background:'.concat(a.col || "var(--mango)", '">').concat(a.ic, "</span><span>").concat(a.t, "</span>").concat(a.go ? '<button class="link" data-att="'.concat(k, '">Show</button>') : "<span></span>", "</div>")).join(""), "</div>");
+  const att = typeof gfAdviceHTML === "function" ? [] : gfAttention();
+  if (att.length) h += '<div class="gf-sec"><span class="label">Needs attention</span>'.concat(att.map((a, k) => '<div class="bn"><span class="n" style="background:'.concat(a.col || "var(--mango)", '">').concat(a.ic, "</span><span>").concat(a.t, "</span>").concat(a.go ? '<button class="link" data-att="'.concat(k, '">Show</button>') : "", "</div>")).join(""), "</div>");
   const log2 = V.log.slice(-4).reverse();
   if (log2.length) h += '<div class="gf-sec"><span class="label">Lately</span><ul class="events">'.concat(log2.map((e) => {
     const [ic, t] = gfChronLine(e);
@@ -27338,9 +27529,16 @@ function gfPetRow(p) {
   const val = p.k === "law" ? ok ? "in force" : "not yet" : "".concat(civPetFmt(p, p.now), " <small>/ ").concat(civPetFmt(p, p.tgt), "</small>");
   return '<div class="gf-pet"><div class="goal"><span class="gl">'.concat(K.icon, " ").concat(civPetTitle(G, p), '</span><span class="gv ').concat(ok ? "ok" : "", '">').concat(val, '</span><div class="bar ').concat(ok ? "ok" : "", '"><i style="width:').concat(gfPct(gfPetProgress(p)), '%"></i></div></div>\n    <div class="gf-pmeta"><span class="odot" style="background:').concat(D.col, '"></span><small>').concat(D.short || D.name, " · by ").concat(p.due).concat(p.k !== "law" ? " · was ".concat(civPetFmt(p, p.base), " ").concat(K.unit) : "", "</small>").concat(p.x != null ? '<button class="link" data-pgo="'.concat(p.id, '">Show</button>') : p.k === "law" ? '<button class="link" data-plaw="'.concat(p.law, '">Council</button>') : "", "</div></div>");
 }
+function gfDeclineHTML(p) {
+  const D = ORGS[p.org], sc = Math.round(civOrgScore(G, p.org)), hit = p.k === "site" ? 10 : 6, after = sc - hit;
+  const gs = D.groups ? Object.keys(D.groups).map(gGroupName).join(" and ") : D.orig && ORIGINS[D.orig] ? ORIGINS[D.orig].name : D.faith && FAITHS[D.faith] ? FAITHS[D.faith].name : "their members";
+  const y = govY(G), el2 = G.gov.elec.next;
+  return '<div class="gf-decl"><b>Decline the '.concat(D.short || D.name, "?</b>\n    <span>Their mood falls from <b>").concat(civMood(sc), " (").concat(gfSign(sc), ')</b> to <b class="neg">').concat(civMood(after), " (").concat(gfSign(after), ")</b>.").concat(civStance(after) < 0 && civStance(sc) >= 0 ? ' <b class="neg">They will now speak against you</b> to '.concat(gs, " before the election in ").concat(el2, ".") : civStance(after) < 0 ? " They already speak against you to ".concat(gs, ".") : " ".concat(gs, " hear about it before the election in ").concat(el2, "."), ' A no fades slowly: about a sixth each year.</span>\n    <div class="btnrow"><button class="secondary gf-bad" data-pdec2="').concat(p.id, '">Decline anyway</button><button class="secondary" data-pkeep="').concat(p.id, '">Keep it open</button></div></div>');
+}
 function gfPetCard(p) {
   const K = PETK[p.k], D = ORGS[p.org];
   const gs = D.groups ? Object.keys(D.groups).map(gGroupName).join(", ") : "";
+  if (GF.decArm === p.id) return '<div class="issue s2 gf-card"><b><span class="odot" style="background:'.concat(D.col, '"></span>').concat(K.icon, " ").concat(civPetTitle(G, p), "</b>").concat(gfDeclineHTML(p), "</div>");
   return '<div class="issue s1 gf-card"><b><span class="odot" style="background:'.concat(D.col, '"></span>').concat(K.icon, " ").concat(civPetTitle(G, p), "</b><span>").concat(civPetBody(G, p), "</span>\n    ").concat(PET_HINT[p.k] ? '<small class="gf-hint">'.concat(PET_HINT[p.k], "</small>") : "", '\n    <small class="gf-sub">').concat(p.k === "site" ? "Accept: ".concat(D.short || D.name, " +").concat(p.bld === "ballpark" ? 20 : 15, ". Decline: −10.") : "Keep it: ".concat(D.short || D.name, " +25").concat(gs ? ", ".concat(gs, " remember") : "", ". Break it: −20. Decline now: −6."), '</small>\n    <div class="btnrow"><button class="secondary" data-pacc="').concat(p.id, '">').concat(p.k === "site" ? p.bld === "ballpark" ? "Pay ".concat(fmtMoney(p.cost)) : "Grant a lot" : "Promise it", '</button><button class="secondary" data-pdec="').concat(p.id, '">Decline</button>').concat(p.x != null ? '<button class="link" data-pgo="'.concat(p.id, '">Show</button>') : "", "</div></div>");
 }
 function gfReqCard(r) {
@@ -27387,7 +27585,28 @@ function gfAttention() {
       gfOpen("hall");
     } });
   }
-  if (G.civ && G.civ.strike && G.civ.strike.until > G.t) out.push({ w: 10, ic: "✊", t: "General strike: industry and the port run at a third.", col: "var(--coral)" });
+  const iss = typeof bldIssues === "function" ? bldIssues(G) : [];
+  if (iss.length) {
+    const f = iss[0];
+    out.push({ w: 6 + Math.min(4, iss.length), ic: f.is.ic, t: iss.length === 1 ? "".concat(BLD[f.b.type].name, ": ").concat(f.is.t.toLowerCase(), ".") : "".concat(iss.length, " buildings show a warning light, first: ").concat(BLD[f.b.type].name.toLowerCase(), ", ").concat(f.is.t.toLowerCase(), "."), col: f.is.col, go: () => {
+      const k2 = GF.issueK = ((GF.issueK || 0) + 1) % iss.length, o = iss[k2].b;
+      GF.sel = null;
+      UI.selected = o.id;
+      gfGo(o.x, o.y, 1.8);
+      gfOpen("inspect");
+      UI.panelSig = "";
+    } });
+  }
+  if (G.civ && G.civ.strike && G.civ.strike.until > G.t) {
+    const a = G.civ.strike.ask;
+    out.push({ w: 10, ic: "✊", t: "General strike: industry and the port run at a third.".concat(a ? " It ends as soon as the council passes ".concat(civAskText(a), ".") : ""), col: "var(--coral)", go: a ? () => {
+      GF.sub.hall = "laws";
+      GF.law = a[0];
+      GF.lawPick = null;
+      GF.voteRes = null;
+      gfOpen("hall");
+    } : null });
+  }
   return out.sort((a, b) => b.w - a.w).slice(0, 4);
 }
 function gfBindGoals() {
@@ -27400,6 +27619,7 @@ function gfBindGoals() {
     buildDock();
     rer();
   });
+  if (typeof gfBindAdvice === "function") gfBindAdvice();
   b("gfRoads", () => setTool("road" + (G.era >= 2 ? 2 : 1)));
   {
     const a = $("#gfAuto");
@@ -27438,10 +27658,26 @@ function gfBindCards() {
     rer();
   };
   for (const x of document.querySelectorAll("#pbody [data-pdec]")) x.onclick = () => {
-    const p = civPet(G, +x.dataset.pdec);
-    if (!p) return;
-    civDecline(G, p);
+    GF.decArm = +x.dataset.pdec;
     Music.sfx("error");
+    rer();
+  };
+  for (const x of document.querySelectorAll("#pbody [data-pkeep]")) x.onclick = () => {
+    GF.decArm = null;
+    rer();
+  };
+  for (const x of document.querySelectorAll("#pbody [data-pdec2]")) x.onclick = () => {
+    const p = civPet(G, +x.dataset.pdec2);
+    if (!p) return;
+    const D = ORGS[p.org];
+    civDecline(G, p);
+    GF.decArm = null;
+    Music.sfx("error");
+    const sc = Math.round(civOrgScore(G, p.org));
+    toast({ title: "You declined the ".concat(D.short || D.name), body: "".concat(civPetTitle(G, p), ". They are ").concat(civMood(sc).toLowerCase(), " towards you now (").concat(gfSign(sc), ")").concat(civStance(sc) < 0 ? " and will speak against you at the next election" : "", "."), tone: "bad", timeout: 9e3, actions: [["Societies", () => {
+      GF.sub.people = "orgs";
+      gfOpen("people");
+    }]] });
     GF.sel = null;
     stSave();
     rer();
@@ -27546,6 +27782,10 @@ function gfChronLine(e) {
       return ["✊", "General strike"];
     case "c_strikeDeal":
       return ["✊", "Strike settled for ".concat(fmtMoney(e.m))];
+    case "c_strikeWon":
+      return ["✊", "Strike ends: the union won ".concat(civAskText(e.ask))];
+    case "c_strikeOver":
+      return ["✊", "Strike ends after half a year"];
     case "c_fiesta":
       return ["🎉", "Fiesta: ".concat(on(e.org))];
     case "found":
@@ -27690,7 +27930,7 @@ function gfOrgsHTML() {
     const st0 = civStance(s);
     const w = Math.abs(s) / 60 * 50;
     const pet = G.civ.pets.find((p) => p.org === id && (p.st === "on" || p.st === "ask"));
-    return '<div class="gf-org"><div class="gf-gh"><span class="oico" style="background:'.concat(D.col, '">').concat(D.icon, "</span><div><b>").concat(D.name, "</b><small>").concat(civMembers(G, id), " ").concat(D.groups && id === "chamber" ? "members" : "members", " · since ").concat(O.since, '</small></div><em class="').concat(s >= 8 ? "pos" : s <= -8 ? "neg" : "", '">').concat(civMood(s), '</em></div>\n      <div class="gf-rel"><i style="left:').concat(s >= 0 ? 50 : 50 - w, "%;width:").concat(w, "%;background:").concat(s >= 0 ? "var(--palm)" : "var(--coral)", '"></i><b></b></div>\n      <div class="chips sm">').concat(P.filter((p) => p[0] && Math.abs(p[1]) >= 1).map(([l, v]) => '<span class="'.concat(v > 0 ? "ok" : "bad", '">').concat(l, " ").concat(gfSign(v), "</span>")).join(""), '</div>\n      <small class="gf-sub">').concat(st0 > 0 ? "Backs you at the next election." : st0 < 0 ? "Will campaign against you at the next election." : "Neutral before the next election.").concat(pet ? " · ".concat(pet.st === "ask" ? "Waiting for your answer" : "Your promise", ": ").concat(civPetTitle(G, pet)) : "", "</small></div>");
+    return '<div class="gf-org"><div class="gf-gh"><span class="oico" style="background:'.concat(D.col, '">').concat(D.icon, "</span><div><b>").concat(D.name, "</b><small>").concat(civMembers(G, id), " ").concat(D.groups && id === "chamber" ? "members" : "members", " · since ").concat(O.since, '</small></div><em class="').concat(s >= 8 ? "pos" : s <= -8 ? "neg" : "", '">').concat(civMood(s), '</em></div>\n      <div class="gf-rel"><i style="left:').concat(s >= 0 ? 50 : 50 - w, "%;width:").concat(w, "%;background:").concat(s >= 0 ? "var(--palm)" : "var(--coral)", '"></i><b></b></div>\n      <div class="chips sm">').concat(P.filter((p) => p[0] && Math.abs(p[1]) >= 1).map(([l, v]) => '<span class="'.concat(v > 0 ? "ok" : "bad", '">').concat(l, " ").concat(gfSign(v), "</span>")).join(""), '</div>\n      <small class="gf-sub">').concat(st0 > 0 ? "Backs you at the next election." : st0 < 0 ? "Will campaign against you at the next election." : "Neutral before the next election.").concat(pet ? " · ".concat(pet.st === "ask" ? "Waiting for your answer" : "Your promise", ": ").concat(civPetTitle(G, pet)) : "", "</small>").concat(typeof civProtestHTML === "function" ? civProtestHTML(G, id, s) : "", "</div>");
   }).join(""));
 }
 function gfBindPeople() {
@@ -27740,7 +27980,17 @@ function gfEconHTML() {
     return r > 1.08 ? ' <span class="pos">▲</span>' : r < 0.92 ? ' <span class="neg">▼</span>' : "";
   };
   const news = (G.crises || []).filter((c) => c.gov && c.end > G.t).map((c) => st("g_n_" + c.kind.slice(2) + "_h"));
-  return '<div class="gf-sec"><span class="label">What the island earns each year</span>'.concat(gfBars(ys.map((r) => r.gdp), ys.map((r) => String(r.y).slice(2)), "var(--palm)", gMoney), '</div>\n    <div class="kv"><span class="k">Last year</span><span class="v">').concat(last ? gMoney(last.gdp) : "–", '</span><span class="k">Per resident</span><span class="v">').concat(last && last.pop ? gMoney(last.gdp / last.pop) : "–", '</span><span class="k">Jobs filled</span><span class="v">').concat(k.employed, " / ").concat(k.jobs, '</span><span class="k">Looking for work</span><span class="v ').concat(un / Math.max(1, k.pop) > 0.08 ? "neg" : "", '">').concat(un, " (").concat(Math.round(un / Math.max(1, k.pop) * 100), '%)</span>\n    <span class="k">Ordinary pay</span><span class="v">').concat(gMoney(pay), ' a day</span><span class="k">Cost of living</span><span class="v">').concat(Math.round(govPriceIdx(G) * 100), '</span><span class="k">Families invested last year</span><span class="v">').concat(last ? gMoney(last.invBuilt) : "–", '</span></div>\n    <div class="gf-sec"><span class="label">Residents</span>').concat(gfBars(ys.map((r) => r.pop), ys.map((r) => String(r.y).slice(2)), "var(--sea)", (v) => String(Math.round(v))), "</div>\n    ").concat(ex.length ? '<div class="gf-sec"><span class="label">Sold abroad in '.concat(last.y, '</span><div class="kv">').concat(ex.map(([g, v]) => '<span class="k">'.concat(gGood(g)).concat(trend(g), '</span><span class="v">').concat(gMoney(v), "</span>")).join(""), "</div></div>") : "", "\n    ").concat(news.length ? '<div class="gf-sec"><span class="label">In the world right now</span><div class="chips">'.concat(news.map((n) => "<span>".concat(n, "</span>")).join(""), "</div></div>") : "");
+  return '<div class="gf-sec"><span class="label">What the island earns each year</span>'.concat(gfBars(ys.map((r) => r.gdp), ys.map((r) => String(r.y).slice(2)), "var(--palm)", gMoney), '</div>\n    <div class="kv"><span class="k">Last year</span><span class="v">').concat(last ? gMoney(last.gdp) : "–", '</span><span class="k">Per resident</span><span class="v">').concat(last && last.pop ? gMoney(last.gdp / last.pop) : "–", '</span><span class="k">Jobs filled</span><span class="v">').concat(k.employed, " / ").concat(k.jobs, '</span><span class="k">Looking for work</span><span class="v ').concat(un / Math.max(1, k.pop) > 0.08 ? "neg" : "", '">').concat(un, " (").concat(Math.round(un / Math.max(1, k.pop) * 100), '%)</span>\n    <span class="k">Ordinary pay</span><span class="v">').concat(gMoney(pay), ' a day</span><span class="k">Cost of living</span><span class="v">').concat(Math.round(govPriceIdx(G) * 100), '</span><span class="k">Families invested last year</span><span class="v">').concat(last ? gMoney(last.invBuilt) : "–", '</span></div>\n    <div class="gf-sec"><span class="label">Residents</span>').concat(gfBars(ys.map((r) => r.pop), ys.map((r) => String(r.y).slice(2)), "var(--sea)", (v) => String(Math.round(v))), "</div>\n    ").concat(ex.length ? '<div class="gf-sec"><span class="label">Sold abroad in '.concat(last.y, '</span><div class="kv">').concat(ex.map(([g, v]) => '<span class="k">'.concat(gGood(g)).concat(trend(g), '</span><span class="v">').concat(gMoney(v), "</span>")).join(""), "</div></div>") : "", "\n    ").concat(gfShipsHTML(), "\n    ").concat(news.length ? '<div class="gf-sec"><span class="label">In the world right now</span><div class="chips">'.concat(news.map((n) => "<span>".concat(n, "</span>")).join(""), "</div></div>") : "");
+}
+function gfShipsHTML() {
+  const y = govY(G), M = (G.manifests || []).filter((m) => m.y === y), tot = M.reduce((a, m) => a + m.v, 0), br = exportBrakes(G);
+  const by = {};
+  for (const m of M) for (const [k, , v] of m.goods) by[k] = (by[k] || 0) + v;
+  let h = '<div class="gf-sec"><span class="label">Ships out in '.concat(y, " · ").concat(M.length, " so far · ").concat(gMoney(tot), "</span>");
+  if (M.length) h += '<ul class="events">'.concat(M.slice(-3).reverse().map((m) => "<li><time>→</time>".concat(esc(m.to), ": ").concat(m.goods.slice(0, 3).map(([k, u, v]) => "".concat(goodName(k).toLowerCase(), " ").concat(gMoney(v))).join(", "), " · <b>").concat(gMoney(m.v), "</b></li>")).join(""), "</ul>");
+  else h += "<p>No ship has left with cargo yet this year.</p>";
+  if (br.out.length) h += br.out.map(([ic, t]) => '<div class="bn"><span class="n" style="background:var(--mango)">'.concat(ic, "</span><span>").concat(t, "</span></div>")).join("");
+  return h + '<button class="link" id="gfHarbor">Open the harbor</button></div>';
 }
 function gfTaxHTML() {
   const V = G.gov, L = V.laws, last = V.years[V.years.length - 1];
@@ -27751,6 +28001,17 @@ function gfBindMoney() {
     const e = document.getElementById(id);
     if (e) e.onclick = f;
   };
+  b("gfHarbor", () => {
+    const d = G.blds.get(G.dockId);
+    if (!d) return;
+    GF.sel = null;
+    UI.selTile = -1;
+    UI.selVeh = null;
+    UI.selected = d.id;
+    gfGo(d.x, d.y, 1.6);
+    gfOpen("inspect");
+    rer();
+  });
   b("gfBorrow", () => {
     if (govBorrow(G)) Music.sfx("cash");
     else toast({ body: "The bank will not lend more right now.", tone: "bad", timeout: 3e3 });
@@ -27773,6 +28034,7 @@ function gfBindMoney() {
 function gfSelHTML() {
   const S = GF.sel;
   if (!S) return null;
+  if (S.k === "bld") return BLD[S.type] ? gfBuildCardHTML(S.type) : null;
   if (S.k === "req") {
     const r = G.gov.req.find((q) => q.id === S.id);
     if (!r) {
@@ -27795,6 +28057,7 @@ function gfSelHTML() {
 }
 function gfBindSel() {
   gfBindCards();
+  if (GF.sel && GF.sel.k === "bld") gfBindBuildCard();
 }
 function govInfoHTML(b) {
   const d = BLD[b.type];
@@ -27875,7 +28138,8 @@ const PET_R = (k) => k === "commute" ? 4.5 : k === "health" || k === "school" ||
 function govFullTap(t, w) {
   if (!govFullOn()) return false;
   const V = G.gov;
-  const rq = V.req.find((r) => t.x >= r.x && t.x < r.x + r.w && t.y >= r.y && t.y < r.y + r.h);
+  const zz = Math.min(View.cam.z, 2), touch = 22 / View.cam.z;
+  const rq = V.req.find((r) => w && Math.hypot(w[0] - (r.x + r.w / 2) * TILE, w[1] - (r.y * TILE - 10 / zz - 1.5)) <= Math.max((9 / zz + 3) * 1.6, touch) || t.x >= r.x && t.x < r.x + r.w && t.y >= r.y && t.y < r.y + r.h);
   if (rq) {
     GF.sel = { k: "req", id: rq.id };
     UI.selected = null;
@@ -27884,11 +28148,10 @@ function govFullTap(t, w) {
     UI.panelSig = "";
     return true;
   }
-  const zz = Math.min(View.cam.z, 2);
   const p = civOpenPets(G).concat(civAskPets(G)).find((q) => {
     if (q.x == null) return false;
     const px = (q.x + 0.5) * TILE, py = (q.y + 0.5) * TILE - PET_R(q.k) * TILE - 8 / zz, r = 12 / zz + 3;
-    return w ? Math.hypot(w[0] - px, w[1] - py) <= r * 1.8 : Math.abs(q.x - t.x) <= 1 && Math.abs(q.y - t.y) <= 1;
+    return w ? Math.hypot(w[0] - px, w[1] - py) <= Math.max(r * 1.8, touch) : Math.abs(q.x - t.x) <= 1 && Math.abs(q.y - t.y) <= 1;
   });
   if (p) {
     GF.sel = { k: "pet", id: p.id };
@@ -27898,6 +28161,12 @@ function govFullTap(t, w) {
   }
   GF.sel = null;
   return false;
+}
+function govPinHit(w) {
+  if (!govFullOn() || !w) return false;
+  const V = G.gov, zz = Math.min(View.cam.z, 2), touch = 22 / View.cam.z;
+  if (V.req.some((r) => Math.hypot(w[0] - (r.x + r.w / 2) * TILE, w[1] - (r.y * TILE - 10 / zz - 1.5)) <= Math.max((9 / zz + 3) * 1.6, touch))) return true;
+  return civOpenPets(G).concat(civAskPets(G)).some((q) => q.x != null && Math.hypot(w[0] - (q.x + 0.5) * TILE, w[1] - ((q.y + 0.5) * TILE - PET_R(q.k) * TILE - 8 / zz)) <= Math.max((12 / zz + 3) * 1.8, touch));
 }
 function govFullDraw(c, G2) {
   if (!govFullOn()) return;
@@ -27935,6 +28204,7 @@ function govFullDraw(c, G2) {
     }
   }
   govDraw(c, G2, z, now);
+  if (typeof gfDrawBuild === "function") gfDrawBuild(c, G2, z, now);
   const sel = GF.sel;
   const pulse = 0.5 + 0.5 * Math.sin(now / 300);
   if (sel && sel.k === "req") {
@@ -28077,6 +28347,491 @@ function govFullMenu() {
     bindSoundRow(m);
   });
 }
+const bldMonths = (t) => {
+  const d = BLD[t];
+  return d ? clamp(Math.round(Math.sqrt(d.cost || 40) / 6), 1, 12) : 0;
+};
+const bldTakes = (G2) => !!(G2 && G2.gov && typeof govOn === "function" && govOn(G2));
+const monthsTxt = (m) => "".concat(m, " month").concat(m === 1 ? "" : "s");
+function bldStart(G2, b) {
+  if (!bldTakes(G2) || !b || b.id === G2.dockId) return;
+  b.bt0 = G2.t;
+  b.bt = G2.t + bldMonths(b.type) * GOV_DAYS * 1440 / 12;
+}
+const bldLeft = (G2, b) => b && b.bt ? Math.max(1, Math.ceil((b.bt - G2.t) / (GOV_DAYS * 1440 / 12))) : 0;
+const bldFrac = (G2, b) => b && b.bt ? clamp((G2.t - (b.bt0 || G2.t)) / Math.max(1, b.bt - (b.bt0 || b.bt - 1)), 0, 1) : 1;
+function bldTick(G2) {
+  let done = null;
+  for (const b of G2.blds.values()) if (b.bt && b.bt <= G2.t) {
+    delete b.bt;
+    delete b.bt0;
+    b.born = G2.t;
+    b.bornReal = typeof performance !== "undefined" ? performance.now() : 0;
+    (done || (done = [])).push(b);
+  }
+  if (!done) return;
+  recomputeServices(G2);
+  if (typeof assignJobs === "function") assignJobs(G2);
+  for (const b of done) if (isPub(b) && G2.gov) G2.gov.queue.push({ k: "built", id: b.id });
+}
+function bldFacts(G2, t) {
+  const d = BLD[t];
+  const F = [];
+  const eraK = [1, 1, 1, 1.7, 2.6][G2.era] || 1;
+  const yr = (v) => v * GOV_DAYS;
+  const wage = d.jobs ? govWage(G2, { type: t }) : 0;
+  if (d.housing) F.push(["Houses", "".concat(d.housing, " people").concat(d.quality ? " · comfort ".concat(d.quality) : "")]);
+  if (d.jobs) F.push(["Jobs", "".concat(d.jobs).concat(d.edu ? " · staff need ".concat(d.edu === 2 ? "a degree" : "schooling") : "")]);
+  if (d.kind === "goods") {
+    const good = d.out === "crop" ? null : d.out;
+    const gd = good ? GOODS3[good] : null;
+    const hrs = G2.gov && G2.gov.laws.hours || 10;
+    const price = good ? priceOf(G2, good) : priceOf(G2, "fruit");
+    const est = d.jobs * d.rate * hrs * price * (d.fertile ? 0.8 : 1) * (d.input ? 1 : 1);
+    F.push(["Makes", d.out === "crop" ? "fruit, sugar cane or cotton (you choose)" : "".concat(gd.name.toLowerCase(), " · ").concat(fmtMoney(price, price < 10), " a unit")]);
+    if (d.input) F.push(["Needs", "".concat(GOODS3[d.input].name.toLowerCase(), " from ").concat(Object.keys(BLD).filter((k) => BLD[k].out === d.input || d.input === "sugar" && k === "farm").map((k) => BLD[k].name.toLowerCase()).slice(0, 2).join(" or "))]);
+    F.push(["Sells", "about ".concat(fmtMoney(yr(est)), " a year with a full staff")]);
+  }
+  if (d.service) F.push(["Serves", "homes within ".concat(d.radius, " tiles")]);
+  if (d.retail) F.push(["Sells", d.retail.accepts.map((k) => GOODS3[k].name.toLowerCase()).join(", ")]);
+  if (d.income) F.push(["Earns", "".concat(fmtMoney(yr(d.income * (d.jobs || 1) * 10)), " a year with a full staff")]);
+  if (d.power) F.push(["Makes power", "".concat(d.power.mw, " MW").concat(d.power.solar ? " at noon, none at night" : d.power.wind ? " in a good wind" : "").concat(d.power.fuel ? " · burns imported ".concat(d.power.fuel) : "")]);
+  const need = typeof pwNeed === "function" && G2.pwOn ? pwNeed(G2, t) : 0;
+  if (need >= 0.05) {
+    const spare = pwSpare(G2);
+    const rent = G2.pwStart != null && G2.t < G2.pwStart + 6 * 1440 && G2.gov ? govY(G2) + Math.max(0, Math.ceil((G2.pwStart + 4.5 * 1440 - G2.t) / (GOV_DAYS * 1440))) : null;
+    F.push(["Electricity", "uses ".concat(need.toFixed(1), ' MW · <span class="').concat(spare >= need ? "pos" : "neg", '">').concat(Math.max(0, spare).toFixed(1), " MW to spare</span>").concat(spare < need && rent && !PW_INDUSTRY(t) ? " · rented diesel until about ".concat(rent) : "")]);
+  }
+  const run = yr((d.jobs || 0) * wage + (d.upkeep || 0) * eraK);
+  F.push(["Town pays", "".concat(fmtMoney(run), " a year").concat(d.jobs ? " (staff ".concat(fmtMoney(yr(d.jobs * wage)), ", upkeep ").concat(fmtMoney(yr(d.upkeep * eraK)), ")") : " upkeep")]);
+  if (d.housing && typeof RENT !== "undefined") F.push(["Rent in", "".concat(fmtMoney(yr(d.housing * RENT[G2.era])), " a year when full (town housing)")]);
+  F.push(["Builders need", monthsTxt(bldMonths(t))]);
+  const warn = [];
+  if (d.noise) warn.push("noisy for homes within ".concat(d.noise + 1, " tiles"));
+  if (d.smoke) warn.push("smoke over homes within ".concat(d.smoke, " tiles"));
+  if (d.airNoise) warn.push("aircraft noise ".concat(d.airNoise, " tiles around"));
+  if (warn.length) F.push(["Beware", warn.join(" · ")]);
+  const where = [];
+  if (d.fertile) where.push("rich soil (green on the Land lens)");
+  if (d.hills) where.push("a hillside for the best grapes");
+  if (d.forest) where.push("forest around it");
+  if (d.coastal) where.push("it must touch the sea");
+  if (d.mine) where.push("it must touch the hills");
+  if (where.length) F.push(["Where", where.join(" · ")]);
+  return F;
+}
+function gfBuildCardHTML(t) {
+  const d = BLD[t];
+  if (!d) return "";
+  const lock = govLocked(G, t) || (d.era > G.era ? "Unlocks at Stage ".concat(ROMAN[d.era]) : null);
+  const same = [...G.blds.values()].filter((b) => b.type === t);
+  const sites = same.filter((b) => b.bt).length;
+  const kind = d.kind === "home" ? "Homes" : d.kind === "service" ? "Service" : d.kind === "power" ? "Power" : d.kind === "goods" ? "Workplace" : d.kind === "retail" ? "Shop" : "Building";
+  let h = '<div><span class="label">Build · '.concat(kind, "</span><h2>").concat(d.name, "</h2><p>").concat(d.desc, "</p></div>");
+  if (lock) h += '<div class="issue s2"><b>Not yet</b><span>'.concat(lock, "</span>").concat(/power plant/.test(lock) ? '<button class="secondary" id="gbPower">Choose a power plant</button>' : "", "</div>");
+  h += '<div class="kv">'.concat(bldFacts(G, t).map(([k, v]) => '<span class="k">'.concat(k, '</span><span class="v">').concat(v, "</span>")).join(""), '<span class="k">Cost</span><span class="v"><b>').concat(fmtMoney(d.cost), "</b> · you have ").concat(fmtMoney(G.money), "</span></div>");
+  h += '<div class="gf-sec"><span class="label">On the island</span><p>'.concat(same.length ? "".concat(same.length, " already ").concat(same.length === 1 ? "stands" : "stand").concat(sites ? " (".concat(sites, " still being built)") : "", ": outlined on the map.") : "None yet.", "</p></div>");
+  if (!lock) h += '<p class="gf-tip">'.concat(UI.pend && UI.pend.type === t ? "Check the ghost on the map, then press <b>Build here</b>. Tap elsewhere to move it." : "Tap the map where it should go. Nothing is spent until you confirm.", "</p>");
+  return h;
+}
+function gfBindBuildCard() {
+  const b = $("#gbPower");
+  if (b) b.onclick = () => {
+    const p = G.era >= 3 ? "gasplant" : "coalplant";
+    gfBuildCard(p);
+  };
+}
+function gfBuildCard(t) {
+  GF.sel = { k: "bld", type: t };
+  UI.selected = null;
+  UI.selTile = -1;
+  UI.selVeh = null;
+  if (UI.pend && UI.pend.type !== t) UI.pend = null;
+  const locked = !!govLocked(G, t) || BLD[t].era > G.era;
+  if (!locked) {
+    const tool = TOOLS.find((x) => x.bld === t);
+    if (tool) setTool(tool.id);
+  } else if (UI.tool !== "inspect") setTool("inspect");
+  GF.sel = { k: "bld", type: t };
+  gfOpen("inspect");
+  UI.panelSig = "";
+  renderPanel(true);
+  gfBuildBar();
+}
+function gfPendSet(type, t) {
+  const d = BLD[type];
+  UI.pend = { type, x: t.x - Math.floor((d.w - 1) / 2), y: t.y - Math.floor((d.h - 1) / 2) };
+  if (!GF.sel || GF.sel.k !== "bld" || GF.sel.type !== type) GF.sel = { k: "bld", type };
+  UI.panelSig = "";
+  gfBuildBar();
+}
+const gfPendCheck = () => UI.pend ? checkBuilding(G, UI.pend.type, UI.pend.x, UI.pend.y) : null;
+function gfConfirmBuild() {
+  const p = UI.pend;
+  if (!p) return false;
+  const d = BLD[p.type];
+  const keep = UI.tool;
+  UI.tool = p.type;
+  const ok = placeAt({ x: p.x + Math.floor((d.w - 1) / 2), y: p.y + Math.floor((d.h - 1) / 2) });
+  UI.tool = keep;
+  if (ok) UI.pend = null;
+  UI.panelSig = "";
+  gfBuildBar();
+  return ok;
+}
+function gfCancelPend() {
+  UI.pend = null;
+  UI.panelSig = "";
+  gfBuildBar();
+}
+function gfBuildBar() {
+  let el2 = document.getElementById("gfBuild");
+  if (!el2) {
+    el2 = document.createElement("div");
+    el2.id = "gfBuild";
+    el2.className = "gf-buildbar";
+    el2.hidden = true;
+    el2.innerHTML = '<div class="gb-t"><b></b><small></small></div><button class="primary" id="gbOk">Build here</button><button class="secondary" id="gbNo">Cancel</button>';
+    el2.querySelector("#gbOk").onclick = () => gfConfirmBuild();
+    el2.querySelector("#gbNo").onclick = () => gfCancelPend();
+    document.body.append(el2);
+  }
+  const p = UI.pend;
+  if (!p || !govFullOn() || !BLD[p.type]) {
+    el2.hidden = true;
+    return;
+  }
+  const d = BLD[p.type], chk = gfPendCheck();
+  const cost = chk && chk.cost != null ? chk.cost : d.cost;
+  const t1 = "".concat(d.name, " here?"), t2 = chk.ok ? "".concat(fmtMoney(cost), " · open in ").concat(monthsTxt(bldMonths(p.type)), " · you have ").concat(fmtMoney(G.money)) : chk.reason;
+  const B = el2.querySelector("b"), S = el2.querySelector("small"), ok = el2.querySelector("#gbOk");
+  if (B.textContent !== t1) B.textContent = t1;
+  if (S.textContent !== t2) S.textContent = t2;
+  S.className = chk.ok ? "" : "neg";
+  ok.disabled = !chk.ok;
+  el2.hidden = false;
+}
+function gfDrawBuild(c, G2, z, now) {
+  const ht = UI.pend ? UI.pend.type : BLD[UI.tool] ? UI.tool : GF.sel && GF.sel.k === "bld" ? GF.sel.type : null;
+  if (ht) {
+    const pulse = 0.55 + 0.45 * Math.sin(now / 280);
+    for (const b of G2.blds.values()) {
+      if (b.type !== ht) continue;
+      c.strokeStyle = "rgba(255,214,90,".concat(0.5 + 0.5 * pulse, ")");
+      c.lineWidth = 3 / Math.min(z, 2);
+      rrect(c, b.x * TILE - 3, b.y * TILE - 3, b.w * TILE + 6, b.h * TILE + 6, 5);
+      c.stroke();
+    }
+  }
+  const p = UI.pend;
+  if (p && BLD[p.type]) {
+    const d = BLD[p.type], chk = gfPendCheck();
+    c.globalAlpha = 0.8;
+    try {
+      drawBld(c, p.type, p.x * TILE, p.y * TILE, d.w * TILE, d.h * TILE, HOME_COLORS[2]);
+    } catch (e) {
+    }
+    c.globalAlpha = 1;
+    c.fillStyle = chk.ok ? "rgba(80,220,140,0.25)" : "rgba(240,80,70,0.35)";
+    c.fillRect(p.x * TILE, p.y * TILE, d.w * TILE, d.h * TILE);
+    c.strokeStyle = chk.ok ? "#50dc8c" : "#f05046";
+    c.lineWidth = 2.5 / z;
+    c.setLineDash([6 / z, 4 / z]);
+    c.strokeRect(p.x * TILE - 1, p.y * TILE - 1, d.w * TILE + 2, d.h * TILE + 2);
+    c.setLineDash([]);
+    const rr2 = d.radius || d.noise;
+    if (rr2) {
+      c.strokeStyle = d.noise ? "rgba(240,120,60,0.8)" : "rgba(255,255,255,0.8)";
+      c.setLineDash([4 / z, 4 / z]);
+      c.beginPath();
+      c.arc((p.x + d.w / 2) * TILE, (p.y + d.h / 2) * TILE, (rr2 + (d.noise ? 1 : 0)) * TILE, 0, 7);
+      c.stroke();
+      c.setLineDash([]);
+    }
+  }
+}
+function drawSite(c, G2, b, z) {
+  const x = b.x * TILE, y = b.y * TILE, w = b.w * TILE, h = b.h * TILE, f = bldFrac(G2, b);
+  c.fillStyle = "#b89a6a";
+  c.fillRect(x + 1, y + 1, w - 2, h - 2);
+  c.fillStyle = "#9c7f52";
+  for (let k = 0; k < 5; k++) c.fillRect(x + 3 + k * 7 % (w - 6), y + 3 + k * 11 % (h - 6), 3, 2);
+  c.fillStyle = "rgba(210,205,190,0.9)";
+  const fh = (h - 6) * f;
+  c.fillRect(x + 4, y + h - 3 - fh, w - 8, fh);
+  c.strokeStyle = "#6b5a44";
+  c.lineWidth = 1;
+  for (let k = 0; k <= 3; k++) {
+    const xx = x + 4 + (w - 8) * k / 3;
+    c.beginPath();
+    c.moveTo(xx, y + h - 3);
+    c.lineTo(xx, y + 3);
+    c.stroke();
+  }
+  for (let k = 1; k <= 3; k++) {
+    const yy = y + h - 3 - (h - 6) * k / 3;
+    c.beginPath();
+    c.moveTo(x + 4, yy);
+    c.lineTo(x + w - 4, yy);
+    c.stroke();
+  }
+  c.strokeStyle = "#e0960f";
+  c.lineWidth = 1.5;
+  c.setLineDash([3, 2]);
+  c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  c.setLineDash([]);
+  c.strokeStyle = "#e0960f";
+  c.lineWidth = 1.6;
+  c.beginPath();
+  c.moveTo(x + w - 5, y + h - 2);
+  c.lineTo(x + w - 5, y - 6);
+  c.lineTo(x + 2, y - 6);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(x + 6, y - 6);
+  c.lineTo(x + 6, y - 1);
+  c.stroke();
+  if (z > 0.7) {
+    c.fillStyle = "rgba(12,32,36,0.8)";
+    c.fillRect(x + 2, y + h + 2, w - 4, 4);
+    c.fillStyle = "#50dc8c";
+    c.fillRect(x + 2, y + h + 2, (w - 4) * f, 4);
+  }
+}
+const ISSUE_COL = { red: "#d8393a", amber: "#e0960f", violet: "#8e5ea2", blue: "#2a8fb0" };
+function bldIssue(G2, b) {
+  const d = BLD[b.type];
+  if (b.bt) return null;
+  const dock = b.id === G2.dockId, age = G2.t - (b.born || -1e9);
+  if (!dock && b.ent < 0) return { ic: "🚧", col: ISSUE_COL.red, t: "No road to its door", why: "Nobody can get in and no truck can take anything out.", fix: "Draw a road along one side of it." };
+  if (!dock && G2.comp && G2.comp[b.ent] !== G2.harborComp) return { ic: "⛓", col: ISSUE_COL.red, t: "Cut off from the town", why: "Its road does not join the roads that lead to the harbor.", fix: "Join its road to the town’s streets." };
+  if (G2.civ && G2.civ.strike && G2.civ.strike.until > G2.t && (GROUP_OF[b.type] === "work" || GROUP_OF[b.type] === "fish") && b.wrk.length) return { ic: "✊", col: ISSUE_COL.red, t: "On strike", why: "The union has called its members out. Work runs at a third.", fix: G2.civ.strike.ask ? "The council can end it: ".concat(civAskText(G2.civ.strike.ask), " (Town hall → Laws).") : "It ends by itself in time." };
+  if (d.jobs && !d.power && b.wrk.length === 0 && age > 360) {
+    const un = Math.round((G2._jobless || 0) * G2.cits.size);
+    return { ic: "👷", col: ISSUE_COL.red, t: "Nobody works here", why: un >= 3 ? "".concat(un, " people are looking for work, but they live too far away").concat(d.edu ? " or lack the schooling it needs" : "", ".") : "Every islander already has a job.", fix: un >= 3 ? "Homes close by, or a bus line, bring workers." : "More homes bring more settlers from the ships." };
+  }
+  if (d.power && b.wrk.length === 0 && age > 360) return { ic: "👷", col: ISSUE_COL.red, t: "No crew: no power", why: "A plant makes nothing without its crew.", fix: "It needs people nearby looking for work." };
+  if (G2.pw && G2.pw.active && G2.pw.ratio < 0.8 && typeof PW_INDUSTRY === "function" && PW_INDUSTRY(b.type) && b.present) return { ic: "⚡", col: ISSUE_COL.amber, t: "Short of electricity", why: "The grid covers only ".concat(Math.round(G2.pw.ratio * 100), "% of what the island uses, so machines stand still part of the day."), fix: "Build a power plant." };
+  if (d.kind === "goods" && d.out !== "gold" && b.stock >= 110) return { ic: "📦", col: ISSUE_COL.amber, t: "Store full: work stopped", why: "The trucks do not come often enough to take the goods to the harbor.", fix: fleetOn(G2) ? "A Truck Garage adds six trucks; a shorter road to the harbor helps too." : "A shorter, faster road to the harbor helps." };
+  if (d.input && b.present && b.inp < 1 && age > 360) return { ic: "🌾", col: ISSUE_COL.violet, t: "No ".concat(GOODS3[d.input].name.toLowerCase(), " to work with"), why: "It turns ".concat(GOODS3[d.input].name.toLowerCase(), " into ").concat(GOODS3[d.out].name.toLowerCase(), ", and none is coming."), fix: "Build ".concat(d.input === "sugar" ? "a plantation growing sugar cane" : "more " + Object.keys(BLD).filter((k) => BLD[k].out === d.input).map((k) => BLD[k].name.toLowerCase())[0], " nearby.") };
+  if (d.jobs && !d.power && b.wrk.length < d.jobs * 0.5 && age > 1440) return { ic: "👷", col: ISSUE_COL.amber, t: "Short of workers", why: "".concat(b.wrk.length, " of ").concat(d.jobs, " jobs are filled."), fix: "Homes close by bring workers.", minor: true };
+  return null;
+}
+function drawIssue(c, b, is, z) {
+  const zz = Math.min(z, 2), r = 8 / zz + 2.5, x = (b.x + b.w) * TILE - 3, y = b.y * TILE + 3;
+  c.fillStyle = is.col;
+  c.beginPath();
+  c.arc(x, y, r, 0, 7);
+  c.fill();
+  c.strokeStyle = "#fff";
+  c.lineWidth = 1.6 / zz;
+  c.stroke();
+  c.font = "".concat(Math.round(r * 1.15), 'px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif');
+  c.textAlign = "center";
+  c.textBaseline = "middle";
+  c.fillStyle = "#fff";
+  c.fillText(is.ic, x, y + 0.5);
+}
+function bldIssueHTML(G2, b) {
+  const is = bldIssue(G2, b);
+  if (!is) return "";
+  return '<div class="issue '.concat(is.col === ISSUE_COL.red ? "s2" : "s1", '"><b>').concat(is.ic, " ").concat(is.t, "</b><span>").concat(is.why, '</span><small class="gf-hint"><b>What helps:</b> ').concat(is.fix, "</small></div>");
+}
+function bldIssues(G2) {
+  const out = [];
+  for (const b of G2.blds.values()) {
+    const is = bldIssue(G2, b);
+    if (is && !is.minor) out.push({ b, is });
+  }
+  return out.sort((a, c) => (a.is.col === ISSUE_COL.red ? 0 : 1) - (c.is.col === ISSUE_COL.red ? 0 : 1));
+}
+function gfAdvice(G2) {
+  const out = [], V = G2.gov, y = govY(G2), k = counts(), last = V.years[V.years.length - 1];
+  const add = (w, ic, t, why, acts) => out.push({ w, ic, t, why, acts: acts || [] });
+  const yearsLeft = (t) => Math.max(0, Math.ceil((t - G2.t) / (GOV_DAYS * 1440)));
+  const plants = [...G2.blds.values()].filter((b) => BLD[b.type].power);
+  const plant = G2.era >= 3 ? "gasplant" : "coalplant";
+  if (G2.pwOn && !plants.length) {
+    const yl = G2.pwStart != null ? yearsLeft(G2.pwStart + 4.5 * 1440) : 0;
+    add(
+      yl <= 1 ? 40 : 14,
+      "⚡",
+      yl > 0 ? "Build a power plant before ".concat(y + yl) : "Build a power plant now",
+      "The island runs on rented diesel generators".concat(yl > 0 ? " that go back in ".concat(y + yl) : ", and they are going back", ". Without a plant no workshop or factory can be built, machines stand still and homes sit in the dark."),
+      [["Choose a plant", () => gfBuildCard(plant)]]
+    );
+  } else if (G2.pw && G2.pw.active && G2.pw.ratio < 0.9) add(30, "⚡", "Electricity covers only ".concat(Math.round(G2.pw.ratio * 100), "%"), "Blackouts slow every workshop and make every home unhappier. One more plant usually fixes it.", [["Choose a plant", () => gfBuildCard(plant)]]);
+  if (G2.civ && G2.civ.strike && G2.civ.strike.until > G2.t) {
+    const a = G2.civ.strike.ask;
+    add(35, "✊", a ? "End the strike: ".concat(civAskText(a)) : "The general strike", "Industry and the port run at a third while it lasts.".concat(a ? " The union goes back to work the day the council passes ".concat(civAskText(a), ".") : ""), a ? [["Town hall → Laws", () => {
+      GF.sub.hall = "laws";
+      GF.law = a[0];
+      GF.lawPick = null;
+      GF.voteRes = null;
+      gfOpen("hall");
+    }]] : []);
+  }
+  if (last) {
+    const inc = Object.values(last.inc).reduce((a, v) => a + v, 0), sp = Object.values(last.out).reduce((a, v) => a + v, 0) - last.out.build;
+    if (inc < sp) add(G2.money < 300 ? 28 : 12, "💰", "The town spends ".concat(fmtMoney(sp - inc), " a year more than it earns"), "".concat(G2.money < 300 ? "The treasury is nearly empty: the bank will lend, at interest. " : "", "Taxes on business and wages pay the bills; roads, staff and loans eat them. Workshops raise the taxes; every extra road tile adds upkeep."), [["Budget", () => {
+      GF.sub.money = "budget";
+      gfOpen("money");
+    }], ["Taxes", () => {
+      GF.sub.money = "taxes";
+      gfOpen("money");
+    }]]);
+  }
+  if (V.debt > 0 && G2.money > V.debt + 1500) add(6, "🏦", "Pay back the loan", "The town owes ".concat(fmtMoney(V.debt), " and has the cash. Interest costs ").concat(fmtMoney(V.debt * govRate(G2)), " a year."), [["Money", () => {
+    GF.sub.money = "taxes";
+    gfOpen("money");
+  }]]);
+  const rec = G2.history[G2.history.length - 1], turned = rec && rec.turned || 0;
+  if (turned > 0) add(10 + Math.min(12, turned), "🏠", "".concat(turned, " settler").concat(turned > 1 ? "s" : "", " sailed on yesterday: no free homes"), "Every settler who sails on is a worker, a customer and a taxpayer lost. Families build homes themselves along streets that have free lots; you can build casitas too.", [["Lay out a street", () => setTool("road" + (G2.era >= 2 ? 2 : 1))], ["Casita", () => gfBuildCard("house")]]);
+  const un = k.pop - k.employed, ur = k.pop ? un / k.pop : 0;
+  if (ur > 0.08 && un >= 5) {
+    const work = G2.era >= 3 ? "factory" : "workshop";
+    const lock = govLocked(G2, work);
+    add(
+      12 + Math.min(16, ur * 60),
+      "🔧",
+      "".concat(un, " people are looking for work (").concat(Math.round(ur * 100), "%)"),
+      "Joblessness costs everyone happiness (−".concat(Math.min(15, Math.round((ur - 0.05) * 60)), "% for the whole town right now) and angers the union. ").concat(lock ? "A power plant has to come first: workshops need electricity." : "A ".concat(BLD[work].name.toLowerCase(), " gives ").concat(BLD[work].jobs, " jobs; farms and fisheries give a few each.")),
+      [[lock ? "Choose a plant" : "".concat(BLD[work].name), () => gfBuildCard(lock ? plant : work)]]
+    );
+  }
+  const iss = typeof bldIssues === "function" ? bldIssues(G2) : [];
+  if (iss.length) {
+    const f = iss[0];
+    add(f.is.col === ISSUE_COL.red ? 16 : 8, f.is.ic, "".concat(BLD[f.b.type].name, ": ").concat(f.is.t.toLowerCase()).concat(iss.length > 1 ? " (+".concat(iss.length - 1, " more lights)") : ""), "".concat(f.is.why, " ").concat(f.is.fix), [["Show", () => {
+      const o = f.b;
+      GF.sel = null;
+      UI.selected = o.id;
+      gfGo(o.x, o.y, 1.8);
+      gfOpen("inspect");
+    }]]);
+  }
+  const miss = { health: 0, market: 0, school: 0 };
+  const at = {};
+  for (const b of G2.blds.values()) if (BLD[b.type].kind === "home" && !b.bt) {
+    for (const s in miss) if (!b.svc[s]) {
+      miss[s] += b.res.length;
+      at[s] = b;
+    }
+  }
+  const SV = { health: ["clinic", "a clinic", "Families far from a clinic are unhappier from the 1920s, and the Women’s League notices."], market: ["market", "a market", "A market within reach is part of every family’s happiness."], school: ["school", "a school", "Schooling makes workers worth more to the workshops, and families want it for their children."] };
+  for (const s in miss) if (miss[s] >= 10) {
+    const [t, a, why] = SV[s];
+    const b = at[s];
+    add(4 + miss[s] / 8, s === "health" ? "🏥" : s === "market" ? "🧺" : "🏫", "".concat(miss[s], " people live far from ").concat(a), why, [["Show them", () => {
+      if (b) gfGo(b.x, b.y, 1.4, "coverage");
+    }], [BLD[t].name, () => gfBuildCard(t)]]);
+  }
+  const items = govGoalItems(G2).filter((i) => !i.ok && i.key !== "year");
+  if (items.length === 1) {
+    const i = items[0];
+    add(9, "⭐", "One goal left for ".concat(gStageName(govStage(G2) + 1), ": ").concat(st("g_goal_" + i.key).toLowerCase()), gfGoalHow(i.key), []);
+  }
+  const cm = items.find((i) => i.key === "commute");
+  const bn0 = G2.bottlenecks && G2.bottlenecks[0];
+  if (cm && bn0) add(8, "🚗", "The way to work is too long (".concat(cm.txt, ")"), "The worst jam is ".concat(civPlace(G2, bn0.x, bn0.y), ". At 7:00 the Traffic lens shows where the red starts: lights, a roundabout or a second road there help most."), [["Show the jam", () => gfGo(bn0.x, bn0.y, 1.8, "traffic")]]);
+  const ask = civAskPets(G2);
+  if (ask.length) add(7 + ask.length, "📜", "".concat(ask.length, " petition").concat(ask.length > 1 ? "s wait" : " waits", " for your answer"), "Unanswered for a year, a petition counts as a no. A promise kept wins friends; a promise broken costs more than an honest no.", [["Read them", () => {
+    const e = document.querySelector("#pbody .gf-card");
+    if (e) e.scrollIntoView({ behavior: "smooth", block: "center" });
+  }]]);
+  if (V.elec.next - y <= 1) {
+    const P = govPoll(G2);
+    if (P.seats.isla < 5) add(15, "🗳", "Election in ".concat(V.elec.next, ": the polls give you ").concat(P.seats.isla, " of 9 seats"), "Groups vote on how their lives go: jobs, homes, services and the laws that touch them. The People tab shows who is unhappy and why.", [["People", () => {
+      GF.sub.people = "groups";
+      gfOpen("people");
+    }]]);
+  }
+  const br = typeof exportBrakes === "function" ? exportBrakes(G2).out : [];
+  if (br.length) add(5, br[0][0], "Exports are held back", br[0][1], [["Harbor", () => {
+    const d = G2.blds.get(G2.dockId);
+    if (d) {
+      GF.sel = null;
+      UI.selected = d.id;
+      gfGo(d.x, d.y, 1.6);
+      gfOpen("inspect");
+    }
+  }]]);
+  if (!out.length) add(1, "🌴", "All is well on the island", "A good time to grow: lay out a new street for the families, or look at the People tab to see who could be happier.", [["Lay out a street", () => setTool("road" + (G2.era >= 2 ? 2 : 1))]]);
+  return out.sort((a, b) => b.w - a.w);
+}
+function gfGoalHow(key) {
+  return {
+    pop: "Settlers come by ship and stay where there are free homes: streets with lots for the families, and casitas.",
+    happy: "Jobs, a market, a clinic and a school near the homes, electricity, and quiet streets. The People tab shows what each group misses.",
+    commute: "Jobs close to homes, fewer jams (lights and roundabouts where the red starts at 7:00) and buses on the long trips.",
+    gdp: "What the island sells in a year: farms, fisheries and workshops sending goods to the harbor, and the shops.",
+    unemp: "Workshops and factories: each gives ten or more jobs. They need electricity first.",
+    year: "Time: some things only come with the years."
+  }[key] || "";
+}
+function gfAdviceHTML() {
+  const A = gfAdvice(G);
+  GF._adv = A;
+  if (!A.length) return "";
+  const k = (GF.advK || 0) % A.length, a = A[k];
+  if (!GF.rosaImg && typeof rosaFace === "function") {
+    try {
+      GF.rosaImg = rosaFace(96).toDataURL();
+    } catch (e) {
+      GF.rosaImg = "";
+    }
+  }
+  return '<div class="gf-rosa">'.concat(GF.rosaImg ? '<img src="'.concat(GF.rosaImg, '" alt="">') : "", '<div><span class="label">Rosa’s advice · ').concat(k + 1, " of ").concat(A.length, "</span><b>").concat(a.ic, " ").concat(a.t, "</b><p>").concat(a.why, '</p>\n    <div class="btnrow">').concat(a.acts.map(([l], i) => '<button class="'.concat(i ? "secondary" : "primary", '" data-adv="').concat(i, '">').concat(l, "</button>")).join("")).concat(A.length > 1 ? '<button class="link" id="gfAdvNext">Next advice →</button>' : "", "</div>\n    ").concat(A.length > 1 ? '<div class="gf-also"><span class="label">Also on her list</span>'.concat(A.map((o, i) => i === k ? "" : '<button class="link" data-advk="'.concat(i, '">').concat(o.ic, " ").concat(o.t, "</button>")).join(""), "</div>") : "", "</div></div>");
+}
+function gfBindAdvice() {
+  for (const x of document.querySelectorAll("#pbody [data-adv]")) x.onclick = () => {
+    const A = GF._adv || [], a = A[(GF.advK || 0) % Math.max(1, A.length)];
+    if (a && a.acts[+x.dataset.adv]) a.acts[+x.dataset.adv][1]();
+    UI.panelSig = "";
+  };
+  for (const x of document.querySelectorAll("#pbody [data-advk]")) x.onclick = () => {
+    GF.advK = +x.dataset.advk;
+    UI.panelSig = "";
+    renderPanel(true);
+  };
+  const n = document.getElementById("gfAdvNext");
+  if (n) n.onclick = () => {
+    GF.advK = (GF.advK || 0) + 1;
+    UI.panelSig = "";
+    renderPanel(true);
+  };
+}
+function civWants(G2, id) {
+  const D = ORGS[id], L = G2.gov.laws, out = [];
+  if (D.laws) for (const k in D.laws) {
+    const Lw = LAWS.find((l) => l.id === k);
+    if (!Lw || L[k] == null) continue;
+    let best = L[k], bv = D.laws[k](L[k]);
+    for (const v of Lw.opts) {
+      const s = D.laws[k](v);
+      if (s > bv + 0.6) {
+        bv = s;
+        best = v;
+      }
+    }
+    if (best !== L[k]) out.push("".concat(st("g_law_" + k), ": ").concat(gLawVal(k, best)));
+  }
+  if (D.faith && id !== "parish") out.push("a ".concat(FAITHS[D.faith].house.toLowerCase(), " near their homes"));
+  if (id === "parish") out.push("churches within reach of every Catholic family");
+  if (D.orig) out.push("a society hall of their own, and fair treatment");
+  if (id === "ball") out.push("a ballpark");
+  if (id === "coop") out.push("a deep-water quay");
+  if (id === "women") out.push("clinics within reach of the families");
+  if (id === "union") out.push("work for everyone");
+  return out.slice(0, 4);
+}
+function civProtestHTML(G2, id, s) {
+  const w = civWants(G2, id);
+  let h = w.length ? '<small class="gf-sub"><b>They want:</b> '.concat(w.join(" · "), "</small>") : "";
+  if (id === "union") h += '<small class="gf-sub '.concat(s <= -15 ? "neg" : "", '"><b>Strike risk:</b> ').concat(s <= -22 ? "high: they strike when the year turns" : "they strike below −22 (now ".concat(gfSign(s), ")")).concat(G2.civ.strike && G2.civ.strike.until > G2.t ? ' · <b class="neg">on strike now</b>' : "", ".</small>");
+  else if (s <= -25) h += '<small class="gf-sub neg"><b>Hostile:</b> they campaign against you and stop answering your people’s letters.</small>';
+  return h;
+}
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
@@ -28165,7 +28920,7 @@ function serialize(G2) {
     noShips: !!G2.noShips,
     noMoves: !!G2.noMoves,
     noWeather: !!G2.noWeather,
-    blds: [...G2.blds.values()].map((b) => [b.id, b.type, b.x, b.y, b.color, Math.round(b.stock), { lv: b.lv || 0, inp: Math.round(b.inp || 0), stays: b.stays, hist: b.hist || [], lp: b.ledPrev || null, wt: b.waiting || 0, crop: b.crop, lux: b.lux ? Math.round(b.lux * 10) / 10 : 0, lv$: b.luxVal ? Math.round(b.luxVal) : 0, lg: b.luxG || null, fl: b.felled ? Math.round(b.felled) : 0, own: b.own || void 0, pub: b.pub == null ? void 0 : b.pub ? 1 : 0, pnl: b.pnl != null ? Math.round(b.pnl) : void 0, v: b.v || void 0, org: b.org || void 0 }]),
+    blds: [...G2.blds.values()].map((b) => [b.id, b.type, b.x, b.y, b.color, Math.round(b.stock), { lv: b.lv || 0, inp: Math.round(b.inp || 0), stays: b.stays, hist: b.hist || [], lp: b.ledPrev || null, wt: b.waiting || 0, crop: b.crop, lux: b.lux ? Math.round(b.lux * 10) / 10 : 0, lv$: b.luxVal ? Math.round(b.luxVal) : 0, lg: b.luxG || null, fl: b.felled ? Math.round(b.felled) : 0, own: b.own || void 0, pub: b.pub == null ? void 0 : b.pub ? 1 : 0, pnl: b.pnl != null ? Math.round(b.pnl) : void 0, v: b.v || void 0, org: b.org || void 0, bt: b.bt ? Math.round(b.bt) : void 0, bt0: b.bt ? Math.round(b.bt0 || 0) : void 0, bn: b.born != null ? Math.round(b.born) : void 0 }]),
     fert: Array.from(G2.fert, (v) => Math.round(v * 100)),
     nextFlight: G2.nextFlight,
     twin: !!G2.twin,
@@ -28173,6 +28928,8 @@ function serialize(G2) {
     eraT0: G2.eraT0 || 0,
     booba: G2.booba || null,
     story: G2.story || null,
+    manifests: G2.manifests || [],
+    quay: G2.quay || {},
     gov: G2.gov ? { ...G2.gov, _mood: void 0, _moodT: void 0, _hr: void 0 } : null,
     civ: G2.civ ? { ...G2.civ, _k: void 0, _kT: void 0 } : null,
     classic: !!G2.classic,
@@ -28236,6 +28993,11 @@ function deserialize(str, forUI = true) {
     b.stock = stock || 0;
     W.blds.set(id, b);
     if (ex) {
+      if (ex.bt) {
+        b.bt = ex.bt;
+        b.bt0 = ex.bt0 || ex.bt - 240;
+      }
+      if (ex.bn != null) b.born = ex.bn;
       if (ex.lv) b.lv = ex.lv;
       b.inp = ex.inp || 0;
       b.stays = ex.stays || [];
@@ -28276,6 +29038,8 @@ function deserialize(str, forUI = true) {
   W.story = s.story || null;
   W.gov = s.gov || null;
   W.civ = s.civ || null;
+  W.manifests = s.manifests || [];
+  W.quay = s.quay || {};
   if (W.story && !W.story.open) {
     W.noShips = true;
     W.noMoves = true;
@@ -28389,12 +29153,13 @@ function saveGame(quiet) {
   if (!quiet) toast(ok ? { title: "Island saved", body: "Saved in this browser. Continue from the title screen.", tone: "good" } : { title: "Could not save", body: "This browser blocked storage. Your island keeps running until you close the page.", tone: "bad" });
   return ok;
 }
-function toast({ title, body, tone = "", timeout = 6e3, actions = [] }) {
+function toast({ title, body, tone = "", timeout = 6e3, actions = [], key = null }) {
   const box = $("#toasts");
-  for (const o of box.children) if (o.dataset.key === (title || "") + "|" + (body || "")) o.remove();
+  const k = key || (title || "") + "|" + (body || "");
+  for (const o of [...box.children]) if (o.dataset.key === k) o.remove();
   while (box.children.length >= 3) box.removeChild(box.lastChild);
   const t = el("div", "toast panel-surface " + tone);
-  t.dataset.key = (title || "") + "|" + (body || "");
+  t.dataset.key = k;
   if (title) t.append(el("b", null, title));
   if (body) t.append(el("span", null, body));
   if (actions.length) {
@@ -28554,7 +29319,10 @@ function buildDock() {
       const short = t.road ? { 1: "Dirt", 2: "Paved", 3: "Avenue", 4: "4-Lane", 5: "Tunnel" }[t.road] : t.ctrl ? { 1: "Lights", 2: "Roundabout" }[t.ctrl] : t.transit ? t.transit === "bus" ? "Bus line" : "Tram line" : t.lane ? t.lane === "bus" ? "Bus lane" : "Bike lane" : toolName(t);
       b.append(cv, el("span", "tn", short), el("span", "tc", ""));
       if (t.key) b.append(el("span", "key", t.key));
-      b.onclick = () => setTool(t.id);
+      b.onclick = () => {
+        if (t.bld && typeof govFullOn === "function" && govFullOn()) gfBuildCard(t.bld);
+        else setTool(t.id);
+      };
       row.append(b);
     }
     wrap.append(row);
@@ -28570,10 +29338,12 @@ function refreshDock() {
     const cost = toolCost(t);
     const gl = typeof govFullOn === "function" && govFullOn() ? t.bld ? govLocked(G, t.bld) : t.road && YEAR_MIN["road" + t.road] && govY(G) < YEAR_MIN["road" + t.road] ? "year" : null : null;
     const locked = G && (era > G.era || !!gl);
-    b.disabled = !!locked;
+    const gfull = typeof govFullOn === "function" && govFullOn() && !!t.bld;
+    b.disabled = !!locked && !gfull;
+    b.classList.toggle("locked", !!locked && gfull);
     b.setAttribute("aria-pressed", String(UI.tool === t.id));
     b.classList.toggle("cant", !!(G && cost != null && G.money < cost && !locked));
-    tc.textContent = gl && era <= G.era ? t.bld && FUTURE_T.has(t.bld) && !G.gov.future ? "Stage V" : String(YEAR_MIN[t.bld || "road" + t.road] || "") : locked ? "".concat(typeof govFullOn === "function" && govFullOn() ? "Stage" : "Era", " ").concat(ERAS[era].roman) : cost != null ? t.road || t.lane ? "$".concat(cost, "/tile") : t.landfill ? "$".concat(cost, "+/tile") : t.transit ? "$".concat(cost, "/stop") : "$".concat(cost) : t.id === "inspect" ? "look" : "remove";
+    tc.textContent = gl && era <= G.era ? t.bld && FUTURE_T.has(t.bld) && !G.gov.future ? "Stage V" : YEAR_MIN[t.bld || "road" + t.road] && govY(G) < YEAR_MIN[t.bld || "road" + t.road] ? String(YEAR_MIN[t.bld || "road" + t.road]) : "⚡ no power" : locked ? "".concat(typeof govFullOn === "function" && govFullOn() ? "Stage" : "Era", " ").concat(ERAS[era].roman) : cost != null ? t.road || t.lane ? "$".concat(cost, "/tile") : t.landfill ? "$".concat(cost, "+/tile") : t.transit ? "$".concat(cost, "/stop") : "$".concat(cost) : t.id === "inspect" ? "look" : "remove";
     const d = t.bld ? BLD[t.bld] : null;
     b.title = t.transit ? "".concat(TRANSIT[t.transit].name, " line: click road tiles to place stops in order, click the last stop again (or press Enter) to open the line. ").concat(t.transit === "tram" ? "Trams need paved roads and lay tracks as they go; in an Avenue median they run on their own track." : "Buses share the road with cars unless you paint bus lanes.") : t.lane === "bus" ? "Bus lane: paint on 4-Lane Roads and Avenues. Buses skip the queue; cars lose one lane each way." : t.lane === "bike" ? "Bike lane: paint on paved roads. Cyclists get their own safe space; a two-lane street loses some car capacity." : t.landfill ? "Landfill: drag a rectangle over the sea to make new land. ".concat(fmtMoney(LANDFILL.shallow), " a tile in shallow water, ").concat(fmtMoney(LANDFILL.deep), " in deep water. The sea around new land turns shallow, so you can bridge to it.") : t.road ? "".concat(ROADS[t.road].name, ": ").concat(ROADS[t.road].desc, " Capacity ").concat(ROADS[t.road].cap, " vehicles per tile, ").concat(ROADS[t.road].speed, " tiles/min.") : t.ctrl ? "".concat(CTRL[t.ctrl].name, ": ").concat(CTRL[t.ctrl].desc) : d ? "".concat(d.name, ": ").concat(d.desc) : t.label;
   }
@@ -28582,6 +29352,16 @@ function setTool(id) {
   const t = TOOLS.find((x) => x.id === id);
   if (!t) return;
   if (G && toolEra(t) > G.era) return;
+  const gfull = typeof govFullOn === "function" && govFullOn();
+  if (G && gfull && t.bld && govLocked(G, t.bld)) return;
+  if (UI.pend && UI.pend.type !== id) {
+    UI.pend = null;
+    if (typeof gfBuildBar === "function") gfBuildBar();
+  }
+  if (gfull && GF.sel && GF.sel.k === "bld" && GF.sel.type !== id) {
+    GF.sel = null;
+    UI.panelSig = "";
+  }
   if (UI.draft && id !== (UI.draft.kind === "tram" ? "tramline" : "busline")) UI.draft = null;
   UI.tool = id;
   UI.drag = null;
@@ -28777,7 +29557,14 @@ function selectAt(t, w) {
     storyTap(t);
     return;
   }
-  if (typeof govFullTap === "function" && govFullTap(t, w)) return;
+  if (typeof govFullTap === "function" && govFullTap(t, w)) {
+    UI.selected = null;
+    UI.selTile = -1;
+    UI.selVeh = null;
+    UI.follow = false;
+    UI.confirmBulldoze = false;
+    return;
+  }
   const v = w ? pickVehicle(G, w[0], w[1]) : null;
   if (v) {
     UI.selVeh = v.key;
@@ -28808,10 +29595,10 @@ function selectAt(t, w) {
     UI.selected = null;
     UI.selTile = -1;
   }
-  if (UI.selected || UI.selTile >= 0) {
+  if (UI.selected != null || UI.selTile >= 0) {
     setTab("inspect");
     if (!UI.panelOpen) togglePanel(true);
-  }
+  } else if (typeof govFullOn === "function" && govFullOn() && UI.tab === "inspect") setTab(UI.lastTab || "goals");
   UI.confirmBulldoze = false;
   UI.panelSig = "";
 }
@@ -28946,6 +29733,9 @@ function toolDown(t) {
   else if (UI.tool === "landfill") {
     UI.drag = { kind: "fill", x0: t.x, y0: t.y };
     UI.drag.plan = planLandfill(G, t.x, t.y, t.x, t.y);
+  } else if (BLD[UI.tool] && typeof govFullOn === "function" && govFullOn()) {
+    gfPendSet(UI.tool, t);
+    UI.drag = { kind: "pend" };
   } else if (BLD[UI.tool]) {
     const ok = placeAt(t);
     if (BLD[UI.tool].w === 1) UI.drag = { kind: "paint", last: t.x + "," + t.y, any: ok };
@@ -28963,7 +29753,9 @@ function toolMove(t) {
   if (!UI.drag || !t) return;
   if (UI.drag.kind === "road") updateRoadDrag(t);
   else if (UI.drag.kind === "fill") UI.drag.plan = planLandfill(G, UI.drag.x0, UI.drag.y0, t.x, t.y);
-  else if (UI.drag.kind === "paint") {
+  else if (UI.drag.kind === "pend") {
+    if (UI.pend) gfPendSet(UI.pend.type, t);
+  } else if (UI.drag.kind === "paint") {
     const k = t.x + "," + t.y;
     if (k !== UI.drag.last) {
       UI.drag.last = k;
@@ -28993,8 +29785,9 @@ function bindInput() {
       return;
     }
     const panBtn = e.button === 1 || e.button === 2;
-    if (panBtn || UI.tool === "inspect") {
-      pan = { x: p.x, y: p.y, cx: View.cam.x, cy: View.cam.y, moved: false, click: !panBtn };
+    const onPin = !panBtn && UI.tool !== "inspect" && typeof govPinHit === "function" && govPinHit(toWorld(p.x, p.y));
+    if (panBtn || UI.tool === "inspect" || onPin) {
+      pan = { x: p.x, y: p.y, cx: View.cam.x, cy: View.cam.y, moved: false, click: !panBtn, slop: e.pointerType === "mouse" ? 5 : 12 };
       return;
     }
     if (e.button !== 0) return;
@@ -29014,7 +29807,7 @@ function bindInput() {
       return;
     }
     if (pan) {
-      if (Math.hypot(p.x - pan.x, p.y - pan.y) > 5) {
+      if (Math.hypot(p.x - pan.x, p.y - pan.y) > (pan.slop || 5)) {
         if (!pan.moved) {
           UI.follow = false;
           UI.zoomTarget = null;
@@ -29086,6 +29879,8 @@ function bindInput() {
       e.preventDefault();
       setSpeed(UI.paused ? UI.speed : 0);
     } else if (k === "enter" && UI.draft) finishDraft();
+    else if (k === "enter" && UI.pend && typeof gfConfirmBuild === "function") gfConfirmBuild();
+    else if (k === "escape" && UI.pend && typeof gfCancelPend === "function") gfCancelPend();
     else if (k === "escape" && UI.draft) {
       UI.draft = null;
       UI.panelSig = "";
@@ -29124,6 +29919,7 @@ function bindInput() {
 function setTab(t) {
   UI.tab = t;
   UI.panelSig = "";
+  if (t !== "inspect") UI.lastTab = t;
   for (const b of document.querySelectorAll(".tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === t));
   if (t === "notes") UI.notesBadge = false;
   if (t === "goals") UI.goalsBadge = false;
@@ -29155,6 +29951,7 @@ function hoursUntil(t) {
 function counts() {
   let housing = 0, jobs = 0, employed = 0, vacant = 0;
   for (const b of G.blds.values()) {
+    if (b.bt) continue;
     const d = BLD[b.type];
     if (d.kind === "home") {
       housing += d.housing;
@@ -29361,6 +30158,22 @@ function renderPanel(force) {
       if (typeof govFullBindInspect === "function") govFullBindInspect();
     };
   }
+  if (tab === "inspect" && typeof govFullOn === "function" && govFullOn() && (UI.selected != null || UI.selTile >= 0 || UI.selVeh || GF.sel)) {
+    html = '<button class="gf-x" id="gfClose" aria-label="Close">✕</button>' + html;
+    const a0 = after;
+    after = () => {
+      if (a0) a0();
+      const x = $("#gfClose");
+      if (x) x.onclick = () => {
+        UI.selected = null;
+        UI.selTile = -1;
+        UI.selVeh = null;
+        UI.follow = false;
+        GF.sel = null;
+        setTab(UI.lastTab || "goals");
+      };
+    };
+  }
   if (!force && (html === UI.panelSig || UI.panelHover)) return;
   UI.panelSig = html;
   const st2 = body.scrollTop;
@@ -29517,6 +30330,8 @@ function inspectHTML() {
   if (!b) return '<div><span class="label">Inspect</span><h2>Pick something</h2></div><p>Choose the Inspect tool (Q), then click a car, a building or a road. Clicking a car follows it with the camera, so you can zoom in and watch how it handles each junction. Homes and workplaces draw their commute lines on the map.</p>';
   const d = BLD[b.type];
   let h = '<div><span class="label">'.concat(d.kind === "home" ? "Housing" : d.kind === "service" ? "Service" : b.id === G.dockId ? "Port" : "Workplace", "</span><h2>").concat(d.name, "</h2><p>").concat(d.desc, "</p></div>");
+  if (typeof govFullOn === "function" && govFullOn() && typeof bldIssueHTML === "function") h += bldIssueHTML(G, b);
+  if (b.bt && typeof bldLeft === "function") h += '<div class="issue s0"><b>🏗 Building site</b><span>The builders need about '.concat(monthsTxt(bldLeft(G, b)), ' more. Until then it houses nobody and employs nobody.</span><div class="bar"><i style="width:').concat(Math.round(bldFrac(G, b) * 100), '%"></i></div></div>');
   const conn = b.ent < 0 ? '<span class="neg">No road access</span>' : G.comp[b.ent] !== G.harborComp ? '<span class="neg">Not connected to the harbor</span>' : '<span class="pos">Connected</span>';
   h += '<div class="kv"><span class="k">Road</span><span class="v">'.concat(conn, "</span>");
   if (d.kind === "home") {
@@ -29663,6 +30478,40 @@ function harborHTML(b) {
     const lock = nx.era > G.era;
     h += "<p>".concat(nx.desc, '</p><button class="primary" id="btnHarbor" ').concat(lock ? "disabled" : "", ">").concat(lock ? "".concat(nx.name, " unlocks in ").concat(ERAS[nx.era].name) : "Upgrade to ".concat(nx.name, " · ").concat(fmtMoney(nx.cost)), "</button>");
   } else h += "<p>Fully built out. Add a Cargo Pier or a Container Terminal elsewhere on the coast for more room.</p>";
+  return h + "</div>" + shipsHTML(b);
+}
+const goodName = (k) => GOODS3[k] ? GOODS3[k].name : typeof PRODUCT !== "undefined" && PRODUCT[k] ? PRODUCT[k] : BLD[k] ? BLD[k].name : "Goods";
+function exportBrakes(G2) {
+  const out = [];
+  let stock = 0, full = 0, noRoad = 0, noStaff = 0;
+  const dock = G2.blds.get(G2.dockId);
+  for (const b of G2.blds.values()) {
+    const d = BLD[b.type];
+    if (d.kind !== "goods" || d.out === "gold") continue;
+    stock += b.stock;
+    if (b.stock >= 110) full++;
+    if (b.ent < 0 || b.blocked) noRoad++;
+    if (d.jobs && b.wrk.length < d.jobs * 0.5) noStaff++;
+  }
+  if (noRoad) out.push(["🚧", "".concat(noRoad, " producer").concat(noRoad > 1 ? "s have" : " has", " no road to the harbor: its goods never leave.")]);
+  if (full) out.push(["📦", "".concat(full, " producer").concat(full > 1 ? "s are" : " is", " full and stopped: the trucks don’t come often enough.")]);
+  if (fleetOn(G2) && (G2.dayAcc.noTruck || 0) > 3) out.push(["🚚", "All ".concat(fleetCap(G2), " trucks were busy ").concat(G2.dayAcc.noTruck, " times today: a Truck Garage adds six.")]);
+  if (dock && portNow(dock) >= 3) out.push(["⚓", "".concat(portNow(dock), " trucks queue at the quay: its cranes are full. Upgrade the harbor or build a Cargo Pier.")]);
+  if (noStaff) out.push(["👷", "".concat(noStaff, " producer").concat(noStaff > 1 ? "s have" : " has", " fewer than half the workers it needs.")]);
+  return { out, stock: Math.round(stock) };
+}
+function shipsHTML(b) {
+  if (b.id !== G.dockId) return "";
+  const M = (G.manifests || []).slice(-4).reverse();
+  const Q = Object.entries(G.quay || {}).filter(([, q]) => q.v >= 1).sort((a, c) => c[1].v - a[1].v);
+  const qv = Q.reduce((a, [, q]) => a + q.v, 0);
+  const br = exportBrakes(G);
+  let h = '<div class="gf-sec"><span class="label">Ships out</span>';
+  h += '<div class="kv"><span class="k">On the quay for the next ship</span><span class="v">'.concat(qv ? fmtMoney(qv) : "nothing yet", "</span>").concat(Q.slice(0, 4).map(([k, q]) => '<span class="k" style="padding-left:10px">'.concat(goodName(k), '</span><span class="v">').concat(q.u, " units · ").concat(fmtMoney(q.v), "</span>")).join(""), '<span class="k">Waiting at the farms and workshops</span><span class="v">').concat(br.stock, " units</span></div>");
+  if (M.length) h += '<ul class="events">'.concat(M.map((m) => "<li><time>".concat(m.y || "day " + m.day, "</time>To ").concat(esc(m.to), ": ").concat(m.goods.slice(0, 3).map(([k, u, v]) => "".concat(goodName(k).toLowerCase(), " ").concat(fmtMoney(v))).join(", ")).concat(m.goods.length > 3 ? "…" : "", " · <b>").concat(fmtMoney(m.v), "</b></li>")).join(""), "</ul>");
+  else h += "<p>No ship has sailed with cargo yet. Trucks bring the goods to the quay; the next ship takes them away.</p>";
+  if (br.out.length) h += '<span class="label">What holds exports back</span>'.concat(br.out.map(([ic, t]) => '<div class="bn"><span class="n" style="background:var(--mango)">'.concat(ic, "</span><span>").concat(t, "</span></div>")).join(""));
+  else h += '<p class="pos">Nothing holds exports back: every load reaches the quay.</p>';
   return h + "</div>";
 }
 function econAgg() {
@@ -30812,6 +31661,12 @@ function startGame(fromSave) {
   layout();
   viewResize();
   fitIsland(G);
+  if (G.netDirty) {
+    try {
+      recomputeNetwork(G);
+    } catch (e) {
+    }
+  }
   if (!Music.ready) Music.init();
   Music.setEra(G.era);
   if (UI.volume != null) Music.setVolume(UI.volume);
@@ -30831,6 +31686,7 @@ function startGame(fromSave) {
 function layout() {
   const hud = $("#hud").getBoundingClientRect(), dock = $("#dock").getBoundingClientRect();
   const top = (hud.height || 60) + 10, bottom = (dock.height || 90) + 10;
+  document.documentElement.style.setProperty("--dockh", Math.round(dock.height || 90) + "px");
   const p = $("#panel");
   p.style.top = top + "px";
   p.style.bottom = bottom + "px";
