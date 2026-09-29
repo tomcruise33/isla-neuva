@@ -561,7 +561,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .st-fac b { font-size: 14px; } .st-fac em { font-style: normal; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .st-bar { display: block; height: 8px; border-radius: 4px; background: #f0e4d2; overflow: hidden; margin-top: 3px; } .st-bar i { display: block; height: 100%; border-radius: 4px; }
 .st-ballot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: end; padding: 8px 4px; }
-.st-bcol { display: flex; flex-direction: column; align-items: center; gap: 4px; } .st-bcol span { font-size: 28px; } .st-bcol b { font-size: 15px; } .st-bcol em { font-style: normal; font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; }
+.st-bcol { display: flex; flex-direction: column; align-items: center; gap: 4px; } .st-bcol.novote { opacity: 0.5; } .st-bcol.novote em { font-size: 13px; font-weight: 600; text-align: center; } .st-bcol.novote .st-btrack { background: repeating-linear-gradient(45deg, #eee 0 6px, #f8f8f8 6px 12px); } .st-bcol span { font-size: 28px; } .st-bcol b { font-size: 15px; } .st-bcol em { font-style: normal; font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; }
 .st-btrack { width: 56px; height: 160px; border-radius: 12px; background: #f0e4d2; display: flex; align-items: flex-end; overflow: hidden; } .st-btrack i { display: block; width: 100%; height: 0; border-radius: 12px; transition: height 1.4s cubic-bezier(.2,.8,.2,1); }
 .st-big { font-size: 22px !important; font-weight: 700; color: #37843c; }
 
@@ -7345,6 +7345,58 @@ const FAMILY_NAMES = ['Santos', 'Yılmaz', 'Kováč', 'Rivera', 'Demir', 'Mendoz
 /* ---------- words ---------- */
 const STT = {
   en: {
+    mod_ubi: 'Basic income',
+    mod_lock: 'Lost income in the lockdown',
+    grant2: 'The island development fund sent a grant of {m}. Keep building!',
+    evMoIntro_market1: 'The rich are richer than ever, dear, and the edge of town is getting poorer. A new movement wants the state to take over the harbor and the plantations. Others point to the islands where that went wrong. The island will vote.',
+    heIntro_state: 'Look at our town, dear. The bicycles of the hard years are gone: now everyone who can afford it drives, and the new houses on the edge are full. The old centre is noisy, dirty and jammed with cars. And the doctors say more people are overweight than ever.',
+    s6_intro_norum: 'The island makes more than ever: fruit, fish, crafts. But look at the yards, dear. Goods are piling up, because a few old trucks cannot carry it all.',
+    stIntro_noschool: 'The radio has been warning us for two days, dear: Hurricane Ivan is coming, category four. Everyone is going to the strongest buildings in town. Let’s hold on tight.',
+    evL_sweet_yes: 'Dear Mayor, my grandmother keeps an old front page with a single word on it: NO. This year I wished more people had read it. Your friend, Marco',
+    evL_protest_C: 'Dear Mayor, I was in the square when the police came. Nobody was hurt, but I will not forget it. We will come back, peacefully, until someone listens. Lucía, 16',
+    evL_strike_D: 'Dear Mayor, we are back at work. Nothing has changed, and everybody knows it. Your friend, Ramón',
+    evL_strike_B: 'Dear Mayor, the workshop belongs to the state now. My wage is safe, but the old owner has left, and nobody knows who will buy the new machines. Your friend, Ramón',
+    evL_newcomers_C: 'Dear Mayor, we are grateful for this year. We do not know where we will be next year, so we have not unpacked everything. The Haddad family',
+    evL_newcomers_B: 'Dear Mayor, we have found work and a small flat. The neighbours are polite, but we still do not know their names. Maybe next year. The Haddad family',
+    letterCradle_clinic: 'Dear Mayor, our daughter Luna was born at the clinic down the road. She is loud, perfect, and the first grandchild on our street in six years. The Şahin family',
+    caAdone_clinic: 'Parents can work and still see their babies at lunch. The next spring the clinics are busy with newborns.',
+    photoFeed_bad: 'An angry winter',
+    fdEnd_bad: 'The rumour has faded, but it left a scar. Next time the island will need better tools against it.',
+    heEnd_car: 'The traffic flows. Whether the heart of town still beats, time will tell.',
+    letterHeart_car: 'Dear Mayor, the new car park is very convenient, I must admit. But the baker has closed, and I hardly see my neighbours any more. Señora Kaya',
+    letterUni_lit: 'Dear Mayor, I am the first in my family to go to university. My grandmother learned to read at forty, and she read my acceptance letter out loud to the whole street. I promise I will come back and help. Ana Morales',
+    photoUni_factory: 'The new factory',
+    letterUni_factory: 'Dear Mayor, I start at the new factory on Monday. My mother says a good job is worth more than a diploma. My teacher says I should have had both. Ana Morales',
+    oiEnd_coal: 'The oil shock is over. This time the island chose coal; the sun and the wind will have to wait.',
+    photoOil_coal: 'The lights are back on',
+    photoOil_wind: 'The first wind turbines',
+    letterOil_coal: 'Dear Mayor, the new coal plant is running and the lights are back on. My mother says the washing turns grey on the line now. I hope one day we can have clean power too. Mateo, 10 years old',
+    letterOil_wind: 'Dear Mayor, our class went to see the new wind turbines. They are taller than the church! Our teacher says one day the whole island will run on wind and sunshine. I drew you a picture. Mateo, 10 years old',
+    oiIntro_east: 'The price of oil has quadrupled everywhere, dear. Our friends in the East still send us oil at the old price, but every month they want more sugar for it, and the rest of the world is buying less from us. The evenings are getting darker.',
+    waMx1_east: 'The middle road kept most of the island steady, but the sugar was sold only to the East, and those buyers are gone. Now the whole Caribbean is opening up, and our island must compete.',
+    waSt1_alone: 'The world has changed around us, dear. The old trading partners are gone, oil is expensive, and the state shops are short of almost everything. The lights go out in the evenings, and the queues grow longer.',
+    fdLCdone_new: 'The island founds a new, independent newspaper and pays for three reporters. Checking facts is slow, careful work, and now somebody is paid to do it.',
+    fdAdone3: 'There is no newspaper to check the story, only more rumours. It takes a week, and a very long assembly, before the crowd goes home.',
+    evWonClose: 'You won, but only just: {p}% of the votes. The island is telling you something. Listen to the ones who voted against you.',
+    evSwIntroRem2: 'There is a new favourite on the island, dear: {name}. Big smiles, free concerts, and the same old song: the assembly is slow, the judges are in the way. The old people go pale. They remember Alvarado’s ten years, and they are telling the young ones everything.',
+    swFall: 'Ten years after the radio man took power, his rule ended the way it began: with a crowd in the square. But this time it was a peaceful one. The first free election in a decade gave the island back its assembly, its newspaper and its Mayor.',
+    letterSweet2: 'Dear Mayor, my father says the most precious thing a small island can own is the right to say no, out loud and in print. I did not understand it before this year. Now I do. Elena Varga',
+    swY3done_other: 'The printing presses fall silent. Now there is only one voice on the island: his.',
+    swN3done_none: 'By morning a thousand leaflets are nailed to the doors, each with a single word: NO.',
+    swN3done_hall: 'Even the Town Hall’s own paper prints a front page with a single word: NO. The whole island buys a copy.',
+    swAsk3_none: '“Those leaflets everyone prints are full of lies about me,” says Alvarado. “From now on, only printers with a licence from me may print anything.” What do you say?',
+    swAsk3_hall: '“The Town Hall’s newspaper is dull and slow,” says Alvarado. “From now on, only my radio brings the island its news, and printing anything needs a licence from me.” What do you say?',
+    evMeIntroSchool: 'A video of you is going round the island, dear, saying you want to sell the beach to foreigners. A computer made it. Thanks to the media lessons at school most people check before they share, but a small crowd is still gathering at the Town Hall.',
+    evPrAdoneVote: 'You sit down on the steps with them, and a week later the assembly gives the vote to every woman and man over 21. At last the whole island chooses its Mayor.',
+    evPrIntro_vote: 'Listen, dear: the square is full again. Fishermen, shopkeepers and women are demanding the right to vote. Only landowners have it, and the rest of the island feels it has no say.',
+    suBdone: 'The marchers go home angry. They will be back, and next time there will be more of them.',
+    suB: 'No: only landowners',
+    suAdone: 'The assembly changes Article one. At the next election the queue in front of the school is three times as long.',
+    suA: 'Yes: every woman and man over 21',
+    suQ: 'Should the constitution give the vote to everyone?',
+    suIntro: 'Listen, dear: the fishermen, the shopkeepers and many women are marching to the Town Hall. They pay taxes and they build the island, they say, so why may only landowners vote?',
+    elLandOnly: 'Only landowners could vote, so the farmers decided. The fishermen and the merchants watched from the door of the school.',
+    elNoVote: 'cannot vote',
     showCard: 'Show the text',
     hideCard: 'Fold the text away',
     evL_build: 'Dear Mayor, from my window I can see the new building going up. My children will grow up there. Your neighbour, Beatriz',
@@ -7501,7 +7553,7 @@ const STT = {
     evLe_vote: 'An election is a question the people get to ask again and again.',
     evEnd_vote: 'The ballot boxes are packed away until next time. That is the quiet miracle of democracy: power changes hands, or stays, without a single shot.',
     evVoWait: 'The campaign is on: posters, debates, and long arguments in the cafés…',
-    evVoIntro: 'It is election year again, dear. Every four years the island asks the same question: are we happy with how things are going? Nobody stays Mayor unless the people say so, again and again. Here is how each group feels today.',
+    evVoIntro: 'It is election year again, dear. The constitution says the island must ask the same question again and again: are we happy with how things are going? Nobody stays Mayor unless the voters say so. Here is how each group feels today.',
     evP_vote: 'Election day',
     evN_vote: 'Election year',
     evWon: 'You won {p}% of the votes. The island has chosen you again!',
@@ -7560,7 +7612,7 @@ const STT = {
     fdAristotle: 'Remember Aristotle, dear? Democracy slides into mob rule when the crowd’s anger is stronger than the facts and the law. Phones did not invent this, but they made it a thousand times faster. Anger travels faster than truth, because anger gets more clicks.',
     fdCdone: 'It does not blow over. Several families refuse vaccines, and the clinic has a busy winter.',
     fdC: 'Ignore it, it will blow over',
-    fdBdone: 'The crowd goes home, but a new rumour says the Mayor jails her critics. Some people believe the video even more.',
+    fdBdone: 'The crowd goes home, but a new rumour says the Mayor jails critics. Some people believe the video even more.',
     fdB: 'Arrest whoever made the video',
     fdAdone2: 'You explain, but many people do not trust the Town Hall’s own newspaper. It takes three days to calm things down.',
     fdAdone1: 'You bring the Gazette’s reporters, who show how the video was made. One by one, people go home.',
@@ -7667,7 +7719,7 @@ const STT = {
     seLesson: 'Two hard choices, and no perfect answers. The sea and the machines will keep changing, dear. What matters is that the island keeps deciding together, out loud, in the assembly.',
     nLocal2064: 'Booba is elected President of the Caribbean Union.',
     nLocal2052: 'Booba of Isla Nueva is chosen to lead the Caribbean Parliament.',
-    nLocal2037: 'Local news: Booba becomes Mayor of Isla Nueva.',
+    nLocal2037: 'Local news: Booba becomes Deputy Mayor of Isla Nueva.',
     nLocal2029: 'Local news: Booba from Pastel Textile is elected to the island council.',
     photoLaunch: 'Liftoff',
     letterLaunch: 'To our Mayor, from all the families of Isla Nueva, past and present: thank you for our homes, our schools, our clinic, our lights and our rocket. We are glad you came. Rosa, Rosa, Rosa and Rosa',
@@ -7712,14 +7764,14 @@ const STT = {
     seAp: 'A sea wall along the harbor front. Tap two glowing spots on the shore.',
     seA: 'Build a sea wall',
     seQ: 'First the sea. What do we do about it?',
-    seIntro: 'The sea is thirty centimetres higher than when your island began, dear, and every storm pushes the waves into the lower streets. Look at the blue by the harbor. And at the mill, robots now do most of the sewing. Mayor Booba has called the assembly: two big problems for one small island.',
+    seIntro: 'The sea is thirty centimetres higher than when your island began, dear, and every storm pushes the waves into the lower streets. Look at the blue by the harbor. And at the mill, robots now do most of the sewing. Deputy Mayor Booba has asked the assembly to meet: two big problems for one small island.',
     boobaName: 'Booba',
     rosa4: 'Hello! I am Rosa too, the fourth one. My grandmother told me every story about you, and I have read all the diaries. Shall we see what the future brings?',
     y2045: 'The sea keeps rising, and machines are learning to do almost any job.',
     chSea: 'The rising sea',
     uCarn: 'Cafés, churches and cinemas are in your Build menu.',
     photoQuiet: 'The mask workshop',
-    letterQuiet: 'Dear Mayor, the clinic thanks the whole Pastel Textile team for three thousand masks. Special thanks to Booba, who called us every morning to ask what else we needed. Doctor Castillo',
+    letterQuiet: 'Dear Mayor, the clinic thanks the whole Pastel Textile team for three thousand masks. Special thanks to Booba, who called us every morning to ask what else we needed. Doctor {d}',
     uQuiet: 'Nothing new to build this time: the most important thing this year was each other.',
     lQub: 'One person who organizes the neighbours can do more than any rule.',
     lQua: 'In a crisis, education decides who can keep working.',
@@ -7807,7 +7859,7 @@ const STT = {
     y1985: 'Computers are arriving, and the world asks for new skills.',
     chUni: 'The university',
     photoOil: 'The first solar panels',
-    letterOil: 'Dear Mayor, our class went to see the solar panels. Our teacher says one day the whole island will run on sunshine. I drew you a picture of it. Tomás, 10 years old',
+    letterOil: 'Dear Mayor, our class went to see the solar panels. Our teacher says one day the whole island will run on sunshine. I drew you a picture of it. Mateo, 10 years old',
     uOil: 'Solar farms and wind turbines are in your Build menu.',
     lOib: 'Every road has hidden costs that only show after many years.',
     lOia: 'Oil comes from far away, and so do its shocks. Nobody can embargo the sun or the wind.',
@@ -7819,7 +7871,7 @@ const STT = {
     oiModel_state: 'Thirteen years on the state road. Everyone can read, and the clinic is free. But the shop shelves are often half empty: why grow more cane when the state pays the same? And some young doctors have quietly left for Miami.',
     oiCdone: 'The lights are back on. The smoke drifts over the fields, and the farmers are coughing.',
     oiCp: 'Coal is cheap but smoky: put the plant far from the homes. Tap a glowing spot.',
-    oiC: 'Another coal plant',
+    oiC: 'A coal plant',
     oiBdone: 'The blades turn in the trade wind. Free power, as long as the wind blows.',
     oiBp: 'Wind turbines love the hills and the shore, where the trade winds blow. Tap two glowing spots.',
     oiB: 'Two wind turbines',
@@ -8046,7 +8098,7 @@ const STT = {
     s4_best: 'The {f} loved your choices the most.', s4_worst: 'The {f} hope for more attention next time. That is normal: no choice pleases everybody.',
     s4_end: 'An assembly, a constitution, a Town Hall and an election. You listened to the farmers, the fishermen and the merchants, and they trusted you with the island.',
     l4a: 'Every choice pleases some people more than others. That is what politics is.', l4b: 'Listening to every group keeps an island together.', u4: 'Schools, distilleries and cantinas are in your Build menu. And you are the Mayor now!',
-    letter4: 'Madam Mayor, congratulations from the whole market! We have made you a cake in the shape of the island. It is already half eaten. Respectfully, Señor Castillo, merchant',
+    letter4: 'Dear Mayor, congratulations from the whole market! We have made you a cake in the shape of the island. It is already half eaten. Respectfully, Señor Castillo, merchant',
     photo4: 'Election day', farmers: 'farmers', fishers: 'fishermen', merchants: 'merchants', Farmers: 'Farmers', Fishers: 'Fishermen', Merchants: 'Merchants', mood: 'How they feel', mayor: 'Mayor',
     s5_intro: 'Good evening, dear. Look how dark the island gets after sunset. The ships bring radios, electric lamps and ice boxes now, but we have no electricity. Let’s change that.',
     s5_q: 'Which power plant should come first? Coal is cheap to build but smoky, so keep it far from the homes. An oil plant costs more and the price of oil jumps around, but it is cleaner. Wind turbines and solar panels? Those are still decades away!',
@@ -8082,7 +8134,7 @@ const STT = {
     s8_intro: 'Can you believe it, dear? My grandmother’s grandmother wrote in her diary about an empty beach in 1902. Now there is a harbor, a clinic, a Town Hall, a power plant, a mill and a Mayor. The islanders want to celebrate: Carnival!',
     s8_parks: 'Dancers need space. Put two parks near the homes for the parade. Tap two glowing spots.', s8_parksdone: 'Flags, lanterns and a stage. Booba organized the whole parade, with a clipboard and three committees.',
     s8_wait: 'The carnival starts when the sun goes down…', s8_fire: 'Fireworks!',
-    s8_speech: 'Look at them dancing. You did this. Remember the first day, when you thought you could not play? Since then you have welcomed {f} families, stopped a fever, wrote a constitution, won an election, lit up the island and kept every truck rolling. That is not luck, {name}. That is you.',
+    s8_speech: 'Look at them dancing. You did this. Since the first ship arrived you have welcomed {f} families, stopped a fever, written a constitution, won elections, lit up the island and kept every truck rolling. My grandmother wrote it all down, and I read it again last night. That is not luck, {name}. That is you.',
     s8_end: 'From an empty beach to a lively town of {n} people, and the story is not over yet.',
     l8a: 'You can build a town: one step, one choice, one road at a time.', l8b: 'Nothing on this island happened by accident. You planned it.', u8: 'Wind turbines, solar farms and every tool of the full game are open now. When you feel ready, open the Menu and tap All tools. Or keep building your own way here.',
     letter8: 'To our Mayor, from all the families of Isla Nueva: thank you for our homes, our work, our clinic, our lights and the best carnival the Caribbean has ever seen. We are glad you came.',
@@ -8091,6 +8143,58 @@ const STT = {
     photo1: 'The first homes',
   },
   tr: {
+    mod_ubi: 'Temel gelir',
+    mod_lock: 'Kapanmada kaybedilen gelir',
+    grant2: 'Ada kalkınma fonundan {m} hibe geldi. Hadi, inşaata devam!',
+    evMoIntro_market1: 'Zenginler hiç olmadığı kadar zengin canım, kasabanın kenarı ise giderek yoksullaşıyor. Yeni bir hareket, limanın ve plantasyonların devlete geçmesini istiyor. Diğerleri bunun kötü sonuçlandığı adaları örnek gösteriyor. Ada sandığa gidecek.',
+    heIntro_state: 'Kasabamıza bir bak canım. Zor yılların bisikletleri kayboldu: artık gücü yeten herkes araba kullanıyor, kenardaki yeni evlerde de boş yer kalmadı. Eski merkez gürültülü, kirli ve arabalarla tıka basa dolu. Doktorlar da kilolu insanların hiç bu kadar çok olmadığını söylüyor.',
+    s6_intro_norum: 'Ada her zamankinden fazla üretiyor: meyve, balık, el işleri. Ama avlulara bak canım. Mallar birikiyor, çünkü birkaç eski kamyon hepsini taşıyamıyor.',
+    stIntro_noschool: 'Radyo iki gündür uyarıyor canım: Ivan Kasırgası geliyor, hem de dördüncü kategoriden. Herkes kasabanın en sağlam binalarına gidiyor. Sıkı tutunalım.',
+    evL_sweet_yes: 'Sayın Başkan, büyükannem, üzerinde tek bir kelime yazan eski bir gazete sayfası saklıyor: HAYIR. Bu yıl keşke daha çok insan onu okumuş olsaydı diye düşündüm. Dostunuz Marco',
+    evL_protest_C: 'Sayın Başkan, polis geldiğinde ben de meydandaydım. Kimse yaralanmadı ama bunu unutmayacağım. Biri bizi dinleyene kadar barışçıl bir şekilde geri geleceğiz. Lucía, 16 yaşında',
+    evL_strike_D: 'Sayın Başkan, işe geri döndük. Hiçbir şey değişmedi ve bunu herkes biliyor. Dostunuz Ramón',
+    evL_strike_B: 'Sayın Başkan, atölye artık devletin. Maaşım güvende ama eski sahibi gitti ve yeni makineleri kimin alacağını kimse bilmiyor. Dostunuz Ramón',
+    evL_newcomers_C: 'Sayın Başkan, bu yıl için minnettarız. Seneye nerede olacağımızı bilmiyoruz, o yüzden eşyalarımızı henüz tam yerleştirmedik. Haddad ailesi',
+    evL_newcomers_B: 'Sayın Başkan, iş ve küçük bir daire bulduk. Komşular kibar ama hâlâ adlarını bilmiyoruz. Belki seneye. Haddad ailesi',
+    letterCradle_clinic: 'Sayın Başkan, kızımız Luna hemen yakınımızdaki klinikte dünyaya geldi. Sesi gür, kendisi kusursuz ve altı yıldır sokağımızda doğan ilk torun. Şahin ailesi',
+    caAdone_clinic: 'Anne babalar hem çalışabiliyor hem de öğle arasında bebeklerini görebiliyor. Ertesi bahar klinikler yenidoğanlarla dolup taşıyor.',
+    photoFeed_bad: 'Öfkeli bir kış',
+    fdEnd_bad: 'Söylenti sönüp gitti ama geride bir yara izi bıraktı. Bir dahaki sefere ada söylentilere karşı daha iyi araçlara ihtiyaç duyacak.',
+    heEnd_car: 'Trafik akıyor. Kasabanın kalbi hâlâ atıyor mu, bunu zaman gösterecek.',
+    letterHeart_car: 'Sayın Başkan, yeni otopark çok kullanışlı, kabul etmeliyim. Ama fırın kapandı ve komşularımı artık neredeyse hiç görmüyorum. Señora Kaya',
+    letterUni_lit: 'Sayın Başkan, ailemde üniversiteye giden ilk kişi benim. Babaannem okumayı kırk yaşında öğrendi ve kabul mektubumu bütün sokağa yüksek sesle okudu. Söz veriyorum, geri dönüp yardım edeceğim. Ana Morales',
+    photoUni_factory: 'Yeni fabrika',
+    letterUni_factory: 'Sayın Başkan, pazartesi yeni fabrikada işe başlıyorum. Annem iyi bir işin diplomadan daha değerli olduğunu söylüyor. Öğretmenime göre ise ikisi birden olmalıydı. Ana Morales',
+    oiEnd_coal: 'Petrol krizi sona erdi. Bu sefer ada kömürü seçti; güneş ve rüzgâr beklemek zorunda.',
+    photoOil_coal: 'Işıklar yeniden yandı',
+    photoOil_wind: 'İlk rüzgâr türbinleri',
+    letterOil_coal: 'Sayın Başkan, yeni kömür santrali çalışıyor ve ışıklar yeniden yandı. Annem, ipte kuruyan çamaşırların artık grileştiğini söylüyor. Umarım bir gün bizim de temiz elektriğimiz olur. Mateo, 10 yaşında',
+    letterOil_wind: 'Sayın Başkan, sınıfça yeni rüzgâr türbinlerini görmeye gittik. Kiliseden bile uzunlar! Öğretmenimiz bir gün bütün adanın rüzgârla ve güneşle çalışacağını söylüyor. Size bir resim çizdim. Mateo, 10 yaşında',
+    oiIntro_east: 'Petrolün fiyatı her yerde dört katına çıktı canım. Doğu\'daki dostlarımız bize hâlâ eski fiyattan petrol gönderiyor ama her ay karşılığında daha çok şeker istiyorlar; dünyanın geri kalanı da bizden gittikçe daha az şey alıyor. Akşamlar giderek kararıyor.',
+    waMx1_east: 'Orta yol adanın büyük kısmını dengede tuttu, ama şeker yalnızca Doğu\'ya satılıyordu ve o alıcılar artık yok. Şimdi bütün Karayipler dünyaya açılıyor ve adamız rekabet etmek zorunda.',
+    waSt1_alone: 'Etrafımızda dünya değişti canım. Eski ticaret ortaklarımız artık yok, petrol pahalı, devlet dükkânlarında da neredeyse her şey eksik. Akşamları ışıklar sönüyor, kuyruklar da gittikçe uzuyor.',
+    fdLCdone_new: 'Ada yeni ve bağımsız bir gazete kuruyor ve üç muhabirin maaşını ödüyor. Doğruluk kontrolü yavaş ve titiz bir iş; artık bunu yapmak için maaş alan biri var.',
+    fdAdone3: 'Haberi doğrulayacak bir gazete yok, sadece yeni söylentiler var. Kalabalığın evine dönmesi bir hafta ve çok uzun bir meclis toplantısı sürüyor.',
+    evWonClose: 'Kazandın ama kıl payı: %{p} oyla. Ada sana bir şey söylüyor. Sana oy vermeyenleri de dinle.',
+    evSwIntroRem2: 'Adada yeni bir gözde var canım: {name}. Kocaman gülümsemeler, bedava konserler ve aynı eski şarkı: meclis yavaşmış, yargıçlar ayak bağıymış. Yaşlıların benzi atıyor. Alvarado\'nun on yılını hatırlıyorlar ve gençlere her şeyi anlatıyorlar.',
+    swFall: 'Radyocu adam iktidarı ele geçirdikten on yıl sonra, yönetimi başladığı gibi sona erdi: meydanda toplanan bir kalabalıkla. Ama bu kez kalabalık barışçıldı. On yıldan beri yapılan ilk serbest seçim adaya meclisini, gazetesini ve belediye başkanını geri verdi.',
+    letterSweet2: 'Sayın Başkan, babam, küçük bir adanın sahip olabileceği en değerli şeyin hem yüksek sesle hem de basılı olarak “hayır” diyebilme hakkı olduğunu söylüyor. Bu yıla kadar bunu anlamamıştım. Şimdi anlıyorum. Elena Varga',
+    swY3done_other: 'Baskı makineleri susuyor. Artık adada tek bir ses var: onunki.',
+    swN3done_none: 'Sabah olduğunda kapılarda bin tane el ilanı çakılı; her birinde tek bir kelime yazıyor: HAYIR.',
+    swN3done_hall: 'Belediyenin kendi gazetesi bile ilk sayfasına tek bir kelime basıyor: HAYIR. Adadaki herkes bir tane satın alıyor.',
+    swAsk3_none: '“Herkesin bastığı o el ilanları hakkımda yalanlarla dolu,” diyor Alvarado. “Bundan sonra yalnızca benden ruhsat alan matbaalar bir şey basabilir.” Sen ne dersin?',
+    swAsk3_hall: '“Belediye Gazetesi sıkıcı ve yavaş,” diyor Alvarado. “Bundan sonra adaya haberleri yalnızca benim radyom verecek; bir şey basmak isteyen de benden ruhsat alacak.” Sen ne dersin?',
+    evMeIntroSchool: 'Adada senin bir videon dolaşıyor canım; videoda plajı yabancılara satmak istediğini söylüyorsun. Onu bir bilgisayar üretti. Okuldaki medya dersleri sayesinde çoğu kişi paylaşmadan önce kontrol ediyor ama Belediye binasının önünde yine de küçük bir kalabalık toplanıyor.',
+    evPrAdoneVote: 'Onlarla birlikte basamaklara oturuyorsun ve bir hafta sonra meclis 21 yaşın üstündeki her kadına ve erkeğe oy hakkı veriyor. Sonunda bütün ada kendi belediye başkanını seçiyor.',
+    evPrIntro_vote: 'Dinle canım: meydan yine dolu. Balıkçılar, esnaf ve kadınlar oy hakkı istiyor. Bu hak yalnızca toprak sahiplerinde var; adanın geri kalanı ise hiçbir söz hakkı olmadığını hissediyor.',
+    suBdone: 'Yürüyüşçüler öfkeyle evlerine dönüyor. Geri gelecekler, hem de bir dahaki sefere daha kalabalık olacaklar.',
+    suB: 'Hayır: yalnızca toprak sahipleri',
+    suAdone: 'Meclis Birinci maddeyi değiştiriyor. Bir sonraki seçimde okulun önündeki kuyruk eskisinden üç kat uzun.',
+    suA: 'Evet: 21 yaş üstü her kadın ve erkek',
+    suQ: 'Anayasa oy hakkını herkese vermeli mi?',
+    suIntro: 'Dinle canım: balıkçılar, esnaf ve pek çok kadın Belediye binasına doğru yürüyor. Vergi ödediklerini ve adayı kendilerinin inşa ettiğini söylüyorlar; o hâlde neden yalnızca toprak sahipleri oy kullanabiliyor?',
+    elLandOnly: 'Yalnızca toprak sahipleri oy kullanabiliyordu, yani kararı çiftçiler verdi. Balıkçılar ve tüccarlar okulun kapısından izlemekle yetindi.',
+    elNoVote: 'oy kullanamaz',
     showCard: 'Metni göster',
     hideCard: 'Metni küçült',
     evL_build: 'Sevgili Başkan Hanım, penceremden yeni binanın yükseldiğini görüyorum. Çocuklarım orada büyüyecek. Komşunuz Beatriz',
@@ -8247,7 +8351,7 @@ const STT = {
     evLe_vote: 'Seçim, halkın tekrar tekrar sorma hakkı olan bir sorudur.',
     evEnd_vote: 'Oy sandıkları bir sonraki seçime kadar kaldırıldı. Demokrasinin sessiz mucizesi budur: tek bir kurşun atılmadan iktidar el değiştirir ya da yerinde kalır.',
     evVoWait: 'Seçim kampanyası başladı: afişler, münazaralar ve kafelerde bitmek bilmeyen tartışmalar…',
-    evVoIntro: 'Yine seçim yılı geldi canım. Ada her dört yılda bir aynı soruyu sorar: işlerin gidişatından memnun muyuz? Halk tekrar tekrar onay vermedikçe kimse belediye başkanı olarak kalamaz. Bak, bugün her grup neler hissediyor.',
+    evVoIntro: 'Yine seçim yılı geldi canım. Anayasaya göre ada aynı soruyu tekrar tekrar sormak zorunda: işlerin gidişatından memnun muyuz? Seçmenler onay vermedikçe kimse belediye başkanı olarak kalamaz. Bak, bugün her grup neler hissediyor.',
     evP_vote: 'Seçim günü',
     evN_vote: 'Seçim yılı',
     evWon: 'Seçimi %{p} oyla kazandın. Ada seni yeniden seçti!',
@@ -8306,7 +8410,7 @@ const STT = {
     fdAristotle: 'Aristoteles\'i hatırlıyor musun canım? Kalabalığın öfkesi gerçeklerden ve yasadan güçlü olunca demokrasi kalabalığın hükmüne kayar. Bunu telefonlar icat etmedi ama bin kat hızlandırdı. Öfke gerçeklerden daha hızlı yayılır, çünkü öfke daha çok tıklanır.',
     fdCdone: 'Geçip gitmiyor. Birkaç aile aşıyı reddediyor ve klinik yoğun bir kış geçiriyor.',
     fdC: 'Boş ver, geçer gider',
-    fdBdone: 'Kalabalık dağılıyor ama yeni bir söylenti çıkıyor: belediye başkanı kendisini eleştirenleri hapse attırıyormuş. Bazıları videoya daha da çok inanıyor.',
+    fdBdone: 'Kalabalık dağılıyor ama yeni bir söylenti çıkıyor: belediye başkanı eleştirenleri hapse attırıyormuş. Bazıları videoya daha da çok inanıyor.',
     fdB: 'Videoyu yapanı tutuklat',
     fdAdone2: 'Anlatıyorsun ama pek çok kişi belediyenin kendi gazetesine güvenmiyor. Ortalığın yatışması üç gün sürüyor.',
     fdAdone1: 'Gazete\'nin muhabirlerini getiriyorsun; videonun nasıl yapıldığını gösteriyorlar. İnsanlar birer birer evlerine dönüyor.',
@@ -8413,7 +8517,7 @@ const STT = {
     seLesson: 'İki zor seçim; ikisinin de kusursuz bir cevabı yok. Deniz de makineler de değişmeye devam edecek canım. Önemli olan, adanın kararlarını hep birlikte, açıkça konuşarak, mecliste vermeye devam etmesi.',
     nLocal2064: 'Booba, Karayip Birliği başkanı seçildi.',
     nLocal2052: 'Isla Nueva\'dan Booba, Karayip Parlamentosu\'nun başına seçildi.',
-    nLocal2037: 'Yerel haber: Booba, Isla Nueva\'nın yeni belediye başkanı.',
+    nLocal2037: 'Yerel haber: Booba, Isla Nueva\'nın yeni Belediye Başkan Yardımcısı.',
     nLocal2029: 'Yerel haber: Pastel Tekstil\'den Booba ada meclisine seçildi.',
     photoLaunch: 'Kalkış',
     letterLaunch: 'Başkanımıza, Isla Nueva\'nın dünkü ve bugünkü bütün ailelerinden: evlerimiz, okullarımız, kliniğimiz, ışıklarımız ve roketimiz için teşekkürler. İyi ki geldin. Rosa, Rosa, Rosa ve Rosa',
@@ -8458,14 +8562,14 @@ const STT = {
     seAp: 'Liman boyunca bir deniz duvarı. Kıyıdaki iki parlayan yere dokun.',
     seA: 'Deniz duvarı yap',
     seQ: 'Önce deniz. Ona karşı ne yapalım?',
-    seIntro: 'Deniz, adan kurulduğu zamankinden otuz santim daha yüksek canım ve her fırtına dalgaları alçak sokaklara itiyor. Limanın yanındaki maviliğe bak. Tekstil fabrikasında da artık dikişin çoğunu robotlar yapıyor. Belediye Başkanı Booba meclisi topladı: küçük bir ada için iki büyük sorun.',
+    seIntro: 'Deniz, adan kurulduğu zamankinden otuz santim daha yüksek canım ve her fırtına dalgaları alçak sokaklara itiyor. Limanın yanındaki maviliğe bak. Tekstil fabrikasında da artık dikişin çoğunu robotlar yapıyor. Belediye Başkan Yardımcısı Booba meclisin toplanmasını istedi: küçük bir ada için iki büyük sorun.',
     boobaName: 'Booba',
     rosa4: 'Merhaba! Ben de Rosa\'yım, dördüncüsü. Anneannem bana seninle ilgili bütün hikâyeleri anlattı, bütün günlükleri de okudum. Bakalım gelecek neler getirecek?',
     y2045: 'Deniz yükselmeye devam ediyor, makineler de neredeyse her işi yapmayı öğreniyor.',
     chSea: 'Yükselen deniz',
     uCarn: 'Kafeler, kiliseler ve sinemalar artık İnşa et menünde.',
     photoQuiet: 'Maske atölyesi',
-    letterQuiet: 'Sevgili Başkan Hanım, klinik olarak üç bin maske için bütün Pastel Tekstil ekibine teşekkür ederiz. Her sabah arayıp başka neye ihtiyacımız olduğunu soran Booba\'ya ayrıca teşekkürler. Doktor Castillo',
+    letterQuiet: 'Sayın Başkan, klinik olarak üç bin maske için bütün Pastel Tekstil ekibine teşekkür ederiz. Her sabah arayıp başka neye ihtiyacımız olduğunu soran Booba\'ya ayrıca teşekkürler. Doktor {d}',
     uQuiet: 'Bu sefer inşa edilecek yeni bir şey yok: bu yıl en önemli şey birbirimizdik.',
     lQub: 'Komşularını bir araya getiren tek bir kişi, her kuraldan daha çok şey yapabilir.',
     lQua: 'Krizde kimin çalışmaya devam edebileceğini eğitim belirler.',
@@ -8553,7 +8657,7 @@ const STT = {
     y1985: 'Bilgisayarlar geliyor ve dünya yeni beceriler istiyor.',
     chUni: 'Üniversite',
     photoOil: 'İlk güneş panelleri',
-    letterOil: 'Sevgili Başkan Hanım, sınıfça güneş panellerini görmeye gittik. Öğretmenimiz bir gün bütün adanın güneşle çalışacağını söylüyor. Size bunun resmini çizdim. Tomás, 10 yaşında',
+    letterOil: 'Sayın Başkan, sınıfça güneş panellerini görmeye gittik. Öğretmenimiz bir gün bütün adanın güneşle çalışacağını söylüyor. Size bunun resmini çizdim. Mateo, 10 yaşında',
     uOil: 'Güneş tarlaları ve rüzgâr türbinleri artık İnşa et menünde.',
     lOib: 'Her yolun, ancak uzun yıllar sonra ortaya çıkan gizli bedelleri vardır.',
     lOia: 'Petrol uzaktan gelir, krizleri de. Güneşe ya da rüzgâra kimse ambargo koyamaz.',
@@ -8565,7 +8669,7 @@ const STT = {
     oiModel_state: 'Devlet yolunda on üç yıl. Herkes okuma yazma biliyor ve klinik bedava. Ama dükkân rafları çoğu zaman yarı boş: devlet aynı parayı ödüyorsa neden daha çok şeker kamışı ekesin? Bazı genç doktorlar da sessizce Miami\'ye gitti.',
     oiCdone: 'Işıklar yeniden yandı. Duman tarlaların üstüne çöküyor, çiftçiler öksürüyor.',
     oiCp: 'Kömür ucuz ama dumanlı: santrali evlerden uzağa koy. Parlayan bir yere dokun.',
-    oiC: 'Bir kömür santrali daha',
+    oiC: 'Bir kömür santrali',
     oiBdone: 'Kanatlar alize rüzgârında dönüyor. Rüzgâr estiği sürece bedava elektrik.',
     oiBp: 'Rüzgâr türbinleri alize rüzgârlarının estiği tepeleri ve sahili sever. İki parlayan yere dokun.',
     oiB: 'İki rüzgâr türbini',
@@ -8791,7 +8895,7 @@ const STT = {
     s4_best: 'Kararlarını en çok {f} beğendi.', s4_worst: 'Bir dahaki sefere {f} biraz daha ilgi bekliyor. Bu çok normal: hiçbir karar herkesi memnun etmez.',
     s4_end: 'Bir meclis, bir anayasa, bir belediye binası ve bir seçim. Çiftçileri, balıkçıları ve tüccarları dinledin; onlar da adayı sana emanet etti.',
     l4a: 'Her karar bazılarını diğerlerinden daha çok memnun eder. Siyaset de budur.', l4b: 'Her grubu dinlemek adayı bir arada tutar.', u4: 'Okullar, rom imalathaneleri ve meyhaneler artık İnşa et menüsünde. Üstelik artık belediye başkanısın!',
-    letter4: 'Başkan Hanım, bütün pazar adına tebrikler! Size ada şeklinde bir pasta yaptık. Yarısı şimdiden yendi. Saygılarımla, Señor Castillo, tüccar',
+    letter4: 'Sayın Başkan, bütün pazar adına tebrikler! Size ada şeklinde bir pasta yaptık. Yarısı şimdiden yendi. Saygılarımla, Señor Castillo, tüccar',
     photo4: 'Seçim günü', farmers: 'çiftçiler', fishers: 'balıkçılar', merchants: 'tüccarlar', Farmers: 'Çiftçiler', Fishers: 'Balıkçılar', Merchants: 'Tüccarlar', mood: 'Nasıl hissediyorlar', mayor: 'Başkan',
     s5_intro: 'İyi akşamlar canım. Güneş batınca adanın ne kadar karardığına bak. Gemiler artık radyo, elektrik lambası ve buz dolabı getiriyor ama elektriğimiz yok. Hadi bunu değiştirelim.',
     s5_q: 'Önce hangi santral yapılsın? Kömür santrali ucuza kurulur ama duman çıkarır, o yüzden evlerden uzak tutmak gerek. Petrol santrali daha pahalı ve petrolün fiyatı bir iner bir çıkar, ama daha temizdir. Rüzgâr türbini, güneş paneli mi? Onlara daha onlarca yıl var!',
@@ -8827,7 +8931,7 @@ const STT = {
     s8_intro: 'İnanabiliyor musun canım? Anneannemin anneannesi 1902\'de günlüğüne bomboş bir kumsaldan söz etmiş. Şimdi bir liman, bir klinik, bir belediye binası, bir santral, bir tekstil fabrikası ve bir belediye başkanı var. Adalılar kutlamak istiyor: Karnaval!',
     s8_parks: 'Dansçıların yere ihtiyacı var. Karnaval yürüyüşü için evlerin yanına iki park yap. İki parlayan yere dokun.', s8_parksdone: 'Bayraklar, fenerler ve bir sahne. Bütün karnaval yürüyüşünü Booba düzenledi: elinde klipsli bir pano, arkasında üç komite.',
     s8_wait: 'Karnaval güneş batınca başlıyor…', s8_fire: 'Havai fişekler!',
-    s8_speech: 'Bak nasıl dans ediyorlar. Bunu sen yaptın. İlk günü hatırlıyor musun, oynayamayacağını sanıyordun? O günden beri {f} aileyi karşıladın, bir salgını durdurdun, bir anayasa yazdın, bir seçim kazandın, adayı aydınlattın ve bütün kamyonları yolda tuttun. Bu şans değil, {name}. Hepsi senin eserin.',
+    s8_speech: 'Bak nasıl dans ediyorlar. Bunu sen yaptın. İlk gemi geldiğinden beri {f} aileyi karşıladın, bir salgını durdurdun, bir anayasa yazdın, seçimler kazandın, adayı aydınlattın ve bütün kamyonları yolda tuttun. Büyükannem hepsini tek tek yazmış, dün gece yeniden okudum. Bu şans değil, {name}. Hepsi senin eserin.',
     s8_end: 'Boş bir sahilden {n} kişilik canlı bir kasabaya. Ve hikâye daha bitmedi.',
     l8a: 'Bir kasaba kurabilirsin: adım adım, karar karar, yol yol.', l8b: 'Bu adada hiçbir şey tesadüf değil. Hepsini sen planladın.', u8: 'Rüzgâr türbinleri, güneş tarlaları ve tam oyunun bütün araçları artık açık. Kendini hazır hissettiğinde menüyü aç ve “Tüm araçlar” düğmesine dokun. Ya da burada kendi bildiğin gibi inşa etmeye devam et.',
     letter8: 'Başkanımıza, Isla Nueva\'nın bütün ailelerinden: evlerimiz, işlerimiz, kliniğimiz, ışıklarımız ve Karayipler\'in gördüğü en güzel karnaval için teşekkürler. İyi ki geldin.',
@@ -8836,6 +8940,58 @@ const STT = {
     photo1: 'İlk evler',
   },
   sk: {
+    mod_ubi: 'Základný príjem',
+    mod_lock: 'Výpadok príjmov počas uzávery',
+    grant2: 'Ostrovný rozvojový fond poslal príspevok {m}. Stavaj ďalej!',
+    evMoIntro_market1: 'Bohatí sú bohatší ako kedykoľvek predtým, zlatko, a okraj mesta chudobnie. Nové hnutie chce, aby štát prevzal prístav a plantáže. Iní poukazujú na ostrovy, kde to dopadlo zle. Ostrov bude hlasovať.',
+    heIntro_state: 'Pozri sa na naše mesto, zlatko. Bicykle z ťažkých rokov sú preč: kto si to môže dovoliť, jazdí autom, a nové domy na okraji sú plné. Staré centrum je hlučné, špinavé a upchaté autami. A lekári hovoria, že ľudí s nadváhou je viac ako kedykoľvek predtým.',
+    s6_intro_norum: 'Ostrov vyrába viac ako kedykoľvek predtým: ovocie, ryby, remeselné výrobky. Ale pozri na dvory, zlatko. Tovar sa hromadí, lebo pár starých nákladiakov to všetko neodvezie.',
+    stIntro_noschool: 'Rádio nás už dva dni varuje, zlatko: blíži sa hurikán Ivan, štvrtej kategórie. Všetci idú do najpevnejších budov v meste. Pevne sa držme.',
+    evL_sweet_yes: 'Milá pani starostka, moja babka opatruje starú titulnú stranu novín s jediným slovom: NIE. Tento rok som si želal, aby si ju prečítalo viac ľudí. Váš priateľ Marco',
+    evL_protest_C: 'Milá pani starostka, bola som na námestí, keď prišla polícia. Nikomu sa nič nestalo, ale nezabudnem na to. Budeme sa vracať, pokojne, kým nás niekto nevypočuje. Lucía, 16 rokov',
+    evL_strike_D: 'Milá pani starostka, sme späť v práci. Nič sa nezmenilo a všetci to vedia. Váš priateľ Ramón',
+    evL_strike_B: 'Milá pani starostka, dielňa teraz patrí štátu. Mzdu mám istú, ale starý majiteľ odišiel a nikto nevie, kto kúpi nové stroje. Váš priateľ Ramón',
+    evL_newcomers_C: 'Milá pani starostka, sme vďační za tento rok. Nevieme, kde budeme o rok, preto sme ešte všetko nevybalili. Rodina Haddad',
+    evL_newcomers_B: 'Milá pani starostka, našli sme si prácu a malý byt. Susedia sú zdvorilí, ale ešte stále nepoznáme ich mená. Možno budúci rok. Rodina Haddad',
+    letterCradle_clinic: 'Milá pani starostka, naša dcérka Luna sa narodila na klinike kúsok od nás. Je hlasná, dokonalá a je to prvé vnúča na našej ulici za šesť rokov. Rodina Şahin',
+    caAdone_clinic: 'Rodičia môžu pracovať a cez obed sa aj tak zastaviť za bábätkom. Na budúcu jar majú kliniky plné ruky práce s novorodencami.',
+    photoFeed_bad: 'Nahnevaná zima',
+    fdEnd_bad: 'Fáma utíchla, ale zanechala jazvu. Nabudúce bude ostrov potrebovať proti fámam lepšie nástroje.',
+    heEnd_car: 'Doprava plynie. Či srdce mesta ešte bije, ukáže čas.',
+    letterHeart_car: 'Milá pani starostka, nové parkovisko je veľmi pohodlné, to musím uznať. Ale pekár zatvoril a susedov už takmer nevídam. Señora Kaya',
+    letterUni_lit: 'Milá pani starostka, som prvá z našej rodiny, kto ide na univerzitu. Moja babka sa naučila čítať až v štyridsiatke a list o tom, že ma prijali, prečítala nahlas celej ulici. Sľubujem, že sa vrátim a budem pomáhať. Ana Morales',
+    photoUni_factory: 'Nová továreň',
+    letterUni_factory: 'Milá pani starostka, v pondelok nastupujem do novej továrne. Mama hovorí, že dobrá práca má väčšiu cenu ako diplom. Pani učiteľka hovorí, že som mala mať oboje. Ana Morales',
+    oiEnd_coal: 'Ropný šok sa skončil. Tentoraz si ostrov vybral uhlie; slnko a vietor si budú musieť počkať.',
+    photoOil_coal: 'Svetlá zase svietia',
+    photoOil_wind: 'Prvé veterné turbíny',
+    letterOil_coal: 'Milá pani starostka, nová uhoľná elektráreň už beží a svetlá zase svietia. Mama hovorí, že bielizeň na šnúre teraz sivne. Dúfam, že raz budeme mať aj čistú elektrinu. Mateo, 10 rokov',
+    letterOil_wind: 'Milá pani starostka, celá naša trieda sa išla pozrieť na nové veterné turbíny. Sú vyššie ako kostol! Pani učiteľka hovorí, že raz pôjde celý ostrov na vietor a slnko. Nakreslil som vám obrázok. Mateo, 10 rokov',
+    oiIntro_east: 'Cena ropy sa všade zoštvornásobila, zlatko. Naši priatelia na Východe nám stále posielajú ropu za starú cenu, ale každý mesiac za ňu chcú viac cukru a zvyšok sveta od nás kupuje čoraz menej. Večery sú čoraz tmavšie.',
+    waMx1_east: 'Stredná cesta udržala väčšinu ostrova v rovnováhe, ale cukor sme predávali len Východu a tí odberatelia sú preč. Teraz sa otvára celý Karibik a náš ostrov musí obstáť v konkurencii.',
+    waSt1_alone: 'Svet okolo nás sa zmenil, zlatko. Starí obchodní partneri sú preč, ropa je drahá a v štátnych obchodoch chýba skoro všetko. Večer zhasínajú svetlá a rady sú čoraz dlhšie.',
+    fdLCdone_new: 'Ostrov založí nové nezávislé noviny a zaplatí troch reportérov. Overovanie faktov je pomalá a starostlivá práca a teraz za ňu niekto dostáva zaplatené.',
+    fdAdone3: 'Nie sú tu noviny, ktoré by ten príbeh overili, len ďalšie fámy. Trvá týždeň a jedno veľmi dlhé zasadnutie zhromaždenia, kým sa dav rozíde domov.',
+    evWonClose: 'Vyhrala si, ale len tesne: {p} % hlasov. Ostrov ti niečo hovorí. Vypočuj si aj tých, ktorí volili proti tebe.',
+    evSwIntroRem2: 'Ostrov má nového miláčika, zlatko: {name}. Široké úsmevy, koncerty zadarmo a stále tá istá stará pesnička: zhromaždenie je pomalé, sudcovia prekážajú. Starší ľudia blednú. Pamätajú si Alvaradových desať rokov a všetko rozprávajú mladým.',
+    swFall: 'Desať rokov po tom, čo sa muž z rádia chopil moci, sa jeho vláda skončila rovnako, ako sa začala: s davom na námestí. Tentoraz to však bol pokojný dav. Prvé slobodné voľby po desiatich rokoch vrátili ostrovu zhromaždenie, noviny aj starostku.',
+    letterSweet2: 'Milá pani starostka, otec hovorí, že najcennejšie, čo môže malý ostrov mať, je právo povedať „nie“, nahlas aj v tlači. Až do tohto roka som tomu nerozumela. Teraz už áno. Elena Varga',
+    swY3done_other: 'Tlačiarenské stroje stíchnu. Na ostrove teraz počuť jediný hlas: jeho.',
+    swN3done_none: 'Do rána visí na dverách tisíc letákov a na každom je jediné slovo: NIE.',
+    swN3done_hall: 'Dokonca aj radničné noviny vychádzajú s jediným slovom na titulnej strane: NIE. Výtlačok si kúpi celý ostrov.',
+    swAsk3_none: '„Tie letáky, čo tlačí každý, sú plné klamstiev o mne,“ hovorí Alvarado. „Odteraz smú čokoľvek tlačiť len tlačiarne, ktoré dostanú licenciu odo mňa.“ Čo povieš?',
+    swAsk3_hall: '„Radničné noviny sú nudné a pomalé,“ hovorí Alvarado. „Odteraz bude ostrovu prinášať správy len moje rádio a kto chce čokoľvek tlačiť, potrebuje odo mňa licenciu.“ Čo povieš?',
+    evMeIntroSchool: 'Po ostrove koluje video, zlatko, v ktorom vraj hovoríš, že chceš predať pláž cudzincom. Vyrobil ho počítač. Vďaka hodinám mediálnej výchovy v škole si väčšina ľudí veci pred zdieľaním overí, no pred radnicou sa aj tak zhromažďuje malý hlúčik ľudí.',
+    evPrAdoneVote: 'Sadneš si k nim na schody a o týždeň dá zhromaždenie volebné právo každej žene a každému mužovi nad 21 rokov. Konečne si celý ostrov volí svoju starostku.',
+    evPrIntro_vote: 'Počúvaj, zlatko: námestie je zase plné. Rybári, obchodníci a ženy žiadajú volebné právo. Majú ho len vlastníci pôdy a zvyšok ostrova má pocit, že nemá žiadne slovo.',
+    suBdone: 'Pochodujúci odchádzajú nahnevaní domov. Vrátia sa a nabudúce ich bude ešte viac.',
+    suB: 'Nie: len vlastníci pôdy',
+    suAdone: 'Zhromaždenie mení prvý článok. Pri ďalších voľbách je rad pred školou trikrát dlhší.',
+    suA: 'Áno: všetky ženy a muži nad 21 rokov',
+    suQ: 'Mala by ústava dať volebné právo všetkým?',
+    suIntro: 'Počúvaj, zlatko: rybári, obchodníci a mnohé ženy pochodujú k radnici. Vravia, že platia dane a budujú ostrov, tak prečo smú voliť len vlastníci pôdy?',
+    elLandOnly: 'Voliť mohli len vlastníci pôdy, takže rozhodli roľníci. Rybári a obchodníci sa len prizerali od dverí školy.',
+    elNoVote: 'nesmú voliť',
     showCard: 'Zobraziť text',
     hideCard: 'Skryť text',
     evL_build: 'Milá pani starostka, z okna vidím, ako rastie nová budova. Moje deti v nej budú vyrastať. Vaša suseda Beatriz',
@@ -8992,7 +9148,7 @@ const STT = {
     evLe_vote: 'Voľby sú otázka, ktorú môžu ľudia položiť znova a znova.',
     evEnd_vote: 'Volebné urny sa odkladajú až do ďalších volieb. To je tichý zázrak demokracie: moc prejde do iných rúk, alebo zostane, a nepadne pri tom ani jeden výstrel.',
     evVoWait: 'Kampaň je v plnom prúde: plagáty, debaty a dlhé hádky v kaviarňach…',
-    evVoIntro: 'Znova je volebný rok, zlatko. Každé štyri roky si ostrov kladie tú istú otázku: sme spokojní s tým, ako sa veci vyvíjajú? Nikto nezostane na čele ostrova, ak to ľudia znova a znova nepotvrdia. Pozri, ako sa dnes cíti každá skupina.',
+    evVoIntro: 'Znova je volebný rok, zlatko. Ústava hovorí, že ostrov si musí znova a znova klásť tú istú otázku: sme spokojní s tým, ako sa veci vyvíjajú? Nikto nezostane na čele ostrova, ak to voliči nepotvrdia. Pozri, ako sa dnes cíti každá skupina.',
     evP_vote: 'Deň volieb',
     evN_vote: 'Volebný rok',
     evWon: 'Získala si {p} % hlasov. Ostrov si ťa znova vybral!',
@@ -9051,7 +9207,7 @@ const STT = {
     fdAristotle: 'Spomínaš si, čo hovoril Aristoteles, zlatko? Demokracia sa zvrhne na vládu davu, keď je hnev davu silnejší ako fakty a zákon. Telefóny to nevymysleli, len to tisíckrát zrýchlili. Hnev letí rýchlejšie ako pravda, lebo hnev získa viac kliknutí.',
     fdCdone: 'Neprejde to. Niekoľko rodín odmietne očkovanie a klinika má rušnú zimu.',
     fdC: 'Nevšímať si to, prejde to',
-    fdBdone: 'Dav sa rozíde, ale objaví sa nová fáma: starostka vraj dáva zatvárať svojich kritikov. Niektorí teraz tomu videu veria ešte viac.',
+    fdBdone: 'Dav sa rozíde, ale objaví sa nová fáma: starostka vraj dáva zatvárať kritikov. Niektorí teraz tomu videu veria ešte viac.',
     fdB: 'Zatknúť autora videa',
     fdAdone2: 'Vysvetľuješ, ale mnohí neveria novinám, ktoré vydáva sama radnica. Upokojiť to trvá tri dni.',
     fdAdone1: 'Privedieš reportérov z novín a tí ukážu, ako video vzniklo. Ľudia sa jeden po druhom rozchádzajú domov.',
@@ -9158,7 +9314,7 @@ const STT = {
     seLesson: 'Dve ťažké rozhodnutia a žiadne dokonalé odpovede. More aj stroje sa budú meniť ďalej, zlatko. Dôležité je, aby ostrov rozhodoval spolu, nahlas, na zhromaždení.',
     nLocal2064: 'Booba sa stala prezidentkou Karibskej únie.',
     nLocal2052: 'Booba z Isla Nueva bude viesť Karibský parlament.',
-    nLocal2037: 'Miestne správy: Booba je novou starostkou Isla Nueva.',
+    nLocal2037: 'Miestne správy: Booba je novou zástupkyňou starostky Isla Nueva.',
     nLocal2029: 'Miestne správy: Booba z Pastel Textile je novou členkou ostrovnej rady.',
     photoLaunch: 'Štart rakety',
     letterLaunch: 'Našej starostke od všetkých rodín z Isla Nueva, tých dávnych aj dnešných: ďakujeme za naše domy, školy, kliniku, svetlá aj našu raketu. Sme radi, že si prišla. Rosa, Rosa, Rosa a Rosa',
@@ -9203,14 +9359,14 @@ const STT = {
     seAp: 'Hrádza pozdĺž nábrežia pri prístave. Ťukni na dve svietiace miesta na pobreží.',
     seA: 'Postaviť morskú hrádzu',
     seQ: 'Najprv more. Čo s ním urobíme?',
-    seIntro: 'More je o tridsať centimetrov vyššie ako vtedy, keď tvoj ostrov vznikal, zlatko, a každá búrka tlačí vlny do nižších ulíc. Pozri na tú modrú pri prístave. A v textilke dnes väčšinu šitia robia roboty. Starostka Booba zvolala zhromaždenie: dva veľké problémy pre jeden malý ostrov.',
+    seIntro: 'More je o tridsať centimetrov vyššie ako vtedy, keď tvoj ostrov vznikal, zlatko, a každá búrka tlačí vlny do nižších ulíc. Pozri na tú modrú pri prístave. A v textilke dnes väčšinu šitia robia roboty. Zástupkyňa starostky Booba požiadala zhromaždenie, aby sa zišlo: dva veľké problémy pre jeden malý ostrov.',
     boobaName: 'Booba',
     rosa4: 'Ahoj! Aj ja som Rosa, už štvrtá. Babka mi o tebe porozprávala všetky príbehy a prečítala som všetky denníky. Pozrieme sa, čo prinesie budúcnosť?',
     y2045: 'More stále stúpa a stroje sa učia robiť takmer každú prácu.',
     chSea: 'Stúpajúce more',
     uCarn: 'Kaviarne, kostoly a kiná sú v tvojom menu Stavať.',
     photoQuiet: 'Dielňa na rúška',
-    letterQuiet: 'Milá pani starostka, klinika ďakuje celému tímu Pastel Textile za tritisíc rúšok. Zvlášť ďakujeme Boobe, ktorá nám každé ráno volala a pýtala sa, čo ešte potrebujeme. Doktorka Castillo',
+    letterQuiet: 'Milá pani starostka, klinika ďakuje celému tímu Pastel Textile za tritisíc rúšok. Zvlášť ďakujeme Boobe, ktorá nám každé ráno volala a pýtala sa, čo ešte potrebujeme. MUDr. {d}',
     uQuiet: 'Tentoraz nič nové na stavanie. Tento rok bolo najdôležitejšie, že sme mali jeden druhého.',
     lQub: 'Jeden človek, ktorý zorganizuje susedov, dokáže viac ako akékoľvek pravidlo.',
     lQua: 'V kríze rozhoduje vzdelanie o tom, kto môže ďalej pracovať.',
@@ -9298,7 +9454,7 @@ const STT = {
     y1985: 'Prichádzajú počítače a svet potrebuje nové zručnosti.',
     chUni: 'Univerzita',
     photoOil: 'Prvé solárne panely',
-    letterOil: 'Milá pani starostka, celá naša trieda sa išla pozrieť na solárne panely. Pani učiteľka hovorí, že raz pôjde celý ostrov na slnečnú energiu. Nakreslil som vám to. Tomás, 10 rokov',
+    letterOil: 'Milá pani starostka, celá naša trieda sa išla pozrieť na solárne panely. Pani učiteľka hovorí, že raz pôjde celý ostrov na slnečnú energiu. Nakreslil som vám to. Mateo, 10 rokov',
     uOil: 'Solárne polia a veterné turbíny sú v tvojom menu Stavať.',
     lOib: 'Každá cesta má skryté náklady, ktoré sa ukážu až po rokoch.',
     lOia: 'Ropa prichádza zďaleka a jej otrasy tiež. Na slnko ani vietor nikto embargo neuvalí.',
@@ -9310,7 +9466,7 @@ const STT = {
     oiModel_state: 'Trinásť rokov na štátnej ceste. Čítať vie každý a klinika je zadarmo. Ale police v obchodoch sú často poloprázdne: prečo pestovať viac trstiny, keď štát aj tak zaplatí rovnako? A niekoľko mladých lekárov potichu odišlo do Miami.',
     oiCdone: 'Svetlá zase svietia. Dym sa ťahá nad poliami a roľníci kašlú.',
     oiCp: 'Uhlie je lacné, ale dymí: daj elektráreň ďaleko od domov. Ťukni na svietiace miesto.',
-    oiC: 'Ďalšia uhoľná elektráreň',
+    oiC: 'Uhoľná elektráreň',
     oiBdone: 'Lopatky sa točia v pasáte. Elektrina zadarmo, kým fúka vietor.',
     oiBp: 'Veterné turbíny majú rady kopce a pobrežie, kde fúkajú pasáty. Ťukni na dve svietiace miesta.',
     oiB: 'Dve veterné turbíny',
@@ -9536,7 +9692,7 @@ const STT = {
     s4_best: 'Najspokojnejší s tvojimi rozhodnutiami sú {f}.', s4_worst: 'Najmenej spokojní sú {f}. Dúfajú, že nabudúce na nich budeš myslieť viac. To je normálne: žiadne rozhodnutie nepoteší všetkých.',
     s4_end: 'Zhromaždenie, ústava, radnica a voľby. Vypočula si roľníkov, rybárov aj obchodníkov a oni ti zverili ostrov.',
     l4a: 'Každé rozhodnutie poteší niekoho viac a niekoho menej. Presne to je politika.', l4b: 'Keď počúvaš všetky skupiny, ostrov drží pokope.', u4: 'Školy, liehovary a krčmy nájdeš v ponuke Stavať. A si starostka!',
-    letter4: 'Vážená pani starostka, celý trh vám srdečne blahoželá! Upiekli sme vám tortu v tvare ostrova. Polovica je už zjedená. S úctou, Señor Castillo, obchodník',
+    letter4: 'Milá pani starostka, celý trh vám srdečne blahoželá! Upiekli sme vám tortu v tvare ostrova. Polovica je už zjedená. S úctou, Señor Castillo, obchodník',
     photo4: 'Deň volieb', farmers: 'roľníci', fishers: 'rybári', merchants: 'obchodníci', Farmers: 'Roľníci', Fishers: 'Rybári', Merchants: 'Obchodníci', mood: 'Ako sa cítia', mayor: 'Starostka',
     s5_intro: 'Dobrý večer, zlatko. Pozri, aký je ostrov po západe slnka tmavý. Lode už vozia rádiá, elektrické lampy a ľadničky, ale elektrinu nemáme. Poďme to zmeniť.',
     s5_q: 'Ktorá elektráreň príde prvá? Uhoľná sa postaví lacno, ale dymí, tak ju daj ďaleko od domov. Naftová stojí viac a cena nafty skáče hore-dole, ale je čistejšia. Veterné turbíny a solárne panely? Na tie si ešte pár desaťročí počkáme!',
@@ -9572,7 +9728,7 @@ const STT = {
     s8_intro: 'Veríš tomu, zlatko? Babka mojej babky si v roku 1902 zapísala do denníka prázdnu pláž. Dnes je tu prístav, klinika, radnica, elektráreň, textilka a starostka. Ostrovania chcú oslavovať: karneval!',
     s8_parks: 'Tanečníci potrebujú miesto. Postav pri domoch dva parky na sprievod. Ťukni na dve svietiace miesta.', s8_parksdone: 'Vlajky, lampióny a pódium. Celý sprievod zorganizovala Booba, s blokom v ruke a tromi výbormi.',
     s8_wait: 'Karneval sa začne, keď zapadne slnko…', s8_fire: 'Ohňostroj!',
-    s8_speech: 'Pozri, ako tancujú. To si urobila ty. Pamätáš si prvý deň, keď si si myslela, že hrať nevieš? Odvtedy si privítala {f} rodín, zastavila horúčku, napísala ústavu, vyhrala voľby, rozsvietila ostrov a udržala všetky kamióny v pohybe. To nie je šťastie, {name}. To si ty.',
+    s8_speech: 'Pozri, ako tancujú. To si urobila ty. Odkedy priplávala prvá loď, privítala si {f} rodín, zastavila horúčku, napísala ústavu, vyhrala voľby, rozsvietila ostrov a udržala všetky kamióny v pohybe. Moja babka si to všetko zapisovala a včera večer som si to znova prečítala. To nie je šťastie, {name}. To si ty.',
     s8_end: 'Z prázdnej pláže je teraz živé mestečko s {n} obyvateľmi a príbeh sa ešte nekončí.',
     l8a: 'Mesto postavíš krok za krokom, rozhodnutím za rozhodnutím, cestou za cestou.', l8b: 'Nič na tomto ostrove sa nestalo náhodou. Všetko si naplánovala ty.', u8: 'Veterné turbíny, solárne polia a všetky nástroje plnej hry sú teraz otvorené. Keď sa budeš cítiť pripravená, otvor Menu a ťukni na Všetky nástroje. Alebo tu stavaj ďalej po svojom.',
     letter8: 'Našej starostke od všetkých rodín z Isla Nueva: ďakujeme za naše domy, prácu, kliniku, svetlá a najkrajší karneval, aký Karibik kedy videl. Sme radi, že si prišla.',
@@ -9728,7 +9884,8 @@ function stGhost(G) {
 }
 function stFamily(G, h) {
   const S = G.story, cap = BLD[h.type].housing; const names = [FAMILY_NAMES[S.fam++ % FAMILY_NAMES.length]]; if (cap >= 8) names.push(FAMILY_NAMES[S.fam++ % FAMILY_NAMES.length]);
-  const n0 = h.res.length; while (h.res.length < cap) { const c = makeCitizen(G, h.id); h.res.push(c.id); c.happy = 70; c.fam = names[Math.floor((h.res.length - 1 - n0) * names.length / Math.max(1, cap - n0))]; if (ihash(c.id * 7) % 10 < 6) c.edu = Math.max(c.edu || 0, 1); }
+  const L = S.laws || {}; const eduP = L.child === 'school' || S.model === 'state' ? 9 : L.child === 'land' ? 4 : 6;   // Article three and the literacy campaign show in every new family
+  const n0 = h.res.length; while (h.res.length < cap) { const c = makeCitizen(G, h.id); h.res.push(c.id); c.happy = 70; c.fam = names[Math.floor((h.res.length - 1 - n0) * names.length / Math.max(1, cap - n0))]; if (ihash(c.id * 7) % 10 < eduP) c.edu = Math.max(c.edu || 0, 1); if (G.story.laws && G.story.laws.uni === 0 && c.edu >= 2 && ihash(c.id * 11) % 3) c.edu = 1; }
   h.fam = names.join(' & '); return names[0];
 }
 function stBuild(G, type, x, y, opts = {}) {
@@ -9812,14 +9969,18 @@ function councilHTML(G) {
   return `<div class="st-council">${FACTIONS.map(([f, ic, col]) => `<div class="st-fac"><span class="st-fic" style="background:${col}">${ic}</span><span><b>${st(f[0].toUpperCase() + f.slice(1))}</b><i class="st-bar"><i style="width:${m[f].v}%;background:${col}"></i></i></span><em>${m[f].v}%</em></div>`).join('')}</div>`;
 }
 function stElection(G) {
-  const S = G.story; const m = councilMood(G); let tot = 0, votes = 0;
-  for (const [f] of FACTIONS) { const w = Math.max(1, m[f].n); tot += w; votes += w * m[f].v; }
-  let p = Math.round(votes / tot); p = clamp(p, 56, 94); S.votePct = p; const again = !!S.mayor; S.mayor = true; S.terms = (S.terms || 0) + 1;
-  const order = FACTIONS.map(([f]) => f).sort((a, b) => m[b].v - m[a].v);
+  const S = G.story; const m = councilMood(G); const L = S.laws || {}; const landOnly = L.vote === 'land';
+  const votesFor = f => !landOnly || f === 'farmers';          // Article one: who may vote
+  let tot = 0, votes = 0;
+  for (const [f] of FACTIONS) { if (!votesFor(f)) continue; const w = Math.max(1, m[f].n); tot += w; votes += w * m[f].v; }
+  const raw = Math.round(votes / Math.max(1, tot)); const p = clamp(raw, 51, 94); S.votePct = p; const again = !!S.mayor; S.mayor = true; S.terms = (S.terms || 0) + 1; S.lastVoteYear = (stChapter(G) || {}).year;
+  const voters = FACTIONS.map(([f]) => f).filter(votesFor); const order = voters.slice().sort((a, b) => m[b].v - m[a].v);
   const el = $('#stCelebrate'); setSpeed(1); stCardHide(); Music.sfx('report');
+  const won = !again ? 's4_won' : raw < 60 ? 'evWonClose' : 'evWon';
   el.innerHTML = `<div class="st-cel"><span class="st-kicker">${chName(G.story.ch)}</span><h2>${st('s4_votes')}</h2>
-    <div class="st-ballot">${FACTIONS.map(([f, ic, col]) => `<div class="st-bcol"><div class="st-btrack"><i data-v="${m[f].v}" style="background:${col}"></i></div><span>${ic}</span><b>${st(f[0].toUpperCase() + f.slice(1))}</b><em>${m[f].v}%</em></div>`).join('')}</div>
-    <p class="st-big">${st(again ? 'evWon' : 's4_won', { p })}</p><p>${st('s4_best', { f: st(order[0]) })} ${m[order[2]].v < 70 ? st('s4_worst', { f: st(order[2]) }) : ''}</p>
+    <div class="st-ballot">${FACTIONS.map(([f, ic, col]) => votesFor(f) ? `<div class="st-bcol"><div class="st-btrack"><i data-v="${m[f].v}" style="background:${col}"></i></div><span>${ic}</span><b>${st(f[0].toUpperCase() + f.slice(1))}</b><em>${m[f].v}%</em></div>`
+      : `<div class="st-bcol novote"><div class="st-btrack"></div><span>${ic}</span><b>${st(f[0].toUpperCase() + f.slice(1))}</b><em>${st('elNoVote')}</em></div>`).join('')}</div>
+    <p class="st-big">${st(won, { p })}</p><p>${landOnly ? st('elLandOnly') : `${st('s4_best', { f: st(order[0]) })} ${order.length > 2 && m[order[2]].v < 70 ? st('s4_worst', { f: st(order[2]) }) : ''}`}</p>
     <div class="st-btns"><button class="st-primary" id="stVoteOk">${st('next')}</button></div><canvas class="st-confetti" id="stConfetti"></canvas></div>`;
   el.hidden = false; setTimeout(() => { for (const i of el.querySelectorAll('.st-btrack i')) i.style.height = i.dataset.v + '%'; }, 60); setTimeout(() => { stConfetti($('#stConfetti')); Music.swell(); }, 900);
   $('#stVoteOk').onclick = () => { el.hidden = true; stAdvance(G); };
@@ -9834,6 +9995,9 @@ function stYearsGrowth(G, gap) {
     for (const b of old) { b.type = 'house'; b.color = HOME_COLORS[ihash(b.id * 3) % HOME_COLORS.length]; const fam = G.cits.get(b.res[0])?.fam; while (b.res.length < BLD.house.housing) { const c = makeCitizen(G, b.id); b.res.push(c.id); c.happy = 70; if (fam) c.fam = fam; } }
     if (old.length) { G.svcDirty = true; recomputeServices(G); } }
   if (gap >= 10) { const f = place('farm', 'soil'); if (f && !f.crop) f.crop = 'fruit'; }
+  const L = G.story.laws || {}; if (L.child === 'land' && gap >= 8) { const f = place('farm', 'soil'); if (f && !f.crop) f.crop = 'fruit'; }   // a plot for every child at 21
+  if (L.child === 'school' || G.story.model === 'state') for (const c of G.cits.values()) if (!c.edu && ihash(c.id * 13 + gap) % 3 === 0) c.edu = 1;
+  if (G.story.debt) { const pay = Math.min(G.story.debt, 1500); G.money = Math.max(300, G.money - Math.round(pay * 1.1)); G.story.debt -= pay; }   // the loan, with interest
   if (gap >= 20) place('workshop', 'away');
   assignJobs(G); recomputeServices(G); return added;
 }
@@ -9859,7 +10023,7 @@ function stEmigrate(G, n) {
   assignJobs(G); recomputeServices(G); return k;
 }
 // the educated leave when they may not speak freely
-function stBrainDrain(G, n) { const list = [...G.cits.values()].filter(c => (c.edu || 0) >= 2 && !c.booba); for (const c of list.slice(0, n)) removeCitizen(G, c); assignJobs(G); return Math.min(n, list.length); }
+function stBrainDrain(G, n) { const list = [...G.cits.values()].filter(c => (c.edu || 0) >= 2 && !c.booba && c.fam !== G.story.docFam); for (const c of list.slice(-n)) removeCitizen(G, c); assignJobs(G); return Math.min(n, list.length); }
 // the literacy campaign: every adult learns to read
 function stLiteracy(G) { for (const c of G.cits.values()) if (!c.edu) c.edu = 1; }
 // free courses: the jobless learn a new trade
@@ -9868,9 +10032,9 @@ function stHurricaneStart(G) { G.storm = { start: G.t, end: G.t + 250 }; G.story
 // the storm takes the weakest homes; engineers (education) and rules save most of them
 function stHurricaneHit(G) {
   const S = G.story; if (S.stormHit) return; S.stormHit = true;
-  let e2 = 0; for (const c of G.cits.values()) if ((c.edu || 0) >= 2) e2++; const strong = e2 / Math.max(1, G.cits.size) >= 0.16 || (S.laws && S.laws.uni);
-  const N = strong ? 1 : 3; S.stormEdu = !!strong;
-  const homes = [...G.blds.values()].filter(b => b.type === 'shack' || b.type === 'house').sort((a, b) => (BLD[a.type].quality || 10) - (BLD[b.type].quality || 10) || (touchesWater(G, a.x - 1, a.y - 1, a.w + 2, a.h + 2) ? -1 : 1));
+  let e2 = 0; for (const c of G.cits.values()) if ((c.edu || 0) >= 2) e2++; const L = S.laws || {}; const strong = L.uni === 1 || (L.uni !== 0 && e2 / Math.max(1, G.cits.size) >= 0.16) || !!L.sea;
+  const N = L.sea ? 1 : strong ? 1 : 3; S.stormEdu = !!strong;
+  const homes = [...G.blds.values()].filter(b => b.type === 'shack' || b.type === 'house').sort((a, b) => (BLD[a.type].quality || 10) - (BLD[b.type].quality || 10) || (touchesWater(G, a.x - 1, a.y - 1, a.w + 2, a.h + 2) ? (L.sea ? 1 : -1) : (L.sea ? -1 : 1)));
   S.homeless = []; let n = 0;
   for (const h of homes.slice(0, N)) { const fam = h.fam || [...new Set(h.res.map(id => G.cits.get(id)?.fam).filter(Boolean))][0]; if (fam) S.homeless.push(fam); for (const id of [...h.res]) { const c = G.cits.get(id); if (c) removeCitizen(G, c); } ST.fx.push({ x: (h.x + h.w / 2) * TILE, y: (h.y + h.h / 2) * TILE, t0: performance.now(), text: '' }); removeBuilding(G, h); n++; }
   recomputeNetwork(G); recomputeServices(G); assignJobs(G); S.stormN = n; stSave();
@@ -9902,11 +10066,13 @@ function drawFlood(c, G, now) {
 /* ---------- the island model (1961): the state owns it all, the market decides, or a mix ---------- */
 // The state: security and free services, but weak incentives and, in bad years, empty shelves.
 // The market: growth and choice, but the shacks fall further behind the villas. The mix: slower, steadier.
-function stModelOutput(G, b) { const m = G.story.model; const d = BLD[b.type]; if (d.kind !== 'goods') return 1; return m === 'state' ? (G.story.shortage ? 0.7 : 0.88) : m === 'market' ? 1.14 : 1.03; }
+function stModelOutput(G, b) { const m = G.story.model; const d = BLD[b.type]; if (d.kind !== 'goods') return 1; const h = G.story.harborSold ? 0.9 : 1; return h * (m === 'state' ? (G.story.shortage ? 0.7 : 0.88) : m === 'market' ? 1.14 : m === 'mixed' ? 1.03 : 1); }
 // everything the story adds to one islander's mood, as [label, points] (the model, the tax, the way to work)
 function stHappyParts(G, c, h) {
   const S = G.story, out = []; if (!h || !S) return out; const q = BLD[h.type].quality || 10; const L = S.laws || {};
   if (S.model) out.push([st('model_' + S.model), S.model === 'state' ? (S.shortage ? -5 : 3) : S.model === 'market' ? (q >= 22 ? 4 : q < 15 ? -5 : 0) : 1]);
+  if (S.ubi) out.push([st('mod_ubi'), q < 22 ? 3 : 1]);
+  if (S.lockHit && S.lockHit > G.t && c.job != null && (c.edu || 0) < 2) out.push([st('mod_lock'), -8]);
   if (L.tax === 'income') out.push([st('mod_tax_income'), q < 15 ? 2 : q >= 26 ? -2 : 0]);
   else if (L.tax === 'sales') out.push([st('mod_tax_sales'), q < 15 ? -2 : 0]);
   if (S.health && c.mode) {
@@ -10032,7 +10198,7 @@ function drawZones(c, G, z) {
     c.fillRect(x + 3, y + 3, tw + 8, Math.max(9, 12 / zz) + 6); c.fillStyle = '#3a2410'; c.fillText(t, x + 7, y + 6); }
 }
 const inRect = (r, x, y, w, h) => r && x + w > r.x && x < r.x + r.w && y + h > r.y && y < r.y + r.h;
-function stGrant(G, amt) { const m = Math.max(2000, Math.ceil((amt || 0) / 500) * 500); G.money += m; stPraise(st('grant', { m: fmtMoney(m) })); }
+function stGrant(G, amt) { const m = Math.max(2000, Math.ceil((amt || 0) / 500) * 500); G.money += m; stPraise(st(typeof gameYear === 'function' && gameYear(G) >= 1961 ? 'grant2' : 'grant', { m: fmtMoney(m) })); }
 // a story step never stalls for money: the colonial office tops the treasury up first
 function stAfford(G, type, n = 1) { const need = (BLD[type].cost + 40) * n + 200; if (G.money < need) stGrant(G, need - G.money); }
 
@@ -10084,7 +10250,7 @@ const STORY = [
     { id: 'sign', kind: 'charter' },
     { id: 'hall', kind: 'place', bld: 'townhall', n: 1, near: 'homes', say: 's4_hall', done: 's4_halldone' },
     { id: 'q1', kind: 'choice', say: 's4_q1', council: true, options: [
-      { label: 's4_q1a', bld: 'distillery', near: 'soil', say: 's4_q1ap', fx: { farmers: 15, merchants: 10, fishers: -5 }, then: G => { const f = [...G.blds.values()].find(b => b.type === 'farm'); if (f) { f.crop = 'sugar'; f.stock = 0; } } },
+      { label: 's4_q1a', bld: 'distillery', near: 'soil', say: 's4_q1ap', fx: { farmers: 15, merchants: 10, fishers: -5 }, then: G => { if (G.story.laws && G.story.laws.child === 'school' && !stHas(G, 'school')) stAutoBuild(G, 'school', 'homes'); const f = [...G.blds.values()].find(b => b.type === 'farm'); if (f) { f.crop = 'sugar'; f.stock = 0; } } },
       { label: 's4_q1b', bld: 'school', near: 'homes', say: 's4_q1bp', fx: { fishers: 10, farmers: 5, merchants: 5 } } ] },
     { id: 'leaflets', kind: 'info', say: 'leaflets', btn: 'next', scene: 'leaflets' },
     { id: 'press', kind: 'choice', say: 'prQ', council: true, options: [
@@ -10116,25 +10282,31 @@ const STORY = [
     { id: 'lesson', kind: 'info', say: 'crLesson', btn: 'next', fn: G => stShockEnd(G) },
     { id: 'end', kind: 'chapterEnd', say: 'crEnd' },
   ] },
-  { id: 'sweet', name: 'chSweet', era: 2, year: 1936, rosa: 2, news: 'y1936', photo: 'photoSweet', learned: ['lSwa', 'lSwb'], unlock: 'uSweet', tools: ['radio'], letter: 'letterSweet', steps: [
+  { id: 'sweet', name: 'chSweet', era: 2, year: 1936, rosa: 2, news: 'y1936', photo: 'photoSweet', learned: ['lSwa', 'lSwb'], unlock: 'uSweet', tools: ['radio'], letter: G => ((G.story.pressBefore || G.story.press) === 'free' ? 'letterSweet' : 'letterSweet2'), steps: [
     { id: 'intro', kind: 'info', say: 'swIntro', btn: 'next', fn: G => { G.story.sweetYes = 0; stAutoBuild(G, 'radio', 'homes'); } },
     { id: 'radio', kind: 'info', say: 'swRadio', btn: 'next', scene: 'radio' },
     { id: 'ask1', kind: 'choice', say: 'swAsk1', council: true, scene: 'rally', options: [
       { label: 'swY1', then: G => { G.story.sweetYes++; }, fx: { fishers: 4, merchants: -4 }, done: 'swY1done' }, { label: 'swN1', fx: { fishers: -3, merchants: 3 }, done: 'swN1done' } ] },
     { id: 'ask2', kind: 'choice', say: 'swAsk2', scene: 'radio', options: [
       { label: 'swY2', then: G => { G.story.sweetYes++; }, done: 'swY2done' }, { label: 'swN2', done: 'swN2done' } ] },
-    { id: 'ask3', kind: 'choice', say: 'swAsk3', scene: 'radio', options: [
-      { label: 'swY3', then: G => { G.story.sweetYes++; }, done: 'swY3done' }, { label: 'swN3', done: 'swN3done' } ] },
+    { id: 'ask3', kind: 'choice', say: G => (G.story.press === 'hall' ? 'swAsk3_hall' : G.story.press === 'none' ? 'swAsk3_none' : 'swAsk3'), scene: 'radio', options: [
+      { label: 'swY3', then: G => { G.story.sweetYes++; G.story.pressBefore = G.story.press || 'free'; G.story.press = 'closed'; }, done: G => (G.story.pressBefore === 'free' ? 'swY3done' : 'swY3done_other') },
+      { label: 'swN3', done: G => (G.story.press === 'hall' ? 'swN3done_hall' : G.story.press === 'none' ? 'swN3done_none' : 'swN3done') } ] },
     { id: 'ask4', kind: 'choice', say: 'swAsk4', scene: 'rally', options: [
       { label: 'swY4', then: G => { G.story.sweetYes++; }, done: 'swY4done' }, { label: 'swN4', done: 'swN4done' } ] },
-    { id: 'outcome', kind: 'info', say: G => (G.story.sweetYes === 0 ? 'swOut0' : G.story.sweetYes <= 2 ? 'swOut1' : 'swOut2'), btn: 'next', fn: G => { if (G.story.sweetYes >= 3) { stEmigrate(G, 2); const f = G.story.council || (G.story.council = { farmers: 0, fishers: 0, merchants: 0 }); for (const k in f) f[k] -= 8; } } },
+    { id: 'outcome', kind: 'info', say: G => (G.story.sweetYes === 0 ? 'swOut0' : G.story.sweetYes <= 2 ? 'swOut1' : 'swOut2'), btn: 'next', fn: G => { if (G.story.sweetYes >= 3) { stEmigrate(G, 2); const f = G.story.council || (G.story.council = { farmers: 0, fishers: 0, merchants: 0 }); for (const k in f) f[k] -= 8; } else if (G.story.press === 'closed') G.story.press = G.story.pressBefore || 'free'; } },
     { id: 'aristotle', kind: 'info', say: 'swAristotle', btn: 'next' },
     { id: 'signs', kind: 'info', say: 'swSigns', btn: 'next' },
     { id: 'end', kind: 'chapterEnd', say: 'swEnd' },
   ] },
   { id: 'ch6', name: 'ch6', era: 3, year: 1955, rosa: 2, news: 'y1955', photo: 'photo6', learned: ['l6c', 'l6a', 'l6b', 'l6t'], unlock: 'u6', tools: ['garage', 'apartment'], letter: 'letter6', steps: [
+    { id: 'fall', kind: 'info', when: G => G.story.sweetYes >= 3, say: 'swFall', btn: 'next', scene: 'protest', fn: G => { if (G.story.press === 'closed') G.story.press = G.story.pressBefore || 'free'; } },
+    { id: 'su_in', kind: 'info', when: G => G.story.laws && G.story.laws.vote === 'land', say: 'suIntro', btn: 'next', scene: 'protest' },
+    { id: 'su_q', kind: 'choice', when: G => G.story.laws && G.story.laws.vote === 'land', say: 'suQ', council: true, scene: 'protest', options: [
+      { label: 'suA', law: ['vote', 'all'], fx: { fishers: 10, merchants: 4, farmers: -3 }, done: 'suAdone' },
+      { label: 'suB', fx: { fishers: -10, merchants: -4, farmers: 3 }, done: 'suBdone' } ] },
     { id: 'plan', kind: 'plan', say: 's6_plan' },
-    { id: 'intro', kind: 'info', say: 's6_intro', btn: 'next', fn: G => { G.fleetOn = true; for (const b of G.blds.values()) if (BLD[b.type].kind === 'goods' && b.type !== 'goldmine') b.stock = Math.max(b.stock, 70); } },
+    { id: 'intro', kind: 'info', say: G => (stHas(G, 'distillery') ? 's6_intro' : 's6_intro_norum'), btn: 'next', fn: G => { G.fleetOn = true; for (const b of G.blds.values()) if (BLD[b.type].kind === 'goods' && b.type !== 'goldmine') b.stock = Math.max(b.stock, 70); } },
     { id: 'garage', kind: 'place', bld: 'garage', n: 1, near: 'harbor', say: 's6_garage', done: 's6_garagedone' },
     { id: 'people', kind: 'people', say: 's6_prof' },
     { id: 'drive', kind: 'drive', say: 's6_drive', done: 's6_drivedone', job: 'best' },
@@ -10142,6 +10314,7 @@ const STORY = [
       { label: 'txA', law: ['tax', 'income'], fx: { merchants: -10, fishers: 6, farmers: 4 }, then: G => { G.money += 1500; }, done: 'txAdone' },
       { label: 'txB', law: ['tax', 'sales'], fx: { merchants: 6, fishers: -6, farmers: -4 }, then: G => { G.money += 1500; }, done: 'txBdone' },
       { label: 'txC', law: ['tax', 'land'], fx: { farmers: -8, merchants: 2, fishers: 6 }, then: G => { G.money += 1500; }, done: 'txCdone' } ] },
+    ...evVoteSteps(),   // the island votes again (for the first time in ten years, if the radio man ruled)
     { id: 'end', kind: 'chapterEnd', say: 's6_end' },
   ] },
   { id: 'roads', name: 'chRoads', era: 3, year: 1961, rosa: 2, news: 'y1961', photo: 'photoRoads', learned: ['lRoa', 'lRob', 'lRoc'], unlock: 'uRoads', tools: ['hotel', 'cinema'], letter: 'letterRoads', steps: [
@@ -10161,18 +10334,18 @@ const STORY = [
       { label: 'balC', law: ['ally', 'none'], fx: { farmers: 3, fishers: 3, merchants: 3 }, done: 'balCdone' } ] },
     { id: 'end', kind: 'chapterEnd', say: 'roEnd' },
   ] },
-  { id: 'oil', name: 'chOil', era: 4, year: 1974, rosa: 2, news: 'y1974', photo: 'photoOil', learned: ['lOia', 'lOib'], unlock: 'uOil', tools: ['solar', 'windmill'], letter: 'letterOil', steps: [
-    { id: 'intro', kind: 'info', say: 'oiIntro', btn: 'next', fn: G => stShock(G, { gas: 3 }) },
+  { id: 'oil', name: 'chOil', era: 4, year: 1974, rosa: 2, news: 'y1974', photo: G => (stPicked(G, 'oiB') ? 'photoOil_wind' : stPicked(G, 'oiC') ? 'photoOil_coal' : 'photoOil'), learned: ['lOia', 'lOib'], unlock: 'uOil', tools: ['solar', 'windmill'], letter: G => (stPicked(G, 'oiB') ? 'letterOil_wind' : stPicked(G, 'oiC') ? 'letterOil_coal' : 'letterOil'), steps: [
+    { id: 'intro', kind: 'info', say: G => (G.story.laws && G.story.laws.ally === 'east' ? 'oiIntro_east' : 'oiIntro'), btn: 'next', fn: G => stShock(G, { gas: G.story.laws && G.story.laws.ally === 'east' ? 1.8 : 3 }) },
     { id: 'energy', kind: 'choice', say: 'oiQ', options: [
       { label: 'oiA', bld: 'solar', near: 'away', say: 'oiAp', done: 'oiAdone' },
       { label: 'oiB', bld: 'windmill', near: 'windy', n: 2, say: 'oiBp', done: 'oiBdone' },
       { label: 'oiC', bld: 'coalplant', near: 'away', say: 'oiCp', fx: { farmers: -5 }, done: 'oiCdone' } ] },
     { id: 'years', kind: 'info', say: G => 'oiModel_' + (G.story.model || 'mixed'), btn: 'next', fn: G => { if (G.story.model === 'state') stBrainDrain(G, 3); } },
-    ...evStrikeSteps('sk_'),
+    ...evStrikeSteps('sk_').map(x => ({ ...x, when: G => G.story.model !== 'state' })),
     { id: 'dusk', kind: 'wait', say: 'oiDusk', done: 'oiLit', speed: 6, until: G => { const tod = G.t % 1440; return G.t > (G.story.waitFrom || 0) + 30 && tod >= 20 * 60 + 50; }, zoomOut: true },
-    { id: 'end', kind: 'chapterEnd', say: 'oiEnd' },
+    { id: 'end', kind: 'chapterEnd', say: G => (stPicked(G, 'oiC') ? 'oiEnd_coal' : 'oiEnd') },
   ] },
-  { id: 'uni', name: 'chUni', era: 4, year: 1985, rosa: 3, news: 'y1985', photo: 'photoUni', learned: ['lUna', 'lUnb'], unlock: 'uUni', tools: ['university', 'factory'], letter: 'letterUni', steps: [
+  { id: 'uni', name: 'chUni', era: 4, year: 1985, rosa: 3, news: 'y1985', photo: G => (G.story.laws && G.story.laws.uni === 0 ? 'photoUni_factory' : 'photoUni'), learned: ['lUna', 'lUnb'], unlock: 'uUni', tools: ['university', 'factory'], letter: G => (G.story.laws && G.story.laws.uni === 0 ? 'letterUni_factory' : G.story.model === 'state' || (G.story.laws && G.story.laws.child === 'school') ? 'letterUni_lit' : 'letterUni'), steps: [
     { id: 'intro', kind: 'info', say: 'unIntro', btn: 'next' },
     { id: 'gap', kind: 'info', say: 'unGap', btn: 'next', edu: true },
     { id: 'future', kind: 'choice', say: 'unQ', council: true, options: [
@@ -10185,7 +10358,7 @@ const STORY = [
     { id: 'intro', kind: 'info', say: 'waIntro', btn: 'next' },
     { id: 'east', kind: 'info', when: G => G.story.laws && G.story.laws.ally === 'east' && G.story.model !== 'state', say: 'waEast', btn: 'next', fn: G => stShock(G, { sugar: 0.5 }) },
     { id: 'north', kind: 'info', when: G => G.story.laws && G.story.laws.ally === 'north', say: 'waNorth', btn: 'next', fn: G => { G.money = Math.max(300, G.money - 1500); } },
-    { id: 'st1', kind: 'info', when: G => G.story.model === 'state', say: 'waSt1', btn: 'next', fn: G => { G.story.shortage = true; stShock(G, { gas: 3, sugar: 0.5 }); } },
+    { id: 'st1', kind: 'info', when: G => G.story.model === 'state', say: G => (G.story.laws && G.story.laws.ally === 'east' ? 'waSt1' : 'waSt1_alone'), btn: 'next', fn: G => { G.story.shortage = true; stShock(G, { gas: 3, sugar: 0.5 }); } },
     { id: 'stq', kind: 'choice', when: G => G.story.model === 'state', say: 'waStQ', options: [
       { label: 'waStA', bld: 'hotel', near: 'harbor', say: 'waStAp', fx: { merchants: 10, fishers: 5 }, then: G => { G.story.shortage = false; }, done: 'waStAdone' },
       { label: 'waStB', fx: { farmers: -5, fishers: -8, merchants: -8 }, then: G => stEmigrate(G, 2), done: 'waStBdone' },
@@ -10195,16 +10368,16 @@ const STORY = [
       { label: 'waMkA', fx: { fishers: -10, farmers: -8, merchants: 6 }, then: G => { G.money += 1500; }, done: 'waMkAdone' },
       { label: 'waMkB', fx: { merchants: -15, fishers: 10, farmers: 8 }, done: 'waMkBdone' },
       { label: 'waMkC', fx: { fishers: -12, merchants: 8 }, then: G => { G.money += 4000; G.story.harborSold = true; }, done: 'waMkCdone' } ] },
-    { id: 'mx1', kind: 'info', when: G => !G.story.model || G.story.model === 'mixed', say: 'waMx1', btn: 'next' },
+    { id: 'mx1', kind: 'info', when: G => !G.story.model || G.story.model === 'mixed', say: G => (G.story.laws && G.story.laws.ally === 'east' ? 'waMx1_east' : 'waMx1'), btn: 'next' },
     { id: 'mxq', kind: 'choice', when: G => !G.story.model || G.story.model === 'mixed', say: 'waMxQ', options: [
       { label: 'waMxA', bld: 'office', near: 'homes', say: 'waMxAp', fx: { merchants: 8, fishers: 2 }, done: 'waMxAdone' },
       { label: 'waMxB', fx: { farmers: 8, fishers: 6, merchants: -6 }, done: 'waMxBdone' } ] },
-    ...evSweetSteps('Señor Castillo', 'sw2_'),
+    ...evSweetSteps('Señor Garrido', 'sw2_'),
     { id: 'lesson', kind: 'info', say: 'waLesson', btn: 'next' },
     { id: 'end', kind: 'chapterEnd', say: 'waEnd' },
   ] },
-  { id: 'heart', name: 'chHeart', era: 4, year: 1998, rosa: 3, news: 'y1998', photo: 'photoHeart', learned: ['lHea', 'lHeb'], unlock: 'uHeart', tools: ['hospital'], letter: 'letterHeart', steps: [
-    { id: 'intro', kind: 'info', say: 'heIntro', btn: 'next', fn: G => { G.story.health = true; } },
+  { id: 'heart', name: 'chHeart', era: 4, year: 1998, rosa: 3, news: 'y1998', photo: 'photoHeart', learned: ['lHea', 'lHeb'], unlock: 'uHeart', tools: ['hospital'], letter: G => (G.story.laws && G.story.laws.center === 'car' ? 'letterHeart_car' : 'letterHeart'), steps: [
+    { id: 'intro', kind: 'info', say: G => (G.story.model === 'state' ? 'heIntro_state' : 'heIntro'), btn: 'next', fn: G => { G.story.health = true; } },
     { id: 'numbers', kind: 'info', say: 'heNumbers', btn: 'next', city: true },
     { id: 'centre', kind: 'choice', say: 'heQ', council: true, options: [
       { label: 'heA', bld: 'park', near: 'centre', n: 2, say: 'heAp', law: ['center', 'walk'], fx: { merchants: 4, fishers: 4, farmers: 2 }, done: 'heAdone' },
@@ -10214,10 +10387,11 @@ const STORY = [
       { label: 'heHA', bld: 'hospital', near: 'homes', say: 'heHAp', done: 'heHAdone' },
       { label: 'heHB', bld: 'clinic', near: 'homes', n: 2, say: 'heHBp', done: 'heHBdone' } ] },
     { id: 'lesson', kind: 'info', say: 'heLesson', btn: 'next', city: true },
-    { id: 'end', kind: 'chapterEnd', say: 'heEnd' },
+    ...evVoteSteps(),
+    { id: 'end', kind: 'chapterEnd', say: G => (G.story.laws && G.story.laws.center === 'car' ? 'heEnd_car' : 'heEnd') },
   ] },
   { id: 'storm', name: 'chStorm', era: 4, year: 2004, rosa: 3, news: 'y2004', photo: 'photoStorm', learned: ['lSta', 'lStb'], unlock: 'uStorm', tools: ['tower'], letter: 'letterStorm', steps: [
-    { id: 'intro', kind: 'info', say: 'stIntro', btn: 'next' },
+    { id: 'intro', kind: 'info', say: G => (stHas(G, 'school') ? 'stIntro' : 'stIntro_noschool'), btn: 'next' },
     { id: 'storm', kind: 'wait', say: 'stWait', hint: 'stWaitHint', done: 'stWaitDone', speed: 3, fn: G => stHurricaneStart(G), until: G => G.t > (G.story.waitFrom || 0) + 260 },
     { id: 'damage', kind: 'info', say: G => (G.story.stormEdu ? 'stDamageA' : 'stDamageB'), btn: 'next', fn: G => stHurricaneHit(G), vars: G => ({ n: G.story.stormN || 0 }) },
     { id: 'rebuild', kind: 'place', bld: 'house', n: G => Math.max(1, G.story.stormN || 1), near: 'homes', rehome: true, say: 'stRebuild', done: 'stRebuilt' },
@@ -10237,7 +10411,7 @@ const STORY = [
   { id: 'quiet', name: 'chQuiet', era: 4, year: 2020, rosa: 3, news: 'y2020', photo: 'photoQuiet', learned: ['lQua', 'lQub'], unlock: 'uQuiet', tools: [], letter: 'letterQuiet', steps: [
     { id: 'intro', kind: 'info', say: 'quIntro', btn: 'next' },
     { id: 'lock', kind: 'choice', say: 'quQ', council: true, options: [
-      { label: 'quA', fx: { merchants: -10, fishers: -6, farmers: -3 }, then: G => { G.story.lockdown = true; outbreak(G, 3); }, done: 'quAdone' },
+      { label: 'quA', fx: { merchants: -10, fishers: -6, farmers: -3 }, then: G => { G.story.lockdown = true; G.story.lockHit = G.t + 4 * 1440; outbreak(G, 3); }, done: 'quAdone' },
       { label: 'quB', fx: { merchants: 6 }, then: G => { outbreak(G, Math.max(8, Math.round(G.cits.size * 0.12))); }, done: 'quBdone' } ] },
     { id: 'gap', kind: 'info', say: 'quGap', btn: 'next', edu: true },
     { id: 'masks', kind: 'info', say: 'quMasks', btn: 'next', fn: G => { const J = G.story.joy || (G.story.joy = {}); for (const c of G.cits.values()) if (c.fam) J[c.fam] = G.t + 2 * 1440; } },
@@ -10245,11 +10419,11 @@ const STORY = [
     { id: 'weeks', kind: 'wait', say: 'quWait', done: 'quWaitDone', speed: 8, until: G => { if (G.t > (G.story.waitFrom || 0) + 3 * 1440) for (const c of G.cits.values()) c.sick = 0; return sickCount(G) === 0 && G.t > (G.story.waitFrom || 0) + 600; } },
     { id: 'end', kind: 'chapterEnd', say: 'quEnd' },
   ] },
-  { id: 'feed', name: 'chFeed', era: 4, year: 2024, rosa: 3, news: 'y2024', photo: 'photoFeed', learned: ['lFda', 'lFdb'], unlock: 'uFeed', tools: [], letter: 'letterFeed', steps: [
+  { id: 'feed', name: 'chFeed', era: 4, year: 2024, rosa: 3, news: 'y2024', photo: G => (stPicked(G, 'fdA') ? 'photoFeed' : 'photoFeed_bad'), learned: ['lFda', 'lFdb'], unlock: 'uFeed', tools: [], letter: 'letterFeed', steps: [
     { id: 'intro', kind: 'info', say: 'fdIntro', btn: 'next' },
     { id: 'rumor', kind: 'info', say: 'fdRumor', btn: 'next', scene: 'crowd', vars: G => ({ d: G.story.docFam || 'Aydın' }) },
     { id: 'mob', kind: 'choice', say: 'fdQ', council: true, scene: 'crowd', options: [
-      { label: 'fdA', fx: { fishers: 3, farmers: 3, merchants: 3 }, done: G => (G.story.press === 'free' ? 'fdAdone1' : 'fdAdone2') },
+      { label: 'fdA', fx: { fishers: 3, farmers: 3, merchants: 3 }, done: G => (G.story.press === 'free' ? 'fdAdone1' : G.story.press === 'hall' ? 'fdAdone2' : 'fdAdone3') },
       { label: 'fdB', fx: { merchants: 2, fishers: -6, farmers: -4 }, done: 'fdBdone' },
       { label: 'fdC', fx: { fishers: -4, farmers: -4 }, then: G => { G.story.mobKeep = true; outbreak(G, Math.max(5, Math.round(G.cits.size * 0.05))); }, done: 'fdCdone' } ] },
     { id: 'aristotle', kind: 'info', say: 'fdAristotle', btn: 'next', scene: G => (G.story.mobKeep ? 'crowd' : 'calm') },
@@ -10257,8 +10431,8 @@ const STORY = [
     { id: 'future', kind: 'choice', say: 'fdQ2', options: [
       { label: 'fdLA', law: ['media', 'school'], done: 'fdLAdone' },
       { label: 'fdLB', law: ['media', 'law'], done: 'fdLBdone' },
-      { label: 'fdLC', law: ['media', 'press'], then: G => { G.money -= 800; G.story.press = 'free'; }, done: 'fdLCdone' } ] },
-    { id: 'end', kind: 'chapterEnd', say: 'fdEnd' },
+      { label: 'fdLC', law: ['media', 'press'], then: G => { G.money = Math.max(300, G.money - 800); G.story.pressWas = G.story.press; G.story.press = 'free'; }, done: G => (G.story.pressWas === 'free' ? 'fdLCdone' : 'fdLCdone_new') } ] },
+    { id: 'end', kind: 'chapterEnd', say: G => (stPicked(G, 'fdA') ? 'fdEnd' : 'fdEnd_bad') },
   ] },
   { id: 'ch8', name: 'ch8', era: 4, year: 2026, rosa: 3, news: 'y2026', photo: 'photo8', learned: ['l8a', 'l8c'], unlock: 'uCarn', tools: ['cafe', 'church'], letter: 'letter8', steps: [
     { id: 'intro', kind: 'info', say: 's8_intro', btn: 'next' },
@@ -10270,10 +10444,10 @@ const STORY = [
     { id: 'speech', kind: 'info', say: 's8_speech', btn: 'next', vars: G => ({ f: new Set([...G.cits.values()].map(c => c.fam).filter(Boolean)).size, n: G.cits.size }) },
     { id: 'end', kind: 'chapterEnd', say: 's8_end' },
   ] },
-  { id: 'cradle', name: 'chCradle', era: 4, year: 2033, rosa: 4, news: 'y2033', photo: 'photoCradle', learned: ['lCaa', 'lCab'], unlock: 'uCradle', tools: [], letter: 'letterCradle', steps: [
+  { id: 'cradle', name: 'chCradle', era: 4, year: 2033, rosa: 4, news: 'y2033', photo: 'photoCradle', learned: ['lCaa', 'lCab'], unlock: 'uCradle', tools: [], letter: G => (stHas(G, 'hospital') ? 'letterCradle' : 'letterCradle_clinic'), steps: [
     { id: 'intro', kind: 'info', say: 'caIntro', btn: 'next' },
     { id: 'help', kind: 'choice', say: 'caQ', council: true, options: [
-      { label: 'caA', bld: 'school', near: 'homes', say: 'caAp', fx: { fishers: 5, farmers: 5, merchants: 2 }, done: 'caAdone' },
+      { label: 'caA', bld: 'school', near: 'homes', say: 'caAp', fx: { fishers: 5, farmers: 5, merchants: 2 }, done: G => (stHas(G, 'hospital') ? 'caAdone' : 'caAdone_clinic') },
       { label: 'caB', fx: { fishers: 4, farmers: 4, merchants: -4 }, then: G => { G.money -= 1200; }, done: 'caBdone' },
       { label: 'caC', bld: 'apartment', near: 'centre', say: 'caCp', fx: { fishers: 5, farmers: 3, merchants: 3 }, done: 'caCdone' },
       { label: 'caD', fx: { merchants: 5, fishers: 2, farmers: -2 }, then: G => stYearsGrowth(G, 25), done: 'caDdone' } ] },
@@ -10308,19 +10482,21 @@ const STORY = [
 function evSweetSteps(name, tag) {
   const v = () => ({ name });
   return [
-    { id: tag + 'in', kind: 'info', say: G => (G.story.sweetYes === 0 ? 'evSwIntroRem' : 'evSwIntro'), vars: v, btn: 'next', scene: 'rally', fn: G => { G.story.swN = 0; } },
+    { id: tag + 'in', kind: 'info', say: G => (G.story.sweetYes === 0 ? 'evSwIntroRem' : G.story.sweetYes >= 3 ? 'evSwIntroRem2' : 'evSwIntro'), vars: v, btn: 'next', scene: 'rally', fn: G => { G.story.swN = 0; } },
     { id: tag + 'q1', kind: 'choice', say: 'evSwQ1', vars: v, council: true, scene: 'rally', options: [
       { label: 'evSwY1', then: G => { G.story.swN = (G.story.swN || 0) + 1; }, fx: { fishers: 3, merchants: -3 }, done: 'evSwY1done' }, { label: 'evSwN1', fx: { fishers: -2, merchants: 2 }, done: 'evSwN1done' } ] },
     { id: tag + 'q2', kind: 'choice', say: 'evSwQ2', vars: v, scene: 'radio', options: [
       { label: 'evSwY2', then: G => { G.story.swN = (G.story.swN || 0) + 1; }, done: 'evSwY2done' }, { label: 'evSwN2', done: 'evSwN2done' } ] },
-    { id: tag + 'out', kind: 'info', say: G => ['evSwOut0', 'evSwOut1', 'evSwOut2'][Math.min(2, G.story.swN || 0)], vars: v, btn: 'next', fn: G => { if ((G.story.swN || 0) >= 2) { stEmigrate(G, 2); const f = G.story.council || (G.story.council = { farmers: 0, fishers: 0, merchants: 0 }); for (const k in f) f[k] -= 6; } } },
+    { id: tag + 'out', kind: 'info', say: G => ['evSwOut0', 'evSwOut1', 'evSwOut2'][Math.min(2, G.story.swN || 0)], vars: v, btn: 'next', fn: G => { if ((G.story.swN || 0) >= 2) { G.story.swRuled = G.story.ch; stEmigrate(G, 2); const f = G.story.council || (G.story.council = { farmers: 0, fishers: 0, merchants: 0 }); for (const k in f) f[k] -= 6; } } },
   ];
 }
 function evProtestSteps(topic, tag) {
+  // while only landowners may vote, that is what the square is about
+  const tp = G => (G.story.laws && G.story.laws.vote === 'land' ? 'vote' : typeof topic === 'function' ? topic(G) : topic);
   return [
-    { id: tag + 'in', kind: 'info', say: typeof topic === 'function' ? G => 'evPrIntro_' + topic(G) : 'evPrIntro_' + topic, btn: 'next', scene: 'protest' },
+    { id: tag + 'in', kind: 'info', say: G => 'evPrIntro_' + tp(G), btn: 'next', scene: 'protest' },
     { id: tag + 'q', kind: 'choice', say: 'evPrQ', council: true, scene: 'protest', options: [
-      { label: 'evPrA', fx: { fishers: 5, farmers: 5, merchants: 2 }, then: G => { G.money = Math.max(300, G.money - 600); }, done: 'evPrAdone' },
+      { label: 'evPrA', fx: { fishers: 5, farmers: 5, merchants: 2 }, then: G => { G.money = Math.max(300, G.money - 600); G.story.prVote = tp(G) === 'vote'; if (G.story.prVote) (G.story.laws || (G.story.laws = {})).vote = 'all'; }, done: G => (G.story.prVote ? 'evPrAdoneVote' : 'evPrAdone') },
       { label: 'evPrB', fx: { fishers: -4, farmers: -4 }, done: 'evPrBdone' },
       { label: 'evPrC', fx: { fishers: -8, farmers: -6, merchants: 3 }, done: 'evPrCdone' } ] },
     { id: tag + 'ls', kind: 'info', say: 'evPrLesson', btn: 'next' },
@@ -10340,14 +10516,14 @@ function evStrikeSteps(tag) {
 // the election every four years (the first one, in 1912, is the story's own)
 function evVoteSteps() {
   return [
-    { id: 'vo_in', kind: 'info', say: 'evVoIntro', btn: 'next', council: true, scene: 'assembly' },
-    { id: 'vo_night', kind: 'wait', say: 'evVoWait', hint: 's4_wait', done: 's4_votes', speed: 8, until: G => { const d = Math.floor((G.story.waitFrom || 0) / 1440); return G.t >= (d + 1) * 1440 + 10 * 60; } },
-    { id: 'vo', kind: 'election' },
+    { id: 'vo_in', kind: 'info', when: G => G.story.swRuled !== G.story.ch, say: 'evVoIntro', btn: 'next', council: true, scene: 'assembly' },
+    { id: 'vo_night', kind: 'wait', when: G => G.story.swRuled !== G.story.ch, say: 'evVoWait', hint: 's4_wait', done: 's4_votes', speed: 8, until: G => { const d = Math.floor((G.story.waitFrom || 0) / 1440); return G.t >= (d + 1) * 1440 + 10 * 60; } },
+    { id: 'vo', kind: 'election', when: G => G.story.swRuled !== G.story.ch },
   ];
 }
 /* ---------- the years go on: after 2070 every chapter is a new year with something the island must face ---------- */
 const EV_TYPES = ['sweet', 'protest', 'storm', 'boom', 'bust', 'fever', 'newcomers', 'model', 'strike', 'media', 'build'];
-const EV_NAMES = ['Señor Montoya', 'Señora Rivas', 'Señor Ferrer', 'Señora Luna', 'Señor Beltrán', 'Señora Ortega'];
+const EV_NAMES = ['Señor Montoya', 'Señora Rivas', 'Señor Ferrer', 'Señora Salcedo', 'Señor Beltrán', 'Señora Quintero'];
 const EV_TOPICS = ['prices', 'jobs', 'rents', 'climate'];
 function evSteps(g) {
   const t = g.t, h = g.h;
@@ -10385,14 +10561,14 @@ function evSteps(g) {
         { label: 'evNcB', fx: { merchants: 3 }, done: 'evNcBdone' },
         { label: 'evNcC', fx: { merchants: 4, fishers: -4 }, then: G => stEmigrate(G, 1), done: 'evNcCdone' } ] } ];
     case 'model': return [
-      { id: 'mo_in', kind: 'info', say: G => 'evMoIntro_' + (G.story.model || 'mixed'), btn: 'next', edu: true },
+      { id: 'mo_in', kind: 'info', say: G => (G.story.model === 'market' && !(G.story.decisions || []).some(d => d.label === 'roA' || d.label === 'evSkB') ? 'evMoIntro_market1' : 'evMoIntro_' + (G.story.model || 'mixed')), btn: 'next', edu: true },
       { id: 'mo_q', kind: 'choice', say: 'evMoQ', council: true, options: [
         { label: 'roA', model: 'state', fx: { farmers: -4, fishers: 8, merchants: -10 }, done: 'evMoDone' },
         { label: 'roB', model: 'market', fx: { merchants: 10, fishers: -4, farmers: 2 }, done: 'evMoDone' },
         { label: 'roC', model: 'mixed', fx: { farmers: 3, fishers: 3, merchants: 3 }, done: 'evMoDone' } ] },
       { id: 'mo_ls', kind: 'info', say: 'evMoLesson', btn: 'next' } ];
     case 'media': return [
-      { id: 'me_in', kind: 'info', say: 'evMeIntro', btn: 'next', scene: 'mob' },
+      { id: 'me_in', kind: 'info', say: G => (G.story.laws && G.story.laws.media === 'school' ? 'evMeIntroSchool' : 'evMeIntro'), btn: 'next', scene: 'mob' },
       { id: 'me_q', kind: 'choice', say: 'fdQ', council: true, scene: 'mob', options: [
         { label: 'fdA', fx: { fishers: 3, farmers: 3, merchants: 3 }, done: G => (G.story.press === 'free' ? 'fdAdone1' : 'fdAdone2') },
         { label: 'fdB', fx: { merchants: 2, fishers: -6, farmers: -4 }, done: 'fdBdone' },
@@ -10411,13 +10587,15 @@ function evChapter(G, k) {
   while (S.gen.length <= i) {
     const j = S.gen.length, prev = j ? S.gen[j - 1] : { y: STORY[STORY.length - 1].year, t: 'launch' }; const h = ihash(((S.started || 7) % 1000003) + j * 7919 + 13);
     const y = prev.y + 2 + (h % 3); const lastVote = [...S.gen].reverse().find(q => q.vote); const recent = S.gen.slice(-5).map(q => q.t);
-    const pool = EV_TYPES.filter(q => !recent.includes(q)); const t = pool[(h >>> 4) % pool.length];
+    const pool = EV_TYPES.filter(q => !recent.includes(q) && !(q === 'strike' && S.model === 'state')); const t = pool[(h >>> 4) % pool.length];
     // every four years or so the chapter ends with an election, never two in a row
-    const vote = !prev.vote && y - (lastVote ? lastVote.y : STORY[STORY.length - 1].year - 3) >= 4;
+    const term = (S.laws && S.laws.term) || 4; const vote = !prev.vote && y - (lastVote ? lastVote.y : STORY[STORY.length - 1].year - 3) >= term;
     S.gen.push({ t, y, h, vote });
   }
   const g = S.gen[i]; if (g.t === 'vote') { g.t = 'build'; g.vote = true; } const key = i + ':' + g.t + ':' + g.y + ':' + !!g.vote; if (EV_CACHE.has(key)) return EV_CACHE.get(key);
-  const C = { id: 'ev_' + g.t, name: 'evN_' + g.t, era: 4, year: g.y, rosa: 4, photo: 'evP_' + g.t, learned: ['evLe_' + g.t], unlock: 'evUnlock', tools: [], letter: 'evL_' + g.t, gen: true,
+  const EVL = { newcomers: { evNcB: 'evL_newcomers_B', evNcC: 'evL_newcomers_C' }, strike: { evSkB: 'evL_strike_B', evSkD: 'evL_strike_D' }, protest: { evPrC: 'evL_protest_C' }, sweet: { evSwY1: 'evL_sweet_yes', evSwY2: 'evL_sweet_yes' } }[g.t] || {};
+  const letter = G => { for (const k in EVL) if (stPicked(G, k)) return EVL[k]; return 'evL_' + g.t; };
+  const C = { id: 'ev_' + g.t, name: 'evN_' + g.t, era: 4, year: g.y, rosa: 4, photo: 'evP_' + g.t, learned: ['evLe_' + g.t], unlock: 'evUnlock', tools: [], letter, gen: true,
     steps: [...evSteps(g), ...(g.vote ? evVoteSteps() : []), { id: 'end', kind: 'chapterEnd', say: 'evEnd_' + g.t }] };
   EV_CACHE.set(key, C); return C;
 }
@@ -10426,6 +10604,8 @@ const stCh = (k, g) => { g = g || (typeof G !== 'undefined' ? G : null); return 
 const stChapter = G => stCh(G.story.ch, G) || null;
 const chName = k => st((stCh(k) && stCh(k).name) || ('ch' + (k + 1)));
 const sayOf = (G, k) => (typeof k === 'function' ? k(G) : k);
+const stPicked = (G, label) => (G.story.decisions || []).some(d => d.ch === G.story.ch && d.label === label);
+const stHas = (G, type) => [...G.blds.values()].some(b => b.type === type);
 const nOf = (G, s) => (typeof s.n === 'function' ? s.n(G) : s.n || 1);
 const stStep = G => { const C = stChapter(G); return C ? C.steps[G.story.step] || null : null; };
 
@@ -10676,7 +10856,7 @@ function stLifeTick(G) {
   const fams = [...new Set([...G.cits.values()].map(c => c.fam).filter(Boolean))]; if (fams.length < 2) return;
   const pick = a => a[Math.floor(Math.random() * a.length)]; const day = Math.floor(G.t / 1440) + 1; const J = S.joy || (S.joy = {});
   const farms = [...G.blds.values()].filter(b => BLD[b.type].fertile).length;
-  const kinds = ['baby', 'wedding', 'cruise']; if (farms) kinds.push('harvest'); const k = pick(kinds);
+  const kinds = G.era >= 3 ? ['baby', 'wedding', 'cruise'] : ['baby', 'wedding']; if (farms) kinds.push('harvest'); const k = pick(kinds);
   if (k === 'baby') { const f = pick(fams), c = pick(BABY_NAMES); const B = S.babies || (S.babies = {}); (B[f] = B[f] || []).push(c); J[f] = G.t + 2 * 1440;
     S.letters.push({ key: 'babyL', vars: { f, c }, day }); stPraise(st('baby', { f, c })); stLifeFx(G, f); }
   else if (k === 'wedding') { const W = S.weds || (S.weds = []); const pairs = []; for (const a of fams) for (const e of fams) if (a < e && !W.includes(a + '|' + e)) pairs.push([a, e]); if (!pairs.length) { S.lifeNext = G.t + 60; return; }
@@ -10758,13 +10938,13 @@ function stChapterEnd(G) {
   const d = G.blds.get(G.dockId); const sp = C.id === 'launch' && [...G.blds.values()].find(b => b.type === 'spaceport');
   if (sp) { ST.rocket = null; ST.pan = null; stFrame(true, sp.x + 1.5, sp.y + 1, 1.1); } else stFrame(false, d.x + 1, d.y - 5, 1.1); // the launch photo shows the island, not the empty sky
   setTimeout(() => {
-    const img = stSnapshot(); if (img) S.photos.push({ title: C.photo, img, day: Math.floor(G.t / 1440) + 1, pop: G.cits.size, ch: S.ch, year: C.year });
-    if (C.letter) { S.letters.push({ key: C.letter, day: Math.floor(G.t / 1440) + 1 }); S.newLetters++; }
+    const img = stSnapshot(); if (img) S.photos.push({ title: sayOf(G, C.photo), img, day: Math.floor(G.t / 1440) + 1, pop: G.cits.size, ch: S.ch, year: C.year });
+    if (C.letter) { S.letters.push({ key: sayOf(G, C.letter), day: Math.floor(G.t / 1440) + 1, vars: { d: S.docFam || 'Aydın' } }); S.newLetters++; }
     for (const t of C.tools || []) if (!S.tools.includes(t)) S.tools.push(t);
     stSave(); Music.swell();
     const el = $('#stCelebrate');
     el.innerHTML = `<div class="st-cel"><canvas class="st-confetti" id="stConfetti"></canvas><span class="st-kicker">${st('chapter')} ${S.ch + 1} · ${st('chapterDone')}</span><h2>${chName(S.ch)}</h2>
-      ${img ? `<img class="st-photo" alt="" src="${img}">` : ''}<p>${(() => { const e = C.steps[C.steps.length - 1]; return st(e.say, e.vars ? e.vars(G) : { n: G.cits.size, f: new Set([...G.cits.values()].map(c => c.fam).filter(Boolean)).size }); })()}</p>
+      ${img ? `<img class="st-photo" alt="" src="${img}">` : ''}<p>${(() => { const e = C.steps[C.steps.length - 1]; return st(sayOf(G, e.say), e.vars ? e.vars(G) : { n: G.cits.size, f: new Set([...G.cits.values()].map(c => c.fam).filter(Boolean)).size }); })()}</p>
       <div class="st-learn"><b>${st('learned')}</b><ul>${C.learned.map(k => `<li>${st(k)}</li>`).join('')}</ul></div>
       <div class="st-unlock"><b>${st('unlocked')}</b><span>${st(C.unlock)}</span></div>
       ${C.final ? `<p class="st-finhint">${st('allToolsHint')}</p>` : ''}
