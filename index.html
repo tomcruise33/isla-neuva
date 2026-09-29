@@ -5713,6 +5713,48 @@ function smoothLayer(colorAt, tp) {
   small.width = small.height = 0;
   return big;
 }
+function drawSmooth(x, colorAt, tp) {
+  const small = document.createElement("canvas");
+  small.width = MAP_W;
+  small.height = MAP_H;
+  const sx = small.getContext("2d");
+  if (!sx) return;
+  const img = sx.createImageData(MAP_W, MAP_H);
+  for (let i = 0; i < MAP_N; i++) {
+    const [r, g, b] = hexToRgb(colorAt(i));
+    img.data[i * 4] = r;
+    img.data[i * 4 + 1] = g;
+    img.data[i * 4 + 2] = b;
+    img.data[i * 4 + 3] = 255;
+  }
+  sx.putImageData(img, 0, 0);
+  x.imageSmoothingEnabled = true;
+  x.imageSmoothingQuality = "high";
+  x.drawImage(small, 0, 0, MAP_W * tp, MAP_H * tp);
+  small.width = small.height = 0;
+}
+function tilesPath(G2, test, tp, radF, grow) {
+  const p = new Path2D();
+  for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) {
+    if (!test(G2.terrain[idx(tx, ty)])) continue;
+    const r = tileCorners(G2, tx, ty, test, tp * radF), X = tx * tp, Y = ty * tp, a = X - grow, b = Y - grow, w = tp + grow * 2;
+    p.moveTo(a + r[0], b);
+    p.lineTo(a + w - r[1], b);
+    if (r[1]) p.arcTo(a + w, b, a + w, b + r[1], r[1]);
+    else p.lineTo(a + w, b);
+    p.lineTo(a + w, b + w - r[2]);
+    if (r[2]) p.arcTo(a + w, b + w, a + w - r[2], b + w, r[2]);
+    else p.lineTo(a + w, b + w);
+    p.lineTo(a + r[3], b + w);
+    if (r[3]) p.arcTo(a, b + w, a, b + w - r[3], r[3]);
+    else p.lineTo(a, b + w);
+    p.lineTo(a, b + r[0]);
+    if (r[0]) p.arcTo(a, b, a + r[0], b, r[0]);
+    else p.lineTo(a, b);
+    p.closePath();
+  }
+  return p;
+}
 function cornerTile(x, X, Y, s, r, grow) {
   const a = X - grow, b = Y - grow, w = s + grow * 2;
   x.beginPath();
@@ -5752,9 +5794,6 @@ function buildTerrain(G2, opt = {}) {
     return c;
   }
   const rng = mulberry32(G2.seed + 17);
-  const free = (cv) => {
-    cv.width = cv.height = 0;
-  };
   const dist = new Int32Array(MAP_N).fill(99);
   const q = [];
   for (let i = 0; i < MAP_N; i++) if (!isWaterT(G2.terrain[i])) {
@@ -5774,35 +5813,21 @@ function buildTerrain(G2, opt = {}) {
     if (G2.terrain[i] === T.SHALLOW) return d <= 1 ? "#56c4bf" : d === 2 ? "#3aaeb6" : "#2a93aa";
     return d <= 2 ? "#2a8fa8" : d === 3 ? "#1f7a96" : d === 4 ? "#1a6c88" : DEEP_SEA;
   };
-  {
-    const wl = smoothLayer(waterCol, tp);
-    x.drawImage(wl, 0, 0);
-    free(wl);
-  }
+  drawSmooth(x, waterCol, tp);
   const isLandT = (t) => !isWaterT(t), isGreen = (t) => t >= T.GRASS;
-  const halo = document.createElement("canvas");
-  halo.width = c.width;
-  halo.height = c.height;
-  const hx = halo.getContext("2d");
-  if (hx) {
-    hx.fillStyle = "#ffffff";
-    for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) if (isLandT(G2.terrain[idx(tx, ty)])) cornerTile(hx, tx * tp, ty * tp, tp, tileCorners(G2, tx, ty, isLandT, tp * 0.45), 5);
-    x.globalAlpha = 0.35;
-    x.drawImage(halo, 0, 0);
-    x.globalAlpha = 1;
-    free(halo);
-  }
-  const sandL = smoothLayer((i) => mix("#e8d196", "#f2e1b0", G2.vary[i]), tp);
-  const sand = x.createPattern(sandL, "no-repeat");
-  x.fillStyle = sand;
-  for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) if (isLandT(G2.terrain[idx(tx, ty)])) cornerTile(x, tx * tp, ty * tp, tp, tileCorners(G2, tx, ty, isLandT, tp * 0.4), 0.6);
-  x.fillStyle = "#000";
-  free(sandL);
-  const greenL = smoothLayer((i) => G2.terrain[i] === T.HILL ? "#a9a57c" : G2.terrain[i] >= T.GRASS ? grassColor(G2, i) : "#a8c56a", tp);
-  const green = x.createPattern(greenL, "no-repeat");
-  x.fillStyle = green;
-  for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) if (isGreen(G2.terrain[idx(tx, ty)])) cornerTile(x, tx * tp, ty * tp, tp, tileCorners(G2, tx, ty, isGreen, tp * 0.35), 0.6);
-  free(greenL);
+  x.save();
+  x.globalAlpha = 0.35;
+  x.fillStyle = "#ffffff";
+  x.fill(tilesPath(G2, isLandT, tp, 0.45, 5));
+  x.restore();
+  x.save();
+  x.clip(tilesPath(G2, isLandT, tp, 0.4, 0.6));
+  drawSmooth(x, (i) => mix("#e8d196", "#f2e1b0", G2.vary[i]), tp);
+  x.restore();
+  x.save();
+  x.clip(tilesPath(G2, isGreen, tp, 0.35, 0.6));
+  drawSmooth(x, (i) => G2.terrain[i] === T.HILL ? "#a9a57c" : G2.terrain[i] >= T.GRASS ? grassColor(G2, i) : "#a8c56a", tp);
+  x.restore();
   x.fillStyle = "#aaa47c";
   const isHill = (t) => t === T.HILL;
   for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) if (isHill(G2.terrain[idx(tx, ty)])) cornerTile(x, tx * tp, ty * tp, tp, tileCorners(G2, tx, ty, isHill, tp * 0.45), 0.6);
