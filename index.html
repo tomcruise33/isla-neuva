@@ -24422,7 +24422,7 @@ function govGoalItems(G2) {
       const h = G2.avgHappy;
       return { key, cur: h, target, ok: h != null && h >= target, txt: "".concat(h == null ? "–" : Math.round(h), "% / ").concat(target, "%"), frac: (h || 0) / target };
     }
-    if (key === "commute") return { key, cur: cm, target, ok: cm != null && cm <= target, txt: "".concat(cm == null ? "–" : Math.round(cm), " / ").concat(target, " min"), frac: cm == null ? 0 : Math.min(1, target / cm) };
+    if (key === "commute") return { key, cur: cm, target, ok: cm != null && cm <= target, txt: "".concat(cm == null ? "–" : fmt1(cm), " / ").concat(target, " min"), frac: cm == null ? 0 : Math.min(1, target / cm) };
     if (key === "gdp") {
       const v = last ? last.gdp : 0;
       return { key, cur: v, target, ok: v >= target, txt: "".concat(fmtMoney(v), " / ").concat(fmtMoney(target)), frac: v / target };
