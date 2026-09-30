@@ -296,6 +296,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .gf-end { font-size: 14px; }
 .gf-x { position: sticky; top: 0; align-self: flex-end; margin-bottom: -38px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--paper); color: var(--ink-2); font-size: 15px; line-height: 1; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
 .gf-x:hover { color: var(--ink); border-color: var(--ink-3); }
+.gf-det { border-top: 1px solid var(--line); padding: 8px 0; } .gf-det summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 32px; } .gf-det summary::-webkit-details-marker { display: none; } .gf-det summary::after { content: '▾'; margin-left: auto; color: var(--ink-3); } .gf-det[open] summary::after { content: '▴'; } .gf-det p { margin: 6px 0 4px; font-size: 14px; line-height: 1.45; }
 .gf-x { flex: none; min-width: 34px; min-height: 34px; padding: 0; } .gf-x + * { padding-right: 42px; }   /* round, and the title never runs under it */
 .gf-sub { color: var(--ink-3); font-size: 12px; line-height: 1.4; grid-column: 1 / -1; }
 .gf-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; color: var(--ink-2); line-height: 1.45; } .gf-list b { color: var(--ink); }
@@ -867,6 +868,7 @@ body.st-modern .era-chip { display: inline-block; max-width: 34vw; overflow: hid
     <button data-lens="coverage" aria-pressed="false"><span class="sw" style="background:#2a8fb0"></span>Services</button>
     <button data-lens="money" aria-pressed="false"><span class="sw" style="background:#e8a93a"></span>Money</button>
     <button data-lens="land" aria-pressed="false"><span class="sw" style="background:#8a6a3c"></span>Land</button>
+    <button data-lens="power" aria-pressed="false" hidden><span class="sw" style="background:#f2c14e"></span>Power</button>
     <button data-lens="people" aria-pressed="false" hidden><span class="sw" style="background:linear-gradient(90deg,#2a6fb0,#e39a2a,#3f8f4a,#8c4a9c)"></span>People</button>
     <div class="los-legend" id="losLegend" hidden title="Level of service: volume over capacity"></div>
     <div class="land-legend" id="landLegend" hidden></div>
@@ -1184,6 +1186,7 @@ const BLD = {
   townhall: { name: "Town Hall", era: 1, w: 2, h: 2, cost: 300, upkeep: 2, jobs: 3, kind: "civic", unique: true, desc: "Where the assembly meets, the constitution is kept and the mayor works." },
   cafe: { name: "Café", era: 2, w: 1, h: 1, cost: 150, upkeep: 1, jobs: 2, kind: "service", service: "coffee", radius: 5, income: 0.4, desc: "Espresso, pastries and gossip. Homes within 5 tiles are happier, and so is anyone working right next door." },
   garage: { name: "Truck Garage", era: 2, w: 2, h: 2, cost: 500, upkeep: 3, jobs: 6, kind: "depot", fleet: 6, noise: 1, desc: "Keeps six trucks and hires their drivers. Every island has a few private haulers; beyond that, goods wait in the yard until a truck is free." },
+  pole: { name: "Power Line", era: 2, w: 1, h: 1, cost: 25, upkeep: 0.1, jobs: 0, kind: "grid", desc: "A wooden pole on the power line. It carries the grid 8 tiles further and lights the ground around it, so a workshop or factory can stand there. It must stand within 8 tiles of the grid." },
   coalplant: { name: "Coal Power Plant", era: 2, w: 2, h: 2, cost: 700, upkeep: 5, jobs: 8, kind: "power", power: { mw: 40, src: "coal", fuel: "coal" }, noise: 3, smoke: 5, desc: "Cheap to build and burns imported coal: 40 MW. Smoky: homes within 5 tiles are less happy." },
   gasplant: { name: "Oil & Gas Power Plant", era: 2, w: 2, h: 2, cost: 1100, upkeep: 6, jobs: 6, kind: "power", power: { mw: 60, src: "gas", fuel: "gas" }, noise: 2, desc: "60 MW from imported oil, later natural gas. Cleaner than coal, but an oil shock doubles its fuel bill." },
   windmill: { name: "Wind Turbine", era: 4, w: 1, h: 1, cost: 420, upkeep: 1.2, jobs: 1, kind: "power", power: { mw: 9, src: "wind" }, desc: "Free power from the trade winds, up to 9 MW. Some days are calm. On a hill or the shore it makes 30% more." },
@@ -1289,6 +1292,7 @@ const TOOLS = [
   { id: "pier", group: "Port & air", bld: "pier" },
   { id: "terminal", group: "Port & air", bld: "terminal" },
   { id: "garage", group: "Industry", bld: "garage" },
+  { id: "pole", group: "Power", bld: "pole" },
   { id: "coalplant", group: "Power", bld: "coalplant" },
   { id: "gasplant", group: "Power", bld: "gasplant" },
   { id: "windmill", group: "Power", bld: "windmill" },
@@ -1718,6 +1722,10 @@ function checkBuilding(G2, type, x, y) {
       if (!inside && inMap(xx, yy) && G2.terrain[idx(xx, yy)] === T.FOREST) n++;
     }
     if (n < 4) return { ok: false, reason: "Needs at least 4 forest tiles within 2 tiles", cost };
+  }
+  if (type === "pole" && typeof pwPoleOK === "function") {
+    const why = pwPoleOK(G2, x, y);
+    if (why) return { ok: false, reason: why, cost };
   }
   if (G2.money < cost) return { ok: false, reason: "Not enough money", cost };
   return { ok: true, cost };
@@ -4979,6 +4987,193 @@ function govPowerLock(G2, t) {
   if (idle) return "".concat(base, " The ").concat(BLD[idle.type].name.toLowerCase(), " has no crew yet: it needs a road and people nearby looking for work.");
   return "".concat(base, " Build a power plant first.");
 }
+const GRID_R = { dock: 6, plant: 7, pole: 4 }, GRID_LINK = 8, POLE_COST = 25;
+const gridOn = (G2) => !!(G2 && G2.gov && G2.pwOn && !G2.classic && !G2.challenge && typeof govOn === "function" && govOn(G2));
+function gridNodes(G2) {
+  const out = [];
+  for (const b of G2.blds.values()) {
+    if (b.bt) continue;
+    const d = BLD[b.type];
+    const r = b.id === G2.dockId ? GRID_R.dock : d.power ? GRID_R.plant : b.type === "pole" ? GRID_R.pole : 0;
+    if (r) out.push({ b, x: b.x + b.w / 2, y: b.y + b.h / 2, r, src: b.id === G2.dockId || !!d.power });
+  }
+  return out;
+}
+function gridState(G2) {
+  const key = "".concat(G2.blds.size, "|").concat(G2._gridV || 0, "|").concat(Math.floor(G2.t / 60));
+  if (G2._grid && G2._grid.key === key) return G2._grid;
+  const N = gridNodes(G2), comp = new Array(N.length).fill(-1);
+  let nc = 0;
+  const near = (a, c) => Math.hypot(a.x - c.x, a.y - c.y) <= GRID_LINK;
+  for (let i = 0; i < N.length; i++) {
+    if (comp[i] >= 0) continue;
+    comp[i] = nc;
+    const q = [i];
+    while (q.length) {
+      const a = q.pop();
+      for (let j = 0; j < N.length; j++) if (comp[j] < 0 && near(N[a], N[j])) {
+        comp[j] = nc;
+        q.push(j);
+      }
+    }
+    nc++;
+  }
+  const live = new Array(nc).fill(false);
+  N.forEach((n, i) => {
+    if (n.src) live[comp[i]] = true;
+  });
+  const cov = new Uint8Array(MAP_N), wires = [];
+  N.forEach((n, i) => {
+    if (!live[comp[i]]) return;
+    n.live = true;
+    const r = n.r;
+    for (let y = Math.floor(n.y - r); y <= Math.ceil(n.y + r); y++) for (let x = Math.floor(n.x - r); x <= Math.ceil(n.x + r); x++) if (inMap(x, y) && Math.hypot(x + 0.5 - n.x, y + 0.5 - n.y) <= r) cov[idx(x, y)] = 1;
+  });
+  for (let c = 0; c < nc; c++) {
+    const ids = N.map((n, i) => i).filter((i) => comp[i] === c);
+    if (ids.length < 2) continue;
+    const inT = /* @__PURE__ */ new Set([ids[0]]);
+    while (inT.size < ids.length) {
+      let best = null;
+      for (const a of inT) for (const b of ids) {
+        if (inT.has(b)) continue;
+        const dd = Math.hypot(N[a].x - N[b].x, N[a].y - N[b].y);
+        if (dd <= GRID_LINK && (!best || dd < best[2])) best = [a, b, dd];
+      }
+      if (!best) break;
+      inT.add(best[1]);
+      wires.push([N[best[0]], N[best[1]], live[c]]);
+    }
+  }
+  G2._grid = { key, nodes: N, cov, wires };
+  return G2._grid;
+}
+const gridTouch = () => {
+  if (G) G._gridV = (G._gridV || 0) + 1;
+};
+function gridCovers(G2, x, y, w, h) {
+  const S = gridState(G2);
+  for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (inMap(x + dx, y + dy) && S.cov[idx(x + dx, y + dy)]) return true;
+  return false;
+}
+const bGrid = (G2, b) => gridCovers(G2, b.x, b.y, b.w, b.h);
+const offGrid = (G2, b) => gridOn(G2) && !b.bt && PW_INDUSTRY(b.type) && !bGrid(G2, b);
+function pwPoleOK(G2, x, y) {
+  if (!gridOn(G2)) return null;
+  const S = gridState(G2);
+  for (const n of S.nodes) if (n.live && Math.hypot(n.x - x - 0.5, n.y - y - 0.5) <= GRID_LINK) return null;
+  return "Too far from the power grid: a pole has to stand within 8 tiles of another pole, a power plant or the harbor.";
+}
+function gridPlan(G2, x, y, w, h, avoid) {
+  if (!gridOn(G2) || gridCovers(G2, x, y, w, h)) return [];
+  const S = gridState(G2);
+  const cx = x + w / 2, cy = y + h / 2;
+  const free = (X, Y) => inMap(X, Y) && !isWaterT(G2.terrain[idx(X, Y)]) && G2.terrain[idx(X, Y)] !== T.HILL && !G2.road[idx(X, Y)] && G2.bldAt[idx(X, Y)] < 0 && !(X >= x && X < x + w && Y >= y && Y < y + h) && !(avoid && avoid.has(idx(X, Y))) && !(G2.gov && G2.gov.req && G2.gov.req.some((r) => X >= r.x && X < r.x + r.w && Y >= r.y && Y < r.y + r.h));
+  const reaches = (X, Y) => {
+    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (Math.hypot(X + 0.5 - x - dx - 0.5, Y + 0.5 - y - dy - 0.5) <= GRID_R.pole) return true;
+    return false;
+  };
+  let best = null;
+  for (const n of S.nodes) {
+    if (!n.live) continue;
+    const poles = [];
+    let px = n.x, py = n.y, guard = 0, ok = false;
+    if (Math.hypot(px - cx, py - cy) > 60) continue;
+    while (guard++ < 14) {
+      let pick2 = null;
+      const R = GRID_LINK;
+      for (let Y = Math.floor(py - R); Y <= Math.ceil(py + R); Y++) for (let X = Math.floor(px - R); X <= Math.ceil(px + R); X++) {
+        if (Math.hypot(X + 0.5 - px, Y + 0.5 - py) > R || !free(X, Y) || poles.some((q) => q[0] === X && q[1] === Y)) continue;
+        const sc = reaches(X, Y) ? -1 + Math.hypot(X + 0.5 - px, Y + 0.5 - py) * 0.01 : Math.hypot(X + 0.5 - cx, Y + 0.5 - cy);
+        if (!pick2 || sc < pick2[2]) pick2 = [X, Y, sc];
+      }
+      if (!pick2) break;
+      const before = Math.hypot(px - cx, py - cy);
+      poles.push([pick2[0], pick2[1]]);
+      px = pick2[0] + 0.5;
+      py = pick2[1] + 0.5;
+      if (pick2[2] < 0) {
+        ok = true;
+        break;
+      }
+      if (Math.hypot(px - cx, py - cy) > before - 0.9) break;
+    }
+    if (ok && (!best || poles.length < best.length)) best = poles;
+  }
+  return best;
+}
+function gridBuild(G2, poles) {
+  let n = 0;
+  for (const [X, Y] of poles || []) {
+    const c = checkBuilding(G2, "pole", X, Y);
+    if (!c.ok) break;
+    const r = placeBuilding(G2, "pole", X, Y);
+    if (r && r.ok !== false) n++;
+    else break;
+    gridTouch();
+  }
+  gridTouch();
+  return n;
+}
+function gridDraw(c, G2, z, now) {
+  if (!gridOn(G2)) return;
+  const S = gridState(G2), zz = Math.min(z, 2);
+  const ht = UI.pend ? UI.pend.type : BLD[UI.tool] ? UI.tool : GF.sel && GF.sel.k === "bld" ? GF.sel.type : null;
+  const show = UI.lens === "power" || ht && (ht === "pole" || PW_INDUSTRY(ht) || BLD[ht] && BLD[ht].power);
+  if (show) {
+    const a = UI.lens === "power" ? 0.34 : 0.22;
+    c.fillStyle = "rgba(255,205,70,".concat(a, ")");
+    for (let i = 0; i < MAP_N; i++) if (S.cov[i]) c.fillRect(i % MAP_W * TILE, (i / MAP_W | 0) * TILE, TILE, TILE);
+    for (const n of S.nodes) {
+      c.strokeStyle = n.live ? "rgba(230,170,30,0.9)" : "rgba(216,57,58,0.9)";
+      c.lineWidth = 1.6 / zz;
+      c.setLineDash([5 / zz, 4 / zz]);
+      c.beginPath();
+      c.arc(n.x * TILE, n.y * TILE, n.r * TILE, 0, 7);
+      c.stroke();
+      c.setLineDash([]);
+    }
+    for (const b of G2.blds.values()) if (offGrid(G2, b)) {
+      c.strokeStyle = "rgba(216,57,58,0.95)";
+      c.lineWidth = 2.6 / zz;
+      c.strokeRect(b.x * TILE - 1, b.y * TILE - 1, b.w * TILE + 2, b.h * TILE + 2);
+    }
+  }
+  if (z < 0.55) return;
+  const top = (n) => [n.x * TILE, (n.b.type === "pole" ? n.b.y + 0.17 : n.y - n.b.h * 0.25) * TILE];
+  c.lineWidth = Math.max(0.7, 1.1 / zz);
+  for (const [a, b, live] of S.wires) {
+    const [x0, y0] = top(a), [x1, y1] = top(b);
+    const sag = Math.hypot(x1 - x0, y1 - y0) * 0.08;
+    c.strokeStyle = live ? "rgba(30,34,38,".concat(UI.lens === "power" ? 0.75 : 0.45, ")") : "rgba(216,57,58,0.7)";
+    c.beginPath();
+    c.moveTo(x0, y0);
+    c.quadraticCurveTo((x0 + x1) / 2, (y0 + y1) / 2 + sag, x1, y1);
+    c.stroke();
+  }
+}
+function gridConnectAll(G2, free) {
+  let n = 0;
+  const b0 = G2.dayAcc.build;
+  const need = (b) => free ? gridOn(G2) && PW_INDUSTRY(b.type) && !bGrid(G2, b) : offGrid(G2, b);
+  const run = () => {
+    for (let pass = 0; pass < 3; pass++) {
+      let got = 0;
+      for (const b of G2.blds.values()) {
+        if (!need(b)) continue;
+        const P = gridPlan(G2, b.x, b.y, b.w, b.h);
+        if (P && P.length) got += gridBuild(G2, P);
+      }
+      n += got;
+      if (!got) break;
+    }
+  };
+  if (free && typeof govRich === "function") {
+    govRich(G2, run);
+    G2.dayAcc.build = b0;
+  } else run();
+  return n;
+}
 const LAND_TOOLS = { farm: "soil", orchard: "soil", vineyard: "vine", lumber: "forest", goldmine: "gold", fishery: "shore", pier: "shore" };
 function landModeFor(tool) {
   return LAND_TOOLS[tool] || null;
@@ -6285,6 +6480,24 @@ function drawBld(c, type, x, y, w, h, color, opt = {}) {
   };
   const pad = s * 0.12;
   switch (type) {
+    case "pole": {
+      const cx = x + w / 2;
+      c.fillStyle = "rgba(10,30,30,0.25)";
+      c.beginPath();
+      c.ellipse(cx + s * 0.08, y + h * 0.86, s * 0.16, s * 0.07, 0, 0, 7);
+      c.fill();
+      c.fillStyle = "#7a5a36";
+      c.fillRect(cx - s * 0.05, y + h * 0.12, s * 0.1, h * 0.74);
+      c.fillStyle = "#5e4428";
+      c.fillRect(cx - s * 0.3, y + h * 0.18, s * 0.6, s * 0.08);
+      c.fillStyle = "#e8f0f2";
+      for (const k of [-0.24, 0.24]) {
+        c.beginPath();
+        c.arc(cx + s * k, y + h * 0.17, s * 0.045, 0, 7);
+        c.fill();
+      }
+      return;
+    }
     case "dock": {
       const lv = opt.lv || 1;
       if (lv >= 2) {
@@ -11983,6 +12196,12 @@ function modelBuilding(K, W, b, G2) {
         K.cyl(X + 1.6, Z + zz, y + 0.55, y + 0.62, 0.3, 14, "#f5b07e", true, 0.22);
       }
       K.cyl(X + 0.5, Z + 1, y + 0.5, y + 0.95, 0.07, 8, "#6b7178");
+      break;
+    }
+    case "pole": {
+      const cx = X + 0.5, cz = Z + 0.5;
+      K.box(cx - 0.035, y, cz - 0.035, cx + 0.035, y + 1.05, cz + 0.035, "#7a5a36");
+      K.box(cx - 0.28, y + 0.95, cz - 0.03, cx + 0.28, y + 1, cz + 0.03, "#5e4428");
       break;
     }
     case "windmill": {
@@ -18698,6 +18917,9 @@ function stSpots(G2, type, near, n = 3, front = false) {
     const fl = front === true ? 0 : front;
     for (let k = cand.length - 1; k >= 0; k--) if (cand[k].rd > fl) cand.splice(k, 1);
   }
+  if (typeof gridOn === "function" && gridOn(G2) && PW_INDUSTRY(type) && cand.some((c) => gridCovers(G2, c.x, c.y, d.w, d.h))) {
+    for (let k = cand.length - 1; k >= 0; k--) if (!gridCovers(G2, cand[k].x, cand[k].y, d.w, d.h)) cand.splice(k, 1);
+  }
   const lim = d.fertile ? 12 : 7;
   if (cand.some((c) => c.rd <= lim)) {
     for (let k = cand.length - 1; k >= 0; k--) if (cand[k].rd > lim) cand.splice(k, 1);
@@ -23844,6 +24066,7 @@ function govOutput(G2, b) {
   if (isPub(b) && d.kind === "goods") m *= 0.92;
   if (G2.gov.laws.tariff && d.fertile) m *= 1.08;
   if (typeof civOutput === "function") m *= civOutput(G2, b);
+  if (typeof offGrid === "function" && offGrid(G2, b)) m *= 0.5;
   return m;
 }
 function govEndOfDay(G2, rec) {
@@ -24278,6 +24501,10 @@ function govInvestTick(G2) {
     } else G2.civ.noLot = 0;
   }
   if (!sp) return;
+  if (typeof gridOn === "function" && gridOn(G2) && PW_INDUSTRY(type) && !gridCovers(G2, sp.x, sp.y, sp.w, sp.h)) {
+    G2.civ && (G2.civ.noGrid = (G2.civ.noGrid || 0) + 1);
+    return;
+  }
   const fam = govNewFam(G2);
   const r = { id: V.reqSeq++, type, x: sp.x, y: sp.y, w: sp.w, h: sp.h, fam, cost: BLD[type].cost, t: G2.t, until: G2.t + GOV_DAYS * 1440 };
   if (BLD[type].fertile) r.crop = govBestCrop(G2);
@@ -24580,6 +24807,26 @@ const ORIGINS = {
   cli: { name: "Climate refugees", one: "climate refugee", from: "the Pacific atolls and the Bay of Bengal", col: "#56b4a0", faith: "mix", soc: "New Shores Society", waves: [[2040, 2200, 1.5]] }
 };
 const ORIG_IDS = Object.keys(ORIGINS);
+const ORIG_WHY = {
+  isl: { when: "always", why: "Born here: the first settlers’ children and grandchildren, and every newcomer family after a generation and a half." },
+  main: { when: "every year", why: "The big island is next door, a ferry ride away. Mainlanders come when there is work here and go home when there is not.", brings: "hands for every job" },
+  gal: { when: "1912–1930, again 1946–1958", why: "Galicia, in Spain’s rainy north-west, was poor: tiny farms split between many sons, and young men fled the draft for Spain’s war in Morocco. Nearly a million Spaniards sailed to Cuba between 1900 and 1930, Galicians the largest group, helped by cousins already there and by the huge Centro Gallego in Havana. Cuba’s own laws favoured settlers from Spain: same language, same church. The sugar crash of 1930 closed the door; a smaller wave came after 1946, from Franco’s hungry years.", brings: "shopkeepers, dockers, bakers, a society with a clinic of its own" },
+  can: { when: "1912–1930, again 1947–1956", why: "The Canary Islands were dry and poor, and the sea road to the Caribbean was short and three centuries old: “isleños” had always come. Most worked the tobacco and cane fields. Same rhythm as the Galicians: an open door until the 1930 crash, a second wave after 1946.", brings: "farmers and tobacco growers" },
+  afc: { when: "1913–1931, again after 2010", why: "In 1913 Cuba allowed the sugar companies to bring contract cane-cutters from Jamaica and Haiti, where land was scarce and wages lower still. They came for the harvest, the zafra, and many stayed. When sugar crashed in the 1930s the mood turned: in 1937 Cuba shipped tens of thousands of Haitians home. A new wave comes after Haiti’s earthquake of 2010.", brings: "cane-cutters, English and Kreyòl, Protestant chapels" },
+  lev: { when: "1912–1932", why: "From Mount Lebanon and Syria, then Ottoman lands: the silk trade had collapsed, families were large, after 1909 Christians too were drafted into the Ottoman army, and the war of 1914–1918 brought famine. Cousins wrote from the Americas. They carried Ottoman passports, so everyone called them “los turcos”, though most were Maronite Catholics. They began as pedlars with a pack of lace and buttons and became shopkeepers.", brings: "pedlars, then shops and textile trade" },
+  chi: { when: "1912–1930, again 1946–1959", why: "Chinese workers first came to Cuba as indentured labourers in the 1850s. A second wave came in the 1910s and 1920s from Canton, some by way of California after the United States shut its door to them, when the sugar boom needed hands. They opened laundries, groceries and market gardens, and Havana grew a Chinatown.", brings: "laundries, groceries, market gardens, a temple" },
+  jew: { when: "1920–1930, again 1936–1945", why: "Two streams. Sephardic families from Istanbul and Izmir, leaving the Ottoman draft and the wars of 1912–1922. Then, after the United States closed its doors in 1924, Jews from Poland and Russia who waited in Cuba for an American visa: Cubans called them “polacos”. In the late 1930s came refugees from Nazi Germany and Austria, when few countries would take them.", brings: "tailors, doctors, teachers, small factories, a synagogue" },
+  cze: { when: "1948, 1968", why: "Two exits from Czechoslovakia: after the communist coup of February 1948, and after Soviet tanks ended the Prague Spring in August 1968. Engineers, doctors and the gymnasts of the Sokol.", brings: "engineers and doctors" },
+  us: { when: "1946–1959, again from the 1990s", why: "After the war came sugar and hotel companies and the good life of the 1950s; after 1959 they left. From the 1990s they come back as retirees, investors and hotel people.", brings: "hotels, offices, capital" },
+  ven: { when: "from 2015", why: "Hyperinflation emptied Venezuela’s shops after 2014 and millions left, many of them nurses, engineers and teachers.", brings: "nurses, engineers, teachers" },
+  cli: { when: "from 2040", why: "The rising sea swallows the lowest atolls of the Pacific and the delta of Bengal; the United Nations asks every island state to take a share of the families.", brings: "fishers and seafarers" }
+};
+const WHO_NOT = [
+  ["Italians", "Millions of Italians left home between 1880 and 1914, but for Argentina, Brazil and the United States: land to farm, factories, and cousins waiting. Cuba recruited Spaniards instead, with the same language and church, so very few Italians came."],
+  ["Poles", "Polish peasants went to the mines and mills of Pennsylvania and Chicago and to the farms of southern Brazil. In Cuba “polaco” came to mean any Jewish immigrant from Eastern Europe: Catholic Poles hardly came at all."],
+  ["Irish and Germans", "They went where they had friends and, for the Irish, their language: the United States, Britain, Australia; Germans also to Brazil and Argentina. The Caribbean sugar islands had no work to pull them."],
+  ["After 1930", "The sugar crash and the Depression closed most doors. Cuba restricted immigration and in 1933 demanded that half of every workforce be Cuban-born. Waves stop in the game too, unless war or hunger somewhere else sends a new one."]
+];
 const FAITHS = { cath: { name: "Catholic", house: "Church" }, prot: { name: "Protestant", house: "Chapel" }, jew: { name: "Jewish", house: "Synagogue" }, folk: { name: "Chinese folk", house: "Temple" }, mix: { name: "many faiths", house: null } };
 const CHAPEL_V = ["prot", "jew", "folk"];
 const IMM_MULT = { open: 1, quota: 0.55, closed: 0.2 };
@@ -24662,7 +24909,7 @@ Object.assign(STT.en, {
   g_lv_imm_quota: "Quota",
   g_lv_imm_closed: "Closed",
   g_law_natjobs: "Island jobs law",
-  g_law_natjobs_d: "Half of every workforce must be island-born. Islanders feel protected, newcomers feel pushed aside, employers hire more slowly.",
+  g_law_natjobs_d: "Half of every workforce must be island-born, like Cuba’s “fifty per cent law” of 1933. Islanders feel protected, newcomers feel pushed aside, employers hire more slowly.",
   g_lv_natjobs_0: "No",
   g_lv_natjobs_1: "Half for islanders",
   g_rSociety: "Their society’s hall",
@@ -24796,10 +25043,23 @@ function civNewcomer(G2, c, ship) {
   if (O.edu && G2.rngSim() < O.edu) c.edu = Math.max(c.edu || 0, G2.rngSim() < O.edu * 0.4 && G2.era >= 3 ? 2 : 1);
   c.happy = Math.max(c.happy, 62);
 }
+function civSeenInit(G2, except) {
+  const S = {};
+  const K = civComms(G2);
+  for (const o of ORIG_IDS) if (o !== except && (ORIGINS[o].native || K[o] && K[o].n >= 3)) S[o] = govY(G2);
+  return S;
+}
 function civLanded(G2, ship, landed, turned) {
   if (!civOn(G2)) return;
   const C = G2.civ, o = ship.orig || "main";
   if (landed) C.arrNow[o] = (C.arrNow[o] || 0) + landed;
+  if (landed && ORIGINS[o] && !ORIGINS[o].native) {
+    const S = C.seenOrig || (C.seenOrig = civSeenInit(G2, o));
+    if (!S[o]) {
+      S[o] = govY(G2);
+      G2.gov.queue.push({ k: "c_orig", o });
+    }
+  }
   if (turned) C.turnedNow[o] = (C.turnedNow[o] || 0) + turned;
   C.lastShip = { t: G2.t, orig: o, from: ship.from || ORIGINS[o].from || "the mainland", landed, turned, special: ship.special || null };
 }
@@ -25539,6 +25799,7 @@ function civYear(G2, y) {
   if (!civOn(G2)) return;
   const C = G2.civ;
   for (const id in C.orgs) C.orgs[id].rel *= 0.85;
+  C.noGrid = (C.noGrid || 0) * 0.5;
   civFound(G2, y, false);
   C.arrHist.push({ y: y - 1, by: C.arrNow, turned: C.turnedNow });
   if (C.arrHist.length > 90) C.arrHist.shift();
@@ -25548,6 +25809,21 @@ function civYear(G2, y) {
   for (const e of CIV_EV) if (e.y === y && !C.ev[e.id]) {
     C.ev[e.id] = "asked";
     G2.gov.queue.push({ k: "c_ev", id: e.id });
+  }
+  if (y - (C.lastTen || 0) >= 3) for (const e of CIV_EV) {
+    if (!e.cond || C.ev[e.id] || y < (e.yMin || 0) || y > (e.yMax || 9999)) continue;
+    let ok = false;
+    try {
+      ok = e.cond(G2);
+    } catch (err) {
+      ok = false;
+    }
+    if (ok) {
+      C.ev[e.id] = "asked";
+      C.lastTen = y;
+      G2.gov.queue.push({ k: "c_ev", id: e.id });
+      break;
+    }
   }
   if (C.orgs.union && !C.strike && y - (C.lastStrike || 0) >= 5 && civOrgScore(G2, "union") <= -22 && G2.rngSim() < 0.6) {
     C.lastStrike = y;
@@ -25750,6 +26026,138 @@ const CIV_EV = [
       { t: "A strict quota", d: "Fewer come; the union is relieved.", fx: (G2) => {
         civWave(G2, "ven", 0.4, 2026);
         civRel(G2, "union", 5);
+      } }
+    ]
+  },
+  // frictions that come with time: a group grows, and finds no place, no voice or no work
+  {
+    id: "cemetery",
+    yMin: 1915,
+    cond: (G2) => (civComms(G2)._faith.prot || {}).n >= 12,
+    head: "A grave outside the wall",
+    body: "A Jamaican Methodist, a cane-cutter, has died at the harbor. The parish priest will not bury a Protestant in the Catholic cemetery, and his friends from the chapel ask the Mayor for a grave. On many Catholic islands the “English cemetery” outside the town began exactly like this.",
+    ch: [
+      { t: "A town cemetery for every faith", d: "Costs $200. The Antillean families and the chapel are grateful; the parish is offended.", fx: (G2) => {
+        G2.money -= 200;
+        civPre(G2, "integ_afc", 10);
+        civRel(G2, "s_afc", 15);
+        civRel(G2, "chapel", 12);
+        civRel(G2, "parish", -8);
+      } },
+      { t: "A corner outside the parish wall", d: "A compromise nobody loves.", fx: (G2) => {
+        civRel(G2, "s_afc", -4);
+        civRel(G2, "chapel", -4);
+        civRel(G2, "parish", 3);
+      } },
+      { t: "The parish decides", d: "The parish is pleased; the Protestants feel they are not wanted here.", fx: (G2) => {
+        civRel(G2, "parish", 8);
+        civRel(G2, "s_afc", -15);
+        civRel(G2, "chapel", -15);
+        civPre(G2, "integ_afc", -8);
+      } }
+    ]
+  },
+  {
+    id: "chinanewyear",
+    yMin: 1916,
+    cond: (G2) => (civComms(G2).chi || {}).n >= 10,
+    head: "Firecrackers on Main Street",
+    body: "It is Chinese New Year. The Casino Chung Wah wants a lion dance and firecrackers down the main street. Some neighbours complain about the noise and the danger of fire; the children cannot wait.",
+    ch: [
+      { t: "Close the street: it is a fiesta", d: "Costs $50 for the fire watch. The whole town comes to watch.", fx: (G2) => {
+        G2.money -= 50;
+        civRel(G2, "s_chi", 15);
+        civRel(G2, "temple", 10);
+        civPre(G2, "integ_chi", 8);
+        G2.civ.joy.all = G2.t + 1440;
+      } },
+      { t: "Only in the society’s courtyard", d: "Quieter; the Chinese families feel tolerated rather than welcome.", fx: (G2) => {
+        civRel(G2, "s_chi", -4);
+      } },
+      { t: "Ban the firecrackers", d: "The complainers are happy. The Chinese families remember.", fx: (G2) => {
+        civRel(G2, "s_chi", -15);
+        civRel(G2, "temple", -10);
+        civPre(G2, "integ_chi", -6);
+        civRel(G2, "parish", 3);
+      } }
+    ]
+  },
+  {
+    id: "sabbath",
+    yMin: 1925,
+    cond: (G2) => (civComms(G2).jew || {}).n >= 8,
+    head: "Saturday or Sunday?",
+    body: "The Jewish shopkeepers close on Saturday for the Sabbath and ask to open on Sunday instead. The island’s Sunday-rest rule forbids it, and the Chamber of Commerce calls it unfair competition.",
+    ch: [
+      { t: "Each shop picks its own day of rest", d: "The Jewish families are grateful; the Chamber grumbles a little.", fx: (G2) => {
+        civRel(G2, "s_jew", 12);
+        civRel(G2, "shul", 8);
+        civRel(G2, "chamber", -4);
+        civPre(G2, "integ_jew", 5);
+      } },
+      { t: "They may open on Sunday mornings", d: "A compromise. The parish frowns.", fx: (G2) => {
+        civRel(G2, "s_jew", 6);
+        civRel(G2, "parish", -3);
+      } },
+      { t: "Sunday is the island’s day of rest", d: "The Chamber and the parish are pleased. Jewish shops now close two days a week.", fx: (G2) => {
+        civRel(G2, "chamber", 5);
+        civRel(G2, "parish", 4);
+        civRel(G2, "s_jew", -12);
+        civPre(G2, "integ_jew", -6);
+      } }
+    ]
+  },
+  {
+    id: "repatriation",
+    yMin: 1931,
+    yMax: 1938,
+    cond: (G2) => (civComms(G2).afc || {}).n >= 15 && (G2._jobless || 0) >= 0.08,
+    head: "Send the cane-cutters home?",
+    body: "Sugar has crashed and islanders are out of work. The union and a newspaper demand that the Jamaican and Haitian cane-cutters be shipped home, as the big island next door is doing. Many of them have children born here.",
+    ch: [
+      { t: "Ship them home", d: "Half of the Antillean families leave. The union is satisfied; the churches and the Women’s League are ashamed, and the rest of the Antilleans are afraid.", fx: (G2) => {
+        const L = [...G2.cits.values()].filter((c) => civOrig(G2, c) === "afc");
+        const n = Math.floor(L.length / 2);
+        for (let k = 0; k < n; k++) removeCitizen(G2, L[k]);
+        G2.gov.acc.departures = (G2.gov.acc.departures || 0) + n;
+        civRel(G2, "union", 12);
+        civRel(G2, "s_afc", -40);
+        civPre(G2, "integ_afc", -20);
+        civRel(G2, "parish", -6);
+        civRel(G2, "women", -8);
+      } },
+      { t: "Relief work for everyone out of work", d: "Costs $500: new roads and drains, work for islanders and newcomers alike.", fx: (G2) => {
+        G2.money -= 500;
+        civRel(G2, "union", 6);
+        civRel(G2, "s_afc", 10);
+        civPre(G2, "integ_afc", 5);
+      } },
+      { t: "Nobody is sent away", d: "The Antillean families are grateful; the union is angry.", fx: (G2) => {
+        civRel(G2, "s_afc", 12);
+        civRel(G2, "union", -12);
+        civPre(G2, "integ_afc", 6);
+      } }
+    ]
+  },
+  {
+    id: "wedding",
+    yMin: 1930,
+    cond: (G2) => {
+      const K = civComms(G2);
+      return (K.afc || {}).n >= 10 && ((K.gal || {}).n >= 10 || (K.can || {}).n >= 10);
+    },
+    head: "A wedding across the faiths",
+    body: "Carmen, from a Galician family, wants to marry Samuel, a Jamaican Methodist. Her priest will marry them only if he becomes a Catholic; his pastor says the same the other way round. Both families are quarrelling in the street.",
+    ch: [
+      { t: "A civil wedding at the town hall", d: "The town hall marries anyone. Newcomers everywhere take note; the parish does not like it.", fx: (G2) => {
+        civPre(G2, "integ_afc", 6);
+        civPre(G2, "integ_gal", 4);
+        civRel(G2, "women", 6);
+        civRel(G2, "parish", -6);
+        G2.civ.joy.all = G2.t + 720;
+      } },
+      { t: "That is for the churches to settle", d: "Nothing changes. The couple waits.", fx: (G2) => {
+        civPre(G2, "integ_afc", -2);
       } }
     ]
   },
@@ -27080,7 +27488,7 @@ function govBind() {
     if (G && govOn(G)) govHallOpen("people");
   };
 }
-const GAME_VERSION = "37.0 · 30 Sep 2026";
+const GAME_VERSION = "37.1 · 30 Sep 2026";
 const GOV_SKIP = '{"v":1,"seed":4125171816,"label":"","t":6425.382080000085,"money":2976.7833470135743,"era":2,"nextShip":660,"terrain":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011111111111111000000000000000000000000000000000000000000000110001111011111111111100000000000000000000000000000000000001111111111111101111122111111000000000000000000000000000000011111111112211111111111112222111110000000000000000000000000000111111122223332221221111122222222221100000000000000000000000000111122222223333333334222222222444332210000000000000000000000001111224333333333333333444444442244443442100000000000000000000000112224433333333333333344443334444333333211000000000000000000000112334443333333333333334443333433333333332100000000000000000011111233334333333333333333333333333333443333211000000000000000011222223333333333333333333333333333333333333321100000000000000011233333333333333333333333333333333333333333333211000000000000011233333333333333333333333333333333333333333333321100000000000001223333333333333333333333333333333333333333333332111000000000011123333333333333333333333333333333333333333333333211100000000011112333333333333333333333333333333333333333333333322100000000111122233333333333333333333333333333333333333333333332210000000111222223333333333333333343333333333333333333333333333321100000012223222333333333333333333444443333334443333333333333332110000002232233333333333333333333334444433333344344333333333333321100000233223333333333333333333333444444444444444433333333333332111000033333333333343333333333333344444444444444443433333333334421000002223332223344443333333333333444444444444444444333333333442100000122222222234333333333333333333334444444444444443333333344210000011122322222333333333333333333333333444444444444444333333321000001111222233333333333333333333333333334444444444444443333332100000011112233333333333333333333333333333334444333444444433332110000000111222333333333333333333333333333333344433334444444432211000000011122222233333333433333333333333333334443333444444444211000000001111222223333333344333333333333333333443333344444444421100000000111112212333333334333333333333333333333333333344444442110000000011111111223333333443333333333333333333333333333333444110000000000111111122333333334443333333333333333333333333333333210000000000000111112223334333444333333223333333333333333333333321000000000000000011111223333334433333322233333333333333333333321000000000000000000001112223333333332211111233333333222443333322100000000000000000000001122222222111111000111222222211124433221100000000000000000000000011121111110000000000011111111111243221100000000000000000000000000111111000000000000000000000011111211110000000000000000000000000000110000000000000000000000000111111110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","road":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001010000000000000000000000000000000000000000000000000000000000022111220000000000000000000000000000000000000000000000000000000022010102000000000000000000000000000000000000000000000000000000002011010200000000000000000000000000000000000000000000000000000000001001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","ctrl":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","bike":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","buslane":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","track":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","lineSeq":0,"lines":[],"baseRoad":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001010000000000000000000000000000000000000000000000000000000000022111220000000000000000000000000000000000000000000000000000000022010102000000000000000000000000000000000000000000000000000000002011010200000000000000000000000000000000000000000000000000000000001001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","baseCtrl":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","storm":null,"crashesYesterday":0,"challenge":null,"noShips":true,"noMoves":true,"noWeather":false,"blds":[[1,"dock",31,35,"#a8d672",0,{"lv":1,"inp":0,"stays":[],"hist":[-3,-3,-4,-4],"lp":{"rev":0,"inCost":0,"bonus":-1.4603865289561035,"units":0,"bought":0,"loads":4,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":194.75791251780845,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[2,"shack",32,31,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[3,"shack",31,30,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[4,"shack",30,31,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[5,"farm",33,27,"#f4a6b8",12,{"lv":0,"inp":0,"stays":[],"hist":[81,116,87,84],"lp":{"rev":85.19481631594815,"inCost":0,"bonus":0,"units":48.11864678205565,"bought":0,"loads":3,"tripSum":144.39359999999942,"made":60.77969224895095,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"crop":"sugar","lux":0,"lv$":0,"lg":null,"fl":0}],[6,"shack",32,30,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[7,"shack",32,29,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[8,"fishery",30,36,"#7fd1c8",11,{"lv":0,"inp":0,"stays":[],"hist":[-1,59,57,61],"lp":{"rev":61.30566523267591,"inCost":0,"bonus":0,"units":32.05132883333339,"bought":0,"loads":2,"tripSum":16.26639999999861,"made":36.753599666666865,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[9,"market",34,30,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,20,20,20],"lp":{"rev":21.196196000000064,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[10,"house",34,29,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,-1,-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[11,"clinic",34,31,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[-4,-4,-4],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[12,"house",35,31,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,-1,-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[13,"house",36,32,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[14,"house",29,31,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[15,"house",28,32,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[16,"house",36,33,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[17,"townhall",36,34,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-2],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[18,"school",26,32,"#f4a6b8",0,{"lv":0,"inp":0,"stays":[],"hist":[-8],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[19,"distillery",26,34,"#8cc3ef",14,{"lv":0,"inp":2,"stays":[],"hist":[46],"lp":{"rev":134.91263381408862,"inCost":85.19481631594815,"bonus":0,"units":32.09013273583368,"bought":48.11864678205565,"loads":2,"tripSum":55,"made":33.343466069167086,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[20,"press",32,33,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-2],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[21,"house",30,33,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[22,"house",34,33,"#f4a6b8",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[23,"farm",34,35,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"crop":"fruit","lux":0,"lv$":0,"lg":null,"fl":0}]],"fert":[69,71,75,75,71,66,65,65,65,69,81,90,88,84,88,98,104,103,95,81,68,62,60,58,52,48,44,40,40,40,40,40,40,40,40,40,40,50,59,66,74,80,80,70,60,61,70,72,59,40,40,40,40,40,40,40,40,40,42,55,68,81,95,111,76,76,77,77,74,70,70,71,72,73,79,83,82,81,86,94,100,99,90,77,65,58,56,56,55,54,49,43,40,40,40,40,40,40,40,40,40,51,63,72,77,80,79,72,65,66,71,70,58,42,40,40,40,40,40,40,40,40,42,54,65,78,92,107,88,86,83,81,79,78,79,82,84,80,72,68,69,73,79,86,90,89,80,68,60,54,51,54,62,65,59,51,45,40,40,40,40,40,40,40,40,54,72,83,83,80,79,77,76,76,74,67,56,47,40,40,40,40,40,40,40,40,43,52,62,73,87,101,97,94,89,86,85,85,84,87,88,80,67,58,60,65,70,74,76,75,68,62,59,57,56,60,70,73,65,57,52,49,46,41,40,40,40,40,45,62,81,91,89,83,82,83,84,84,79,69,57,50,45,40,40,40,40,44,45,45,47,54,62,72,83,95,102,101,99,97,91,85,82,81,77,68,57,50,52,57,60,60,60,58,56,56,61,70,76,76,75,70,65,62,61,58,53,49,48,49,49,52,60,73,87,94,94,93,94,91,87,86,84,76,61,45,40,40,40,40,44,53,55,52,51,56,61,69,79,90,104,106,108,107,95,81,76,70,61,52,44,41,43,49,51,49,45,43,45,50,61,80,92,88,75,63,62,67,71,67,60,58,62,67,67,69,76,86,94,96,99,104,105,96,86,85,87,82,63,40,40,40,40,40,46,61,64,58,54,56,59,65,74,85,101,103,105,103,91,76,70,63,53,43,40,40,40,42,45,42,40,40,40,46,57,77,91,86,71,60,61,70,76,75,70,70,76,82,82,84,89,96,102,102,103,106,105,95,84,84,86,82,63,40,40,40,40,40,50,66,68,62,56,57,59,63,71,80,92,90,87,84,79,74,69,60,50,42,40,40,40,43,46,43,40,40,41,47,57,72,83,79,66,56,58,64,72,77,81,85,89,91,92,92,95,102,110,110,106,102,99,93,87,86,85,79,65,47,40,40,47,52,58,63,63,60,58,58,61,64,71,78,81,76,68,64,66,69,66,57,48,43,40,40,40,48,51,48,43,42,45,50,56,67,75,71,59,51,52,57,66,78,90,100,104,104,104,103,102,107,117,117,107,97,91,89,88,87,83,77,70,60,55,59,66,69,64,58,57,57,57,58,61,65,70,77,73,69,61,57,59,61,58,51,45,45,44,44,46,52,54,52,50,49,50,51,53,61,67,63,52,45,47,54,65,82,101,116,123,125,125,122,118,117,122,119,106,93,85,81,81,80,79,78,76,73,71,73,75,73,64,55,54,56,58,58,59,61,64,71,72,69,64,60,58,55,50,46,44,48,54,57,56,52,50,53,60,61,57,52,51,56,60,56,45,40,43,52,65,88,114,135,143,145,145,144,138,132,128,121,104,85,75,72,72,72,73,75,80,85,88,84,75,66,56,49,48,55,62,60,54,51,54,62,73,71,67,64,59,52,47,44,44,50,60,66,61,51,46,54,66,69,62,53,50,53,57,53,41,40,40,51,65,91,122,145,150,150,150,150,150,140,132,122,103,80,68,66,66,67,69,74,81,92,98,90,73,60,51,44,45,55,64,62,51,44,48,56,68,68,66,65,60,53,48,48,51,55,59,62,59,52,48,54,64,66,60,53,51,55,59,55,43,40,42,54,68,90,118,140,150,150,150,150,147,135,124,113,97,78,68,66,66,67,69,74,81,91,96,91,78,67,57,49,49,57,64,61,52,46,50,59,59,62,67,69,65,58,54,60,67,66,59,53,53,54,55,58,61,62,59,55,54,61,67,63,51,45,51,62,75,92,111,130,150,150,150,150,138,123,107,94,83,74,68,67,67,68,71,75,79,87,93,92,88,84,75,64,63,64,64,59,53,50,54,65,60,65,74,79,77,71,68,75,82,75,60,49,51,57,62,65,67,67,66,64,64,72,78,74,63,58,66,77,89,101,113,129,150,150,150,148,132,115,95,81,74,71,70,70,72,72,74,75,76,82,87,90,94,97,92,83,81,78,72,63,55,51,55,68,73,76,84,90,90,87,85,90,93,82,64,52,56,67,76,80,81,82,83,83,83,86,89,87,81,80,89,101,112,118,124,134,150,150,150,145,125,107,89,75,72,76,79,80,80,80,78,75,72,75,80,85,91,100,104,104,103,97,85,72,61,55,57,67,89,89,93,98,102,103,101,105,105,92,71,59,66,82,95,99,98,98,102,106,105,101,99,99,100,103,112,125,135,135,132,138,150,150,150,140,117,99,83,70,73,85,91,90,88,87,81,74,69,70,75,80,88,100,114,123,123,114,99,82,69,62,60,65,99,99,102,108,112,114,112,116,116,102,83,71,78,94,108,112,111,111,115,120,118,113,109,109,111,115,123,134,142,140,135,139,150,150,150,136,113,96,80,68,72,86,93,92,89,87,81,73,69,71,77,84,92,106,123,134,135,126,109,90,76,67,63,66,105,108,116,122,124,121,119,121,120,110,98,91,93,100,109,117,122,123,123,123,120,117,116,115,112,114,120,128,134,137,139,141,144,146,143,132,117,101,84,72,73,81,86,84,80,79,74,68,65,68,75,87,103,120,133,138,139,134,122,104,89,78,73,75,109,115,126,134,130,123,120,121,119,113,110,110,107,104,109,121,132,134,130,123,118,116,117,114,109,109,116,121,125,134,143,143,134,125,125,125,120,107,91,78,75,77,78,74,70,68,64,59,58,63,72,89,112,132,140,140,139,140,136,122,107,95,89,89,110,116,126,132,126,118,115,117,118,115,115,116,113,110,116,129,140,142,136,127,118,114,113,111,106,109,118,124,127,135,142,138,125,114,114,117,116,108,96,85,80,79,77,69,63,61,59,56,56,61,71,88,113,134,142,142,142,145,145,135,125,114,105,100,108,112,118,121,116,109,107,111,113,113,115,118,117,118,126,138,146,147,142,132,120,111,107,106,104,110,121,129,132,137,141,135,120,109,108,109,107,105,104,97,91,86,81,69,58,57,58,59,59,61,69,85,106,126,139,144,145,146,145,141,138,131,119,108,106,108,112,113,109,103,101,106,110,111,115,118,118,123,133,143,149,149,145,136,122,110,103,103,103,110,123,133,136,139,141,134,119,108,106,104,101,104,109,106,99,92,85,69,56,55,59,63,62,62,68,83,100,119,135,145,147,146,143,141,143,139,126,111,111,112,112,112,109,105,103,106,109,109,112,114,116,122,132,140,143,143,139,131,118,106,100,100,103,112,123,131,133,135,135,128,116,107,106,103,101,103,107,104,96,90,83,70,58,57,59,61,61,62,70,84,101,120,137,148,150,148,145,143,143,138,124,108,126,122,114,112,112,111,110,109,107,105,104,104,109,120,130,130,124,122,119,114,105,95,89,93,103,114,120,122,123,121,117,112,108,105,105,103,101,99,99,94,88,84,78,70,63,61,57,54,58,66,76,90,106,122,140,150,150,150,149,145,139,131,116,99,138,130,118,114,116,118,117,113,108,104,101,99,104,116,122,115,103,98,98,97,92,86,82,87,100,109,109,106,106,104,100,100,103,105,105,103,99,94,90,84,79,77,71,66,62,60,53,51,60,72,84,97,111,123,138,150,150,150,147,142,133,123,110,93,139,135,128,126,127,128,126,123,119,112,104,99,101,106,105,95,82,78,80,84,84,82,80,82,88,91,91,91,93,92,91,96,105,112,111,105,97,90,86,80,74,69,62,56,53,53,53,59,70,81,92,104,117,126,132,137,137,135,131,127,124,119,108,96,136,137,138,140,139,137,135,134,131,122,106,95,94,90,83,73,65,61,65,72,76,76,75,74,72,69,71,80,86,85,85,94,110,122,120,109,96,89,85,81,72,62,54,48,45,46,57,72,84,89,95,109,125,132,126,118,116,114,111,111,118,120,112,104,130,132,136,139,138,135,133,132,130,120,102,90,87,80,70,60,53,49,53,60,65,65,64,63,58,53,58,70,78,79,79,90,109,123,121,108,94,87,84,81,71,60,53,47,44,46,60,78,89,92,95,109,125,132,122,108,105,105,103,105,116,123,117,112,120,119,117,118,118,117,116,115,114,109,101,96,93,84,72,60,50,44,42,44,49,55,59,58,53,49,51,60,68,74,81,93,105,113,111,101,90,84,80,76,70,64,57,49,43,45,61,80,91,95,99,111,125,131,122,108,106,108,110,113,123,129,124,117,108,102,93,90,92,94,93,94,95,97,103,107,103,92,78,62,48,40,40,40,40,49,59,58,53,49,48,51,58,71,86,99,102,101,100,95,88,82,77,72,71,69,63,50,41,43,61,82,94,99,104,115,127,134,126,113,111,117,123,125,132,137,133,122,94,88,77,73,75,77,77,79,84,91,103,110,105,92,75,58,42,40,40,40,40,43,54,52,48,44,44,47,54,69,86,99,100,98,97,94,90,85,80,76,75,74,66,53,42,44,61,81,93,100,105,115,128,136,131,122,120,126,131,134,141,146,142,132,82,77,67,63,67,72,72,74,79,90,104,113,105,84,62,46,40,40,40,40,40,40,41,40,40,40,40,45,55,69,84,96,98,95,95,96,94,90,85,81,77,71,61,54,52,53,60,73,86,96,103,112,123,132,137,138,138,138,139,140,143,147,147,143,76,71,62,58,65,73,74,73,77,90,106,115,104,76,52,40,40,40,40,40,41,40,40,40,40,40,40,45,56,69,83,94,96,93,94,97,98,94,87,82,76,66,55,55,60,61,59,65,79,93,102,109,118,128,140,150,150,147,143,143,143,144,148,150,74,71,64,61,67,74,74,72,75,87,104,113,103,78,55,41,40,40,40,40,42,40,40,40,40,40,40,46,57,69,83,94,96,94,94,96,96,93,88,84,77,67,56,56,62,62,60,65,79,92,100,108,117,127,138,148,149,145,141,142,143,146,149,150,72,72,72,72,74,76,75,70,69,79,94,103,99,86,71,56,45,40,40,40,44,40,40,40,46,49,48,51,58,70,84,94,97,96,95,92,89,89,91,90,82,70,61,61,65,66,65,70,81,91,97,105,116,123,127,129,129,130,132,137,146,150,150,150,74,77,82,85,85,83,80,72,67,72,84,93,93,90,82,70,59,53,49,49,51,48,44,48,60,66,61,57,61,71,83,92,95,94,92,86,81,84,91,94,87,75,69,72,76,76,76,80,87,93,96,102,111,114,110,105,105,110,118,129,145,150,150,150,85,87,91,93,93,92,88,79,72,72,80,85,85,85,82,74,66,62,61,62,64,59,55,59,70,75,68,62,62,71,82,88,88,86,85,83,82,86,92,96,92,87,85,90,95,95,92,92,98,103,105,105,104,99,92,87,87,91,100,116,138,150,150,150,101,100,99,99,99,96,92,86,81,77,78,79,79,79,78,73,67,66,70,76,79,73,67,72,83,86,76,65,62,70,81,85,81,75,77,84,90,94,98,101,102,104,107,111,115,114,108,105,109,118,121,111,95,81,75,75,75,74,79,100,130,150,150,150,111,109,104,104,102,98,93,89,84,78,76,76,76,76,77,74,71,72,80,90,94,88,83,87,97,99,86,71,65,71,80,82,75,68,71,82,92,96,100,104,109,115,120,125,128,127,119,113,116,125,127,112,86,67,62,64,64,60,64,87,121,146,150,150,120,116,110,107,105,102,96,90,83,78,75,74,75,78,80,76,72,75,89,104,111,107,101,103,106,103,92,83,77,75,76,73,66,61,63,74,85,90,94,100,107,114,121,126,129,128,124,119,118,118,115,99,76,57,50,49,48,48,55,78,108,131,140,145,133,127,117,109,107,105,99,90,82,78,76,75,77,81,83,77,69,73,94,117,128,125,120,119,113,104,98,97,92,81,69,62,55,51,53,64,76,83,87,92,102,110,116,121,123,124,124,122,114,104,94,79,62,46,40,40,40,40,46,67,91,111,123,133,146,139,125,112,106,102,94,86,80,79,79,79,81,84,83,74,65,71,96,124,141,142,139,136,127,114,108,109,103,87,69,57,48,42,45,56,70,80,86,93,103,111,115,118,120,121,121,116,105,90,76,61,45,40,40,40,40,40,40,55,77,95,109,122,150,149,132,116,103,92,84,80,79,81,81,81,81,80,77,69,65,74,98,126,148,150,150,150,146,129,121,119,111,94,74,58,45,40,40,48,62,77,90,102,108,110,111,118,124,123,117,106,93,79,65,47,40,40,40,40,40,40,40,51,68,83,99,114,150,150,137,119,100,84,76,75,80,83,82,80,79,75,69,65,66,77,99,126,150,150,150,150,150,139,130,126,116,99,79,62,46,40,40,43,55,74,94,109,112,108,107,117,128,127,114,97,84,73,60,40,40,40,40,40,40,40,40,53,64,75,93,110,150,150,137,119,100,85,76,75,79,82,81,79,78,75,69,66,68,79,99,124,148,150,150,150,150,142,131,125,115,98,78,62,47,40,40,45,57,75,94,108,112,108,108,118,127,126,113,96,83,72,58,40,40,40,40,40,40,40,40,53,63,74,92,109,143,140,131,117,103,92,83,79,77,78,77,75,76,75,73,72,76,85,98,115,135,150,150,150,150,145,131,117,105,89,72,59,52,50,52,58,69,81,90,100,108,113,116,119,122,120,110,96,83,70,56,40,40,40,40,40,40,40,40,48,60,74,90,105,124,125,122,113,104,98,91,82,75,72,70,68,70,74,78,80,86,93,99,106,119,131,137,140,144,142,128,110,96,84,70,61,62,67,69,75,83,88,87,92,105,118,122,121,119,117,110,100,88,74,59,45,40,40,40,40,40,40,40,46,57,71,85,99],"nextFlight":null,"twin":false,"village":null,"eraT0":2374.693760000033,"booba":null,"story":{"layout":3,"ch":4,"step":0,"prog":0,"fam":13,"letters":[{"key":"letter1","day":1,"vars":{"d":"Ayd\\u0131n"}},{"key":"letter2","day":2,"vars":{"d":"Ayd\\u0131n"}},{"key":"letter3","day":4,"vars":{"d":"Nov\\u00e1k"}},{"key":"letter4","day":5,"vars":{"d":"Nov\\u00e1k"}}],"photos":[],"tools":["shack","farm","road1","fishery","market","clinic","park","house","school","distillery","cantina","press"],"sold":20,"newLetters":0,"started":1790688701584,"waitFrom":null,"choice":null,"seen":1790689001890,"soldValue":690.328249680288,"shortage":false,"flood":false,"resting":false,"yearSeen":1926,"ditches":[],"fnDone":"sick","sickN":7,"docFam":"Nov\\u00e1k","council":{"farmers":23,"fishers":12,"merchants":27},"decisions":[{"ch":3,"label":"s4_a1a"},{"ch":3,"label":"s4_a2a"},{"ch":3,"label":"s4_a3a"},{"ch":3,"label":"s4_q1a"},{"ch":3,"label":"prA"}],"laws":{"vote":"all","term":4,"child":"school","pressOwner":"free"},"charter":true,"press":"free","votePct":94,"mayor":true,"terms":1,"lastVoteYear":1912},"classic":false,"noPortCap":false,"econ":{"mkt":{"m":{"fruit":1.0488149563975875,"sugar":1.182483323294051,"cotton":1.035413367017254,"grapes":1.0638285989453211,"plums":1.0963905483688574,"wood":0.9646439900466266,"fish":1.0282259813509684,"gold":0.9360247593544294,"crafts":0.9322055075259081,"goods":0.9201768450234393,"rum":0.9394157526385041,"wine":1.0336428397830644,"slivo":0.929176556560146,"coal":1.0139352203419347,"gas":1.0581179648778958,"canned":1.0032223585932356,"garments":1.0440114357114643,"furniture":0.8637356961264608},"hist":{"fruit":[1.82,1.83,1.74,1.78],"sugar":[1.7,1.78,1.77,1.89],"cotton":[1.93,2.1,2.06,2.07],"grapes":[1.65,1.75,1.86,1.91],"plums":[1.46,1.47,1.55,1.64],"wood":[1.67,1.58,1.54,1.54],"fish":[1.85,1.81,1.91,1.75],"gold":[38.99,40.43,39.88,37.44],"crafts":[1.79,1.84,1.71,1.77],"goods":[1.79,1.8,1.74,1.75],"rum":[4.52,4.54,4.2,4.13],"wine":[4.6,4.97,4.92,4.96],"slivo":[4.66,4.61,4.53,4.65],"coal":[1.18,1.16,1.19,1.22],"gas":[1.74,1.73,1.8,1.69],"canned":[3.86,3.75,3.98,4.01],"garments":[4.75,4.55,4.67,4.8],"furniture":[4.24,4.19,4.06,3.8]}},"peso":1.0206884147787807,"pesoHist":[1.005,1.01,1.015,1.021],"gold":60,"crises":[],"policy":{"imports":true,"liquorTax":false,"keepGold":true},"alc":0.012401,"felled":[],"pwOn":false,"wind":0.8617121038725599,"pwStart":null},"cits":[[13,2,1,78,9.9,445,1064,0,31,4,1,0,0,"Santos"],[14,2,1,78,9.9,421,1054,0,9,4,1,0,0,"Santos"],[15,2,1,78,9.9,441,1032,0,354,4,0,0,0,"Santos"],[16,2,1,78,9.9,397,992,0,346,4,1,0,0,"Santos"],[17,3,1,78,9.9,458,1029,0,217,4,1,0,0,"Y\\u0131lmaz"],[18,3,1,78,9.9,474,1007,0,204,4,1,0,0,"Y\\u0131lmaz"],[19,3,5,76,27.7,459,1067,0,82,3,0,0,0,"Y\\u0131lmaz"],[20,3,5,78,19.9,411,1011,0,294,4,0,0,0,"Y\\u0131lmaz"],[21,4,5,78,19.9,469,1063,0,63,4,1,0,0,"Kov\\u00e1\\u010d"],[22,4,5,78,19.9,456,1071,0,297,4,1,0,0,"Kov\\u00e1\\u010d"],[23,4,5,78,19.9,443,1077,0,208,4,1,0,0,"Kov\\u00e1\\u010d"],[24,4,5,78,19.9,479,1038,0,289,4,0,0,0,"Kov\\u00e1\\u010d"],[25,6,9,72,-1,463,1051,0,259,4,1,1,0,"Rivera"],[26,6,8,72,34.3,436,999,0,359,4,1,0,0,"Rivera"],[27,6,9,78,-1,398,1074,0,145,4,1,0,0,"Rivera"],[28,6,8,70,37.1,409,1002,0,159,3,1,0,0,"Rivera"],[29,7,8,73,32.9,461,1048,0,216,0,0,0,0,"Demir"],[30,7,11,78,13,450,1023,0,324,4,1,0,0,"Demir"],[31,7,8,73,33,423,1059,0,2,3,0,0,0,"Demir"],[32,7,9,78,3,436,997,0,179,4,1,0,0,"Demir"],[33,10,18,75,37.9,446,1002,0,229,0,1,0,0,"Mendoza"],[34,10,11,84,13.2,473,1005,0,214,4,1,0,0,"Mendoza"],[35,10,19,78,34.9,432,1065,0,98,0,0,0,0,"Mendoza"],[36,10,19,76,37.6,398,1037,0,85,3,0,0,0,"Mendoza"],[37,10,11,84,16.7,407,1047,0,239,4,1,0,0,"Mendoza"],[38,10,11,84,13,469,1012,0,8,4,1,0,0,"Mendoza"],[39,12,11,84,3,456,992,0,255,4,2,0,0,"Nov\\u00e1k"],[40,12,11,84,3,476,1062,0,119,4,1,0,0,"Nov\\u00e1k"],[41,12,19,79,29.3,425,1051,0,133,0,1,0,0,"Nov\\u00e1k"],[42,12,20,84,10,442,1020,0,350,4,1,0,0,"Nov\\u00e1k"],[43,12,null,62,-1,412,1051,0,237,-1,1,0,0,"Nov\\u00e1k"],[44,12,19,78,31.4,407,1022,0,209,0,1,0,0,"Nov\\u00e1k"],[45,13,20,84,10,440,1010,0,138,4,1,0,0,"Ayd\\u0131n"],[46,13,18,80,29.2,453,1004,0,28,0,1,0,0,"Ayd\\u0131n"],[47,13,19,76,34.2,419,1007,0,124,3,1,0,0,"Ayd\\u0131n"],[48,13,19,80,28.7,449,998,0,260,0,1,0,0,"Ayd\\u0131n"],[49,13,18,83,26.2,448,1047,0,267,4,1,0,0,"Ayd\\u0131n"],[50,13,18,83,26.2,430,1002,0,117,4,1,0,0,"Ayd\\u0131n"],[51,14,null,62,-1,475,1048,0,267,-1,1,0,0,"Castillo"],[52,14,17,83,24,440,1057,0,104,0,1,0,0,"Castillo"],[53,14,null,62,-1,425,1014,0,85,-1,1,0,0,"Castillo"],[54,14,null,62,-1,464,1064,0,244,-1,0,0,0,"Castillo"],[55,14,20,84,10,417,1005,0,37,4,1,0,0,"Castillo"],[56,14,null,62,-1,434,995,0,346,-1,1,0,0,"Castillo"],[57,15,18,84,-1,427,1002,0,282,4,1,0,0,"Horv\\u00e1th"],[58,15,null,62,-1,451,1075,0,79,-1,1,0,0,"Horv\\u00e1th"],[59,15,17,83,25.2,391,1015,0,205,0,0,0,0,"Horv\\u00e1th"],[60,15,19,84,3.1,415,998,0,138,4,1,0,0,"Horv\\u00e1th"],[61,15,23,62,-1,443,1001,0,259,3,0,0,0,"Horv\\u00e1th"],[62,15,18,84,-1,444,994,0,218,4,1,0,0,"Horv\\u00e1th"],[63,16,17,84,3.1,424,992,0,36,4,1,0,0,"Kaya"],[64,16,19,78,32.6,476,1043,0,214,0,1,0,0,"Kaya"],[65,16,23,62,2.8,421,1034,0,247,4,0,0,0,"Kaya"],[66,16,null,62,-1,436,1011,0,330,-1,1,0,0,"Kaya"],[67,16,null,62,-1,392,1001,0,135,-1,1,0,0,"Kaya"],[68,16,23,62,2.8,437,1008,0,327,4,1,0,0,"Kaya"],[69,21,null,70,-1,423,1020,0,265,-1,1,0,0,"Morales"],[70,21,null,70,-1,420,1052,0,92,-1,1,0,0,"Morales"],[71,21,null,70,-1,393,1049,0,44,-1,1,0,0,"Morales"],[72,21,null,70,-1,392,1055,0,87,-1,1,0,0,"Morales"],[73,21,null,70,-1,460,1000,0,312,-1,1,0,0,"Morales"],[74,21,23,70,-1,415,1058,0,285,4,1,0,0,"Morales"],[75,22,null,70,-1,455,1025,0,277,-1,1,0,0,"Bal\\u00e1\\u017e"],[76,22,null,70,-1,446,1026,0,297,-1,1,0,0,"Bal\\u00e1\\u017e"],[77,22,null,70,-1,438,1049,0,244,-1,1,0,0,"Bal\\u00e1\\u017e"],[78,22,null,70,-1,432,990,0,238,-1,1,0,0,"Bal\\u00e1\\u017e"],[79,22,23,70,-1,479,1027,0,247,4,1,0,0,"Bal\\u00e1\\u017e"],[80,22,23,70,-1,425,1061,0,257,4,1,0,0,"Bal\\u00e1\\u017e"]],"nextId":24,"citId":81,"dockId":1,"berth":{"x":32,"y":37.6},"history":[{"day":1,"pop":20,"happy":70,"commute":14.513700000000034,"trips":24,"exports":115.78734527676488,"commerce":70,"taxes":38.5,"upkeep":9.35,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":595,"net":214.9373452767649,"fares":0,"modes":{"car":0,"bus":0,"tram":0,"bike":0,"walk":12},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"shack":5,"farm":1,"road":11,"fishery":1,"market":1},"employed":19,"housing":20,"jobs":19,"crashes":0,"rainy":false,"upk":{"roads":2.2499999999999996,"bridges":0,"homes":1.5,"work":1.6,"services":1,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fruit":115.78734527676488},"commerceBy":{},"air":null,"delay":13.76926851272583,"trade":115.78734527676488,"peso":1.0045112826283733,"gold":60,"alc":0.017},{"day":2,"pop":32,"happy":66.31250000000001,"commute":17.900094117646898,"trips":34,"exports":175.38468284542546,"commerce":131.20700399999996,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":488,"net":344.64168684542545,"fares":0,"modes":{"car":2,"bus":0,"tram":0,"bike":0,"walk":17},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":2,"clinic":1,"road":2},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":true,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fruit":116.30941032817981,"fish":59.07527251724565},"commerceBy":{"market":21.207003999999962},"air":null,"delay":31.074433697387576,"trade":175.38468284542546,"peso":1.010353494433854,"gold":60,"alc":0.0149},{"day":3,"pop":32,"happy":67.00001200000003,"commute":15.666666666666666,"trips":42,"exports":145.11943517288242,"commerce":21.210000000000072,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":0,"net":204.3794351728825,"fares":0,"modes":{"car":1,"bus":0,"tram":0,"bike":4,"walk":18},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":false,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":57.59398767117109,"fruit":87.52544750171134},"commerceBy":{"market":21.210000000000072},"air":null,"delay":23.404140903759526,"trade":145.11943517288242,"peso":1.0150531687561333,"gold":60,"alc":0.013430000000000001},{"day":4,"pop":56,"happy":69.2201453257143,"commute":22.397590243903156,"trips":82,"exports":194.75791251780845,"commerce":21.196196000000064,"taxes":95.5,"upkeep":37,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":1998,"net":274.45410851780855,"fares":0,"modes":{"car":14,"bus":0,"tram":0,"bike":3,"walk":28},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":4,"road":7,"townhall":1,"school":1,"distillery":1,"press":1},"employed":45,"housing":56,"jobs":43,"crashes":0,"rainy":true,"upk":{"roads":6.300000000000003,"bridges":0,"homes":5.1,"work":9.6,"services":13,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":60.849387871749684,"rum":133.90852464605877},"commerceBy":{"market":21.196196000000064},"air":null,"delay":350.02583170662183,"trade":194.75791251780845,"peso":1.0206884147787807,"gold":60,"alc":0.012401}],"notes":{"freight":659.5272000000008,"storm":2413.0929600000395,"peak":3420.3324800000323,"chains":5034.45168000008,"modeshift":5760.85168000008},"hourly":[0,0,0,0,0,0,7,13,8,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hourlyPrev":[0,0,0,0,0,0,3,8,12,11,0,1,0,2,1,1,14,14,11,0,0,0,0,0],"dayAcc":{"exportsBy":{"fish":27.701022312745422,"rum":65.57785155466141},"commerceBy":{"market":8.09189733333332},"importsBy":{},"imports":0,"liquor":0,"air":null,"exports":93.27887386740683,"commerce":8.09189733333332,"build":360,"trips":43,"tripTime":720.5999999999967,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"crashes":0,"fares":0,"gaveUp":0,"modes":{"car":10,"bus":0,"tram":0,"bike":6,"walk":35},"graduates":1},"built":{"house":2,"farm":1},"avgHappy":75.90965003611436,"completed":false,"completeDay":null,"events":[],"bottlenecks":[{"i":2079,"x":31,"y":32,"delay":115.05460357666016,"peak":2.6363635063171387,"name":"Dirt Track"}],"lastReport":{"rec":{"day":4,"pop":56,"happy":69.2201453257143,"commute":22.397590243903156,"trips":82,"exports":194.75791251780845,"commerce":21.196196000000064,"taxes":95.5,"upkeep":37,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":1998,"net":274.45410851780855,"fares":0,"modes":{"car":14,"bus":0,"tram":0,"bike":3,"walk":28},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":4,"road":7,"townhall":1,"school":1,"distillery":1,"press":1},"employed":45,"housing":56,"jobs":43,"crashes":0,"rainy":true,"upk":{"roads":6.300000000000003,"bridges":0,"homes":5.1,"work":9.6,"services":13,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":60.849387871749684,"rum":133.90852464605877},"commerceBy":{"market":21.196196000000064},"air":null,"delay":350.02583170662183,"trade":194.75791251780845,"peso":1.0206884147787807,"gold":60,"alc":0.012401},"prev":{"day":3,"pop":32,"happy":67.00001200000003,"commute":15.666666666666666,"trips":42,"exports":145.11943517288242,"commerce":21.210000000000072,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":0,"net":204.3794351728825,"fares":0,"modes":{"car":1,"bus":0,"tram":0,"bike":4,"walk":18},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":false,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":57.59398767117109,"fruit":87.52544750171134},"commerceBy":{"market":21.210000000000072},"air":null,"delay":23.404140903759526,"trade":145.11943517288242,"peso":1.0150531687561333,"gold":60,"alc":0.013430000000000001}}}';
 const GF = { on: false, sub: { hall: "council", people: "groups", money: "budget" }, sel: null, law: null, lawPick: null, voteRes: null, lastShipT: -1, shipToastAt: 0, noLotAt: 0 };
 const GF_TABS = [["goals", "Goals"], ["hall", "Town hall"], ["people", "People"], ["money", "Money"], ["stats", "City"], ["lines", "Transit"], ["inspect", "Info"]];
@@ -27142,10 +27550,7 @@ function govEnterFull(G2, welcome) {
   startGame(true);
   gfTabs(true);
   $("#btnBackStory").hidden = true;
-  {
-    const lp = document.querySelector('#lensbar [data-lens="people"]');
-    if (lp) lp.hidden = false;
-  }
+  for (const lp of document.querySelectorAll('#lensbar [data-lens="people"], #lensbar [data-lens="power"]')) lp.hidden = false;
   $("#panel").classList.add("g-wide");
   layout();
   {
@@ -27162,12 +27567,31 @@ function govEnterFull(G2, welcome) {
   if (C.pendingEv && !G2.gov.queue.some((e) => e.k === "c_ev" && e.id === C.pendingEv)) G2.gov.queue.unshift({ k: "c_ev", id: C.pendingEv });
   if (C.pendingStrike && !G2.gov.queue.some((e) => e.k === "c_strike")) G2.gov.queue.unshift({ k: "c_strike" });
   stSave();
+  const fresh = welcome || !G2.gov.tourDone && !G2.gov.newsSeen;
   if (welcome) gfWelcome(G2);
   else if (!G2.gov.tourDone && !G2.gov.newsSeen) gfWhatsNew(G2);
+  if (G2.civ && !G2.civ.seenOrig) G2.civ.seenOrig = civSeenInit(G2);
+  if (!G2.gov.gridNews) {
+    G2.gov.gridNews = true;
+    const had = [...G2.blds.values()].filter((b) => gridOn(G2) && PW_INDUSTRY(b.type) && !bGrid(G2, b)).length;
+    const put = had ? gridConnectAll(G2, true) : 0;
+    if (had || !fresh && G2.era >= 2) gfWhenFree(() => {
+      const off = [...G2.blds.values()].filter((b) => offGrid(G2, b)).length;
+      toast({ key: "gridnews", title: "New: the power line", body: "Workshops and factories now need the power line to reach them: the harbor, every plant and every pole light a circle (the Power lens shows it).".concat(put ? " The electric company has strung the line to the workshops you already had: ".concat(put, " poles, free.") : "").concat(off ? " ".concat(off, " still ").concat(off > 1 ? "stand" : "stands", " outside and ").concat(off > 1 ? "run" : "runs", " at half speed.") : ""), tone: "report", timeout: 14e3, actions: [["Power lens", () => setLens("power")]] });
+    });
+  }
+}
+function gfWhenFree(fn, n = 0) {
+  setTimeout(() => {
+    if (!govFullOn() || n > 180) return;
+    const tour = document.getElementById("gfTour");
+    if (!$("#modal").hidden || !$("#stCelebrate").hidden || !$("#stOver").hidden || tour && !tour.hidden || GF.tourSoon) return gfWhenFree(fn, n + 1);
+    fn();
+  }, n ? 1e3 : 2500);
 }
 function gfWhatsNew(G2) {
   G2.gov.newsSeen = true;
-  modal('<span class="label">'.concat(govY(G2), ' · Isla Nueva</span><h2>New on the island</h2>\n    <ul class="gf-list"><li><b>Rosa gives advice.</b> The Goals tab opens with the one thing worth looking at now, why, and a button that goes there.</li>\n    <li><b>Every building shows its card</b> before you build it: homes, jobs, running costs, electricity, and numbered good places on the map. A tap puts down a ghost; nothing is spent until you press “Build here” (or “Build + road”, which lays the road to it too).</li>\n    <li><b>Building takes time.</b> A new building is a building site for a few months before it opens.</li>\n    <li><b>Workshops and factories need a power plant.</b> Rented diesel generators light the island for a few more years.</li>\n    <li><b>Warning lights</b> on buildings say what is wrong: no road, nobody working, no power, store full. Tap one to see why.</li>\n    <li><b>Petitions and strikes explain themselves:</b> who asks, what ends it, and who remembers a no.</li>\n    <li><b>The harbor keeps a log</b> of what every ship carried away (Money → Economy), and the top bar shows the power still free for new industry.</li>\n    <li><b>A day makes a year now</b>, so the century moves faster. Your island keeps its year.</li></ul>\n    <div class="btnrow"><button class="primary" id="mTourGo">Show me around</button><button class="secondary" id="mOk">Later</button></div>'), (m) => {
+  modal('<span class="label">'.concat(govY(G2), ' · Isla Nueva</span><h2>New on the island</h2>\n    <ul class="gf-list"><li><b>Rosa gives advice.</b> The Goals tab opens with the one thing worth looking at now, why, and a button that goes there.</li>\n    <li><b>Every building shows its card</b> before you build it: homes, jobs, running costs, electricity, and numbered good places on the map. A tap puts down a ghost; nothing is spent until you press “Build here” (or “Build + road”, which lays the road to it too).</li>\n    <li><b>Building takes time.</b> A new building is a building site for a few months before it opens.</li>\n    <li><b>Workshops and factories need a power plant, and the power line has to reach them.</b> The harbor, every plant and every pole light a circle (yellow in the Power lens); outside it a workshop runs at half speed. “Build + power line” puts up the poles for you.</li>\n    <li><b>Warning lights</b> on buildings say what is wrong: no road, nobody working, no power, store full. Tap one to see why.</li>\n    <li><b>Petitions and strikes explain themselves:</b> who asks, what ends it, and who remembers a no.</li>\n    <li><b>The harbor keeps a log</b> of what every ship carried away (Money → Economy), and the top bar shows the power still free for new industry.</li>\n    <li><b>A day makes a year now</b>, so the century moves faster. Your island keeps its year.</li></ul>\n    <div class="btnrow"><button class="primary" id="mTourGo">Show me around</button><button class="secondary" id="mOk">Later</button></div>'), (m) => {
     m.querySelector("#mOk").onclick = () => {
       closeModal();
       G2.gov.tourDone = true;
@@ -27188,10 +27612,7 @@ function govLeaveFull() {
   S.hidden = true;
   gfTabs(false);
   $("#panel").classList.remove("g-wide");
-  {
-    const lp = document.querySelector('#lensbar [data-lens="people"]');
-    if (lp) lp.hidden = true;
-  }
+  for (const lp of document.querySelectorAll('#lensbar [data-lens="people"], #lensbar [data-lens="power"]')) lp.hidden = true;
   for (const id of ["#hudYear", "#hudCouncil"]) {
     const e = $(id);
     if (e) e.hidden = true;
@@ -27211,7 +27632,7 @@ function gfTabs(gov) {
 }
 function gfWelcome(G2) {
   const S = G2.story, L = G2.gov.laws;
-  modal('<span class="label">'.concat(govY(G2), " · Isla Nueva</span><h2>The island is yours").concat(S.name ? ", " + esc(S.name) : "", '</h2>\n    <ul class="gf-list"><li><b>A day makes a year:</b> from one sunrise to the next. Speed and pause are in the top bar.</li>\n    <li><b>You are the Mayor.</b> Roads, ports and public buildings come out of the town’s treasury: taxes and the town’s own enterprises.</li>\n    <li><b>Families build with their own savings</b> on lots along your streets, and ask you for a permit. Lay out streets and they will fill them.</li>\n    <li><b>A council of nine</b> votes on taxes and laws. The island elects it every ').concat(L.term, " years.</li>\n    <li><b>Newcomers arrive by ship</b> from Galicia, the Levant, Jamaica and further. Their churches, unions and societies will petition you, and remember what you did.</li>\n    <li><b>Electricity has come.</b> Rented diesel generators light the island for about three years. Workshops and factories need a power plant behind them: build one before the diesel goes back.</li></ul>\n    ").concat({ tr: '<p class="gf-tip" lang="tr">Rosa Nene: “Buradan sonra belediyenin kâğıtları İngilizce canım. Ama ben hep yanındayım: “Goals” sekmesindeki kartımda ne yapman gerektiğini ve nedenini söylerim.”</p>', sk: '<p class="gf-tip" lang="sk">Babka Rosa: „Odteraz sú papiere na radnici po anglicky, zlatko. Ale som stále pri tebe: na mojej karte v záložke Goals ti poviem, čo treba spraviť a prečo.“</p>' }[GF.fromLang] || "", '\n    <div class="btnrow"><button class="primary" id="mOk">Let’s go</button></div>'), (m) => {
+  modal('<span class="label">'.concat(govY(G2), " · Isla Nueva</span><h2>The island is yours").concat(S.name ? ", " + esc(S.name) : "", '</h2>\n    <ul class="gf-list"><li><b>A day makes a year:</b> from one sunrise to the next. Speed and pause are in the top bar.</li>\n    <li><b>You are the Mayor.</b> Roads, ports and public buildings come out of the town’s treasury: taxes and the town’s own enterprises.</li>\n    <li><b>Families build with their own savings</b> on lots along your streets, and ask you for a permit. Lay out streets and they will fill them.</li>\n    <li><b>A council of nine</b> votes on taxes and laws. The island elects it every ').concat(L.term, " years.</li>\n    <li><b>Newcomers arrive by ship</b> from Galicia, the Levant, Jamaica and further. Their churches, unions and societies will petition you, and remember what you did.</li>\n    <li><b>Electricity has come.</b> Rented diesel generators light the island for about three years. Workshops and factories need a power plant behind them, and must stand where the power line reaches (the Power lens shows it): build a plant before the diesel goes back.</li></ul>\n    ").concat({ tr: '<p class="gf-tip" lang="tr">Rosa Nene: “Buradan sonra belediyenin kâğıtları İngilizce canım. Ama ben hep yanındayım: “Goals” sekmesindeki kartımda ne yapman gerektiğini ve nedenini söylerim.”</p>', sk: '<p class="gf-tip" lang="sk">Babka Rosa: „Odteraz sú papiere na radnici po anglicky, zlatko. Ale som stále pri tebe: na mojej karte v záložke Goals ti poviem, čo treba spraviť a prečo.“</p>' }[GF.fromLang] || "", '\n    <div class="btnrow"><button class="primary" id="mOk">Let’s go</button></div>'), (m) => {
     m.querySelector("#mOk").onclick = () => {
       closeModal();
       if (!G2.gov.tourDone && typeof gfTour === "function") {
@@ -27404,6 +27825,9 @@ function gfEvent(G2, e, story) {
     case "c_ev":
       gfCivEvent(G2, e.id);
       return;
+    case "c_orig":
+      gfNewPeople(G2, e.o);
+      return;
     case "c_strike":
       gfStrike(G2);
       return;
@@ -27455,6 +27879,28 @@ function gfCivEvent(G2, id) {
         Music.sfx("place");
         UI.panelSig = "";
         stSave();
+      };
+    }
+  );
+}
+function gfNewPeople(G2, o) {
+  const O = ORIGINS[o], W = ORIG_WHY[o];
+  if (!O || !W) return;
+  govPause();
+  Music.sfx("report");
+  const f = FAITHS[O.faith];
+  modal(
+    '<span class="label">'.concat(govY(G2), " · the harbor</span><h2>Newcomers: ").concat(O.name, '</h2><p class="gf-sub">From ').concat(O.from || "nearby", " · they came ").concat(W.when, "</p><p>").concat(W.why, "</p>\n    ").concat(W.brings ? "<p><b>They bring:</b> ".concat(W.brings, ".</p>") : "", '\n    <div class="gf-why"><span class="label">What they will need</span><div class="gf-wl"><span>Work and a home, like everyone</span></div>').concat(O.soc ? '<div class="gf-wl"><span>A society hall once they are about 15: the '.concat(esc(O.soc), "</span></div>") : "").concat(f && f.house && O.faith !== "cath" ? '<div class="gf-wl"><span>A '.concat(f.house.toLowerCase(), ": they are ").concat(f.name, ", and the parish church is not theirs</span></div>") : "", '</div>\n    <p class="gf-end"><b>What can go wrong:</b> a group that finds no work, no place to meet or pray and no voice grows bitter, and quarrels follow (Rosa and the newspaper will tell you). With time, work and a place of their own, their grandchildren count as islanders.</p>\n    <div class="btnrow"><button class="primary" id="mOk">OK</button><button class="secondary" id="mOrig">People → Origins</button></div>'),
+    (m) => {
+      m.querySelector("#mOk").onclick = () => {
+        closeModal();
+        govResume();
+      };
+      m.querySelector("#mOrig").onclick = () => {
+        closeModal();
+        govResume();
+        GF.sub.people = "origins";
+        gfOpen("people");
       };
     }
   );
@@ -28042,6 +28488,8 @@ function gfOriginsHTML() {
     return '<div class="gf-orow"><span><i class="odot" style="background:'.concat(O.col, '"></i><b>').concat(O.name, "</b>").concat(O.native ? "" : "<small>from ".concat(O.from).concat(k.newest ? " · latest ".concat(k.newest) : "", "</small>")).concat(flags ? '<span class="chips sm">'.concat(flags, "</span>") : "", '</span><span class="num">').concat(k.n, '</span><span class="num">').concat(k.voters, "</span><span>").concat(O.native ? "<small>–</small>" : '<div class="bar"><i style="width:'.concat(k.integ, "%;background:").concat(k.integ >= 60 ? "var(--palm)" : k.integ >= 40 ? "var(--mango)" : "var(--coral)", '"></i></div><small class="num">').concat(k.integ, "%</small>"), "</span></div>");
   }).join(""), "</div>");
   h += '<small class="gf-sub">Belonging grows with the years, with work, with a society hall and a place of worship of their own. After a generation and a half, a family counts as islanders. Newcomers may vote after five years.</small>';
+  h += '<div class="gf-sec"><span class="label">Why they came</span>'.concat(here.filter((o) => ORIG_WHY[o]).map((o) => '<details class="gf-det" data-det="w'.concat(o, '"').concat(gfDetOpen("w" + o), '><summary><i class="odot" style="background:').concat(ORIGINS[o].col, '"></i><b>').concat(ORIGINS[o].name, "</b> <small>").concat(ORIG_WHY[o].when, "</small></summary><p>").concat(ORIG_WHY[o].why, "</p>").concat(ORIG_WHY[o].brings ? '<small class="gf-sub">They bring: '.concat(ORIG_WHY[o].brings, ".</small>") : "", "</details>")).join(""), "\n    ").concat(ORIG_IDS.filter((o) => !here.includes(o) && ORIG_WHY[o] && ORIGINS[o].waves && ORIGINS[o].waves[0][0] > govY(G)).slice(0, 3).map((o) => '<details class="gf-det" data-det="l'.concat(o, '"').concat(gfDetOpen("l" + o), '><summary><i class="odot" style="background:').concat(ORIGINS[o].col, ';opacity:0.5"></i><b>').concat(ORIGINS[o].name, "</b> <small>later: ").concat(ORIG_WHY[o].when, "</small></summary><p>").concat(ORIG_WHY[o].why, "</p></details>")).join(""), "</div>");
+  h += '<div class="gf-sec"><span class="label">Who did not come, and why</span>'.concat(WHO_NOT.map(([n, t]) => '<details class="gf-det" data-det="n'.concat(n, '"').concat(gfDetOpen("n" + n), "><summary><b>").concat(n, "</b></summary><p>").concat(t, "</p></details>")).join(""), "</div>");
   const H = C.arrHist.slice(-20);
   if (H.length) {
     const W = 320, Hh = 96;
@@ -28086,7 +28534,17 @@ function gfOrgsHTML() {
     return '<div class="gf-org"><div class="gf-gh"><span class="oico" style="background:'.concat(D.col, '">').concat(D.icon, "</span><div><b>").concat(D.name, "</b><small>").concat(civMembers(G, id), " ").concat(D.groups && id === "chamber" ? "members" : "members", " · since ").concat(O.since, '</small></div><em class="').concat(s >= 8 ? "pos" : s <= -8 ? "neg" : "", '">').concat(civMood(s), '</em></div>\n      <div class="gf-rel"><i style="left:').concat(s >= 0 ? 50 : 50 - w, "%;width:").concat(w, "%;background:").concat(s >= 0 ? "var(--palm)" : "var(--coral)", '"></i><b></b></div>\n      <div class="chips sm">').concat(P.filter((p) => p[0] && Math.abs(p[1]) >= 1).map(([l, v]) => '<span class="'.concat(v > 0 ? "ok" : "bad", '">').concat(l, " ").concat(gfSign(v), "</span>")).join(""), '</div>\n      <small class="gf-sub">').concat(st0 > 0 ? "Backs you at the next election." : st0 < 0 ? "Will campaign against you at the next election." : "Neutral before the next election.").concat(pet ? " · ".concat(pet.st === "ask" ? "Waiting for your answer" : "Your promise", ": ").concat(civPetTitle(G, pet)) : "", "</small>").concat(typeof civProtestHTML === "function" ? civProtestHTML(G, id, s) : "", "</div>");
   }).join(""));
 }
+const gfDetOpen = (k) => GF.detOpen && GF.detOpen.has(k) ? " open" : "";
+function gfBindDet() {
+  for (const d of document.querySelectorAll("#pbody details[data-det]")) d.ontoggle = () => {
+    const S = GF.detOpen || (GF.detOpen = /* @__PURE__ */ new Set());
+    if (d.open) S.add(d.dataset.det);
+    else S.delete(d.dataset.det);
+    UI.panelSig = "";
+  };
+}
 function gfBindPeople() {
+  gfBindDet();
   for (const x of document.querySelectorAll("#pbody [data-lawgo]")) x.onclick = () => {
     GF.sub.hall = "laws";
     GF.law = x.dataset.lawgo;
@@ -28357,6 +28815,7 @@ function govFullDraw(c, G2) {
       c.setLineDash([]);
     }
   }
+  if (typeof gridDraw === "function") gridDraw(c, G2, z, now);
   govDraw(c, G2, z, now);
   if (typeof gfDrawBuild === "function") gfDrawBuild(c, G2, z, now);
   for (const s of G2.ships) if (s.phase === "out" && s.cargo) {
@@ -28525,7 +28984,7 @@ const bldMonths = (t) => {
 const bldTakes = (G2) => !!(G2 && G2.gov && typeof govOn === "function" && govOn(G2));
 const monthsTxt = (m) => "".concat(m, " month").concat(m === 1 ? "" : "s");
 function bldStart(G2, b) {
-  if (!bldTakes(G2) || !b || b.id === G2.dockId) return;
+  if (!bldTakes(G2) || !b || b.id === G2.dockId || b.type === "pole") return;
   b.bt0 = G2.t;
   b.bt = G2.t + bldMonths(b.type) * GOV_DAYS * 1440 / 12;
 }
@@ -28540,6 +28999,7 @@ function bldTick(G2) {
     b.bornReal = typeof performance !== "undefined" ? performance.now() : 0;
     (done || (done = [])).push(b);
   }
+  if (done) G2._gridV = (G2._gridV || 0) + 1;
   if (!done) return;
   recomputeServices(G2);
   if (typeof assignJobs === "function") assignJobs(G2);
@@ -28573,11 +29033,12 @@ function bldFacts(G2, t) {
     const p0 = G2.pwStart != null ? G2.pwStart : G2.t;
     const rent = G2.t < p0 + 6 * 1440 && G2.gov ? govY(G2) + Math.max(0, Math.ceil((p0 + 4.5 * 1440 - G2.t) / (GOV_DAYS * 1440))) : null;
     F.push(["Electricity", "uses ".concat(need.toFixed(1), ' MW · <span class="').concat(spare >= need ? "pos" : PW_INDUSTRY(t) ? "neg" : "", '">').concat(Math.max(0, spare).toFixed(1), " MW to spare</span>").concat(spare < need && rent && !PW_INDUSTRY(t) ? " · rented diesel until about ".concat(rent) : "")]);
+    if (PW_INDUSTRY(t) && typeof gridOn === "function" && gridOn(G2)) F.push(["Power line", "must stand where the grid reaches: the yellow area on the map (Power lens). Elsewhere “Build + power line” puts up the poles."]);
   }
   const run = yr((d.jobs || 0) * wage + (d.upkeep || 0) * eraK);
   F.push(["Town pays", "".concat(fmtMoney(run), " a year").concat(d.jobs ? " (staff ".concat(fmtMoney(yr(d.jobs * wage)), ", upkeep ").concat(fmtMoney(yr(d.upkeep * eraK)), ")") : " upkeep")]);
   if (d.housing && typeof RENT !== "undefined") F.push(["Rent in", "".concat(fmtMoney(yr(d.housing * RENT[G2.era])), " a year when full (town housing)")]);
-  F.push(["Builders need", monthsTxt(bldMonths(t))]);
+  F.push(["Builders need", t === "pole" ? "no time: it goes up at once" : monthsTxt(bldMonths(t))]);
   const warn = [];
   if (d.noise) warn.push("noisy for homes within ".concat(d.noise, " tiles"));
   if (d.smoke) warn.push("smoke over homes within ".concat(d.smoke, " tiles"));
@@ -28604,7 +29065,8 @@ function gfBuildCardHTML(t) {
   h += '<div class="kv">'.concat(bldFacts(G, t).map(([k, v]) => '<span class="k">'.concat(k, '</span><span class="v">').concat(v, "</span>")).join(""), '<span class="k">Cost</span><span class="v"><b>').concat(fmtMoney(d.cost), "</b> · you have ").concat(fmtMoney(G.money), "</span></div>");
   h += '<div class="gf-sec"><span class="label">On the island</span><p>'.concat(same.length ? "".concat(same.length, " already ").concat(same.length === 1 ? "stands" : "stand").concat(sites ? " (".concat(sites, " still being built)") : "", ': outlined on the map. <button class="link" id="gbSame">Show them all</button>') : "None yet.", "</p></div>");
   const sg = GF.sugg && GF.sugg.type === t ? GF.sugg : null;
-  if (!lock) h += '<p class="gf-tip">'.concat(UI.pend && UI.pend.type === t ? "Check the ghost on the map, then press the red button in the bar at the top (<b>Build here</b>, or <b>Build + road</b> when a road has to be laid to it). Tap elsewhere to move it." : sg && sg.spots.length ? "Good places are <b>numbered on the map</b>".concat(sg.road ? ", but none is beside a street: it will need a short road to its door" : "", ". Tap one (or anywhere else); nothing is spent until you confirm.") : "Tap the map where it should go. Nothing is spent until you confirm.", "</p>");
+  if (!lock && t === "pole") h += '<p class="gf-tip">The <b>yellow area</b> on the map is where the grid reaches. Tap a spot within 8 tiles of it: each pole carries the grid on and lights 4 tiles around it. Tip: a workshop\'s own “Build + power line” puts up the poles for you.</p>';
+  else if (!lock) h += '<p class="gf-tip">'.concat(UI.pend && UI.pend.type === t ? "Check the ghost on the map, then press the red button in the bar at the top (<b>Build here</b>, or <b>Build + road</b> / <b>Build + power line</b> when a road or the power line has to be brought to it). Tap elsewhere to move it." : sg && sg.spots.length ? "Good places are <b>numbered on the map</b>".concat(sg.road ? ", but none is beside a street: it will need a short road to its door" : "", ". Tap one (or anywhere else); nothing is spent until you confirm.") : "Tap the map where it should go. Nothing is spent until you confirm.", "</p>");
   return h;
 }
 function gfBindBuildCard() {
@@ -28629,6 +29091,7 @@ function gfBindBuildCard() {
   };
 }
 function gfSuggest(t) {
+  if (t === "pole") return { type: t, spots: [], road: false };
   const d = BLD[t];
   const near = d.fertile ? "soil" : (d.noise || 0) >= 2 || d.kind === "power" ? "away" : "homes";
   let sp = govRich(G, () => stSpots(G, t, near, 3, 0)), road = false;
@@ -28692,7 +29155,7 @@ function gfConfirmBuild() {
   if (!p || !$("#modal").hidden || GF.modalLock) return false;
   const d = BLD[p.type];
   UI.pendQuiet = performance.now() + 450;
-  const rp = gfRoadPlan(p);
+  const rp = d.kind === "grid" ? null : gfRoadPlan(p), gp = gfGridPlan(p);
   const keep = UI.tool;
   UI.tool = p.type;
   UI.roadComing = !!(rp && rp.tiles.length);
@@ -28708,8 +29171,13 @@ function gfConfirmBuild() {
         if (n > 0) Music.sfx("road");
       }
     }
+    if (gp && gp.poles.length && typeof gridBuild === "function") {
+      const n = gridBuild(G, gp.poles);
+      if (n) toast({ key: "grid", title: "".concat(n, " power line pole").concat(n > 1 ? "s" : "", " up"), body: "The grid now reaches it. The Power lens shows the lit area.", tone: "good", timeout: 5e3 });
+    }
     UI.pend = null;
     GF._rp = null;
+    GF._gp = null;
     if (GF.sugg && GF.sugg.type === p.type) GF.sugg = gfSuggest(p.type);
   }
   UI.panelSig = "";
@@ -28720,6 +29188,21 @@ function gfCancelPend() {
   UI.pend = null;
   UI.panelSig = "";
   gfBuildBar();
+}
+function gfGridPlan(p) {
+  if (!p || !BLD[p.type] || typeof gridOn !== "function" || !gridOn(G) || !PW_INDUSTRY(p.type)) return null;
+  const d = BLD[p.type];
+  const key = "".concat(p.type, "|").concat(p.x, "|").concat(p.y, "|").concat(G.blds.size, "|").concat(G._gridV || 0);
+  if (GF._gp && GF._gp.key === key) return GF._gp;
+  if (gridCovers(G, p.x, p.y, d.w, d.h)) {
+    GF._gp = { key, poles: [], cost: 0 };
+    return GF._gp;
+  }
+  const rp = gfRoadPlan(p);
+  const avoid = new Set((rp && rp.tiles || []).map(([x, y]) => idx(x, y)));
+  const poles = gridPlan(G, p.x, p.y, d.w, d.h, avoid);
+  GF._gp = { key, poles: poles || [], none: poles == null, cost: poles ? poles.reduce((a, [x, y]) => a + POLE_COST + (G.terrain[idx(x, y)] === T.FOREST ? 8 : 0), 0) : 0 };
+  return GF._gp;
 }
 function gfRoadPlan(p) {
   if (!p || !BLD[p.type] || typeof stConnectPlan !== "function") return null;
@@ -28751,10 +29234,10 @@ function gfBuildBar() {
   const d = BLD[p.type], chk = gfPendCheck();
   const cost = chk && chk.cost != null ? chk.cost : d.cost;
   const warn = [];
-  let rp = null, roadTxt = "";
+  let rp = null, roadTxt = "", pwTxt = "";
   if (chk.ok) {
-    const pr2 = typeof perimeterRoads === "function" ? perimeterRoads(G, { x: p.x, y: p.y, w: d.w, h: d.h }) : [1];
-    const cut = !pr2.length || G.comp && !pr2.some((i) => G.comp[i] === G.harborComp);
+    const pr2 = typeof perimeterRoads === "function" && d.kind !== "grid" ? perimeterRoads(G, { x: p.x, y: p.y, w: d.w, h: d.h }) : [1];
+    const cut = d.kind !== "grid" && (!pr2.length || G.comp && !pr2.some((i) => G.comp[i] === G.harborComp));
     rp = cut ? gfRoadPlan(p) : null;
     if (cut && rp && rp.none) warn.push("no road can reach this spot");
     else if (cut && rp && rp.tiles.length) {
@@ -28762,6 +29245,10 @@ function gfBuildBar() {
       if (rp.tiles.length > 14) warn.push("a long road: a numbered place is cheaper");
       if (G.money < cost + rp.cost) warn.push("the money runs out before the road is finished");
     }
+    const gp = gfGridPlan(p);
+    if (gp && gp.none) warn.push("outside the power grid, and no line can reach it: it would run at half speed");
+    else if (gp && gp.poles.length) pwTxt = " + ".concat(fmtMoney(gp.cost), " for ").concat(gp.poles.length, " power line pole").concat(gp.poles.length > 1 ? "s" : "", " (yellow on the map)");
+    if (G.money < cost + (rp && rp.tiles ? rp.cost : 0) + (gp ? gp.cost : 0) && (pwTxt || roadTxt)) warn.push("not enough money for all of it");
     const R = d.smoke || (d.noise ? d.noise + 1 : 0);
     if (R) {
       let n = 0;
@@ -28770,9 +29257,9 @@ function gfBuildBar() {
     }
     if (cost > d.cost) warn.push("".concat(fmtMoney(cost - d.cost), " to clear trees"));
   }
-  const t1 = "".concat(d.name, " here?"), t2 = chk.ok ? "".concat(fmtMoney(cost)).concat(roadTxt, " · open in ").concat(monthsTxt(bldMonths(p.type)), " · you have ").concat(fmtMoney(G.money)).concat(warn.length ? " · ⚠ " + warn.join(" · ⚠ ") : "") : chk.reason;
+  const t1 = "".concat(d.name, " here?"), t2 = chk.ok ? "".concat(fmtMoney(cost)).concat(roadTxt).concat(pwTxt, " · ").concat(p.type === "pole" ? "up at once" : "open in ".concat(monthsTxt(bldMonths(p.type))), " · you have ").concat(fmtMoney(G.money)).concat(warn.length ? " · ⚠ " + warn.join(" · ⚠ ") : "") : chk.reason;
   {
-    const lb2 = roadTxt ? "Build + road" : "Build here";
+    const lb2 = roadTxt && pwTxt ? "Build + road + power" : pwTxt ? "Build + power line" : roadTxt ? "Build + road" : "Build here";
     const okb = el2.querySelector("#gbOk");
     if (okb.textContent !== lb2) okb.textContent = lb2;
   }
@@ -28865,6 +29352,30 @@ function gfDrawBuild(c, G2, z, now) {
     }
   }
   const p = UI.pend;
+  if (p && BLD[p.type] && GF._gp && GF._gp.poles.length && GF._gp.key.startsWith("".concat(p.type, "|").concat(p.x, "|").concat(p.y, "|"))) {
+    const zz = Math.min(z, 2);
+    let prev = null;
+    for (const [x, y] of GF._gp.poles) {
+      const cx = (x + 0.5) * TILE, cy = (y + 0.5) * TILE;
+      c.fillStyle = "rgba(255,205,70,0.9)";
+      c.beginPath();
+      c.arc(cx, cy, 5 / zz + 2, 0, 7);
+      c.fill();
+      c.strokeStyle = "#6b4f1d";
+      c.lineWidth = 1.4 / zz;
+      c.stroke();
+      if (prev) {
+        c.strokeStyle = "rgba(230,170,30,0.8)";
+        c.setLineDash([4 / zz, 3 / zz]);
+        c.beginPath();
+        c.moveTo(prev[0], prev[1]);
+        c.lineTo(cx, cy);
+        c.stroke();
+        c.setLineDash([]);
+      }
+      prev = [cx, cy];
+    }
+  }
   if (p && BLD[p.type] && GF._rp && GF._rp.tiles.length && GF._rp.key.startsWith("".concat(p.type, "|").concat(p.x, "|").concat(p.y, "|"))) {
     c.fillStyle = "rgba(90,96,104,0.55)";
     c.strokeStyle = "rgba(255,255,255,0.85)";
@@ -28953,10 +29464,11 @@ function drawSite(c, G2, b, z) {
 const ISSUE_COL = { red: "#d8393a", amber: "#e0960f", violet: "#8e5ea2", blue: "#2a8fb0" };
 function bldIssue(G2, b) {
   const d = BLD[b.type];
-  if (b.bt) return null;
+  if (b.bt || d.kind === "grid") return null;
   const dock = b.id === G2.dockId, age = G2.t - (b.born || -1e9);
   if (!dock && b.ent < 0) return { ic: "🚧", col: ISSUE_COL.red, t: "No road to its door", why: "Nobody can get in and no truck can take anything out.", fix: "Draw a road along one side of it." };
   if (!dock && G2.comp && G2.comp[b.ent] !== G2.harborComp) return { ic: "⛓", col: ISSUE_COL.red, t: "Cut off from the town", why: "Its road does not join the roads that lead to the harbor.", fix: "Join its road to the town’s streets." };
+  if (typeof offGrid === "function" && offGrid(G2, b)) return { ic: "🔌", col: ISSUE_COL.amber, t: "Off the power grid", why: "No power line reaches it, so it runs on a small generator of its own at half speed.", fix: "Put up power line poles from the grid to it (the Power lens shows the lit area), or press “Connect” in Rosa’s advice." };
   if (G2.civ && G2.civ.strike && G2.civ.strike.until > G2.t && (GROUP_OF[b.type] === "work" || GROUP_OF[b.type] === "fish") && b.wrk.length) return { ic: "✊", col: ISSUE_COL.red, t: "On strike", why: "The union has called its members out. Work runs at a third.", fix: G2.civ.strike.ask ? "The council can end it: ".concat(civAskText(G2.civ.strike.ask), " (Town hall → Laws).") : "It ends by itself in time." };
   if (d.jobs && !d.power && b.wrk.length === 0 && age > 360) {
     const un = Math.round((G2._jobless || 0) * G2.cits.size);
@@ -29055,6 +29567,33 @@ function gfAdvice(G2) {
   } else if (G2.pw && G2.pw.active && G2.pw.ratio < 0.9) {
     key = "pwshort";
     add(30, "⚡", "Electricity covers only ".concat(Math.round(G2.pw.ratio * 100), "%"), "Blackouts slow every workshop and make every home unhappier. One more plant usually fixes it.", [["Choose a plant", () => gfBuildCard(plant)]]);
+  }
+  if (typeof gridOn === "function" && gridOn(G2)) {
+    const off = all.filter((b) => offGrid(G2, b));
+    if (off.length) {
+      const can = off.filter((b) => {
+        const P = gridPlan(G2, b.x, b.y, b.w, b.h);
+        return P && P.length;
+      });
+      const est = can.reduce((a, b) => a + (gridPlan(G2, b.x, b.y, b.w, b.h) || []).length * POLE_COST, 0);
+      key = "offgrid";
+      add(
+        18,
+        "🔌",
+        off.length === 1 ? "The ".concat(BLD[off[0].type].name.toLowerCase(), " is off the power grid") : "".concat(off.length, " workshops and factories are off the power grid"),
+        "No power line reaches them, so they run on small generators of their own at half speed. A pole every few tiles carries the grid to them; the Power lens shows where it reaches.",
+        [...can.length ? [["Connect ".concat(can.length > 1 ? "them" : "it", " · about ").concat(fmtMoney(est)), () => {
+          const n = gridConnectAll(G2, false);
+          Music.sfx("road");
+          setLens("power");
+          UI.panelSig = "";
+          toast({ key: "grid", title: n ? "".concat(n, " power line pole").concat(n > 1 ? "s" : "", " up") : "Nothing built", body: n ? "The grid reaches them now: full speed again. The yellow area is where power reaches." : "Not enough money, or no free ground for the poles.", tone: n ? "good" : "bad", timeout: 6e3 });
+        }]] : [], ["Power lens", () => setLens("power")]]
+      );
+    } else if ((G2.civ && G2.civ.noGrid || 0) >= 1.5) {
+      key = "gridreach";
+      add(8, "🔌", "Families want to open workshops, but the power line reaches no free lot", "They will only build where the grid reaches. A few poles out into open land (Power line in the build bar) make room for new industry and jobs.", [["Power line", () => gfBuildCard("pole")], ["Power lens", () => setLens("power")]]);
+    }
   }
   if (G2.civ && G2.civ.strike && G2.civ.strike.until > G2.t) {
     const a = G2.civ.strike.ask;
@@ -30381,6 +30920,10 @@ function cycleRoad() {
   setTool("road" + nxt);
 }
 function setLens(l) {
+  if (l === "power" && !UI.powHint && typeof govFullOn === "function" && govFullOn()) {
+    UI.powHint = true;
+    toast({ key: "powlens", title: "The Power lens", body: "Yellow: the power line reaches here, so a workshop or factory can work at full speed. Dashed circles: the harbor, the plants and the poles. Red outline: a workshop off the grid.", tone: "report", timeout: 9e3 });
+  }
   UI.lens = l;
   if (l === "traffic") UI.lensUsed = true;
   for (const b of document.querySelectorAll("#lensbar button")) b.setAttribute("aria-pressed", String(b.dataset.lens === l));
@@ -30425,7 +30968,7 @@ function placeAt(t) {
         toast({ title: "".concat(BLD[r.b.type].name, " given to the ").concat(ORGS[r.b.org] ? ORGS[r.b.org].name : "community"), body: "They will run it. Change the congregation or society in Info.", tone: "good", timeout: 5e3 });
       }
     }
-    if (!perimeterRoads(G, r.b).length && !UI.warnedRoad && !UI.roadComing) {
+    if (!perimeterRoads(G, r.b).length && !UI.warnedRoad && !UI.roadComing && BLD[r.b.type].kind !== "grid") {
       UI.warnedRoad = true;
       toast({ title: "Needs a road", body: "".concat(d.name, " has no road on any side yet. Draw one next to it so people can reach it."), tone: "bad" });
     }
@@ -31362,11 +31905,12 @@ function inspectHTML() {
   const b = UI.selected != null ? G.blds.get(UI.selected) : null;
   if (!b) return '<div><span class="label">Inspect</span><h2>Pick something</h2></div><p>Choose the Inspect tool (Q), then tap a car, a building or a road. Tapping a car follows it with the camera, so you can zoom in and watch how it handles each junction. Homes and workplaces draw their commute lines on the map.</p>';
   const d = BLD[b.type];
-  let h = '<div><span class="label">'.concat(d.kind === "home" ? "Housing" : d.kind === "service" ? "Service" : b.id === G.dockId ? "Port" : "Workplace", "</span><h2>").concat(d.name, "</h2><p>").concat(d.desc, "</p></div>");
+  let h = '<div><span class="label">'.concat(d.kind === "home" ? "Housing" : d.kind === "service" ? "Service" : d.kind === "grid" ? "Power grid" : b.id === G.dockId ? "Port" : "Workplace", "</span><h2>").concat(d.name, "</h2><p>").concat(d.desc, "</p></div>");
   if (typeof govFullOn === "function" && govFullOn() && typeof bldIssueHTML === "function") h += bldIssueHTML(G, b);
   if (b.bt && typeof bldLeft === "function") h += '<div class="issue s0"><b>🏗 Building site</b><span>The builders need about '.concat(monthsTxt(bldLeft(G, b)), ' more. Until then it houses nobody and employs nobody.</span><div class="bar"><i style="width:').concat(Math.round(bldFrac(G, b) * 100), '%"></i></div></div>');
   const conn = b.ent < 0 ? '<span class="neg">No road access</span>' : G.comp[b.ent] !== G.harborComp ? '<span class="neg">Not connected to the harbor</span>' : '<span class="pos">Connected</span>';
-  h += '<div class="kv"><span class="k">Road</span><span class="v">'.concat(conn, "</span>");
+  const pwr = typeof gridOn === "function" && gridOn(G) ? d.kind === "grid" ? gridState(G).nodes.some((n) => n.b === b && n.live) ? '<span class="pos">On the grid</span>' : '<span class="neg">Cut off from the grid</span>' : PW_INDUSTRY(b.type) ? bGrid(G, b) ? '<span class="pos">On the grid</span>' : '<span class="neg">Off the grid: half speed</span>' : null : null;
+  h += d.kind === "grid" ? '<div class="kv"><span class="k">Power line</span><span class="v">'.concat(pwr || "–", '</span><span class="k">Lights</span><span class="v">4 tiles around it</span>') : '<div class="kv"><span class="k">Road</span><span class="v">'.concat(conn, "</span>").concat(pwr ? '<span class="k">Power line</span><span class="v">'.concat(pwr, "</span>") : "");
   if (d.kind === "home") {
     const rs = b.res.map((id) => G.cits.get(id)).filter(Boolean);
     const emp = rs.filter((c) => c.job != null).length;
@@ -31445,7 +31989,7 @@ function cropHTML(b) {
 function limits(b) {
   const d = BLD[b.type];
   const out = [];
-  if (b.bt) return out;
+  if (b.bt || d.kind === "grid") return out;
   if (b.ent < 0) out.push("No road: nobody can get here");
   else if (G.comp[b.ent] !== G.harborComp) out.push("Not connected to the harbor’s road network");
   if (d.jobs && b.wrk.length < d.jobs) out.push("".concat(d.jobs - b.wrk.length, " job").concat(d.jobs - b.wrk.length > 1 ? "s" : "", " unfilled: more homes nearby would help"));
@@ -31466,7 +32010,7 @@ function limits(b) {
 function bldEconHTML(b) {
   const d = BLD[b.type];
   const L = b.ledPrev, T0 = b.led || newLed();
-  if (d.kind === "home" || d.kind === "service" && !d.income) return "";
+  if (d.kind === "home" || d.kind === "grid" || d.kind === "service" && !d.income) return "";
   let h = '<div style="display:flex;flex-direction:column;gap:6px"><span class="label">Money · yesterday'.concat(L ? "" : " (after the first midnight)", ' · today so far</span><div class="kv">');
   const row = (k, a, t) => '<span class="k">'.concat(k, '</span><span class="v">').concat(a == null ? "–" : sgn(a), ' <span style="color:var(--ink-3)">· ').concat(sgn(t), "</span></span>");
   if (d.kind === "goods") {
@@ -31558,7 +32102,7 @@ function econAgg() {
   const by = /* @__PURE__ */ new Map();
   for (const b of G.blds.values()) {
     const d = BLD[b.type];
-    if (d.kind === "home" || d.kind === "service" && !d.income && !d.upkeep) continue;
+    if (d.kind === "home" || d.kind === "grid" || d.kind === "service" && !d.income && !d.upkeep) continue;
     let o = by.get(b.type);
     if (!o) {
       o = { type: b.type, n: 0, jobs: 0, wrk: 0, profit: 0, rev: 0, seen: 0, best: null, worst: null };
