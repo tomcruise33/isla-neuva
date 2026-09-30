@@ -11442,6 +11442,14 @@ function curveAt(G2, t, din, dout, o, p) {
       _pt.a = q.a;
       return _pt;
     }
+    if ((gg.ea < 0 || gg.eb < 0) && (din + 2) % 4 === dout && (ent === gg.ea || ent === gg.eb)) {
+      const out = ent === gg.eb, f = 0.8, oo = o * Math.min(1, Math.abs(p - 0.5) / 0.14);
+      const q = p < 0.5 ? geoAt(gg, 2 * p * f, out, oo) : geoAt(gg, 1 - f + (2 * p - 1) * f, !out, oo);
+      _pt.x = q.x;
+      _pt.y = q.y;
+      _pt.a = q.a;
+      return _pt;
+    }
   }
   if (G2.ctrl[t] === 2 && G2.arms[t] >= 3) {
     const r = TILE * 0.47;
@@ -12424,6 +12432,7 @@ function rClearTile(G2, i) {
   }
   G2.rcut[i] = 0;
   G2.rsm[i] = 0;
+  if (G2.rsid) G2.rsid[i] = 0;
 }
 function rLinks(G2, i) {
   const o = [];
@@ -12438,6 +12447,7 @@ function roadArrays(G2) {
   if (!G2.rsm || G2.rsm.length !== MAP_N) G2.rsm = new Uint8Array(MAP_N);
   if (!G2.rlen || G2.rlen.length !== MAP_N) G2.rlen = new Float32Array(MAP_N).fill(1);
   if (!G2.rgeo) G2.rgeo = /* @__PURE__ */ new Map();
+  rstkArrays(G2);
 }
 const RG_SEG = 6;
 const tileC = (i) => [i % MAP_W + 0.5, (i / MAP_W | 0) + 0.5];
@@ -12455,16 +12465,25 @@ function roadGeoRebuild(G2) {
   roadArrays(G2);
   G2.rgeo.clear();
   G2.rlen.fill(1);
-  const smooth = (i) => G2.rsm[i] && G2.road[i] && G2.arms[i] === 2 && !ROADS[G2.road[i]].tunnel;
+  if (!G2.rstkLegacy) {
+    G2.rstkLegacy = 1;
+    try {
+      roadsUpgradeLegacy(G2);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  const smooth = (i) => G2.rsm[i] && G2.road[i] && (G2.arms[i] === 2 || G2.arms[i] === 1 && G2.rsid[i]) && !ROADS[G2.road[i]].tunnel;
   const done = new Uint8Array(MAP_N);
   for (let s = 0; s < MAP_N; s++) {
     if (done[s] || !G2.rsm[s] || !smooth(s)) continue;
     done[s] = 1;
-    const L0 = rLinks(G2, s);
+    const L0 = rLinks(G2, s), sid = G2.rsid[s];
+    if (L0.length < 2) L0.push(-1);
     const walk = (d0) => {
       const out = [];
-      let prev = s, cur = rNb(s, d0);
-      while (cur >= 0 && cur !== s && smooth(cur) && !done[cur]) {
+      let prev = s, cur = d0 < 0 ? -1 : rNb(s, d0);
+      while (cur >= 0 && cur !== s && smooth(cur) && G2.rsid[cur] === sid && !done[cur]) {
         out.push(cur);
         done[cur] = 1;
         const nd = rLinks(G2, cur).find((d) => rNb(cur, d) !== prev);
@@ -12477,9 +12496,104 @@ function roadGeoRebuild(G2) {
     const loop = f.stop === s;
     const T2 = b.out.reverse().concat([s], f.out), n = T2.length;
     const pred = loop ? T2[n - 1] : b.stop, succ = loop ? T2[0] : f.stop;
-    if (!loop && (pred < 0 || succ < 0)) continue;
+    if (!loop && (pred < 0 || succ < 0) && !sid) continue;
     const E = loop ? T2 : [pred].concat(T2, [succ]);
-    const m = E.length;
+    if (!(sid && roadChainStroke(G2, sid, T2, E, loop)) && E[0] >= 0 && E[E.length - 1] >= 0) roadChainLegacy(G2, T2, E, loop);
+  }
+}
+function roadChainStroke(G2, sid, T2, E, loop) {
+  const K = strokeCache(G2, sid);
+  if (!K) return false;
+  const n = T2.length, m = E.length, geo = [];
+  for (let k = 0; k < n; k++) {
+    const e = loop ? k : k + 1, ep = loop ? (k - 1 + m) % m : e - 1, en = loop ? (k + 1) % m : e + 1, i = T2[k];
+    const ea = E[ep] < 0 ? -1 : rDir(i, E[ep]), eb = E[en] < 0 ? -1 : rDir(i, E[en]);
+    const endA = !loop && ep === 0 && ea >= 0, endB = !loop && en === m - 1 && eb >= 0;
+    let run = null, rev = false;
+    for (const R of K.runs.get(i) || []) {
+      if (R.sa === ea && R.sb === eb) {
+        run = R;
+        break;
+      }
+      if (R.sa === eb && R.sb === ea) {
+        run = R;
+        rev = true;
+        break;
+      }
+    }
+    if (!run) for (const R of K.runs.get(i) || []) {
+      if (R.sa === ea || R.sb === eb) {
+        run = R;
+        break;
+      }
+      if (R.sb === ea || R.sa === eb) {
+        run = R;
+        rev = true;
+        break;
+      }
+    }
+    if (!run && (ea < 0 || eb < 0)) {
+      const x2 = i % MAP_W, y2 = i / MAP_W | 0, d = ea < 0 ? eb : ea;
+      if (d < 0) return false;
+      const mm = edgeMid(x2, y2, d), c = [x2 + 0.5, y2 + 0.5], h = [(c[0] + mm[0]) / 2, (c[1] + mm[1]) / 2];
+      run = { p: ea < 0 ? [c[0], c[1], h[0], h[1], mm[0], mm[1]] : [mm[0], mm[1], h[0], h[1], c[0], c[1]] };
+    }
+    let pts = run ? rev ? revPts(run.p) : run.p.slice() : null;
+    const x = i % MAP_W, y = i / MAP_W | 0;
+    if (pts && (ea < 0 || eb < 0) && pts.length >= 4) {
+      const c = [x + 0.5, y + 0.5];
+      let kc = 0, bd = 9;
+      for (let q = 0; q < pts.length; q += 2) {
+        const dd = Math.hypot(pts[q] - c[0], pts[q + 1] - c[1]);
+        if (dd < bd) {
+          bd = dd;
+          kc = q;
+        }
+      }
+      if (ea < 0 && sideOf(pts[0], pts[1], x, y) >= 0) {
+        pts = pts.slice(Math.min(kc, pts.length - 4));
+      }
+      if (eb < 0 && sideOf(pts[pts.length - 2], pts[pts.length - 1], x, y) >= 0) {
+        pts = pts.slice(0, Math.max(kc + 2, 4));
+      }
+    }
+    const sq = (px, py, tx, ty, d, into) => {
+      const m2 = edgeMid(x, y, d), o = into ? inward(d) : outward(d);
+      return Math.hypot(px - m2[0], py - m2[1]) < 0.02 && tx * o[0] + ty * o[1] > 0.995;
+    };
+    const okA = pts && sideOf(pts[0], pts[1], x, y) === ea && (!endA || sq(pts[0], pts[1], ...unit(pts[2] - pts[0], pts[3] - pts[1]), ea, true));
+    const okB = pts && sideOf(pts[pts.length - 2], pts[pts.length - 1], x, y) === eb && (!endB || sq(pts[pts.length - 2], pts[pts.length - 1], ...unit(pts[pts.length - 2] - pts[pts.length - 4], pts[pts.length - 1] - pts[pts.length - 3]), eb, false));
+    if (!pts || !okA || !okB) {
+      const pa = okA ? [pts[0], pts[1]] : edgeMid(x, y, ea), pb = okB ? [pts[pts.length - 2], pts[pts.length - 1]] : edgeMid(x, y, eb);
+      const ta = okA ? unit(pts[2] - pts[0], pts[3] - pts[1]) : inward(ea), tb = okB ? unit(pts[pts.length - 2] - pts[pts.length - 4], pts[pts.length - 1] - pts[pts.length - 3]) : outward(eb);
+      if (!okA || !okB) {
+        const out = [];
+        const Lh = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]);
+        hermite(pa, ta, pb, tb, Lh * 1.05, out);
+        pts = out;
+      }
+    }
+    geo.push({ i, pts, ea, eb });
+  }
+  let dist = 0;
+  for (const q of geo) {
+    const pts = q.pts, cl = [0];
+    let len = 0;
+    for (let k = 2; k < pts.length; k += 2) {
+      len += Math.hypot(pts[k] - pts[k - 2], pts[k + 1] - pts[k - 1]);
+      cl.push(len);
+    }
+    const t0 = unit(pts[2] - pts[0], pts[3] - pts[1]), t1 = unit(pts[pts.length - 2] - pts[pts.length - 4], pts[pts.length - 1] - pts[pts.length - 3]);
+    const turn = Math.abs(Math.atan2(t0[0] * t1[1] - t0[1] * t1[0], t0[0] * t1[0] + t0[1] * t1[1]));
+    G2.rgeo.set(q.i, { p: new Float32Array(pts), cl, len, ea: q.ea, eb: q.eb, d0: dist, turn });
+    G2.rlen[q.i] = Math.max(0.3, len) * (turn > 2.2 ? 1.45 : turn > 1.3 ? 1.2 : 1);
+    dist += len;
+  }
+  return true;
+}
+function roadChainLegacy(G2, T2, E, loop) {
+  const n = T2.length, m = E.length;
+  {
     const C = E.map(tileC);
     const W5 = [1, 2, 3, 2, 1];
     const S = C.map((_, k) => {
@@ -12534,6 +12648,406 @@ function roadGeoRebuild(G2) {
     }
   }
 }
+const SIDE_N = 0, SIDE_E = 1, SIDE_S = 2, SIDE_W = 3;
+const edgeMid = (x, y, d) => d === 0 ? [x + 0.5, y] : d === 1 ? [x + 1, y + 0.5] : d === 2 ? [x + 0.5, y + 1] : [x, y + 0.5];
+const outward = (d) => d === 0 ? [0, -1] : d === 1 ? [1, 0] : d === 2 ? [0, 1] : [-1, 0];
+const inward = (d) => {
+  const o = outward(d);
+  return [-o[0], -o[1]];
+};
+function sideOf(px, py, x, y) {
+  const e = 2e-3;
+  if (Math.abs(px - x) < e) return 3;
+  if (Math.abs(px - x - 1) < e) return 1;
+  if (Math.abs(py - y) < e) return 0;
+  if (Math.abs(py - y - 1) < e) return 2;
+  return -1;
+}
+const revPts = (p) => {
+  const o = [];
+  for (let k = p.length - 2; k >= 0; k -= 2) o.push(p[k], p[k + 1]);
+  return o;
+};
+function rstkArrays(G2) {
+  if (!G2.rsid || G2.rsid.length !== MAP_N) G2.rsid = new Int32Array(MAP_N);
+  if (!G2.rstk) G2.rstk = /* @__PURE__ */ new Map();
+  if (!G2.rstkSeq) G2.rstkSeq = 0;
+  if (!G2._rstkC) G2._rstkC = /* @__PURE__ */ new Map();
+}
+function strokeGeo(ctrl, rmax, leadA, leadB) {
+  const P = ctrl, n = P.length;
+  if (n < 2) return null;
+  const S = [];
+  for (let k = 0; k < n - 1; k++) {
+    const dx = P[k + 1][0] - P[k][0], dy = P[k + 1][1] - P[k][1], L = Math.hypot(dx, dy) || 1e-9;
+    S.push([dx / L, dy / L, L]);
+  }
+  const th = new Array(n).fill(0), t = new Array(n).fill(0);
+  for (let k = 1; k < n - 1; k++) {
+    const a = S[k - 1], b = S[k];
+    th[k] = Math.acos(clamp(a[0] * b[0] + a[1] * b[1], -1, 1));
+    if (th[k] > 3e-3) t[k] = th[k] > 3.13 ? 1e6 : rmax * Math.tan(th[k] / 2);
+  }
+  for (let it = 0; it < 8; it++) for (let k = 0; k < n - 1; k++) {
+    const cap = Math.max(0, S[k][2] - (k === 0 ? leadA : 0) - (k === n - 2 ? leadB : 0)) * 0.999, a = k === 0 ? 0 : t[k], b = k + 1 === n - 1 ? 0 : t[k + 1];
+    if (a + b > cap && a + b > 0) {
+      const f = cap / (a + b);
+      if (k > 0) t[k] = a * f;
+      if (k + 1 < n - 1) t[k + 1] = b * f;
+    }
+  }
+  const out = [P[0][0], P[0][1]];
+  for (let k = 1; k < n - 1; k++) {
+    const a = S[k - 1], b = S[k], tk = t[k];
+    if (tk < 1e-4 || th[k] < 3e-3) {
+      out.push(P[k][0], P[k][1]);
+      continue;
+    }
+    const R = tk / Math.tan(th[k] / 2), ix = P[k][0] - a[0] * tk, iy = P[k][1] - a[1] * tk, ox = P[k][0] + b[0] * tk, oy = P[k][1] + b[1] * tk;
+    let nx = -a[1], ny = a[0];
+    if (nx * b[0] + ny * b[1] < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    const cx = ix + nx * R, cy = iy + ny * R;
+    const a0 = Math.atan2(iy - cy, ix - cx);
+    let da = Math.atan2(oy - cy, ox - cx) - a0;
+    while (da > Math.PI) da -= 2 * Math.PI;
+    while (da < -Math.PI) da += 2 * Math.PI;
+    const steps = Math.max(2, Math.ceil(Math.abs(da) * Math.max(R, 0.3) / 0.1));
+    out.push(ix, iy);
+    for (let q = 1; q <= steps; q++) {
+      const ang = a0 + da * q / steps;
+      out.push(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R);
+    }
+  }
+  out.push(P[n - 1][0], P[n - 1][1]);
+  const o2 = [out[0], out[1]];
+  for (let k = 2; k < out.length; k += 2) if (Math.hypot(out[k] - o2[o2.length - 2], out[k + 1] - o2[o2.length - 1]) > 1e-5) o2.push(out[k], out[k + 1]);
+  return o2;
+}
+function strokeCut(pts) {
+  const tiles = [], runs = /* @__PURE__ */ new Map();
+  let cur = null, curI = -1;
+  const put = (i, x, y, side) => {
+    if (i !== curI) {
+      if (cur) {
+        if (side != null) cur.sb = (side + 2) % 4;
+        const L = runs.get(curI) || [];
+        L.push(cur);
+        runs.set(curI, L);
+      }
+      cur = { p: [x, y], sa: side };
+      curI = i;
+      const tx = i % MAP_W, ty = i / MAP_W | 0;
+      tiles.push([tx, ty]);
+    }
+  };
+  for (let k = 0; k + 3 < pts.length; k += 2) {
+    const ax = pts[k], ay = pts[k + 1], bx = pts[k + 2], by = pts[k + 3], dx = bx - ax, dy = by - ay;
+    let x = Math.floor(ax), y = Math.floor(ay);
+    const sx = Math.sign(dx), sy = Math.sign(dy);
+    const tdx = sx ? Math.abs(1 / dx) : Infinity, tdy = sy ? Math.abs(1 / dy) : Infinity;
+    let tmx = sx > 0 ? (x + 1 - ax) * tdx : sx < 0 ? (ax - x) * tdx : Infinity, tmy = sy > 0 ? (y + 1 - ay) * tdy : sy < 0 ? (ay - y) * tdy : Infinity;
+    if (!inMap(x, y)) return null;
+    put(idx(x, y), ax, ay);
+    let guard = 0;
+    while (guard++ < 400) {
+      const tn = Math.min(tmx, tmy, 1);
+      if (tn >= 1) break;
+      const px = ax + dx * tn, py = ay + dy * tn;
+      cur.p.push(px, py);
+      let side;
+      if (tmx < tmy) {
+        x += sx;
+        tmx += tdx;
+        side = sx > 0 ? 3 : 1;
+      } else {
+        y += sy;
+        tmy += tdy;
+        side = sy > 0 ? 0 : 2;
+      }
+      if (!inMap(x, y)) return null;
+      put(idx(x, y), px, py, side);
+    }
+    cur.p.push(bx, by);
+  }
+  if (cur) {
+    const L = runs.get(curI) || [];
+    L.push(cur);
+    runs.set(curI, L);
+  }
+  for (const [i, L] of runs) {
+    const x = i % MAP_W, y = i / MAP_W | 0;
+    for (const R of L) {
+      const p = R.p;
+      if (R.sa == null) R.sa = sideOf(p[0], p[1], x, y);
+      if (R.sb == null) R.sb = sideOf(p[p.length - 2], p[p.length - 1], x, y);
+    }
+  }
+  return { tiles, runs };
+}
+function strokeCache(G2, sid) {
+  rstkArrays(G2);
+  let K = G2._rstkC.get(sid);
+  if (K) return K;
+  const S = G2.rstk.get(sid);
+  if (!S) return null;
+  const geo = strokeGeoN(S);
+  if (!geo) return null;
+  const cut = strokeCut(geo);
+  if (!cut) return null;
+  K = { geo, runs: cut.runs, tiles: cut.tiles };
+  G2._rstkC.set(sid, K);
+  return K;
+}
+const rnd3 = (v) => Math.round(v * 1e3) / 1e3;
+function strokeGeoN(S) {
+  const g = strokeGeo(S.c, S.r, S.la || 0, S.lb || 0);
+  if (!g || g.length < 4) return null;
+  const n = g.length;
+  if (S.la) {
+    const [tx, ty] = unit(g[2] - g[0], g[3] - g[1]);
+    g[0] += tx * 1e-4;
+    g[1] += ty * 1e-4;
+  }
+  if (S.lb) {
+    const [tx, ty] = unit(g[n - 2] - g[n - 4], g[n - 1] - g[n - 3]);
+    g[n - 2] -= tx * 1e-4;
+    g[n - 1] -= ty * 1e-4;
+  }
+  return g;
+}
+function strokeDesign(G2, run, a, b, rmax, eps, D = 0.9, guide = null) {
+  const n = run.length;
+  if (n < 2) return null;
+  let best = null;
+  for (let w = 0; w < 4; w++) {
+    const D1 = strokeDesign1(G2, run, a, b, rmax, eps, D - 0.05 * w, guide, STROKE_JIT[w]);
+    if (!D1) continue;
+    if (!best || D1.sliver > best.sliver) best = D1;
+    if (D1.sliver >= 0.08) break;
+  }
+  return best;
+}
+function strokeMergeCorners(P) {
+  const L = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), cr = (a, b, c) => (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+  for (let guard = 0; guard < 40; guard++) {
+    let done = true;
+    for (let k = 1; k + 2 < P.length; k++) {
+      const a = P[k - 1], b = P[k], c = P[k + 1], d = P[k + 2], s1 = cr(a, b, c), s2 = cr(b, c, d);
+      if (s1 * s2 <= 0 || L(b, c) > 0.8 * Math.min(L(a, b), L(c, d))) continue;
+      const u = unit(b[0] - a[0], b[1] - a[1]), v = unit(d[0] - c[0], d[1] - c[1]), den = u[0] * v[1] - u[1] * v[0];
+      if (Math.abs(den) < 0.05 || u[0] * v[0] + u[1] * v[1] < -0.6) continue;
+      const t = ((c[0] - a[0]) * v[1] - (c[1] - a[1]) * v[0]) / den, X = [a[0] + u[0] * t, a[1] + u[1] * t];
+      if (t <= 0 || L(X, b) > 2.5 || L(X, c) > 2.5 || (X[0] - c[0]) * v[0] + (X[1] - c[1]) * v[1] > 0) continue;
+      P.splice(k, 2, X);
+      done = false;
+      break;
+    }
+    if (done) break;
+  }
+  return P;
+}
+const STROKE_JIT = [[0.0131, 73e-4], [-0.0212, 0.0169], [0.0343, -0.0261], [-0.0417, -0.0389]];
+function strokeDesign1(G2, run, a, b, rmax, eps, D, guide, J) {
+  const n = run.length;
+  const C = run.map(([x, y]) => [x + 0.5, y + 0.5]);
+  const jit = (p) => [p[0] + J[0], p[1] + J[1]];
+  const g = guide && guide.length >= 2 ? guide : null;
+  let pA, tA = null, pB, tB = null;
+  if (a) {
+    const d = rDir(idx(a[0], a[1]), idx(run[0][0], run[0][1]));
+    pA = edgeMid(a[0], a[1], d);
+    tA = outward(d);
+  } else pA = jit(g ? g[0] : C[0]);
+  if (b) {
+    const d = rDir(idx(b[0], b[1]), idx(run[n - 1][0], run[n - 1][1]));
+    pB = edgeMid(b[0], b[1], d);
+    tB = inward(d);
+  } else pB = jit(g ? g[g.length - 1] : C[n - 1]);
+  let inner = g ? g.slice(a ? 0 : 1, b ? g.length : g.length - 1) : C.slice(a ? 0 : 1, b ? n : n - 1);
+  if (g) {
+    const near = (p, q, r) => Math.hypot(p[0] - q[0], p[1] - q[1]) < r;
+    inner = inner.filter((p) => !(tA && near(p, pA, D + 0.25)) && !(tB && near(p, pB, D + 0.25)));
+  }
+  const mids = rdp([pA].concat(inner, [pB]), eps);
+  let ctrl = mids.map((p) => [p[0], p[1]]);
+  if (g) strokeMergeCorners(ctrl);
+  const PROT = 0.22, far = (p, q) => Math.hypot(q[0] - p[0], q[1] - p[1]);
+  if (tA) {
+    const Da = clamp(Math.min(D, far(pA, ctrl[1]) * 0.45), 0.3, D);
+    ctrl.splice(1, 0, [pA[0] + tA[0] * Da, pA[1] + tA[1] * Da]);
+  }
+  if (tB) {
+    const Db = clamp(Math.min(D, far(ctrl[ctrl.length - 2], pB) * 0.45), 0.3, D);
+    ctrl.splice(ctrl.length - 1, 0, [pB[0] - tB[0] * Db, pB[1] - tB[1] * Db]);
+  }
+  for (let k = ctrl.length - 2; k >= 1; k--) {
+    if (tA && k === 1 || tB && k === ctrl.length - 2) continue;
+    const [p0, p1, p2] = [ctrl[k - 1], ctrl[k], ctrl[k + 1]];
+    const u = unit(p1[0] - p0[0], p1[1] - p0[1]), v = unit(p2[0] - p1[0], p2[1] - p1[1]);
+    if (u[0] * v[0] + u[1] * v[1] > 0.9985) ctrl.splice(k, 1);
+  }
+  ctrl = ctrl.map((p) => [rnd3(p[0]), rnd3(p[1])]);
+  const S = { c: ctrl, r: rmax, la: tA ? PROT : 0, lb: tB ? PROT : 0 };
+  const geo = strokeGeoN(S);
+  if (!geo) return null;
+  const cut = strokeCut(geo);
+  if (!cut) return null;
+  let tiles = cut.tiles;
+  if (a && tiles.length && tiles[0][0] === a[0] && tiles[0][1] === a[1]) tiles = tiles.slice(1);
+  if (b && tiles.length && tiles[tiles.length - 1][0] === b[0] && tiles[tiles.length - 1][1] === b[1]) tiles = tiles.slice(0, -1);
+  if (noLoops(tiles).length !== tiles.length) return null;
+  let sliver = 9;
+  for (let k = 1; k < tiles.length - 1; k++) {
+    const L = cut.runs.get(idx(tiles[k][0], tiles[k][1])) || [];
+    for (const R of L) {
+      let len = 0;
+      for (let q = 2; q < R.p.length; q += 2) len += Math.hypot(R.p[q] - R.p[q - 2], R.p[q + 1] - R.p[q - 1]);
+      sliver = Math.min(sliver, len);
+    }
+  }
+  return { S, geo, tiles, sliver };
+}
+function roadStrokes(G2, rough, type, mode, serp, guide) {
+  rstkArrays(G2);
+  const n = rough.length;
+  if (n < 3) return null;
+  const old = rough.map(([x, y]) => !!G2.road[idx(x, y)]);
+  const rmax = mode === "straight" && !serp ? 2.5 : 40, eps = serp ? 0.62 : mode === "straight" ? 1.2 : guide ? 0.3 : 0.72;
+  const at = new Map(rough.map(([x, y], k2) => [idx(x, y), k2])), G22 = guide && !serp ? guide.map((p) => [p, at.get(inMap(Math.floor(p[0]), Math.floor(p[1])) ? idx(Math.floor(p[0]), Math.floor(p[1])) : -1)]).filter((q) => q[1] != null) : null;
+  const guideOf = (k2, e) => {
+    if (!G22) return null;
+    const o = [];
+    let started = false;
+    for (const [p, q] of G22) {
+      if (q >= k2 && q <= e) {
+        o.push(p);
+        started = true;
+      } else if (started && q > e) break;
+    }
+    return o.length >= 2 ? o : null;
+  };
+  const out = [], runs = [];
+  let k = 0;
+  while (k < n) {
+    if (old[k]) {
+      out.push(rough[k]);
+      k++;
+      continue;
+    }
+    let e = k;
+    while (e + 1 < n && !old[e + 1]) e++;
+    const run = rough.slice(k, e + 1), a = k > 0 ? rough[k - 1] : null, b = e < n - 1 ? rough[e + 1] : null;
+    const gd = guideOf(k, e);
+    let D = null;
+    for (const [ep, dd] of [[eps, 0.9], [eps * 0.7, 0.9], [eps * 0.45, 0.5]]) {
+      D = run.length >= 2 ? strokeDesign(G2, run, a, b, rmax, ep, dd, gd) : null;
+      if (D && D.tiles.length && D.tiles.every(([x, y]) => !G2.road[idx(x, y)])) break;
+      D = null;
+    }
+    if (D) {
+      runs.push({ S: D.S, geo: D.geo, from: out.length, n: D.tiles.length });
+      for (const t of D.tiles) out.push(t);
+    } else {
+      runs.push({ S: null, geo: null, from: out.length, n: run.length });
+      for (const t of run) out.push(t);
+    }
+    k = e + 1;
+  }
+  const tiles = noLoops(out);
+  if (tiles.length !== out.length) return null;
+  return { tiles, runs };
+}
+function roadStrokesKeep(G2, R, fresh) {
+  if (!R) return;
+  rstkArrays(G2);
+  for (const r of R.runs) {
+    if (!r.S) continue;
+    const own = R.tiles.slice(r.from, r.from + r.n).map(([x, y]) => idx(x, y)).filter((i) => fresh.has(i) && G2.road[i]);
+    if (!own.length) continue;
+    const id = ++G2.rstkSeq;
+    G2.rstk.set(id, r.S);
+    G2._rstkC.delete(id);
+    for (const i of own) G2.rsid[i] = id;
+  }
+}
+function rstkSave(G2) {
+  if (!G2.rsid || !G2.rstk) return G2.rstkLegacy ? { q: 0, s: [], d: [], L: 1 } : void 0;
+  const used = /* @__PURE__ */ new Set(), d = [];
+  let v = -1, n = 0;
+  for (let i = 0; i < MAP_N; i++) {
+    const s = G2.road[i] ? G2.rsid[i] : 0;
+    if (s) used.add(s);
+    if (s === v) n++;
+    else {
+      if (n) d.push(v, n);
+      v = s;
+      n = 1;
+    }
+  }
+  if (n) d.push(v, n);
+  const S = [];
+  for (const [id, k] of G2.rstk) if (used.has(id)) S.push([id, k.r, k.la || 0, k.lb || 0].concat(...k.c));
+  return { q: G2.rstkSeq || 0, s: S, d: used.size ? d : [], L: G2.rstkLegacy ? 1 : 0 };
+}
+function rstkLoad(W, o) {
+  rstkArrays(W);
+  if (!o) return;
+  W.rstkSeq = o.q || 0;
+  W.rstkLegacy = o.L ? 1 : 0;
+  for (const a of o.s || []) {
+    const [id, r, la, lb] = a, c = [];
+    for (let k = 4; k + 1 < a.length; k += 2) c.push([a[k], a[k + 1]]);
+    if (c.length >= 2) W.rstk.set(id, { c, r, la, lb });
+  }
+  let i = 0;
+  const d = o.d || [];
+  for (let k = 0; k + 1 < d.length && i < MAP_N; k += 2) {
+    const v = W.rstk.has(d[k]) ? d[k] : 0;
+    W.rsid.fill(v, i, Math.min(MAP_N, i + d[k + 1]));
+    i += d[k + 1];
+  }
+}
+function roadsUpgradeLegacy(G2) {
+  rstkArrays(G2);
+  const smooth = (i) => G2.rsm[i] && G2.road[i] && G2.arms && G2.arms[i] === 2 && !ROADS[G2.road[i]].tunnel && !G2.rsid[i];
+  const seen = new Uint8Array(MAP_N);
+  for (let s = 0; s < MAP_N; s++) {
+    if (seen[s] || !smooth(s)) continue;
+    seen[s] = 1;
+    const L0 = rLinks(G2, s);
+    if (L0.length !== 2) continue;
+    const walk = (d0) => {
+      const o = [];
+      let prev = s, cur = rNb(s, d0);
+      while (cur >= 0 && cur !== s && smooth(cur) && !seen[cur]) {
+        o.push(cur);
+        seen[cur] = 1;
+        const nd = rLinks(G2, cur).find((d) => rNb(cur, d) !== prev);
+        prev = cur;
+        cur = nd == null ? -1 : rNb(cur, nd);
+      }
+      return { o, stop: cur };
+    };
+    const f = walk(L0[1]), b = walk(L0[0]);
+    if (f.stop === s || f.stop < 0 || b.stop < 0) continue;
+    const T2 = b.o.reverse().concat([s], f.o);
+    if (T2.length < 2) continue;
+    const xy = (i) => [i % MAP_W, i / MAP_W | 0], run = T2.map(xy);
+    for (const [ep, dd] of [[0.62, 0.9], [0.45, 0.9], [0.62, 0.5], [0.3, 0.9], [0.3, 0.5], [0.18, 0.5]]) {
+      const D = strokeDesign(G2, run, xy(b.stop), xy(f.stop), 40, ep, dd);
+      if (!D) continue;
+      const got = D.tiles.map(([x, y]) => idx(x, y));
+      if (got.length !== T2.length || got.some((v, k) => v !== T2[k])) continue;
+      const id = ++G2.rstkSeq;
+      G2.rstk.set(id, D.S);
+      for (const i of T2) G2.rsid[i] = id;
+      break;
+    }
+  }
+}
 const _gp = { x: 0, y: 0, a: 0 };
 function geoAt(g, s, rev, o) {
   const p = g.p, n = p.length / 2;
@@ -12570,9 +13084,13 @@ function geoStroke(c, g, o, width, style, dash, dashOff) {
   if (dash) {
     c.setLineDash(dash);
     c.lineDashOffset = -(dashOff || 0);
+    c.lineCap = "butt";
   }
   c.stroke();
-  if (dash) c.setLineDash([]);
+  if (dash) {
+    c.setLineDash([]);
+    c.lineCap = "round";
+  }
 }
 const geoNearJunction = (G2, i) => {
   for (const d of rLinks(G2, i)) {
@@ -12658,7 +13176,9 @@ function curveTiles(trail) {
   pts.push(P[n - 1]);
   const out = [];
   for (let k = 0; k < pts.length - 1; k++) gridWalk(pts[k][0], pts[k][1], pts[k + 1][0], pts[k + 1][1], out);
-  return noLoops(out.filter(([x, y]) => inMap(x, y)));
+  const tiles = noLoops(out.filter(([x, y]) => inMap(x, y)));
+  tiles.guide = pts;
+  return tiles;
 }
 const SERP_GMAX = 0.085;
 function hSmooth(G2, x, y) {
@@ -12845,18 +13365,30 @@ function roadDragPoint(t) {
       const p = roadFollow(G, s, e, Math.abs(t.x - d.x0) + Math.abs(t.y - d.y0));
       if (p) tiles = p.map((i) => [i % MAP_W, i / MAP_W | 0]);
     }
+    d.strokes = null;
     if (!tiles) {
-      if (mode === "straight") tiles = straightTiles(d.x0, d.y0, t.x, t.y);
-      else {
+      let guide = null;
+      if (mode === "straight") {
+        tiles = straightTiles(d.x0, d.y0, t.x, t.y);
+        const A = [d.x0 + 0.5, d.y0 + 0.5], B = [t.x + 0.5, t.y + 0.5], m = Math.max(1, Math.ceil(Math.hypot(B[0] - A[0], B[1] - A[1]) / 0.25));
+        guide = [];
+        for (let q = 0; q <= m; q++) guide.push([A[0] + (B[0] - A[0]) * q / m, A[1] + (B[1] - A[1]) * q / m]);
+      } else {
         const pt = roadDragPoint(t);
         if (!d.trail) d.trail = [[d.x0 + 0.5, d.y0 + 0.5]];
         const l = d.trail[d.trail.length - 1];
         if (Math.hypot(pt[0] - l[0], pt[1] - l[1]) >= 0.3) d.trail.push(pt);
         tiles = curveTiles(d.trail.concat([pt]));
+        guide = tiles.guide;
       }
       const sp = serpentinize(G, tiles);
       d.serp = sp;
       if (sp) tiles = sp.tiles;
+      const R = roadStrokes(G, tiles, d.type, mode, !!sp, guide);
+      if (R) {
+        d.strokes = R;
+        tiles = R.tiles;
+      }
     } else d.serp = null;
     d.tiles = tiles;
     d.plan = planRoad(G, tiles, d.type);
@@ -12895,6 +13427,7 @@ function roadFollow(G2, s, e, direct) {
     const path = tiles.map(([x, y]) => idx(x, y)), fresh = new Set(path.filter((i) => G.road[i] && !before.has(i)));
     if (r.built) {
       roadSmoothLink(G, path, fresh);
+      roadStrokesKeep(G, d.strokes, fresh);
       recomputeNetwork(G);
       Music.sfx("road");
     }
@@ -12929,34 +13462,53 @@ function roadFollow(G2, s, e, direct) {
 }
 function drawRoadPreview(c, d) {
   if (!d || !d.smooth || !d.tiles || d.tiles.length < 2) return;
-  const C = d.tiles.map(([x, y]) => [x + 0.5, y + 0.5]), n = C.length;
-  const S = C.map((_, k) => {
-    let x = 0, y = 0, w = 0;
-    for (let q = -2; q <= 2; q++) {
-      const kk = k + q;
-      if (kk < 0 || kk >= n) continue;
-      const ww = [1, 2, 3, 2, 1][q + 2];
-      x += C[kk][0] * ww;
-      y += C[kk][1] * ww;
-      w += ww;
+  const z = View.cam.z, lines = [];
+  const smoothOf = (T2) => {
+    const C = T2.map(([x2, y2]) => [x2 + 0.5, y2 + 0.5]), n = C.length;
+    return C.map((_, k) => {
+      let x2 = 0, y2 = 0, w = 0;
+      for (let q = -2; q <= 2; q++) {
+        const kk = k + q;
+        if (kk < 0 || kk >= n) continue;
+        const ww = [1, 2, 3, 2, 1][q + 2];
+        x2 += C[kk][0] * ww;
+        y2 += C[kk][1] * ww;
+        w += ww;
+      }
+      return [x2 / w, y2 / w];
+    });
+  };
+  if (d.strokes) {
+    for (const r of d.strokes.runs) {
+      if (r.geo) {
+        const L = [];
+        for (let k = 0; k < r.geo.length; k += 2) L.push([r.geo[k], r.geo[k + 1]]);
+        lines.push(L);
+      } else if (r.n >= 2) lines.push(smoothOf(d.strokes.tiles.slice(r.from, r.from + r.n)));
     }
-    return [x / w, y / w];
-  });
-  const z = View.cam.z;
+  } else lines.push(smoothOf(d.tiles));
   c.lineCap = "round";
   c.lineJoin = "round";
-  c.strokeStyle = "rgba(30,40,40,0.35)";
-  c.lineWidth = ROADS[d.type].width * TILE + 3;
-  c.beginPath();
-  S.forEach(([x, y], k) => k ? c.lineTo(x * TILE, y * TILE) : c.moveTo(x * TILE, y * TILE));
-  c.stroke();
-  c.strokeStyle = "rgba(255,255,255,0.9)";
-  c.lineWidth = 1.6 / Math.min(z, 2);
-  c.setLineDash([4, 3]);
-  c.stroke();
-  c.setLineDash([]);
+  const path = (L) => {
+    c.beginPath();
+    L.forEach(([x2, y2], k) => k ? c.lineTo(x2 * TILE, y2 * TILE) : c.moveTo(x2 * TILE, y2 * TILE));
+  };
+  for (const L of lines) {
+    path(L);
+    c.strokeStyle = "rgba(30,40,40,0.35)";
+    c.lineWidth = ROADS[d.type].width * TILE + 3;
+    c.stroke();
+  }
+  for (const L of lines) {
+    path(L);
+    c.strokeStyle = "rgba(255,255,255,0.9)";
+    c.lineWidth = 1.6 / Math.min(z, 2);
+    c.setLineDash([4, 3]);
+    c.stroke();
+    c.setLineDash([]);
+  }
+  const last = d.tiles[d.tiles.length - 1], x = last[0] + 0.5, y = last[1] + 0.5;
   if (d.serp && d.serp.bends) {
-    const [x, y] = S[S.length - 1];
     c.font = "700 ".concat(Math.round(11 / Math.min(z, 2.2)), "px system-ui, sans-serif");
     c.fillStyle = "#fff";
     c.strokeStyle = "rgba(20,30,30,0.7)";
@@ -17746,7 +18298,7 @@ function v3BuildBuildings(G2) {
 function v3Signature(G2) {
   let h = G2.terrainVersion * 7919 + G2.seed + MAP_W * 104729 + MAP_H * 7;
   for (let i = 0; i < MAP_N; i++) {
-    const v = G2.road[i] * 3 + G2.ctrl[i] * 17 + G2.bike[i] * 31 + G2.buslane[i] * 61 + G2.track[i] * 127 + (G2.rsm ? G2.rsm[i] * 251 + G2.rcut[i] * 509 : 0);
+    const v = G2.road[i] * 3 + G2.ctrl[i] * 17 + G2.bike[i] * 31 + G2.buslane[i] * 61 + G2.track[i] * 127 + (G2.rsm ? G2.rsm[i] * 251 + G2.rcut[i] * 509 : 0) + (G2.rsid ? G2.rsid[i] * 1021 : 0);
     if (v) h = Math.imul(h, 31) + i * 131 + v | 0;
   }
   let hb = 1;
@@ -31825,7 +32377,7 @@ function govBind() {
     if (G && govOn(G)) govHallOpen("people");
   };
 }
-const GAME_VERSION = "40.1 · 1 Oct 2026";
+const GAME_VERSION = "40.2 · 1 Oct 2026";
 const GOV_SKIP = '{"v":1,"seed":4125171816,"label":"","t":6425.382080000085,"money":2976.7833470135743,"era":2,"nextShip":660,"terrain":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011111111111111000000000000000000000000000000000000000000000110001111011111111111100000000000000000000000000000000000001111111111111101111122111111000000000000000000000000000000011111111112211111111111112222111110000000000000000000000000000111111122223332221221111122222222221100000000000000000000000000111122222223333333334222222222444332210000000000000000000000001111224333333333333333444444442244443442100000000000000000000000112224433333333333333344443334444333333211000000000000000000000112334443333333333333334443333433333333332100000000000000000011111233334333333333333333333333333333443333211000000000000000011222223333333333333333333333333333333333333321100000000000000011233333333333333333333333333333333333333333333211000000000000011233333333333333333333333333333333333333333333321100000000000001223333333333333333333333333333333333333333333332111000000000011123333333333333333333333333333333333333333333333211100000000011112333333333333333333333333333333333333333333333322100000000111122233333333333333333333333333333333333333333333332210000000111222223333333333333333343333333333333333333333333333321100000012223222333333333333333333444443333334443333333333333332110000002232233333333333333333333334444433333344344333333333333321100000233223333333333333333333333444444444444444433333333333332111000033333333333343333333333333344444444444444443433333333334421000002223332223344443333333333333444444444444444444333333333442100000122222222234333333333333333333334444444444444443333333344210000011122322222333333333333333333333333444444444444444333333321000001111222233333333333333333333333333334444444444444443333332100000011112233333333333333333333333333333334444333444444433332110000000111222333333333333333333333333333333344433334444444432211000000011122222233333333433333333333333333334443333444444444211000000001111222223333333344333333333333333333443333344444444421100000000111112212333333334333333333333333333333333333344444442110000000011111111223333333443333333333333333333333333333333444110000000000111111122333333334443333333333333333333333333333333210000000000000111112223334333444333333223333333333333333333333321000000000000000011111223333334433333322233333333333333333333321000000000000000000001112223333333332211111233333333222443333322100000000000000000000001122222222111111000111222222211124433221100000000000000000000000011121111110000000000011111111111243221100000000000000000000000000111111000000000000000000000011111211110000000000000000000000000000110000000000000000000000000111111110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","road":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001010000000000000000000000000000000000000000000000000000000000022111220000000000000000000000000000000000000000000000000000000022010102000000000000000000000000000000000000000000000000000000002011010200000000000000000000000000000000000000000000000000000000001001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","ctrl":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","bike":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","buslane":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","track":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","lineSeq":0,"lines":[],"baseRoad":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001010000000000000000000000000000000000000000000000000000000000022111220000000000000000000000000000000000000000000000000000000022010102000000000000000000000000000000000000000000000000000000002011010200000000000000000000000000000000000000000000000000000000001001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","baseCtrl":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","storm":null,"crashesYesterday":0,"challenge":null,"noShips":true,"noMoves":true,"noWeather":false,"blds":[[1,"dock",31,35,"#a8d672",0,{"lv":1,"inp":0,"stays":[],"hist":[-3,-3,-4,-4],"lp":{"rev":0,"inCost":0,"bonus":-1.4603865289561035,"units":0,"bought":0,"loads":4,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":194.75791251780845,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[2,"shack",32,31,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[3,"shack",31,30,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[4,"shack",30,31,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[5,"farm",33,27,"#f4a6b8",12,{"lv":0,"inp":0,"stays":[],"hist":[81,116,87,84],"lp":{"rev":85.19481631594815,"inCost":0,"bonus":0,"units":48.11864678205565,"bought":0,"loads":3,"tripSum":144.39359999999942,"made":60.77969224895095,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"crop":"sugar","lux":0,"lv$":0,"lg":null,"fl":0}],[6,"shack",32,30,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[7,"shack",32,29,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[0,0,0,0],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[8,"fishery",30,36,"#7fd1c8",11,{"lv":0,"inp":0,"stays":[],"hist":[-1,59,57,61],"lp":{"rev":61.30566523267591,"inCost":0,"bonus":0,"units":32.05132883333339,"bought":0,"loads":2,"tripSum":16.26639999999861,"made":36.753599666666865,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[9,"market",34,30,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,20,20,20],"lp":{"rev":21.196196000000064,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[10,"house",34,29,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,-1,-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[11,"clinic",34,31,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[-4,-4,-4],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[12,"house",35,31,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1,-1,-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[13,"house",36,32,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[14,"house",29,31,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[15,"house",28,32,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[16,"house",36,33,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-1],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[17,"townhall",36,34,"#f5b27a",0,{"lv":0,"inp":0,"stays":[],"hist":[-2],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[18,"school",26,32,"#f4a6b8",0,{"lv":0,"inp":0,"stays":[],"hist":[-8],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[19,"distillery",26,34,"#8cc3ef",14,{"lv":0,"inp":2,"stays":[],"hist":[46],"lp":{"rev":134.91263381408862,"inCost":85.19481631594815,"bonus":0,"units":32.09013273583368,"bought":48.11864678205565,"loads":2,"tripSum":55,"made":33.343466069167086,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[20,"press",32,33,"#8cc3ef",0,{"lv":0,"inp":0,"stays":[],"hist":[-2],"lp":{"rev":0,"inCost":0,"bonus":0,"units":0,"bought":0,"loads":0,"tripSum":0,"made":0,"wasted":0,"qN":0,"qSum":0,"cargo":0,"pax":0,"fees":0,"gold":0,"day":4},"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[21,"house",30,33,"#f6d36b",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[22,"house",34,33,"#f4a6b8",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"lux":0,"lv$":0,"lg":null,"fl":0}],[23,"farm",34,35,"#7fd1c8",0,{"lv":0,"inp":0,"stays":[],"hist":[],"lp":null,"wt":0,"crop":"fruit","lux":0,"lv$":0,"lg":null,"fl":0}]],"fert":[69,71,75,75,71,66,65,65,65,69,81,90,88,84,88,98,104,103,95,81,68,62,60,58,52,48,44,40,40,40,40,40,40,40,40,40,40,50,59,66,74,80,80,70,60,61,70,72,59,40,40,40,40,40,40,40,40,40,42,55,68,81,95,111,76,76,77,77,74,70,70,71,72,73,79,83,82,81,86,94,100,99,90,77,65,58,56,56,55,54,49,43,40,40,40,40,40,40,40,40,40,51,63,72,77,80,79,72,65,66,71,70,58,42,40,40,40,40,40,40,40,40,42,54,65,78,92,107,88,86,83,81,79,78,79,82,84,80,72,68,69,73,79,86,90,89,80,68,60,54,51,54,62,65,59,51,45,40,40,40,40,40,40,40,40,54,72,83,83,80,79,77,76,76,74,67,56,47,40,40,40,40,40,40,40,40,43,52,62,73,87,101,97,94,89,86,85,85,84,87,88,80,67,58,60,65,70,74,76,75,68,62,59,57,56,60,70,73,65,57,52,49,46,41,40,40,40,40,45,62,81,91,89,83,82,83,84,84,79,69,57,50,45,40,40,40,40,44,45,45,47,54,62,72,83,95,102,101,99,97,91,85,82,81,77,68,57,50,52,57,60,60,60,58,56,56,61,70,76,76,75,70,65,62,61,58,53,49,48,49,49,52,60,73,87,94,94,93,94,91,87,86,84,76,61,45,40,40,40,40,44,53,55,52,51,56,61,69,79,90,104,106,108,107,95,81,76,70,61,52,44,41,43,49,51,49,45,43,45,50,61,80,92,88,75,63,62,67,71,67,60,58,62,67,67,69,76,86,94,96,99,104,105,96,86,85,87,82,63,40,40,40,40,40,46,61,64,58,54,56,59,65,74,85,101,103,105,103,91,76,70,63,53,43,40,40,40,42,45,42,40,40,40,46,57,77,91,86,71,60,61,70,76,75,70,70,76,82,82,84,89,96,102,102,103,106,105,95,84,84,86,82,63,40,40,40,40,40,50,66,68,62,56,57,59,63,71,80,92,90,87,84,79,74,69,60,50,42,40,40,40,43,46,43,40,40,41,47,57,72,83,79,66,56,58,64,72,77,81,85,89,91,92,92,95,102,110,110,106,102,99,93,87,86,85,79,65,47,40,40,47,52,58,63,63,60,58,58,61,64,71,78,81,76,68,64,66,69,66,57,48,43,40,40,40,48,51,48,43,42,45,50,56,67,75,71,59,51,52,57,66,78,90,100,104,104,104,103,102,107,117,117,107,97,91,89,88,87,83,77,70,60,55,59,66,69,64,58,57,57,57,58,61,65,70,77,73,69,61,57,59,61,58,51,45,45,44,44,46,52,54,52,50,49,50,51,53,61,67,63,52,45,47,54,65,82,101,116,123,125,125,122,118,117,122,119,106,93,85,81,81,80,79,78,76,73,71,73,75,73,64,55,54,56,58,58,59,61,64,71,72,69,64,60,58,55,50,46,44,48,54,57,56,52,50,53,60,61,57,52,51,56,60,56,45,40,43,52,65,88,114,135,143,145,145,144,138,132,128,121,104,85,75,72,72,72,73,75,80,85,88,84,75,66,56,49,48,55,62,60,54,51,54,62,73,71,67,64,59,52,47,44,44,50,60,66,61,51,46,54,66,69,62,53,50,53,57,53,41,40,40,51,65,91,122,145,150,150,150,150,150,140,132,122,103,80,68,66,66,67,69,74,81,92,98,90,73,60,51,44,45,55,64,62,51,44,48,56,68,68,66,65,60,53,48,48,51,55,59,62,59,52,48,54,64,66,60,53,51,55,59,55,43,40,42,54,68,90,118,140,150,150,150,150,147,135,124,113,97,78,68,66,66,67,69,74,81,91,96,91,78,67,57,49,49,57,64,61,52,46,50,59,59,62,67,69,65,58,54,60,67,66,59,53,53,54,55,58,61,62,59,55,54,61,67,63,51,45,51,62,75,92,111,130,150,150,150,150,138,123,107,94,83,74,68,67,67,68,71,75,79,87,93,92,88,84,75,64,63,64,64,59,53,50,54,65,60,65,74,79,77,71,68,75,82,75,60,49,51,57,62,65,67,67,66,64,64,72,78,74,63,58,66,77,89,101,113,129,150,150,150,148,132,115,95,81,74,71,70,70,72,72,74,75,76,82,87,90,94,97,92,83,81,78,72,63,55,51,55,68,73,76,84,90,90,87,85,90,93,82,64,52,56,67,76,80,81,82,83,83,83,86,89,87,81,80,89,101,112,118,124,134,150,150,150,145,125,107,89,75,72,76,79,80,80,80,78,75,72,75,80,85,91,100,104,104,103,97,85,72,61,55,57,67,89,89,93,98,102,103,101,105,105,92,71,59,66,82,95,99,98,98,102,106,105,101,99,99,100,103,112,125,135,135,132,138,150,150,150,140,117,99,83,70,73,85,91,90,88,87,81,74,69,70,75,80,88,100,114,123,123,114,99,82,69,62,60,65,99,99,102,108,112,114,112,116,116,102,83,71,78,94,108,112,111,111,115,120,118,113,109,109,111,115,123,134,142,140,135,139,150,150,150,136,113,96,80,68,72,86,93,92,89,87,81,73,69,71,77,84,92,106,123,134,135,126,109,90,76,67,63,66,105,108,116,122,124,121,119,121,120,110,98,91,93,100,109,117,122,123,123,123,120,117,116,115,112,114,120,128,134,137,139,141,144,146,143,132,117,101,84,72,73,81,86,84,80,79,74,68,65,68,75,87,103,120,133,138,139,134,122,104,89,78,73,75,109,115,126,134,130,123,120,121,119,113,110,110,107,104,109,121,132,134,130,123,118,116,117,114,109,109,116,121,125,134,143,143,134,125,125,125,120,107,91,78,75,77,78,74,70,68,64,59,58,63,72,89,112,132,140,140,139,140,136,122,107,95,89,89,110,116,126,132,126,118,115,117,118,115,115,116,113,110,116,129,140,142,136,127,118,114,113,111,106,109,118,124,127,135,142,138,125,114,114,117,116,108,96,85,80,79,77,69,63,61,59,56,56,61,71,88,113,134,142,142,142,145,145,135,125,114,105,100,108,112,118,121,116,109,107,111,113,113,115,118,117,118,126,138,146,147,142,132,120,111,107,106,104,110,121,129,132,137,141,135,120,109,108,109,107,105,104,97,91,86,81,69,58,57,58,59,59,61,69,85,106,126,139,144,145,146,145,141,138,131,119,108,106,108,112,113,109,103,101,106,110,111,115,118,118,123,133,143,149,149,145,136,122,110,103,103,103,110,123,133,136,139,141,134,119,108,106,104,101,104,109,106,99,92,85,69,56,55,59,63,62,62,68,83,100,119,135,145,147,146,143,141,143,139,126,111,111,112,112,112,109,105,103,106,109,109,112,114,116,122,132,140,143,143,139,131,118,106,100,100,103,112,123,131,133,135,135,128,116,107,106,103,101,103,107,104,96,90,83,70,58,57,59,61,61,62,70,84,101,120,137,148,150,148,145,143,143,138,124,108,126,122,114,112,112,111,110,109,107,105,104,104,109,120,130,130,124,122,119,114,105,95,89,93,103,114,120,122,123,121,117,112,108,105,105,103,101,99,99,94,88,84,78,70,63,61,57,54,58,66,76,90,106,122,140,150,150,150,149,145,139,131,116,99,138,130,118,114,116,118,117,113,108,104,101,99,104,116,122,115,103,98,98,97,92,86,82,87,100,109,109,106,106,104,100,100,103,105,105,103,99,94,90,84,79,77,71,66,62,60,53,51,60,72,84,97,111,123,138,150,150,150,147,142,133,123,110,93,139,135,128,126,127,128,126,123,119,112,104,99,101,106,105,95,82,78,80,84,84,82,80,82,88,91,91,91,93,92,91,96,105,112,111,105,97,90,86,80,74,69,62,56,53,53,53,59,70,81,92,104,117,126,132,137,137,135,131,127,124,119,108,96,136,137,138,140,139,137,135,134,131,122,106,95,94,90,83,73,65,61,65,72,76,76,75,74,72,69,71,80,86,85,85,94,110,122,120,109,96,89,85,81,72,62,54,48,45,46,57,72,84,89,95,109,125,132,126,118,116,114,111,111,118,120,112,104,130,132,136,139,138,135,133,132,130,120,102,90,87,80,70,60,53,49,53,60,65,65,64,63,58,53,58,70,78,79,79,90,109,123,121,108,94,87,84,81,71,60,53,47,44,46,60,78,89,92,95,109,125,132,122,108,105,105,103,105,116,123,117,112,120,119,117,118,118,117,116,115,114,109,101,96,93,84,72,60,50,44,42,44,49,55,59,58,53,49,51,60,68,74,81,93,105,113,111,101,90,84,80,76,70,64,57,49,43,45,61,80,91,95,99,111,125,131,122,108,106,108,110,113,123,129,124,117,108,102,93,90,92,94,93,94,95,97,103,107,103,92,78,62,48,40,40,40,40,49,59,58,53,49,48,51,58,71,86,99,102,101,100,95,88,82,77,72,71,69,63,50,41,43,61,82,94,99,104,115,127,134,126,113,111,117,123,125,132,137,133,122,94,88,77,73,75,77,77,79,84,91,103,110,105,92,75,58,42,40,40,40,40,43,54,52,48,44,44,47,54,69,86,99,100,98,97,94,90,85,80,76,75,74,66,53,42,44,61,81,93,100,105,115,128,136,131,122,120,126,131,134,141,146,142,132,82,77,67,63,67,72,72,74,79,90,104,113,105,84,62,46,40,40,40,40,40,40,41,40,40,40,40,45,55,69,84,96,98,95,95,96,94,90,85,81,77,71,61,54,52,53,60,73,86,96,103,112,123,132,137,138,138,138,139,140,143,147,147,143,76,71,62,58,65,73,74,73,77,90,106,115,104,76,52,40,40,40,40,40,41,40,40,40,40,40,40,45,56,69,83,94,96,93,94,97,98,94,87,82,76,66,55,55,60,61,59,65,79,93,102,109,118,128,140,150,150,147,143,143,143,144,148,150,74,71,64,61,67,74,74,72,75,87,104,113,103,78,55,41,40,40,40,40,42,40,40,40,40,40,40,46,57,69,83,94,96,94,94,96,96,93,88,84,77,67,56,56,62,62,60,65,79,92,100,108,117,127,138,148,149,145,141,142,143,146,149,150,72,72,72,72,74,76,75,70,69,79,94,103,99,86,71,56,45,40,40,40,44,40,40,40,46,49,48,51,58,70,84,94,97,96,95,92,89,89,91,90,82,70,61,61,65,66,65,70,81,91,97,105,116,123,127,129,129,130,132,137,146,150,150,150,74,77,82,85,85,83,80,72,67,72,84,93,93,90,82,70,59,53,49,49,51,48,44,48,60,66,61,57,61,71,83,92,95,94,92,86,81,84,91,94,87,75,69,72,76,76,76,80,87,93,96,102,111,114,110,105,105,110,118,129,145,150,150,150,85,87,91,93,93,92,88,79,72,72,80,85,85,85,82,74,66,62,61,62,64,59,55,59,70,75,68,62,62,71,82,88,88,86,85,83,82,86,92,96,92,87,85,90,95,95,92,92,98,103,105,105,104,99,92,87,87,91,100,116,138,150,150,150,101,100,99,99,99,96,92,86,81,77,78,79,79,79,78,73,67,66,70,76,79,73,67,72,83,86,76,65,62,70,81,85,81,75,77,84,90,94,98,101,102,104,107,111,115,114,108,105,109,118,121,111,95,81,75,75,75,74,79,100,130,150,150,150,111,109,104,104,102,98,93,89,84,78,76,76,76,76,77,74,71,72,80,90,94,88,83,87,97,99,86,71,65,71,80,82,75,68,71,82,92,96,100,104,109,115,120,125,128,127,119,113,116,125,127,112,86,67,62,64,64,60,64,87,121,146,150,150,120,116,110,107,105,102,96,90,83,78,75,74,75,78,80,76,72,75,89,104,111,107,101,103,106,103,92,83,77,75,76,73,66,61,63,74,85,90,94,100,107,114,121,126,129,128,124,119,118,118,115,99,76,57,50,49,48,48,55,78,108,131,140,145,133,127,117,109,107,105,99,90,82,78,76,75,77,81,83,77,69,73,94,117,128,125,120,119,113,104,98,97,92,81,69,62,55,51,53,64,76,83,87,92,102,110,116,121,123,124,124,122,114,104,94,79,62,46,40,40,40,40,46,67,91,111,123,133,146,139,125,112,106,102,94,86,80,79,79,79,81,84,83,74,65,71,96,124,141,142,139,136,127,114,108,109,103,87,69,57,48,42,45,56,70,80,86,93,103,111,115,118,120,121,121,116,105,90,76,61,45,40,40,40,40,40,40,55,77,95,109,122,150,149,132,116,103,92,84,80,79,81,81,81,81,80,77,69,65,74,98,126,148,150,150,150,146,129,121,119,111,94,74,58,45,40,40,48,62,77,90,102,108,110,111,118,124,123,117,106,93,79,65,47,40,40,40,40,40,40,40,51,68,83,99,114,150,150,137,119,100,84,76,75,80,83,82,80,79,75,69,65,66,77,99,126,150,150,150,150,150,139,130,126,116,99,79,62,46,40,40,43,55,74,94,109,112,108,107,117,128,127,114,97,84,73,60,40,40,40,40,40,40,40,40,53,64,75,93,110,150,150,137,119,100,85,76,75,79,82,81,79,78,75,69,66,68,79,99,124,148,150,150,150,150,142,131,125,115,98,78,62,47,40,40,45,57,75,94,108,112,108,108,118,127,126,113,96,83,72,58,40,40,40,40,40,40,40,40,53,63,74,92,109,143,140,131,117,103,92,83,79,77,78,77,75,76,75,73,72,76,85,98,115,135,150,150,150,150,145,131,117,105,89,72,59,52,50,52,58,69,81,90,100,108,113,116,119,122,120,110,96,83,70,56,40,40,40,40,40,40,40,40,48,60,74,90,105,124,125,122,113,104,98,91,82,75,72,70,68,70,74,78,80,86,93,99,106,119,131,137,140,144,142,128,110,96,84,70,61,62,67,69,75,83,88,87,92,105,118,122,121,119,117,110,100,88,74,59,45,40,40,40,40,40,40,40,46,57,71,85,99],"nextFlight":null,"twin":false,"village":null,"eraT0":2374.693760000033,"booba":null,"story":{"layout":3,"ch":4,"step":0,"prog":0,"fam":13,"letters":[{"key":"letter1","day":1,"vars":{"d":"Ayd\\u0131n"}},{"key":"letter2","day":2,"vars":{"d":"Ayd\\u0131n"}},{"key":"letter3","day":4,"vars":{"d":"Nov\\u00e1k"}},{"key":"letter4","day":5,"vars":{"d":"Nov\\u00e1k"}}],"photos":[],"tools":["shack","farm","road1","fishery","market","clinic","park","house","school","distillery","cantina","press"],"sold":20,"newLetters":0,"started":1790688701584,"waitFrom":null,"choice":null,"seen":1790689001890,"soldValue":690.328249680288,"shortage":false,"flood":false,"resting":false,"yearSeen":1926,"ditches":[],"fnDone":"sick","sickN":7,"docFam":"Nov\\u00e1k","council":{"farmers":23,"fishers":12,"merchants":27},"decisions":[{"ch":3,"label":"s4_a1a"},{"ch":3,"label":"s4_a2a"},{"ch":3,"label":"s4_a3a"},{"ch":3,"label":"s4_q1a"},{"ch":3,"label":"prA"}],"laws":{"vote":"all","term":4,"child":"school","pressOwner":"free"},"charter":true,"press":"free","votePct":94,"mayor":true,"terms":1,"lastVoteYear":1912},"classic":false,"noPortCap":false,"econ":{"mkt":{"m":{"fruit":1.0488149563975875,"sugar":1.182483323294051,"cotton":1.035413367017254,"grapes":1.0638285989453211,"plums":1.0963905483688574,"wood":0.9646439900466266,"fish":1.0282259813509684,"gold":0.9360247593544294,"crafts":0.9322055075259081,"goods":0.9201768450234393,"rum":0.9394157526385041,"wine":1.0336428397830644,"slivo":0.929176556560146,"coal":1.0139352203419347,"gas":1.0581179648778958,"canned":1.0032223585932356,"garments":1.0440114357114643,"furniture":0.8637356961264608},"hist":{"fruit":[1.82,1.83,1.74,1.78],"sugar":[1.7,1.78,1.77,1.89],"cotton":[1.93,2.1,2.06,2.07],"grapes":[1.65,1.75,1.86,1.91],"plums":[1.46,1.47,1.55,1.64],"wood":[1.67,1.58,1.54,1.54],"fish":[1.85,1.81,1.91,1.75],"gold":[38.99,40.43,39.88,37.44],"crafts":[1.79,1.84,1.71,1.77],"goods":[1.79,1.8,1.74,1.75],"rum":[4.52,4.54,4.2,4.13],"wine":[4.6,4.97,4.92,4.96],"slivo":[4.66,4.61,4.53,4.65],"coal":[1.18,1.16,1.19,1.22],"gas":[1.74,1.73,1.8,1.69],"canned":[3.86,3.75,3.98,4.01],"garments":[4.75,4.55,4.67,4.8],"furniture":[4.24,4.19,4.06,3.8]}},"peso":1.0206884147787807,"pesoHist":[1.005,1.01,1.015,1.021],"gold":60,"crises":[],"policy":{"imports":true,"liquorTax":false,"keepGold":true},"alc":0.012401,"felled":[],"pwOn":false,"wind":0.8617121038725599,"pwStart":null},"cits":[[13,2,1,78,9.9,445,1064,0,31,4,1,0,0,"Santos"],[14,2,1,78,9.9,421,1054,0,9,4,1,0,0,"Santos"],[15,2,1,78,9.9,441,1032,0,354,4,0,0,0,"Santos"],[16,2,1,78,9.9,397,992,0,346,4,1,0,0,"Santos"],[17,3,1,78,9.9,458,1029,0,217,4,1,0,0,"Y\\u0131lmaz"],[18,3,1,78,9.9,474,1007,0,204,4,1,0,0,"Y\\u0131lmaz"],[19,3,5,76,27.7,459,1067,0,82,3,0,0,0,"Y\\u0131lmaz"],[20,3,5,78,19.9,411,1011,0,294,4,0,0,0,"Y\\u0131lmaz"],[21,4,5,78,19.9,469,1063,0,63,4,1,0,0,"Kov\\u00e1\\u010d"],[22,4,5,78,19.9,456,1071,0,297,4,1,0,0,"Kov\\u00e1\\u010d"],[23,4,5,78,19.9,443,1077,0,208,4,1,0,0,"Kov\\u00e1\\u010d"],[24,4,5,78,19.9,479,1038,0,289,4,0,0,0,"Kov\\u00e1\\u010d"],[25,6,9,72,-1,463,1051,0,259,4,1,1,0,"Rivera"],[26,6,8,72,34.3,436,999,0,359,4,1,0,0,"Rivera"],[27,6,9,78,-1,398,1074,0,145,4,1,0,0,"Rivera"],[28,6,8,70,37.1,409,1002,0,159,3,1,0,0,"Rivera"],[29,7,8,73,32.9,461,1048,0,216,0,0,0,0,"Demir"],[30,7,11,78,13,450,1023,0,324,4,1,0,0,"Demir"],[31,7,8,73,33,423,1059,0,2,3,0,0,0,"Demir"],[32,7,9,78,3,436,997,0,179,4,1,0,0,"Demir"],[33,10,18,75,37.9,446,1002,0,229,0,1,0,0,"Mendoza"],[34,10,11,84,13.2,473,1005,0,214,4,1,0,0,"Mendoza"],[35,10,19,78,34.9,432,1065,0,98,0,0,0,0,"Mendoza"],[36,10,19,76,37.6,398,1037,0,85,3,0,0,0,"Mendoza"],[37,10,11,84,16.7,407,1047,0,239,4,1,0,0,"Mendoza"],[38,10,11,84,13,469,1012,0,8,4,1,0,0,"Mendoza"],[39,12,11,84,3,456,992,0,255,4,2,0,0,"Nov\\u00e1k"],[40,12,11,84,3,476,1062,0,119,4,1,0,0,"Nov\\u00e1k"],[41,12,19,79,29.3,425,1051,0,133,0,1,0,0,"Nov\\u00e1k"],[42,12,20,84,10,442,1020,0,350,4,1,0,0,"Nov\\u00e1k"],[43,12,null,62,-1,412,1051,0,237,-1,1,0,0,"Nov\\u00e1k"],[44,12,19,78,31.4,407,1022,0,209,0,1,0,0,"Nov\\u00e1k"],[45,13,20,84,10,440,1010,0,138,4,1,0,0,"Ayd\\u0131n"],[46,13,18,80,29.2,453,1004,0,28,0,1,0,0,"Ayd\\u0131n"],[47,13,19,76,34.2,419,1007,0,124,3,1,0,0,"Ayd\\u0131n"],[48,13,19,80,28.7,449,998,0,260,0,1,0,0,"Ayd\\u0131n"],[49,13,18,83,26.2,448,1047,0,267,4,1,0,0,"Ayd\\u0131n"],[50,13,18,83,26.2,430,1002,0,117,4,1,0,0,"Ayd\\u0131n"],[51,14,null,62,-1,475,1048,0,267,-1,1,0,0,"Castillo"],[52,14,17,83,24,440,1057,0,104,0,1,0,0,"Castillo"],[53,14,null,62,-1,425,1014,0,85,-1,1,0,0,"Castillo"],[54,14,null,62,-1,464,1064,0,244,-1,0,0,0,"Castillo"],[55,14,20,84,10,417,1005,0,37,4,1,0,0,"Castillo"],[56,14,null,62,-1,434,995,0,346,-1,1,0,0,"Castillo"],[57,15,18,84,-1,427,1002,0,282,4,1,0,0,"Horv\\u00e1th"],[58,15,null,62,-1,451,1075,0,79,-1,1,0,0,"Horv\\u00e1th"],[59,15,17,83,25.2,391,1015,0,205,0,0,0,0,"Horv\\u00e1th"],[60,15,19,84,3.1,415,998,0,138,4,1,0,0,"Horv\\u00e1th"],[61,15,23,62,-1,443,1001,0,259,3,0,0,0,"Horv\\u00e1th"],[62,15,18,84,-1,444,994,0,218,4,1,0,0,"Horv\\u00e1th"],[63,16,17,84,3.1,424,992,0,36,4,1,0,0,"Kaya"],[64,16,19,78,32.6,476,1043,0,214,0,1,0,0,"Kaya"],[65,16,23,62,2.8,421,1034,0,247,4,0,0,0,"Kaya"],[66,16,null,62,-1,436,1011,0,330,-1,1,0,0,"Kaya"],[67,16,null,62,-1,392,1001,0,135,-1,1,0,0,"Kaya"],[68,16,23,62,2.8,437,1008,0,327,4,1,0,0,"Kaya"],[69,21,null,70,-1,423,1020,0,265,-1,1,0,0,"Morales"],[70,21,null,70,-1,420,1052,0,92,-1,1,0,0,"Morales"],[71,21,null,70,-1,393,1049,0,44,-1,1,0,0,"Morales"],[72,21,null,70,-1,392,1055,0,87,-1,1,0,0,"Morales"],[73,21,null,70,-1,460,1000,0,312,-1,1,0,0,"Morales"],[74,21,23,70,-1,415,1058,0,285,4,1,0,0,"Morales"],[75,22,null,70,-1,455,1025,0,277,-1,1,0,0,"Bal\\u00e1\\u017e"],[76,22,null,70,-1,446,1026,0,297,-1,1,0,0,"Bal\\u00e1\\u017e"],[77,22,null,70,-1,438,1049,0,244,-1,1,0,0,"Bal\\u00e1\\u017e"],[78,22,null,70,-1,432,990,0,238,-1,1,0,0,"Bal\\u00e1\\u017e"],[79,22,23,70,-1,479,1027,0,247,4,1,0,0,"Bal\\u00e1\\u017e"],[80,22,23,70,-1,425,1061,0,257,4,1,0,0,"Bal\\u00e1\\u017e"]],"nextId":24,"citId":81,"dockId":1,"berth":{"x":32,"y":37.6},"history":[{"day":1,"pop":20,"happy":70,"commute":14.513700000000034,"trips":24,"exports":115.78734527676488,"commerce":70,"taxes":38.5,"upkeep":9.35,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":595,"net":214.9373452767649,"fares":0,"modes":{"car":0,"bus":0,"tram":0,"bike":0,"walk":12},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"shack":5,"farm":1,"road":11,"fishery":1,"market":1},"employed":19,"housing":20,"jobs":19,"crashes":0,"rainy":false,"upk":{"roads":2.2499999999999996,"bridges":0,"homes":1.5,"work":1.6,"services":1,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fruit":115.78734527676488},"commerceBy":{},"air":null,"delay":13.76926851272583,"trade":115.78734527676488,"peso":1.0045112826283733,"gold":60,"alc":0.017},{"day":2,"pop":32,"happy":66.31250000000001,"commute":17.900094117646898,"trips":34,"exports":175.38468284542546,"commerce":131.20700399999996,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":488,"net":344.64168684542545,"fares":0,"modes":{"car":2,"bus":0,"tram":0,"bike":0,"walk":17},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":2,"clinic":1,"road":2},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":true,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fruit":116.30941032817981,"fish":59.07527251724565},"commerceBy":{"market":21.207003999999962},"air":null,"delay":31.074433697387576,"trade":175.38468284542546,"peso":1.010353494433854,"gold":60,"alc":0.0149},{"day":3,"pop":32,"happy":67.00001200000003,"commute":15.666666666666666,"trips":42,"exports":145.11943517288242,"commerce":21.210000000000072,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":0,"net":204.3794351728825,"fares":0,"modes":{"car":1,"bus":0,"tram":0,"bike":4,"walk":18},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":false,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":57.59398767117109,"fruit":87.52544750171134},"commerceBy":{"market":21.210000000000072},"air":null,"delay":23.404140903759526,"trade":145.11943517288242,"peso":1.0150531687561333,"gold":60,"alc":0.013430000000000001},{"day":4,"pop":56,"happy":69.2201453257143,"commute":22.397590243903156,"trips":82,"exports":194.75791251780845,"commerce":21.196196000000064,"taxes":95.5,"upkeep":37,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":1998,"net":274.45410851780855,"fares":0,"modes":{"car":14,"bus":0,"tram":0,"bike":3,"walk":28},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":4,"road":7,"townhall":1,"school":1,"distillery":1,"press":1},"employed":45,"housing":56,"jobs":43,"crashes":0,"rainy":true,"upk":{"roads":6.300000000000003,"bridges":0,"homes":5.1,"work":9.6,"services":13,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":60.849387871749684,"rum":133.90852464605877},"commerceBy":{"market":21.196196000000064},"air":null,"delay":350.02583170662183,"trade":194.75791251780845,"peso":1.0206884147787807,"gold":60,"alc":0.012401}],"notes":{"freight":659.5272000000008,"storm":2413.0929600000395,"peak":3420.3324800000323,"chains":5034.45168000008,"modeshift":5760.85168000008},"hourly":[0,0,0,0,0,0,7,13,8,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hourlyPrev":[0,0,0,0,0,0,3,8,12,11,0,1,0,2,1,1,14,14,11,0,0,0,0,0],"dayAcc":{"exportsBy":{"fish":27.701022312745422,"rum":65.57785155466141},"commerceBy":{"market":8.09189733333332},"importsBy":{},"imports":0,"liquor":0,"air":null,"exports":93.27887386740683,"commerce":8.09189733333332,"build":360,"trips":43,"tripTime":720.5999999999967,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"crashes":0,"fares":0,"gaveUp":0,"modes":{"car":10,"bus":0,"tram":0,"bike":6,"walk":35},"graduates":1},"built":{"house":2,"farm":1},"avgHappy":75.90965003611436,"completed":false,"completeDay":null,"events":[],"bottlenecks":[{"i":2079,"x":31,"y":32,"delay":115.05460357666016,"peak":2.6363635063171387,"name":"Dirt Track"}],"lastReport":{"rec":{"day":4,"pop":56,"happy":69.2201453257143,"commute":22.397590243903156,"trips":82,"exports":194.75791251780845,"commerce":21.196196000000064,"taxes":95.5,"upkeep":37,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":1998,"net":274.45410851780855,"fares":0,"modes":{"car":14,"bus":0,"tram":0,"bike":3,"walk":28},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{"house":4,"road":7,"townhall":1,"school":1,"distillery":1,"press":1},"employed":45,"housing":56,"jobs":43,"crashes":0,"rainy":true,"upk":{"roads":6.300000000000003,"bridges":0,"homes":5.1,"work":9.6,"services":13,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":60.849387871749684,"rum":133.90852464605877},"commerceBy":{"market":21.196196000000064},"air":null,"delay":350.02583170662183,"trade":194.75791251780845,"peso":1.0206884147787807,"gold":60,"alc":0.012401},"prev":{"day":3,"pop":32,"happy":67.00001200000003,"commute":15.666666666666666,"trips":42,"exports":145.11943517288242,"commerce":21.210000000000072,"taxes":53.5,"upkeep":15.45,"imports":0,"importsBy":{},"liquor":0,"blackoutMin":0,"noTruck":0,"skipped":0,"graduates":0,"build":0,"net":204.3794351728825,"fares":0,"modes":{"car":1,"bus":0,"tram":0,"bike":4,"walk":18},"gaveUp":0,"arrivals":0,"departures":0,"turned":0,"moved":0,"switched":0,"built":{},"employed":25,"housing":32,"jobs":23,"crashes":0,"rainy":false,"upk":{"roads":3.1499999999999995,"bridges":0,"homes":2.7,"work":1.6,"services":5,"port":3,"power":0,"junctions":0,"transit":0},"exportsBy":{"fish":57.59398767117109,"fruit":87.52544750171134},"commerceBy":{"market":21.210000000000072},"air":null,"delay":23.404140903759526,"trade":145.11943517288242,"peso":1.0150531687561333,"gold":60,"alc":0.013430000000000001}}}';
 const GF = { on: false, sub: { hall: "council", people: "groups", money: "budget" }, sel: null, law: null, lawPick: null, voteRes: null, lastShipT: -1, shipToastAt: 0, noLotAt: 0 };
 const GF_TABS = [["goals", "Goals"], ["hall", "Town hall"], ["people", "People"], ["money", "Money"], ["stats", "City"], ["lines", "Transit"], ["inspect", "Info"]];
@@ -42608,6 +43160,7 @@ function serialize(G2) {
     lineSeq: G2.lineSeq,
     rsm: G2.rsm && G2.rsm.some((v) => v) ? Array.from(G2.rsm).join("") : void 0,
     rcut: G2.rcut && G2.rcut.some((v) => v) ? Array.from(G2.rcut, (v) => v.toString(16)).join("") : void 0,
+    rstk: rstkSave(G2),
     lines: G2.lines.map((L) => ({ id: L.id, num: L.num, kind: L.kind, color: L.color, stops: L.stops, n: L.n, hop: L.hop })),
     baseRoad: Array.from(G2.netBaseline.road).join(""),
     baseCtrl: Array.from(G2.netBaseline.ctrl).join(""),
@@ -42675,6 +43228,7 @@ function deserialize(str, forUI = true) {
   }
   if (s.rsm && s.rsm.length === MAP_N) for (let i = 0; i < MAP_N; i++) W.rsm[i] = +s.rsm[i];
   if (s.rcut && s.rcut.length === MAP_N) for (let i = 0; i < MAP_N; i++) W.rcut[i] = parseInt(s.rcut[i], 16) || 0;
+  rstkLoad(W, s.rstk);
   W.lineSeq = s.lineSeq || 0;
   if (s.challenge) W.challenge = s.challenge;
   if (s.noShips) W.noShips = true;
