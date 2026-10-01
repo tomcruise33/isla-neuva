@@ -44189,10 +44189,14 @@ HOOKS.imports.push((G2) => uBoats(G2) ? 1.5 : 1);
     const t0 = G2._foodT;
     _fr(G2);
     if (!foodOn(G2) || G2._foodT === t0) return;
+    const graceC = G2._protGrace > G2.t ? new Set([...G2.blds.values()].filter((o) => {
+      const g = goodOf(o);
+      return g && PROTEIN.has(g) && o.wrk.length && o.ent >= 0;
+    }).map((o) => G2.comp[o.ent])) : null;
     for (const h of G2.blds.values()) {
       if (BLD[h.type].kind !== "home") continue;
       const m = h.plateFrom != null ? G2.blds.get(h.plateFrom) : null;
-      h.prot = !!(m && (m.ate && Object.keys(m.ate).some((k) => PROTEIN.has(k) && G2.t - m.ate[k] < 720) || G2._protGrace > G2.t && protLocal(G2, m)));
+      h.prot = !!(m && m.ate && Object.keys(m.ate).some((k) => PROTEIN.has(k) && G2.t - m.ate[k] < 720) || graceC && h.ent >= 0 && graceC.has(G2.comp[h.ent]));
       let reach = false;
       if (!h.plate) {
         for (const o of G2.blds.values()) if (BLD[o.type].food && o.wrk.length && bDist(o, h) <= BLD[o.type].radius + 1) {
@@ -44200,14 +44204,14 @@ HOOKS.imports.push((G2) => uBoats(G2) ? 1.5 : 1);
           break;
         }
       }
-      h.hungry = !h.plate && reach;
+      h.hungry = !h.plate && reach && !graceC;
       if (h.svc) h.svc.prot = h.prot ? 1 : 0;
     }
     if (!G2.gov) return;
     const A = {};
     for (const m of G2.blds.values()) if (m.ate && BLD[m.type].food) {
       let o = null;
-      for (const k in m.ate) if (PROTEIN.has(k) && G2.t - m.ate[k] < 720) (o || (o = {}))[k] = Math.round(m.ate[k]);
+      for (const k in m.ate) if (G2.t - m.ate[k] < 720) (o || (o = {}))[k] = Math.round(m.ate[k]);
       if (o) A[m.id] = o;
     }
     G2.gov.ate41 = A;
