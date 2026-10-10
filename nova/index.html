@@ -64,6 +64,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   box-shadow: 0 2px 0 rgba(58, 42, 31, 0.28), 0 6px 14px rgba(30, 20, 10, 0.14);
   white-space: nowrap; max-width: calc(100% - 20px - var(--sl) - var(--sr)); overflow: hidden; text-overflow: ellipsis; }
 #pill .ok { color: var(--green); font-weight: 800; } #pill .no { color: #a8562a; font-weight: 800; }
+#pill.two { border-radius: 18px; padding: 5px 8px 5px 16px; }
+#pill .blk { font-size: 13px; font-weight: 700; color: #8a3a22; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 2px; white-space: normal; }
+#pill .fix { min-height: 40px; padding: 0 14px; border-radius: 11px; background: var(--teal); color: #fff7ea; font-weight: 800; font-size: 14px; border: 2px solid var(--ink); flex: none; }
 
 /* Build bar */
 #bar { position: fixed; bottom: calc(var(--gap) + var(--sb)); left: calc(50% + (var(--sl) - var(--sr)) / 2); transform: translateX(-50%); z-index: 5;
@@ -200,6 +203,11 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
 
 /* Portrait iPad and phone */
 @media (max-width: 900px) {
+  /* block 6 (playtest 2, q01): in portrait the brand wrapped to four lines and ran into the pill: title and date on one line each */
+  .brand { padding: 6px 12px; flex: none; }
+  .brand b, .brand span { white-space: nowrap; }
+  .brand b { font-size: 18px; }
+  .brand span { letter-spacing: 0.06em; font-size: 11px; }
   .tool { width: 72px; }
   body.carded #lower, body.carded #toast { display: none; }
   #card { left: calc(var(--gap) + var(--sl)); right: calc(var(--gap) + var(--sr)); width: auto; top: auto; bottom: calc(var(--bar-h) + 2 * var(--gap) + var(--sb)); max-height: 46vh; max-height: 46dvh; }
@@ -306,11 +314,14 @@ const TUNE = {
   // $ per worker a month at "fair", by stage (block 3: was $10 flat). Wages rise as the island grows: a settlement can
   // always pay its workers from its rent (half the people work; rent is $17.50 a person), a capital keeps about a
   // fifth to a third of its income. Said on the stage card and at the desk.
-  stageWage: [16, 28, 32, 36, 38, 40],
+  stageWage: [16, 28, 36, 40, 42, 44], // block 6: Town on a little higher (was 32 / 36 / 38 / 40)
   upkeepPct: 0.01,        // of the building's cost, a month
+  bigUpkeep: { from: 9000, pct: 0.015 }, // block 6: buildings of $9,000 or more pay 1.5 % a month (schools, parks, the quay)
   closedUpkeep: 0.5,
   refund: 0.5,
   cartLoad: 4,             // block 3: was 3 (farms make 8 a month; one cart must keep up over ~15 road tiles)
+  shelfPull: 24,          // block 6: carts treat a full market shelf as this many road tiles farther than an empty one
+  cartsMax: 4,            // block 6: a producer sends another cart when a full load waits and all its carts are out
   cartSpeed: 0.6,         // tiles per tick
   yardCap: 6,
   inputCap: 8,
@@ -331,7 +342,7 @@ const TUNE = {
   happyArrive: 50,
   happyLeave: 35,
   leavePct: 0.05,
-  levelUpMonths: [0, 2, 4, 10, 12], // months with everything before a Casita / House / Villa / Townhouse moves up
+  levelUpMonths: [0, 2, 8, 14, 16], // months with everything before a Casita / House / Villa / Townhouse moves up (block 6: 4 / 10 / 12 before)
   levelDownMonths: 3,
   flourPerBread: 0.5,
   guideMonths: 2,         // a problem must last this long before the guide speaks
@@ -340,7 +351,11 @@ const TUNE = {
   bubbleAll: 3,           // up to this many homes lacking a thing: every one shows it
   lighthouseBonus: 0.1,   // the ship pays 10 % more while a lighthouse is open
   operaRent: 0.1,         // homes near an opera house pay 10 % more rent
-  palaceCost: 300000,
+  palaceCost: 100000,     // block 6: was $300,000 (75 paydays at the Capital); now about 25, the last goal
+  // Block 6 (playtest 2): the Clear forest tool (Roads tab, from Village) turns forest in the open land into grass, a 2 x 2
+  // patch at a time, priced a tile by stage (clearing gets dearer as wages rise). The way out when no grass is left by a road.
+  clearStage: 1,
+  clearCost: [300, 300, 400, 600, 800, 1000],
   decoHappy: 10,          // happiness: + up to 10 for the share of homes with a decoration in reach
   palaceHappy: 5,
   cathedralHappy: 5,
@@ -384,23 +399,23 @@ const BUILDINGS = {
   distillery: { name: 'Rum distillery', short: 'Distillery', kind: 'producer', w: 2, h: 2, cost: 4000, jobs: 4, stage: 1, makes: 'rum', rate: 3, uses: { cane: 2 }, icon: 'barrel', art: 'workshop', color: '#a0522d', group: 'industry' },
   bakery:     { name: 'Bakery', kind: 'producer', w: 1, h: 1, cost: 2500, jobs: 2, stage: 1, makes: 'bread', rate: 8, uses: { flour: 0.5 }, icon: 'bread', art: 'workshop', color: '#d9a35b', group: 'food' },
   chapel:     { name: 'Chapel', kind: 'service', w: 2, h: 2, cost: 3000, jobs: 1, stage: 1, gives: 'church', icon: 'chapel', art: 'civic', color: '#f3ead8', group: 'services' },
-  harbor:     { name: 'Harbor', kind: 'harbor', w: 2, h: 2, cost: 3500, jobs: 2, stage: 1, site: 'coast', carts: 4, icon: 'anchor', art: 'harbor', color: '#8a6a4a', group: 'harbor' },
-  school:     { name: 'School', kind: 'service', w: 2, h: 2, cost: 9000, jobs: 3, stage: 2, gives: 'school', icon: 'school', art: 'civic', color: '#c9733d', group: 'services' },
-  clinic:     { name: 'Clinic', kind: 'service', w: 2, h: 2, cost: 9000, jobs: 3, stage: 2, gives: 'clinic', icon: 'clinic', art: 'civic', color: '#f6f2ea', group: 'services' },
+  harbor:     { name: 'Harbor', kind: 'harbor', w: 2, h: 2, cost: 3500, jobs: 2, stage: 1, site: 'coast', icon: 'anchor', art: 'harbor', color: '#8a6a4a', group: 'harbor' },
+  school:     { name: 'School', kind: 'service', w: 2, h: 2, cost: 12000, jobs: 3, stage: 2, gives: 'school', icon: 'school', art: 'civic', color: '#c9733d', group: 'services' },
+  clinic:     { name: 'Clinic', kind: 'service', w: 2, h: 2, cost: 12000, jobs: 3, stage: 2, gives: 'clinic', icon: 'clinic', art: 'civic', color: '#f6f2ea', group: 'services' },
   tobacco:    { name: 'Tobacco field', short: 'Tobacco', kind: 'producer', w: 2, h: 3, cost: 1500, jobs: 3, stage: 2, makes: 'tobacco', rate: 6, icon: 'leaf', art: 'field', color: '#8aa83e', group: 'industry' },
   cigars:     { name: 'Cigar workshop', short: 'Cigars', kind: 'producer', w: 2, h: 2, cost: 4500, jobs: 4, stage: 2, makes: 'cigars', rate: 3, uses: { tobacco: 2 }, icon: 'cigar', art: 'workshop', color: '#7b5a3c', group: 'industry' },
   lumber:     { name: 'Lumber camp', short: 'Lumber', kind: 'producer', w: 1, h: 1, cost: 1500, jobs: 3, stage: 2, makes: 'logs', rate: 6, site: 'forest', icon: 'tree', art: 'hut', color: '#6b8a3e', group: 'industry' },
   sawmill:    { name: 'Sawmill', kind: 'producer', w: 2, h: 2, cost: 3500, jobs: 3, stage: 2, makes: 'planks', rate: 3, uses: { logs: 2 }, icon: 'saw', art: 'workshop', color: '#b07d4a', group: 'industry' },
   // City
-  finca:      { name: 'Coffee finca', short: 'Coffee finca', kind: 'producer', w: 2, h: 3, cost: 5000, jobs: 3, stage: 3, makes: 'beans', rate: 6, icon: 'bean', art: 'field', color: '#3f6b35', group: 'industry' },
-  roastery:   { name: 'Coffee roastery', short: 'Roastery', kind: 'producer', w: 2, h: 2, cost: 12000, jobs: 3, stage: 3, makes: 'coffee', rate: 3, uses: { beans: 2 }, icon: 'cup', art: 'workshop', color: '#6d4c3d', group: 'industry' },
-  ranch:      { name: 'Cattle ranch', short: 'Ranch', kind: 'producer', w: 2, h: 3, cost: 5000, jobs: 3, stage: 3, makes: 'cattle', rate: 4, icon: 'cow', art: 'field', color: '#9bb56a', group: 'food' },
-  butcher:    { name: 'Butcher', kind: 'producer', w: 1, h: 1, cost: 8000, jobs: 2, stage: 3, makes: 'meat', rate: 4, uses: { cattle: 1 }, icon: 'meat', art: 'workshop', color: '#b5473a', group: 'food' },
-  park:       { name: 'Park', kind: 'service', w: 2, h: 2, cost: 10000, jobs: 1, stage: 3, gives: 'park', icon: 'park', art: 'civic', color: '#7cc36b', group: 'services' },
+  finca:      { name: 'Coffee finca', short: 'Coffee finca', kind: 'producer', w: 2, h: 3, cost: 6000, jobs: 3, stage: 3, makes: 'beans', rate: 6, icon: 'bean', art: 'field', color: '#3f6b35', group: 'industry' },
+  roastery:   { name: 'Coffee roastery', short: 'Roastery', kind: 'producer', w: 2, h: 2, cost: 15000, jobs: 3, stage: 3, makes: 'coffee', rate: 3, uses: { beans: 2 }, icon: 'cup', art: 'workshop', color: '#6d4c3d', group: 'industry' },
+  ranch:      { name: 'Cattle ranch', short: 'Ranch', kind: 'producer', w: 2, h: 3, cost: 6000, jobs: 3, stage: 3, makes: 'cattle', rate: 4, icon: 'cow', art: 'field', color: '#9bb56a', group: 'food' },
+  butcher:    { name: 'Butcher', kind: 'producer', w: 1, h: 1, cost: 10000, jobs: 2, stage: 3, makes: 'meat', rate: 4, uses: { cattle: 1 }, icon: 'meat', art: 'workshop', color: '#b5473a', group: 'food' },
+  park:       { name: 'Park', kind: 'service', w: 2, h: 2, cost: 14000, jobs: 1, stage: 3, gives: 'park', icon: 'park', art: 'civic', color: '#7cc36b', group: 'services' },
   // Port city
-  quay:       { name: 'Steamship quay', short: 'Steamship', kind: 'harbor', w: 2, h: 2, cost: 150000, jobs: 4, stage: 4, site: 'coast', ships: 2, cap: 120, buys: 12, carts: 4, icon: 'ship', art: 'harbor', color: '#5a6b78', group: 'harbor' },
-  cannery:    { name: 'Cannery', kind: 'producer', w: 2, h: 2, cost: 15000, jobs: 4, stage: 4, makes: 'tins', rate: 4, uses: { fish: 1 }, icon: 'tin', art: 'workshop', color: '#7d8f9b', group: 'industry' },
-  lighthouse: { name: 'Lighthouse', kind: 'service', w: 1, h: 1, cost: 12000, jobs: 1, stage: 4, site: 'coast', gives: 'light', icon: 'light', art: 'civic', color: '#f4f1e8', group: 'harbor' },
+  quay:       { name: 'Steamship quay', short: 'Steamship', kind: 'harbor', w: 2, h: 2, cost: 45000, jobs: 4, stage: 4, site: 'coast', ships: 2, cap: 120, buys: 12, icon: 'ship', art: 'harbor', color: '#5a6b78', group: 'harbor' },
+  cannery:    { name: 'Cannery', kind: 'producer', w: 2, h: 2, cost: 18000, jobs: 4, stage: 4, makes: 'tins', rate: 4, uses: { fish: 1 }, icon: 'tin', art: 'workshop', color: '#7d8f9b', group: 'industry' },
+  lighthouse: { name: 'Lighthouse', kind: 'service', w: 1, h: 1, cost: 14000, jobs: 1, stage: 4, site: 'coast', gives: 'light', icon: 'light', art: 'civic', color: '#f4f1e8', group: 'harbor' },
   // Capital
   cathedral:  { name: 'Cathedral', kind: 'service', w: 3, h: 3, cost: 60000, jobs: 3, stage: 5, gives: 'church', reach: 15, icon: 'chapel', art: 'civic', color: '#eadfca', group: 'services' },
   opera:      { name: 'Opera house', short: 'Opera', kind: 'service', w: 3, h: 2, cost: 80000, jobs: 4, stage: 5, gives: 'opera', reach: 12, icon: 'opera', art: 'civic', color: '#c05a6b', group: 'services' },
@@ -469,8 +484,8 @@ const STAGES = [
 const RESIDENCE = [
   { name: "Governor's hut", cost: 0, stage: 0 },
   { name: "Governor's house", cost: 8000, stage: 1 },
-  { name: "Governor's villa", cost: 40000, stage: 2 },
-  { name: "Governor's mansion", cost: 100000, stage: 3 },
+  { name: "Governor's villa", cost: 20000, stage: 2 },   // block 6: was $40,000 (13 paydays at Town); now about 6
+  { name: "Governor's mansion", cost: 30000, stage: 3 }, // block 6: was $100,000 (20 paydays at City); now about 7
 ];
 
 const LEVERS = {
@@ -857,8 +872,9 @@ function placeBuilding(state, type, x, y) {
   const def = BUILDINGS[type], b = newBuilding(state, type, x, y);
   state.money -= def.cost;
   state.b.push(b);
-  // One cart per producer; a harbor has three (they take flour to the bakeries), the steamship quay four.
-  if (def.kind === 'producer' || def.kind === 'harbor') for (let k = 0; k < (def.carts || 1); k++) state.carts.push({ id: b.id + k * 7, home: b.id, st: 'idle', good: '', n: 0, dest: 0, path: null, pos: 0 });
+  // One cart per producer to start; it sends more when loads wait (cartsMore, up to TUNE.cartsMax). Block 6: harbors
+  // have no carts (the ship's flour reaches the bakeries directly).
+  if (def.kind === 'producer') state.carts.push({ id: b.id, home: b.id, st: 'idle', good: '', n: 0, dest: 0, path: null, pos: 0 });
   state.ver++;
   simEvent(state, { kind: 'built', id: b.id });
   return { ok: true, b };
@@ -952,6 +968,38 @@ function palaceBuild(state) {
   return { ok: true };
 }
 
+// Clear forest (block 6): the forest tiles of the 2 x 2 patch at (x, y) in the open land become grass.
+// { tiles, cost, why }: why is '' when it can be cleared now.
+function clearTileCost(state) { return TUNE.clearCost[Math.min(state.stage, TUNE.clearCost.length - 1)]; }
+
+function clearInfo(state, x, y) {
+  if (state.stage < TUNE.clearStage) return { tiles: [], cost: 0, why: 'Opens at ' + STAGES[TUNE.clearStage].name };
+  const tiles = [];
+  let locked = '';
+  for (let ty = y; ty < y + 2; ty++) for (let tx = x; tx < x + 2; tx++) {
+    if (!inMap(tx, ty)) continue;
+    const i = tileIdx(tx, ty);
+    if (state.terrain[i] !== FOREST) continue;
+    if (!tileOpenAt(state, i)) { locked = 'Land opens at ' + regionStageName(state, i); continue; }
+    tiles.push(i);
+  }
+  const cost = tiles.length * clearTileCost(state);
+  if (!tiles.length) return { tiles, cost, why: locked || 'No forest here' };
+  if (state.money < cost) return { tiles, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  return { tiles, cost, why: '' };
+}
+
+function clearForest(state, x, y) {
+  const r = clearInfo(state, x, y);
+  if (r.why) return r;
+  for (const i of r.tiles) state.terrain[i] = GRASS;
+  state.money -= r.cost;
+  state.tver = (state.tver || 0) + 1;
+  state.ver++;
+  simEvent(state, { kind: 'cleared', tiles: r.tiles.length, cost: r.cost, x, y });
+  return r;
+}
+
 // What the remove tool would take at (x, y): { what, refund, why }.
 function removeInfo(state, x, y) {
   const b = bAt(state, x, y);
@@ -979,6 +1027,85 @@ function removeAt(state, x, y) {
   state.money += r.refund;
   state.ver++;
   return r;
+}
+
+// Anchors (x, y) where `type` fits now, ignoring money (cached per change). opts.noRoad: ignoring the road next to it;
+// opts.noForest: as if the forest in the open land were cleared.
+function fitAnchors(state, type, opts) {
+  const o = opts || {}, c = simCache(state), key = type + (o.noRoad ? '|r' : '') + (o.noForest ? '|f' : '');
+  if (!c.fit) c.fit = {};
+  if (c.fit[key]) return c.fit[key];
+  const def = BUILDINGS[type], out = [], keep = state.terrain;
+  if (o.noForest) state.terrain = keep.map((t, i) => (t === FOREST && tileOpenAt(state, i) ? GRASS : t));
+  try {
+    for (let y = 0; y <= MAP_H - def.h; y++) for (let x = 0; x <= MAP_W - def.w; x++) if (canPlace(state, type, x, y, { free: true, noRoad: o.noRoad }) === '') out.push([x, y]);
+  } finally { state.terrain = keep; }
+  return (c.fit[key] = out);
+}
+
+// When a building has no spot by a road (block 6, playtest 2: Rosa looped "build a fruit grove" <-> "lay a road into
+// open grass" while every way to the grass was walled in by homes and forest): the one step that makes a spot.
+// A cheapest path from the town's roads to a footprint that fits: over free land (a road), through forest (clear it
+// first) or through a home (remove it). { step: 'road' | 'clear' | 'remove' | 'none', at: [x, y], id, n } or null when
+// a spot by a road exists.
+function wayFor(state, type) {
+  const def = BUILDINGS[type];
+  if (!def || def.kind === 'fixed' || def.kind === 'deco' || fitAnchors(state, type).length) return null;
+  let anchors = fitAnchors(state, type, { noRoad: true }), clearFoot = false;
+  const canClear = state.stage >= TUNE.clearStage;
+  if (!anchors.length && canClear) { anchors = fitAnchors(state, type, { noRoad: true, noForest: true }); clearFoot = true; }
+  if (!anchors.length) return { step: 'none' };
+  const n = MAP_W * MAP_H, goal = new Int32Array(n).fill(-1);
+  anchors.forEach(([ax, ay], k) => {
+    for (let y = ay - 1; y <= ay + def.h; y++) for (let x = ax - 1; x <= ax + def.w; x++) {
+      const side = (x === ax - 1 || x === ax + def.w) !== (y === ay - 1 || y === ay + def.h);
+      if (side && inMap(x, y) && goal[tileIdx(x, y)] < 0) goal[tileIdx(x, y)] = k;
+    }
+  });
+  const pier = state.b.find((b) => b.type === 'pier'), net = roadNets(state), town = pier ? bNets(state, pier) : [];
+  const occ = occMap(state), dist = new Float64Array(n).fill(Infinity), prev = new Int32Array(n).fill(-1), done = new Uint8Array(n);
+  // the step cost of a tile: a road 0, free open land 1, open forest 4 (cleared first), a home 30 (removed first)
+  const cost = (i) => {
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
+    if (state.road[i]) return 0;
+    if (occ[i]) { const b = bById(state, occ[i]); return b && b.type === 'casita' && tileOpenAt(state, i) ? 30 : -1; }
+    if (state.terrain[i] === FOREST) return canClear && tileOpenAt(state, i) ? 4 : -1;
+    return canRoad(state, x, y) === '' ? 1 : -1;
+  };
+  const heap = [];
+  for (let i = 0; i < n; i++) if (state.road[i] && town.includes(net[i])) { dist[i] = 0; heap.push(i); }
+  let hit = -1;
+  // a simple Dijkstra (2,304 tiles): pick the nearest open tile each step
+  while (heap.length) {
+    let k = 0;
+    for (let j = 1; j < heap.length; j++) if (dist[heap[j]] < dist[heap[k]]) k = j;
+    const i = heap[k]; heap[k] = heap[heap.length - 1]; heap.pop();
+    if (done[i]) continue;
+    done[i] = 1;
+    if (goal[i] >= 0 && !(state.road[i] && town.includes(net[i]))) { hit = i; break; }
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
+    for (const [dx, dy] of DIRS4) {
+      const nx = x + dx, ny = y + dy;
+      if (!inMap(nx, ny)) continue;
+      const j = tileIdx(nx, ny), c = cost(j);
+      if (c < 0 || done[j] || dist[i] + c >= dist[j]) continue;
+      dist[j] = dist[i] + c; prev[j] = i; heap.push(j);
+    }
+  }
+  if (hit < 0) return { step: 'none' };
+  const path = [];
+  for (let i = hit; i >= 0 && !(state.road[i] && town.includes(net[i])); i = prev[i]) path.push(i);
+  path.reverse();
+  const xy = (i) => [i % MAP_W, (i / MAP_W) | 0];
+  for (const i of path) {
+    if (occ[i]) return { step: 'remove', at: xy(i), id: occ[i], n: path.length };
+    if (state.terrain[i] === FOREST) return { step: 'clear', at: xy(i), n: path.length };
+  }
+  if (clearFoot) {
+    const [ax, ay] = anchors[goal[hit]];
+    for (let y = ay; y < ay + def.h; y++) for (let x = ax; x < ax + def.w; x++) if (state.terrain[tileIdx(x, y)] === FOREST) return { step: 'clear', at: [x, y], n: path.length, foot: true };
+  }
+  return { step: 'road', at: xy(path[0] !== undefined ? path[0] : hit), n: path.filter((i) => !state.road[i]).length, to: xy(hit) };
 }
 
 // ---- src/sim/economy.js
@@ -1092,9 +1219,13 @@ function consumerFind(state, src, g) {
     if (room < 1) continue;
     const kind = BUILDINGS[d.type].kind;
     const cls = kind === 'market' ? 0 : kind === 'harbor' ? 2 : 1;
-    const dist = roadDist(state, src, d).d;
-    if (!isFinite(dist)) continue;
+    const road = roadDist(state, src, d).d;
+    if (!isFinite(road)) continue;
     const part = room < TUNE.cartLoad ? 1 : 0;
+    // Block 6 (playtest 2): a market with emptier shelves counts as nearer (a full shelf as 24 tiles farther), so a
+    // market serving 69 homes is not left empty while every cart goes to a fuller one next door.
+    const fill = kind !== 'market' ? 0 : GOODS[g].food ? marketFood(d) / (2 * TUNE.marketCap) : (d.stock[g] || 0) / TUNE.marketCap;
+    const dist = road + TUNE.shelfPull * fill;
     if (!best || cls < best.cls || (cls === best.cls && (part < best.part || (part === best.part && dist < best.dist)))) best = { d, room, cls, dist, part };
   }
   return best;
@@ -1117,8 +1248,24 @@ function takerState(state, b) {
 
 function cartSource(state, b) {
   const def = BUILDINGS[b.type];
-  if (def.kind === 'harbor') return { g: 'flour', have: Math.floor(b.flour + 1e-9) };
+  if (def.kind === 'harbor') return { g: 'flour', have: 0 };
   return { g: def.makes, have: b.yard };
+}
+
+// Block 6 (playtest 2): a producer sends another cart when a full load waits and all its carts are out, up to
+// TUNE.cartsMax. Before, one cart per producer: a fruit grove 20 road tiles from its market moved two thirds of its
+// fruit and its card still said "enough for 48 people" (the markets' food shelves stood empty all month at City).
+// The card shows the carts ("carts 2 / 4 on the road").
+function cartsMore(state, b) {
+  if (!b.open || b.yard < TUNE.cartLoad) return;
+  const mine = state.carts.filter((c) => c.home === b.id);
+  if (mine.length >= TUNE.cartsMax || mine.some((c) => c.st === 'idle')) return;
+  state.carts.push({ id: state.nextId++, home: b.id, st: 'idle', good: '', n: 0, dest: 0, path: null, pos: 0 });
+}
+
+function cartsOf(state, b) {
+  const mine = state.carts.filter((c) => c.home === b.id);
+  return { n: mine.length, out: mine.filter((c) => c.st !== 'idle').length };
 }
 
 function cartDispatch(state, c, b) {
@@ -1215,21 +1362,22 @@ function homeTick(state, h) {
   }
 }
 
-// Flour: the harbor orders what the bakeries can take; it is paid on payday as an import.
-// With two harbors, flour already waiting at either one counts.
-function harborOrder(state, hb) {
-  if (!hb.open || !hb.workers) return;
-  let want = 0;
+// Flour (block 6, playtest 2): while a harbor stands open, the ship's flour reaches every bakery directly; its cost is on
+// the bakery's monthly number. Before, the harbor's carts took it: all the flour waited at the first harbor and bakeries
+// 35-65 road tiles away got none while Rosa said "build a harbor" (there were two).
+function flourShip(state) { return state.b.some((b) => BUILDINGS[b.type].kind === 'harbor' && b.open); }
+
+function flourImport(state) {
+  if (!flourShip(state)) return;
   for (const b of state.b) {
     const def = BUILDINGS[b.type];
-    if (def.uses && def.uses.flour && b.open) want += TUNE.inputCap - (b.inp.flour || 0) - (b.incoming.flour || 0);
-    if (def.kind === 'harbor') want -= b.flour;
+    if (!def.uses || !def.uses.flour || !b.open || !b.workers) continue;
+    const buy = Math.floor(TUNE.inputCap - (b.inp.flour || 0) + 1e-9);
+    if (buy <= 0) continue;
+    b.inp.flour = (b.inp.flour || 0) + buy;
+    b.bought = (b.bought || 0) + buy * GOODS.flour.cost;
+    state.monthImports.flour = (state.monthImports.flour || 0) + buy;
   }
-  const buy = Math.max(0, Math.ceil(want));
-  if (buy <= 0) return;
-  hb.flour += buy;
-  hb.bought += buy * GOODS.flour.cost;
-  state.monthImports.flour = (state.monthImports.flour || 0) + buy;
 }
 
 // An open, staffed lighthouse: the ship pays 10 % more for everything.
@@ -1315,15 +1463,38 @@ function homeMonth(state, h) {
     h.level--; h.down = 0;
     const cap = LEVELS[h.level].people;
     if (h.res > cap) { walkersSpawn(state, h, h.res - cap, false); h.res = cap; }
-    // A mark stays over it until she taps it (state.downs: home id -> month); Rosa explains the first one.
+    // Block 6 (playtest 2): a ↓ mark over it for a month, or until what it lacked is back (state.downs: home id ->
+    // month, state.downNeed: home id -> the need); one log line and one Rosa line per cause (downsSay), not one each.
     if (!state.downs) state.downs = {};
+    if (!state.downNeed) state.downNeed = {};
+    const need = h.miss[0];
     state.downs[h.id] = state.month;
+    state.downNeed[h.id] = need;
+    if (!state._downNow) state._downNow = {};
+    (state._downNow[need] = state._downNow[need] || []).push(h.id);
     const text = 'A ' + LEVELS[h.level + 1].name.toLowerCase() + ' became a ' + LEVELS[h.level].name.toLowerCase() + ' again: it lacked ' + h.miss.map((n) => NEED_NAMES[n]).join(', ') + '.';
-    simEvent(state, { kind: 'leveldown', id: h.id, level: h.level, text });
-    simLog(state, text);
-    if (!state.guide.seen.down) state.guide.pendDown = { id: h.id, text };
+    simEvent(state, { kind: 'leveldown', id: h.id, level: h.level, text, need });
   }
   h.dry = {}; h.occTicks = 0;
+}
+
+// The ↓ marks go by themselves (block 6): a month after the step, or as soon as the home has what it lacked again.
+function downsClear(state, monthEnd) {
+  if (!state.downs) return;
+  for (const id in state.downs) {
+    const h = bById(state, +id), need = state.downNeed && state.downNeed[id];
+    const old = monthEnd && state.month - state.downs[id] >= 1;
+    if (!h || old || (need && h.occTicks > 10 && homeHas(state, h, need))) { delete state.downs[id]; if (state.downNeed) delete state.downNeed[id]; }
+  }
+}
+
+// The month's step-downs in one log line ("4 homes stepped down a level: 3 lacked bread, 1 coffee.").
+function downsLog(state) {
+  const now = state._downNow;
+  if (!now) return;
+  const parts = Object.keys(now).sort((a, b) => now[b].length - now[a].length).map((n) => now[n].length + ' ' + NEED_NAMES[n]);
+  const total = Object.values(now).reduce((a, l) => a + l.length, 0);
+  simLog(state, plural(total, 'home', 'homes') + ' stepped down a level: ' + (total === 1 ? 'it lacked ' + NEED_NAMES[Object.keys(now)[0]] : 'they lacked ' + parts.join(', ')) + '.');
 }
 
 // Fewer bubbles: every home shows at most one bubble, its most important missing thing (the first of its needs in the
@@ -1485,8 +1656,10 @@ function bNumber(state, b) {
     out.rent = Math.round(lv.rent * LEVERS.rent[state.lev.rent].mult * b.res / lv.people * (operaNear(state, b) ? 1 + TUNE.operaRent : 1));
   } else if (def.jobs) {
     out.wages = Math.round(b.workers * wageNow(state) * LEVERS.wages[state.lev.wages].mult);
-    out.upkeep = Math.round(def.cost * TUNE.upkeepPct * (b.open ? 1 : TUNE.closedUpkeep));
-    if (def.kind === 'harbor') { out.exports = b.sold; out.imports = b.bought; }
+    out.upkeep = Math.round(upkeepOf(def) * (b.open ? 1 : TUNE.closedUpkeep));
+    if (def.kind === 'harbor') out.exports = b.sold;
+    // block 6: the flour a bakery buys from the ship is on the bakery's own number (harbors no longer carry it)
+    out.imports = b.bought || 0;
   }
   out.n = out.rent + out.exports - out.wages - out.upkeep - out.imports;
   return out;
@@ -1503,8 +1676,11 @@ function bForecast(state, type) {
   const def = BUILDINGS[type];
   if (def.kind === 'home') return Math.round(LEVELS[1].rent * LEVERS.rent[state.lev.rent].mult);
   if (!def.jobs) return 0;
-  return -(Math.round(def.jobs * wageNow(state) * LEVERS.wages[state.lev.wages].mult) + Math.round(def.cost * TUNE.upkeepPct));
+  return -(Math.round(def.jobs * wageNow(state) * LEVERS.wages[state.lev.wages].mult) + Math.round(upkeepOf(def)));
 }
+
+// Upkeep a month at full use: a share of the building's cost, a larger share for the big ones (block 6, TUNE.bigUpkeep).
+function upkeepOf(def) { return def.cost * (def.cost >= TUNE.bigUpkeep.from ? TUNE.bigUpkeep.pct : TUNE.upkeepPct); }
 
 // A worker's monthly wage at "fair": it rises with each stage (TUNE.stageWage).
 function wageNow(state) { return TUNE.stageWage[Math.min(state.stage, TUNE.stageWage.length - 1)]; }
@@ -1518,7 +1694,8 @@ function paydayRun(state) {
     r.result += x.n;
     r.lines.push({ id: b.id, n: x.n });
     if (x.n) simEvent(state, { kind: 'money', id: b.id, n: x.n });
-    if (b.sold !== undefined) { b.lastSold = b.sold; b.lastBought = b.bought; b.sold = 0; b.bought = 0; b.soldUnits = {}; }
+    if (b.sold !== undefined) { b.lastSold = b.sold; b.sold = 0; b.soldUnits = {}; }
+    if (b.bought !== undefined) { b.lastBought = b.bought; b.bought = 0; }
   }
   r.soldUnits = Object.assign({}, state.monthExported);
   state.money += r.result;
@@ -1567,8 +1744,10 @@ function stageConds(state) {
   if (next.mansions) { const n = homesAtLevel(state, 5); conds.push({ label: Math.min(n, next.mansions) + ' / ' + next.mansions + ' Mansions', ok: n >= next.mansions }); }
   // The landmark: the residence's next level (bought on its card) or a building; its price shows until it stands.
   const lm = next.landmark;
-  if (lm && lm.res) { const ok = (state.res || 0) >= lm.res; conds.push({ label: RESIDENCE[lm.res].name + (ok ? '' : ' ' + money$(RESIDENCE[lm.res].cost)), ok, landmark: true }); }
-  if (lm && lm.b) { const ok = countType(state, lm.b) > 0; conds.push({ label: 'a ' + BUILDINGS[lm.b].name.toLowerCase() + (ok ? '' : ' ' + money$(BUILDINGS[lm.b].cost)), ok, landmark: true }); }
+  // Block 6: while she saves for it, the pill shows how far ("$12,400 of $25,000").
+  const saved = (cost) => (state.money >= cost ? ' ' + money$(cost) : ' · ' + money$(Math.max(0, state.money)) + ' of ' + money$(cost));
+  if (lm && lm.res) { const ok = (state.res || 0) >= lm.res; conds.push({ label: RESIDENCE[lm.res].name + (ok ? '' : saved(RESIDENCE[lm.res].cost)), ok, landmark: true }); }
+  if (lm && lm.b) { const ok = countType(state, lm.b) > 0; conds.push({ label: 'a ' + BUILDINGS[lm.b].name.toLowerCase() + (ok ? '' : saved(BUILDINGS[lm.b].cost)), ok, landmark: true }); }
   return { next, conds };
 }
 
@@ -1680,24 +1859,150 @@ function yardText(s, b) {
   return 'The ' + name + ' makes more ' + g + ' than the island uses: its yard is full. Close it to save $' + cost + ' a month' + exp + '.';
 }
 
+// Why a workshop has no input, in one cause and one fix (block 6): no supplier, its road not joined, too few suppliers
+// for the workshops, or (flour) every harbor shut. { g, text, btn, act }.
+function inputWhy(s, b) {
+  const def = BUILDINGS[b.type], g = Object.keys(def.uses)[0], name = (t) => BUILDINGS[t].name.toLowerCase();
+  if (g === 'flour') {
+    if (!countHarbors(s)) return { g, text: 'the ship brings flour ($' + GOODS.flour.cost + ' a sack) once a harbor stands. Build a harbor', btn: 'Harbor', act: { tool: 'harbor' } };
+    if (!flourShip(s)) { const h = s.b.find((o) => BUILDINGS[o.type].kind === 'harbor'); return { g, text: 'every harbor is shut down. Open one on its card: the ship brings flour to every bakery', btn: 'Show', act: { select: h.id } }; }
+    return null;
+  }
+  const src = makerOf(g), have = s.b.filter((o) => o.type === src);
+  if (!have.length) return { g, text: 'build ' + inputSource(g) + ' on its road', btn: toolLabel(src), act: { tool: src, at: [b.x, b.y] } };
+  if (!have.some((o) => isFinite(roadDist(s, o, b).d))) return { g, text: 'the ' + name(src) + ' has no road to it. Join their roads', btn: 'Show', act: { select: b.id, roads: true } };
+  const shops = s.b.filter((o) => o.type === b.type && o.open).length;
+  if (goodSupply(s, g) < shops * def.uses[g] * def.rate * 0.95) return { g, text: plural(have.length, name(src), name(src) + 's').replace(/^\d+ /, (m) => m) + ' make ' + goodSupply(s, g) + ' a month and ' + plural(shops, name(b.type), name(b.type) + 's') + ' use ' + shops * def.uses[g] * def.rate + '. Build another ' + name(src), btn: toolLabel(src), act: { tool: src, at: [b.x, b.y] } };
+  if (g === 'fish') return { g, text: 'the markets get the fish first. Build more fishing huts', btn: toolLabel('fishing'), act: { tool: 'fishing' } };
+  return { g, text: 'its ' + GOODS[g].name.toLowerCase() + ' is on the way (carts from the ' + name(src) + ')', btn: 'Show', act: { select: b.id } };
+}
+
 function countHarbors(s) { return s.b.filter((b) => BUILDINGS[b.type].kind === 'harbor').length; }
 
-// "8 homes lack bread · build a bakery": the cause of a need many homes miss, and its one fix (a tool to build).
-function needFix(s, need) {
-  const name = (t) => BUILDINGS[t].name.toLowerCase();
-  if (NEED_GOODS.includes(need) && need !== 'food') {
-    const maker = makerOf(need), def = BUILDINGS[maker];
-    const raw = def.uses ? Object.keys(def.uses)[0] : '';
-    if (raw && raw !== 'flour' && !countType(s, makerOf(raw)) && countType(s, maker)) return { text: 'the ' + name(maker) + ' needs ' + inputSource(raw), tool: makerOf(raw) };
-    if (raw === 'flour' && !countHarbors(s)) return { text: 'a bakery needs flour from a harbor', tool: 'harbor' };
-    if (!countType(s, maker)) return { text: 'build ' + (raw && raw !== 'flour' ? inputSource(raw) + ' and a ' + name(maker) : 'a ' + name(maker)), tool: raw && raw !== 'flour' ? makerOf(raw) : maker };
-    return { text: 'build another ' + name(maker) + ', or a market nearer', tool: maker };
+// What the island makes of a good a month (open makers at full staff) and what its homes eat.
+function goodMakers(s, g) { return s.b.filter((b) => { const d = BUILDINGS[b.type]; return b.open && (g === 'food' ? d.food && d.makes && GOODS[d.makes].food : d.makes === g); }); }
+function goodSupply(s, g) { return goodMakers(s, g).reduce((a, b) => a + BUILDINGS[b.type].rate, 0); }
+function goodDemand(s, g) { return homesOccupied(s).reduce((a, h) => a + eatRate(h, g) * h.res / LEVELS[h.level].people, 0); }
+
+// The home nearest the middle of a group (where Rosa's Show button takes the view): [x, y].
+function homesAt(homes) {
+  if (!homes.length) return null;
+  const cx = homes.reduce((a, h) => a + h.x, 0) / homes.length, cy = homes.reduce((a, h) => a + h.y, 0) / homes.length;
+  let best = homes[0];
+  for (const h of homes) if (Math.hypot(h.x - cx, h.y - cy) < Math.hypot(best.x - cx, best.y - cy)) best = h;
+  return [best.x, best.y];
+}
+
+// Block 6 (playtest 2): the real cause of a need these homes miss, and its one fix: supply (the island makes less than
+// it eats), an input (the workshop has no raw goods), reach (no service near them, or near but no road joins them).
+// { text, tool, at }: `at` is where the fix belongs (Rosa's button takes the view there and arms the tool).
+function needCause(s, need, homes) {
+  homes = homes || homesOccupied(s).filter((h) => (h.miss || []).includes(need) || (h.missNext || []).includes(need));
+  const at = homesAt(homes), name = (t) => BUILDINGS[t].name.toLowerCase();
+  if (NEED_GOODS.includes(need)) {
+    if (need === 'food') {
+      const sup = goodSupply(s, 'food'), dem = goodDemand(s, 'food');
+      if (sup < dem * 1.05) return { text: 'the island makes ' + Math.round(sup) + ' food a month and eats ' + Math.round(dem) + ': build another fishing hut or fruit grove', tool: 'grove' };
+      return { text: 'build a fruit grove near their market', tool: 'grove', at };
+    }
+    const maker = makerOf(need), def = BUILDINGS[maker], raw = def.uses ? Object.keys(def.uses)[0] : '';
+    if (raw === 'flour' && !countHarbors(s)) return { text: 'a bakery needs flour: the ship brings it to a harbor', tool: 'harbor' };
+    if (raw === 'flour' && !flourShip(s)) return { text: 'the bakeries get no flour while every harbor is shut down: open a harbor on its card', tool: 'harbor' };
+    if (!countType(s, maker)) return { text: 'build ' + (raw && raw !== 'flour' ? inputSource(raw) + ' and a ' + name(maker) : 'a ' + name(maker)), tool: raw && raw !== 'flour' ? makerOf(raw) : maker, at };
+    const starved = s.b.find((b) => b.type === maker && b.open && b.blocked === 'input');
+    if (raw && raw !== 'flour' && starved) {
+      const rs = goodSupply(s, raw), use = goodMakers(s, need).length * def.uses[raw] * def.rate;
+      if (!countType(s, makerOf(raw)) || rs < use) return { text: 'the ' + name(maker) + ' has no ' + GOODS[raw].name.toLowerCase() + ': build ' + inputSource(raw), tool: makerOf(raw) };
+    }
+    const sup = goodSupply(s, need), dem = goodDemand(s, need);
+    if (sup < dem * 1.05) {
+      const rawShort = raw && raw !== 'flour' && goodSupply(s, raw) < (goodMakers(s, need).length + 1) * def.uses[raw] * def.rate;
+      return { text: 'the island makes ' + Math.round(sup) + ' ' + GOODS[need].name.toLowerCase() + ' a month and its homes eat ' + Math.round(dem) + ': build ' + (rawShort ? 'a ' + name(makerOf(raw)) + ' and ' : '') + 'another ' + name(maker), tool: rawShort ? makerOf(raw) : maker };
+    }
+    return { text: 'their market gets too little ' + GOODS[need].name.toLowerCase() + ': build a ' + name(maker) + ' near them', tool: maker, at };
   }
-  if (need === 'paved') return { text: 'pave the street in front of them', tool: 'paved' };
-  if (need === 'deco') return { text: 'place a garden, palms or a fountain near them (no road needed)', tool: 'garden' };
-  if (need === 'food') return { text: 'build another fishing hut or fruit grove', tool: 'grove' };
+  if (need === 'paved') return { text: 'pave the street in front of them', tool: 'paved', at };
+  if (need === 'deco') return { text: 'place a garden, palms or a fountain near them (no road needed)', tool: 'garden', at };
+  if (need === 'road') return { text: 'lay a road to them', tool: 'road', at };
   const t = NEED_FIX[need];
-  return { text: 'build a ' + (t === 'chapel' ? 'chapel' : name(t)) + ' near them', tool: t };
+  const cut = homes.filter((h) => { const r = homeReach(s)[h.id]; return r && r.cut.some((id) => { const b = bById(s, id); return b && (BUILDINGS[b.type].gives === need || (need === 'market' && b.type === 'market')); }); });
+  if (cut.length && cut.length >= homes.length / 2) return { text: 'a ' + (t === 'chapel' ? 'chapel' : name(t)) + ' is near, but no road joins them: join the roads', tool: 'road', at: homesAt(cut), roads: cut[0].id };
+  return { text: 'build a ' + (t === 'chapel' ? 'chapel' : name(t)) + ' near them', tool: t, at };
+}
+
+// "8 homes lack bread · build a bakery": the cause of a need many homes miss, and its one fix (a tool to build).
+function needFix(s, need) { return needCause(s, need); }
+
+// The step that makes room for a building when it has no spot by a road (wayFor in place.js), in her words.
+function wayText(s, type) {
+  const w = wayFor(s, type);
+  if (!w) return null;
+  const name = BUILDINGS[type].name.toLowerCase();
+  if (w.step === 'road') return { short: 'road first', text: 'There is open land for a ' + name + ', but no road to it: lay a road there (' + plural(Math.max(1, w.n), 'tile', 'tiles') + ').', btn: 'Show', act: { tool: 'road', at: w.at } };
+  if (w.step === 'clear') return { short: 'clear forest first', text: w.foot ? 'No open grass is left for a ' + name + '. Clear the forest here (' + money$(clearTileCost(s)) + ' a tile): it fits once the trees are gone.' :
+    'Forest blocks the way to open land for a ' + name + '. Clear it here (' + money$(clearTileCost(s)) + ' a tile), then lay a road.', btn: 'Clear forest', act: { tool: 'clear', at: w.at } };
+  if (w.step === 'remove') return { short: 'no road in', text: 'Your homes wall in the open land. Remove the home at the end of this street: a road through its lot reaches the grass for a ' + name + '.', btn: 'Show', act: { select: w.id } };
+  const next = STAGES[s.stage + 1];
+  return { short: 'no room', text: 'There is no room left for a ' + name + ' in the open land' + (next ? ': new land opens at ' + next.name + '.' : '.') + ' The Remove tool clears a spot.', btn: 'OK', act: {} };
+}
+
+// A line whose button arms a building that has no spot: the button becomes the step that makes one (never a tool with
+// no lit tile, never the loop "build a grove" <-> "lay a road into open grass").
+function guideWay(s, m) {
+  const t = m && m.act && m.act.tool;
+  if (!t || !BUILDINGS[t] || BUILDINGS[t].kind === 'deco' || BUILDINGS[t].stage > s.stage || fitAnchors(s, t).length) return m;
+  const w = wayText(s, t);
+  if (!w) return m;
+  return Object.assign({}, m, { text: m.text.replace(/\.$/, '') + '. ' + w.text, btn: w.btn, act: w.act });
+}
+
+// Block 6: the goal's blocker. When a home-level condition of the next stage is not met, the need most homes one level
+// below still lack ("Villas: 8 homes lack a park in reach"), its count and its fix. Shown on the pill and by Rosa.
+function goalBlocker(s) {
+  const { next, conds } = stageConds(s);
+  if (!next || next.goal) return null;
+  const k = [['houses', 2], ['villas', 3], ['townhouses', 4], ['mansions', 5]].find(([key]) => next[key]);
+  if (!k) return null;
+  const L = k[1], short = next[k[0]] - homesAtLevel(s, L);
+  if (short <= 0) return null;
+  const homes = homesOccupied(s), by = {}, ready = [];
+  // the homes one level below (and, when they are too few, two levels below): what they still need to move up, worked
+  // out now (h.missNext is only set at the month's end, so it is empty the month a stage opens)
+  for (const h of homes) {
+    if (h.level !== L - 1 && !(h.level === L - 2 && homes.filter((x) => x.level === L - 1).length < short)) continue;
+    const need = [...new Set(homeMissing(s, h, h.level).concat(homeMissing(s, h, h.level + 1)))];
+    if (!need.length && h.level === L - 1) ready.push(h);
+    for (const n of need) (by[n] = by[n] || []).push(h);
+  }
+  let best = null;
+  for (const n in by) if (!best || by[n].length > by[best].length) best = n;
+  const lname = LEVELS[L].name + 's', have = homesAtLevel(s, L), want = next[k[0]];
+  if (!best) {
+    const growing = ready.length;
+    if (!growing) return { level: L, n: 0, have, want, text: lname + ': no ' + LEVELS[L - 1].name + ' is waiting to grow; more homes must grow first', tool: 'casita' };
+    return { level: L, n: 0, have, want, text: lname + ': ' + plural(growing, 'home has', 'homes have') + ' everything and ' + (growing === 1 ? 'moves' : 'move') + ' up after ' + levelUpMonths(L - 1) + ' months' + (growing < short ? '; build more homes' : ''), tool: growing < short ? 'casita' : '' };
+  }
+  const fix = needCause(s, best, by[best]);
+  return { level: L, need: best, n: by[best].length, have, want, text: lname + ': ' + by[best].length + ' homes lack ' + NEED_NAMES[best] + (SERVICE_NEEDS.includes(best) || best === 'market' ? ' in reach' : ''), fix, tool: fix.tool, at: fix.at };
+}
+
+// Block 6: homes that stepped down this month, once per cause (not a toast every month): "6 homes stepped down: no meat
+// in reach · build a butcher near them." The same cause is said again only after a year without it.
+function downsSay(s) {
+  const now = s._downNow;
+  if (!now) return null;
+  const g = s.guide;
+  if (!g.downSaid) g.downSaid = {};
+  let best = null;
+  for (const n in now) if (!(g.downSaid[n] > s.month - 12) && (!best || now[n].length > now[best].length)) best = n;
+  for (const n in now) if (g.downSaid[n] > s.month - 12) g.downSaid[n] = s.month;
+  if (!best) return null;
+  g.downSaid[best] = s.month;
+  const homes = now[best].map((id) => bById(s, id)).filter(Boolean);
+  const fix = needCause(s, best, homes);
+  const what = NEED_GOODS.includes(best) ? 'no ' + NEED_NAMES[best] + ' in their market' : 'no ' + NEED_NAMES[best].replace(/^an? /, '') + (SERVICE_NEEDS.includes(best) || best === 'market' ? ' in reach' : '');
+  return { key: 'down', text: plural(homes.length, 'home', 'homes') + ' stepped down: ' + what + ' · ' + fix.text + '. The ↓ marks show where for a month.',
+    btn: toolLabel(fix.tool), act: { tool: fix.tool, at: fix.at || homesAt(homes) } };
 }
 
 // The most common thing homes miss (field 'miss' or 'missNext'), skipping food, market and road (said elsewhere).
@@ -1772,18 +2077,27 @@ const GUIDE_PROBLEMS = [
     return { text: 'Everything is ready for ' + next.name + ' but its landmark: a ' + BUILDINGS[t].name.toLowerCase() + ', ' + money$(BUILDINGS[t].cost) + '.', btn: toolLabel(t), act: { tool: t } };
   }, now: true },
   { key: 'input', check(s) {
-    const b = s.b.find((o) => o.blocked === 'input' && o.workers > 0);
+    // Block 6: the real cause, never "build a harbor" while one stands (the playtest's flour wall).
+    const b = s.b.find((o) => o.blocked === 'input' && o.workers > 0 && s.month - o.built > 1);
     if (!b) return null;
-    const g = Object.keys(BUILDINGS[b.type].uses)[0];
-    return { text: 'The ' + BUILDINGS[b.type].name.toLowerCase() + ' has no ' + GOODS[g].name.toLowerCase() + '. Build ' + inputSource(g) + ', connected by road.', btn: 'Show', act: { select: b.id } };
+    const w = inputWhy(s, b);
+    return w && Object.assign({ text: 'The ' + BUILDINGS[b.type].name.toLowerCase() + ' has no ' + GOODS[w.g].name.toLowerCase() + ': ' + w.text + '.' }, w.btn ? { btn: w.btn, act: w.act } : { btn: 'Show', act: { select: b.id } });
   } },
   { key: 'needs', check(s) {
     const t = topNeed(s, 'miss');
-    if (!t || t.n < 2) return null;
-    const fix = needFix(s, t.need);
-    const lv = LEVELS[(homesOccupied(s).find((h) => (h.miss || []).includes(t.need)) || {}).level || 1];
+    if (!t || t.n < Math.max(2, Math.ceil(0.04 * homesOccupied(s).length))) return null;
+    const homes = homesOccupied(s).filter((h) => (h.miss || []).includes(t.need));
+    const fix = needCause(s, t.need, homes);
+    const lv = LEVELS[(homes[0] || {}).level || 1];
     return { text: t.n + ' homes lack ' + NEED_NAMES[t.need] + ' · ' + fix.text + '. ' + lv.name + 's without it step down after ' + TUNE.levelDownMonths + ' months.',
-      btn: toolLabel(fix.tool), act: { tool: fix.tool } };
+      btn: toolLabel(fix.tool), act: { tool: fix.tool, at: fix.at, roads: fix.roads } };
+  } },
+  { key: 'goal', check(s) {
+    // Block 6: Rosa follows the pill: the need that holds back the next stage's homes, with its count and its fix.
+    const k = goalBlocker(s);
+    if (!k || !k.tool) return null;
+    const next = STAGES[s.stage + 1];
+    return { text: next.name + ' needs ' + k.want + ' ' + LEVELS[k.level].name + 's (' + k.have + ' now): ' + k.text.replace(/^[A-Za-z]+: /, '') + (k.fix ? ' · ' + k.fix.text : '') + '.', btn: toolLabel(k.tool), act: { tool: k.tool, at: k.at } };
   } },
   { key: 'yard', check(s) {
     // A food building that simply makes more than the homes eat comes last, and its button builds a home (block 5).
@@ -1838,15 +2152,10 @@ function guideMonth(state) {
     g.cnt[p.key] = m ? (g.cnt[p.key] || 0) + 1 : 0;
     if (m && !say && (p.now || (!intro && g.cnt[p.key] >= TUNE.guideMonths)) && !(g.snooze[p.key] > state.month)) say = Object.assign({ key: p.key }, m);
   }
-  // The first home that steps down: Rosa says it once (later ones: a toast and the mark on the map).
-  if (g.pendDown) {
-    if (!g.seen.down) {
-      g.seen.down = 1;
-      say = { key: 'hint-down', text: g.pendDown.text + ' A ↓ mark stays over it until you tap it; its card says what it needs.', btn: 'Show', act: { select: g.pendDown.id } };
-    }
-    g.pendDown = null;
-  }
-  if (say) guideSay(state, say);
+  // Homes that stepped down this month: one line per cause, with the count and the fix (block 6).
+  const down = downsSay(state);
+  if (down && !(say && (say.key === 'red' || say.key === 'landmark'))) { say = down; g.seen.down = 1; }
+  if (say) guideSay(state, guideWay(state, say));
   else if (g.msg && !g.msg.key.startsWith('i-') && !g.msg.key.startsWith('hint')) g.msg = null;
 }
 
@@ -1925,6 +2234,7 @@ function loadGame(obj) {
   if (!s || s.v !== 1 || !Array.isArray(s.b)) throw new Error('Not an Isla Nueva (new) save');
   if (!s.mv) saveMigrate1(s);
   if (s.mv < 3) saveMigrate2(s);
+  if (s.mv < 4) saveMigrate3(s);
   s.ev = [];
   s.walk = [];
   return s;
@@ -1957,6 +2267,18 @@ function saveMigrate2(s) {
   s.mv = 3;
 }
 
+// Block 5 saves -> block 6: harbors no longer carry flour (the ship brings it to every bakery), so their carts and the
+// flour waiting there go; the ↓ marks that waited for a tap (83 on the playtest island) go too (marks now last a month).
+function saveMigrate3(s) {
+  const harbor = new Set(s.b.filter((b) => BUILDINGS[b.type] && BUILDINGS[b.type].kind === 'harbor').map((b) => b.id));
+  s.carts = (s.carts || []).filter((c) => !harbor.has(c.home));
+  for (const b of s.b) if (harbor.has(b.id)) { b.flour = 0; for (const o of s.b) if (o.incoming && o.incoming.flour) o.incoming.flour = 0; }
+  s.downs = {};
+  s.downNeed = {};
+  if (s.guide) delete s.guide.pendDown;
+  s.mv = 4;
+}
+
 // A detached copy for previews: no events, no walkers.
 function simClone(state) {
   const s = loadGame(saveGame(state));
@@ -1978,7 +2300,7 @@ function newGame(seed) {
     happy: 50, workforce: 0, jobs: 0, jobless: 0, exported: {}, monthExported: {}, monthImports: {},
     lastReceipt: null, history: [], log: [], stageMonth: { 0: 0 }, stats: { levelUps: 0 },
     guide: { step: 0, msg: null, cnt: {}, seen: {}, snooze: {} }, lastMoves: { came: 0, left: 0 },
-    walk: [], ev: [], palace: 0, res: 0, mv: 3,
+    walk: [], ev: [], palace: 0, res: 0, mv: 4, downs: {}, downNeed: {},
   };
   for (const i of map.stub) state.road[i] = 1;
   state.b.push(newBuilding(state, 'pier', map.pier.x, map.pier.y));
@@ -1999,12 +2321,14 @@ function dateLabel(month) { return MONTHS[month % 12] + ' ' + (TUNE.startYear + 
 
 function simTick(state) {
   jobsAssign(state);
-  if (state.mt % 10 === 0) for (const b of state.b) if (BUILDINGS[b.type].kind === 'harbor') harborOrder(state, b);
+  if (state.mt % 10 === 0) flourImport(state);
+  if (state.mt % 4 === 0) for (const b of state.b) if (BUILDINGS[b.type].kind === 'producer') cartsMore(state, b);
   if (state.mt === TUNE.ticksPerMonth / 2) shipSail(state, true);
   for (const b of state.b) if (BUILDINGS[b.type].kind === 'producer') prodTick(state, b);
   for (const c of state.carts) cartTick(state, c);
   for (const b of state.b) if (BUILDINGS[b.type].kind === 'market') marketTick(state, b);
   for (const b of state.b) if (b.type === 'casita') homeTick(state, b);
+  if (state.mt % 20 === 10) downsClear(state, false);
   walkersTick(state);
   state.tick++;
   state.mt++;
@@ -2014,7 +2338,10 @@ function simTick(state) {
 
 // The month's end, in a fixed order: homes, the ship, payday, happiness, people, the stage, the guide.
 function monthEnd(state) {
+  state._downNow = null;
+  downsClear(state, true);
   for (const b of state.b) if (b.type === 'casita') homeMonth(state, b);
+  downsLog(state);
   bubblesPick(state);
   shipSail(state);
   jobsAssign(state);
@@ -5710,14 +6037,18 @@ const ISO = (() => {
     spaceMarks(R, s, ui, t);
     // selection
     if (sel) { const b = bById(s, sel); if (b) { diamond(R, b.x - 0.06, b.y - 0.06, b.x + b.w + 0.06, b.y + b.h + 0.06, 'rgba(255,246,223,.18)', '#fbf3df', 5); diamond(R, b.x - 0.06, b.y - 0.06, b.x + b.w + 0.06, b.y + b.h + 0.06, null, '#df684c', 2.4, [8, 5]); } }
-    // payday floaters
+    // payday floaters; one that would sit on top of another already drawn this frame is skipped (no label clouds)
+    const fDrawn = [];
     for (const f of ui.floaters || []) {
       const age = (now - f.t0) / 1600;
       if (age < 0 || age > 1) continue;
       // over the roof of its building (block 5); a floater without one (a road, a removed building) over its tile
       const fb = f.id ? bById(s, f.id) : null;
       const p = fb ? P(fb.x + fb.w / 2, fb.y + fb.h / 2, bubbleZ(fb) + 0.25) : P(f.x, f.y, 0.6);
-      uiDraw(R, floaterSprite(R, f.text, f.color, f.big), p[0], p[1] - age * 34, 1 - age * age);
+      const fy = p[1] - age * 34;
+      if (!f.big && fDrawn.some(q => Math.abs(q[0] - p[0]) < 64 && Math.abs(q[1] - fy) < 22)) continue;
+      fDrawn.push([p[0], fy]);
+      uiDraw(R, floaterSprite(R, f.text, f.color, f.big), p[0], fy, 1 - age * age);
     }
     mark('overlay');
     if (!(typeof APP !== 'undefined' && APP.titleOn)) lockLabels(R, s);
@@ -5773,6 +6104,15 @@ const ISO = (() => {
     const gh = ui.ghost;
     if (!gh) return;
     g.setTransform(d, 0, 0, d, 0, 0);
+    if (gh.clear) {
+      // block 6: the Clear forest tool's patch (2 x 2), its forest tiles and the price
+      const r = gh.info, ok = !r.why;
+      diamond(R, gh.x, gh.y, gh.x + 2, gh.y + 2, ok ? 'rgba(120,205,95,.32)' : 'rgba(196,85,63,.32)', ok ? '#2e7a3e' : '#a33a28', 2.2, [6, 4]);
+      for (const i of r.tiles || []) diamond(R, i % MAP_W + 0.08, ((i / MAP_W) | 0) + 0.08, i % MAP_W + 0.92, ((i / MAP_W) | 0) + 0.92, ok ? 'rgba(250,240,200,.35)' : null, null, 0);
+      const p = P(gh.x + 1, gh.y + 1, 1.4);
+      uiDraw(R, labelSprite(R, r.why || ((gh.held ? 'Tap to clear · ' : 'Clear forest · ') + r.tiles.length + (r.tiles.length === 1 ? ' tile' : ' tiles') + ' · $' + r.cost.toLocaleString('en-US')), ok), p[0], p[1] - 16);
+      return;
+    }
     if (gh.remove) {
       const r = gh.info;
       if (r.b) diamond(R, r.b.x, r.b.y, r.b.x + r.b.w, r.b.y + r.b.h, 'rgba(196,85,63,.35)', '#a33a28', 2.2, [6, 4]);
@@ -5921,6 +6261,14 @@ function hudInit() {
   $('guideAct').addEventListener('click', guideAct);
   $('receipt').addEventListener('click', () => { $('receipt').classList.toggle('open'); APP.receiptUntil = performance.now() + 8000; });
   $('done').addEventListener('click', () => toolSet('look'));
+  // block 6: the pill's blocker button arms the tool that fixes it, where it belongs
+  $('pill').addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('button.fix');
+    const k = APP.pillFix;
+    if (!b || !k) return;
+    if (k.at) viewFocus(k.at[0] + 0.5, k.at[1] + 0.5);
+    toolSet(k.tool);
+  });
   barBuild();
 }
 
@@ -5948,10 +6296,16 @@ function hudUpdate() {
     // The goal: each condition with ✓; the people line says how many the next boat can bring; the landmark its price.
     const lm = sc.conds.find((c) => c.landmark && !c.ok);
     const tapRes = (sc.next && sc.next.goal && s.money >= TUNE.palaceCost) || (lm && sc.next.landmark && sc.next.landmark.res && !resWhy(s));
+    // Block 6 (playtest 2): when a home-level condition holds the goal back, a second line names the need most of those
+    // homes lack, with the count, and a button that arms the tool that fixes it ("Villas: 8 homes lack a park in reach [Park]").
+    const k = sc.next && !sc.next.goal ? goalBlocker(s) : null;
+    APP.pillFix = k && k.tool ? { tool: k.tool, at: k.at } : null;
+    const blk = k ? '<div class="blk">' + esc(k.text) + (k.tool ? ' <button class="fix">' + esc(toolLabel(k.tool)) + '</button>' : '') + '</div>' : '';
+    $('pill').classList.toggle('two', !!blk);
     $('pill').innerHTML = sc.next ? esc(STAGES[s.stage].name) + ' → ' + esc(sc.next.name) + ': ' +
       sc.conds.map((c) => '<span class="' + (c.ok ? 'ok' : 'no') + '">' + (c.ok ? '✓ ' : '') + esc(c.label) + '</span>' +
         (/ people$/.test(c.label) && !c.ok ? ' <small>(next boat: up to ' + boat + ')</small>' : '')).join(' · ') +
-      (tapRes ? ' · tap the residence' : '') :
+      (tapRes ? ' · tap the residence' : '') + blk :
       esc(STAGES[s.stage].name) + (s.palace ? ' · the Governor\'s palace stands: the island is complete' : '');
     barPoor();
   }
@@ -6012,11 +6366,17 @@ function guideAct() {
   if (!m || performance.now() - (APP.guideT || 0) < 900) return;
   const a = m.act || {};
   if (m === APP.ui.hint) {
-    // the tool's hint: its button picks the tool that makes a spot (the hint stays until a spot exists)
-    if (a.tool) toolSet(a.tool, true); else APP.ui.hint = null;
+    // the tool's hint: its button picks the tool that makes a spot (the hint stays until a spot exists); block 6: and
+    // takes the view where that step belongs (the forest to clear, the gap for the road, the home that walls it in)
+    if (a.at) viewFocus(a.at[0] + 0.5, a.at[1] + 0.5);
+    if (a.tool) toolSet(a.tool, true);
+    else if (a.select) { const b = bById(APP.state, a.select); toolSet('look', true); if (b) { viewFocus(b.x + 0.5, b.y + 0.5); cardOpen(b.id); } }
+    else APP.ui.hint = null;
     guideRender();
     return;
   }
+  // block 6: a line can say where its fix belongs (the homes that lack it, the forest to clear): the view goes there
+  if (a.at && (a.tool || !a.select)) viewFocus(a.at[0] + 0.5, a.at[1] + 0.5);
   if (a.tool) toolSet(a.tool);
   else if (a.select) {
     const b = bById(APP.state, a.select);
@@ -6051,7 +6411,7 @@ const BAR_TAB_KEY = 'isla-nova-tab';
 
 // The tab a tool lives in.
 function barGroupOf(tool) {
-  if (tool === 'road' || tool === 'paved' || tool === 'remove') return 'roads';
+  if (tool === 'road' || tool === 'paved' || tool === 'remove' || tool === 'clear') return 'roads';
   if (tool === 'palace') return 'services';
   return BUILDINGS[tool] ? BUILDINGS[tool].group : '';
 }
@@ -6059,7 +6419,7 @@ function barGroupOf(tool) {
 // The buttons of one tab: what she can build now first, then only the nearest stage's locked ones (so a tab is never a
 // wall of grey); 'remove' stays last on the Roads tab.
 function barTools(s, group) {
-  const all = barToolsAll(s, group), stageOf = (t) => (t.id === 'paved' ? PAVED_STAGE : t.id === 'palace' ? STAGES.length - 1 : BUILDINGS[t.id] ? BUILDINGS[t.id].stage : 0);
+  const all = barToolsAll(s, group), stageOf = (t) => (t.id === 'paved' ? PAVED_STAGE : t.id === 'clear' ? TUNE.clearStage : t.id === 'palace' ? STAGES.length - 1 : BUILDINGS[t.id] ? BUILDINGS[t.id].stage : 0);
   const open = all.filter((t) => !t.locked && t.id !== 'remove'), locked = all.filter((t) => t.locked);
   const next = locked.length ? Math.min(...locked.map(stageOf)) : -1;
   return open.concat(locked.filter((t) => stageOf(t) === next), all.filter((t) => t.id === 'remove'));
@@ -6071,6 +6431,8 @@ function barToolsAll(s, group) {
   if (group === 'roads') {
     tools.push({ id: 'road', name: 'Road', icon: 'road', cost: '$' + TUNE.roadCost + '/tile' });
     tools.push({ id: 'paved', name: 'Paved road', icon: 'paved', cost: '$' + TUNE.pavedCost + '/tile', locked: s.stage < PAVED_STAGE ? STAGES[PAVED_STAGE].name : '', price: TUNE.pavedCost });
+    // block 6: clears forest in the open land, a 2 x 2 patch at a time (the way out when no grass is left by a road)
+    tools.push({ id: 'clear', name: 'Clear forest', icon: 'tree', cost: '$' + clearTileCost(s) + '/tile', locked: s.stage < TUNE.clearStage ? STAGES[TUNE.clearStage].name : '', price: clearTileCost(s) });
     tools.push({ id: 'remove', name: 'Remove', icon: 'remove', cost: '' });
   }
   for (const t of BUILD_ORDER) {
@@ -6089,7 +6451,7 @@ function barToolsAll(s, group) {
 function barTabNew(s, group) {
   if (!s.stage || (APP.ui.tabSeen || {})[group] === s.stage) return false;
   return barToolsAll(s, group).some((t) => !t.locked && ((BUILDINGS[t.id] && BUILDINGS[t.id].stage === s.stage) ||
-    (t.id === 'paved' && s.stage === PAVED_STAGE) || (t.id === 'palace' && s.stage === STAGES.length - 1)));
+    (t.id === 'paved' && s.stage === PAVED_STAGE) || (t.id === 'clear' && s.stage === TUNE.clearStage) || (t.id === 'palace' && s.stage === STAGES.length - 1)));
 }
 
 function barTabRead() {
@@ -6135,8 +6497,8 @@ function barShow(tool) {
 function barToolTap(id, locked) {
   const s = APP.state;
   if (locked) {
-    const st = id === 'paved' ? PAVED_STAGE : id === 'palace' ? STAGES.length - 1 : BUILDINGS[id].stage;
-    toastShow((id === 'paved' ? 'Paved roads' : id === 'palace' ? "The Governor's palace" : BUILDINGS[id].name) + ' opens at ' + STAGES[st].name + '.');
+    const st = id === 'paved' ? PAVED_STAGE : id === 'clear' ? TUNE.clearStage : id === 'palace' ? STAGES.length - 1 : BUILDINGS[id].stage;
+    toastShow((id === 'paved' ? 'Paved roads' : id === 'clear' ? 'Clearing forest' : id === 'palace' ? "The Governor's palace" : BUILDINGS[id].name) + ' opens at ' + STAGES[st].name + '.');
     return;
   }
   if (id === 'palace') {
@@ -6181,7 +6543,8 @@ function barPoor() {
   const s = APP.state;
   $('bar').querySelectorAll('.tool').forEach((b) => {
     const id = b.dataset.tool, small = b.querySelector('small');
-    const price = id === 'paved' ? TUNE.pavedCost : id === 'palace' ? (s.palace ? 0 : TUNE.palaceCost) : id === 'road' ? TUNE.roadCost : BUILDINGS[id] ? BUILDINGS[id].cost : 0;
+    const price = id === 'paved' ? TUNE.pavedCost : id === 'clear' ? clearTileCost(s) : id === 'palace' ? (s.palace ? 0 : TUNE.palaceCost) : id === 'road' ? TUNE.roadCost : BUILDINGS[id] ? BUILDINGS[id].cost : 0;
+    if (id === 'clear' && small && !small.dataset.cost) small.dataset.cost = '$' + clearTileCost(s) + '/tile';
     const locked = b.classList.contains('locked');
     const h = !locked && BUILDINGS[id] ? noSpotHint(s, id) : null;
     if (small && !small.dataset.cost) small.dataset.cost = small.textContent;
@@ -6207,7 +6570,7 @@ function bStatus(s, b) {
   if (def.jobs && b.workers === 0) return { text: 'No workers. Half of the people work: build homes.' };
   if (def.kind === 'producer') {
     if (b.blocked === 'yard') return { text: yardText(s, b) };
-    if (b.blocked === 'input') { const g = Object.keys(def.uses)[0]; return { text: 'No ' + GOODS[g].name.toLowerCase() + ': build ' + inputSource(g) + '.' }; }
+    if (b.blocked === 'input') { const w = inputWhy(s, b), g = Object.keys(def.uses)[0]; return { text: 'No ' + GOODS[g].name.toLowerCase() + (w ? ': ' + w.text + '.' : ' yet: the ship brings flour at the next order.') }; }
   }
   if (def.jobs && b.workers < def.jobs) return { text: 'Short of workers (' + b.workers + '/' + def.jobs + '): works at ' + Math.round(100 * b.workers / def.jobs) + ' %. Build homes.' };
   if (def.kind === 'market' && !marketHomes(s, b.id).length) return { text: 'No homes in reach: within ' + TUNE.marketReach + ' tiles in a straight line and joined to it by road.' };
@@ -6233,7 +6596,7 @@ function cardHtml(s, b) {
       const q = quayOn(s);
       const t = 'Next boat: up to ' + shipSettlers(s) + ' settlers (' + TUNE.arrivalBase + ' + ' + Math.round(TUNE.arrivalPct * 100) + ' % of the people, at most ' + TUNE.arrivalCap +
         (q ? '; the steamship quay doubles it, at most ' + TUNE.quayArrivalCap : '; a steamship quay doubles it') + '). They come when homes have free beds and happiness is ' + TUNE.happyArrive +
-        ' or more. The ship also brings flour and buys what the harbor holds.';
+        ' or more. While a harbor is open, the ship brings flour to every bakery and buys what the harbors hold.';
       return head + '<h3>' + iconSvg('anchor') + 'Pier</h3><p class="why">' + esc(t) + '</p>';
     }
     // The residence: each level is bought here and is the landmark of the next stage; the palace is the last goal.
@@ -6271,7 +6634,7 @@ function cardHtml(s, b) {
       const names = [...new Set(rc.cut.map((id) => (BUILDINGS[(bById(s, id) || {}).type] || {}).name).filter(Boolean))].map((n) => n.toLowerCase());
       h += '<p class="note">' + esc('Near ' + listAnd(names.map((n) => 'a ' + n)) + ', but no road joins them.') + ' <button class="link" id="cardRoads">Show roads</button></p>';
     }
-    if (APP.ui.downSeen && APP.ui.downSeen.id === b.id) h += '<p class="note">' + esc('It stepped down a level in ' + dateLabel(APP.ui.downSeen.m) + ': it lacked what is marked ✗ above.') + '</p>';
+    if (APP.ui.downSeen && APP.ui.downSeen.id === b.id) h += '<p class="note">' + esc('It stepped down a level in ' + dateLabel(APP.ui.downSeen.m) + (APP.ui.downSeen.need ? ': it lacked ' + NEED_NAMES[APP.ui.downSeen.need] + (homeHas(s, b, APP.ui.downSeen.need) ? ', which it has again now.' : '. ' + needCause(s, APP.ui.downSeen.need, [b]).text.replace(/^./, (c) => c.toUpperCase()) + '.') : '.')) + '</p>';
     if (b.res && miss.length) h += '<p class="note">Lacks ' + esc(miss.map((n) => NEED_NAMES[n]).join(', ')) + '. ' + (b.level > 1 ? 'After ' + TUNE.levelDownMonths + ' months it becomes a ' + LEVELS[b.level - 1].name.toLowerCase() + ' again.' : 'People leave when happiness falls below ' + TUNE.happyLeave + '.') + '</p>';
     else if (next && next.stage <= s.stage && missNext.length === 0 && b.res) h += '<p class="note good">Has everything: becomes a ' + esc(next.name) + ' after ' + levelUpMonths(b.level) + ' months like this' + (b.up ? ' (' + b.up + ' so far)' : '') + '.</p>';
   } else {
@@ -6288,7 +6651,11 @@ function cardHtml(s, b) {
       h += '<div class="line"><span>Makes a month</span><span>' + def.rate + ' ' + esc(GOODS[def.makes].name.toLowerCase()) + esc(uses) + '</span></div>';
       h += '<div class="line"><span>Yard</span><span>' + Math.floor(b.yard) + ' / ' + TUNE.yardCap + ' ' + esc(GOODS[def.makes].name.toLowerCase()) + '</span></div>';
       if (def.uses) for (const g in def.uses) h += '<div class="line"><span>' + esc(GOODS[g].name) + ' in stock</span><span>' + Math.floor(b.inp[g] || 0) + ' / ' + TUNE.inputCap + '</span></div>';
+      if (def.uses && def.uses.flour) h += '<div class="line"><span>Flour</span><span>' + esc(flourShip(s) ? 'by ship, straight to the bakery: ' + money$(b.lastBought || 0) + ' last month' : 'none: the ship brings it while a harbor is open') + '</span></div>';
       h += '<div class="line"><span>Goes to</span><span>' + esc(GOOD_TAKER[def.makes]) + '</span></div>';
+      // block 6: a producer sends more carts (up to TUNE.cartsMax) when loads wait and all its carts are out
+      const ct = cartsOf(s, b);
+      h += '<div class="line"><span>Carts</span><span>' + ct.out + ' of ' + ct.n + ' on the road (up to ' + TUNE.cartsMax + ': another one goes when a load waits)</span></div>';
       const per = PER_PERSON[goodNeed(def.makes)];
       if (per) h += '<div class="line"><span>Enough for</span><span>about ' + Math.round(def.rate / per) + ' people (each eats 1 a month per ' + Math.round(1 / per) + ')</span></div>';
     }
@@ -6303,7 +6670,8 @@ function cardHtml(s, b) {
       const wait = Object.keys(b.stock).filter((g) => b.stock[g] >= 1);
       h += '<div class="line"><span>For the ship</span><span>' + (wait.length ? wait.map((g) => Math.floor(b.stock[g]) + ' ' + GOODS[g].name.toLowerCase() + ' (' + money$(Math.floor(b.stock[g]) * exportPrice(s, g)) + ')').join(' · ') : 'nothing yet') + '</span></div>';
       h += '<div class="line"><span>The ship buys</span><span>up to ' + (def.buys || TUNE.shipBuys) + ' of each good' + (def.ships > 1 ? ', twice a month' : ' a month') + (lighthouseOn(s) ? ' · +' + Math.round(TUNE.lighthouseBonus * 100) + ' %: lighthouse' : '') + '</span></div>';
-      h += '<div class="line"><span>Last month</span><span>sold ' + fmtMoney(b.lastSold || 0) + ' · flour ' + fmtMoney(b.lastBought || 0) + '</span></div>';
+      h += '<div class="line"><span>Last month</span><span>sold ' + fmtMoney(b.lastSold || 0) + '</span></div>';
+      if (countType(s, 'bakery')) h += '<div class="line"><span>Flour</span><span>the ship takes it straight to every bakery (on each bakery\'s number)</span></div>';
     }
     const st = bStatus(s, b);
     h += '<p class="note' + (st.good ? ' good' : '') + '">' + esc(st.text) + (cutOff(s, b) ? ' <button class="link" id="cardRoads">Show roads</button>' : '') + '</p>';
@@ -6317,7 +6685,7 @@ function cardButtons(s, b) {
   const def = BUILDINGS[b.type], refund = Math.floor(def.cost * TUNE.refund), cf = APP.ui.confirm && APP.ui.confirm.id === b.id ? APP.ui.confirm.what : '';
   let h = '<div class="btns"><button class="danger' + (cf === 'remove' ? ' sure' : '') + '" id="cardRemove">' +(cf === 'remove' ? 'Tap again to remove · +' + money$(refund) : 'Remove · +' + money$(refund)) + '</button></div>';
   if (def.jobs) {
-    const x = bNumber(s, b), save = x.wages + Math.round(def.cost * TUNE.upkeepPct * (1 - TUNE.closedUpkeep));
+    const x = bNumber(s, b), save = x.wages + Math.round(upkeepOf(def) * (1 - TUNE.closedUpkeep));
     if (b.open) h += '<div class="btns"><button class="shut' + (cf === 'shut' ? ' sure' : '') + '" id="cardOpen">' + (cf === 'shut' ? 'Tap again to shut it down' : 'Shut down · saves ' + money$(save) + ' a month') + '</button></div>';
     else h += '<div class="btns"><button class="shut" id="cardOpen">Open it again</button></div>';
   }
@@ -6365,7 +6733,7 @@ function cardOpen(id) {
   APP.cardKey = '';
   // a home's level-down mark goes once she has looked at it
   const s = APP.state;
-  if (s.downs && s.downs[id] !== undefined) { APP.ui.downSeen = { id, m: s.downs[id] }; delete s.downs[id]; }
+  if (s.downs && s.downs[id] !== undefined) { APP.ui.downSeen = { id, m: s.downs[id], need: s.downNeed && s.downNeed[id] }; delete s.downs[id]; if (s.downNeed) delete s.downNeed[id]; }
   cardRender();
   $('card').classList.add('show');
   document.body.classList.add('carded');
@@ -6534,14 +6902,30 @@ function noSpotHint(s, type) {
   if (!def || def.kind === 'fixed' || def.stage > s.stage || spotsFor(s, type).n) return null;
   const name = def.name.toLowerCase();
   const withRoad = spotsFor(s, type, { noRoad: true }).n > 0;
-  if (!withRoad) {
-    const next = STAGES[s.stage + 1];
-    return { short: 'no room', text: 'There is no room left for a ' + name + ' in the open land' + (next ? ': new land opens at ' + next.name + '.' : '.') + ' The Remove tool clears a spot.', btn: 'OK', act: {} };
+  const w = wayFor(s, type);
+  if (withRoad && w && w.step === 'road') {
+    // a road can reach the spot: say where (Show takes the view there with the road tool)
+    const how = def.site === 'coast' ? 'Lay a road along the beach first: the ' + name + ' stands on the coast, next to a road.' :
+      def.site === 'beach' ? 'Lay a road down to the beach first: the ' + name + ' stands on the sand by the sea, next to a road.' :
+      def.site === 'forest' ? 'Lay a road to the edge of the forest first: the ' + name + ' stands next to the trees, by a road.' :
+      'Lay a road into the open grass first: the ' + name + ' needs a road next to it.';
+    return { short: def.site === 'coast' || def.site === 'beach' ? 'beach road first' : def.site === 'forest' ? 'forest road first' : 'road first', text: how, btn: 'Show', act: { tool: 'road', at: w.at } };
   }
-  if (def.site === 'coast') return { short: 'beach road first', text: 'Lay a road along the beach first: the ' + name + ' stands on the coast, next to a road.', btn: 'Road', act: { tool: 'road' } };
-  if (def.site === 'beach') return { short: 'beach road first', text: 'Lay a road down to the beach first: the ' + name + ' stands on the sand by the sea, next to a road.', btn: 'Road', act: { tool: 'road' } };
-  if (def.site === 'forest') return { short: 'forest road first', text: 'Lay a road to the edge of the forest first: the ' + name + ' stands next to the trees, by a road.', btn: 'Road', act: { tool: 'road' } };
-  return { short: 'road first', text: 'Lay a road into open grass first: the ' + name + ' needs a road next to it.', btn: 'Road', act: { tool: 'road' } };
+  // block 6 (playtest 2): no loop between "build a grove" and "lay a road into open grass": the one step that makes room
+  // (clear the forest here, remove the home that walls the land in, or wait for new land)
+  return wayText(s, type);
+}
+
+// Clear forest (block 6): the forest tiles of the open land, lit while the tool is armed.
+function clearSpots(s) {
+  const key = s.ver + '|' + s.stage + '|clear';
+  APP.spots = APP.spots || {};
+  const hit = APP.spots.clear;
+  if (hit && hit.key === key) return hit;
+  const tiles = new Uint8Array(MAP_W * MAP_H);
+  let n = 0;
+  for (let i = 0; i < tiles.length; i++) if (s.terrain[i] === FOREST && tileOpenAt(s, i)) { tiles[i] = 1; n++; }
+  return (APP.spots.clear = { key, tiles, anchors: [], n });
 }
 
 // A tap or a finger at (sx, sy) with a building tool: the nearest footprint that fits, within 2 tiles of the finger
@@ -6652,8 +7036,8 @@ function cutOff(s, b) {
 function spaceUpdate() {
   const s = APP.state, ui = APP.ui, out = { key: '' };
   const tool = ui.tool;
-  if (BUILDINGS[tool]) {
-    const sp = spotsFor(s, tool);
+  if (BUILDINGS[tool] || tool === 'clear') {
+    const sp = tool === 'clear' ? clearSpots(s) : spotsFor(s, tool);
     out.valid = sp;
     out.key += 'v' + sp.key;
   }
@@ -6734,11 +7118,20 @@ function ghostUpdate(sx, sy, held) {
   if (BUILDINGS[tool]) {
     const f = snapFoot(tool, sx, sy);
     APP.ui.ghost = { type: tool, x: f.x, y: f.y, why: f.why, held: !!held };
+  } else if (tool === 'clear') {
+    const c = clearAnchor(sx, sy);
+    APP.ui.ghost = { clear: true, x: c.x, y: c.y, info: clearInfo(s, c.x, c.y), held: !!held };
   } else if (tool === 'remove') {
     const t = targetAt(sx, sy), info = removeInfo(s, t.x, t.y);
     const armed = APP.ui.ghost && APP.ui.ghost.remove && APP.ui.ghost.armed && APP.ui.ghost.x === t.x && APP.ui.ghost.y === t.y;
     APP.ui.ghost = { remove: true, x: t.x, y: t.y, info, armed };
   }
+}
+
+// Clear forest (block 6): the 2 x 2 patch centred on the finger.
+function clearAnchor(sx, sy) {
+  const t = screenToTile(APP.R, APP.view, sx, sy);
+  return { x: Math.round(t.x - 1), y: Math.round(t.y - 1) };
 }
 
 // The bubble drawn nearest to a screen point (within a finger's width), or null.
@@ -6779,6 +7172,12 @@ function tapAt(sx, sy) {
     }
     return;
   }
+  if (tool === 'clear') {
+    const c = clearAnchor(sx, sy), r = clearForest(s, c.x, c.y);
+    APP.ui.ghost = r.why ? { clear: true, x: c.x, y: c.y, info: r } : null;
+    if (!r.why) { guideRender(); hintCheck(); }
+    return;
+  }
   if (tool === 'remove') {
     const t = targetAt(sx, sy), g = APP.ui.ghost;
     if (g && g.remove && g.armed && g.x === t.x && g.y === t.y) {
@@ -6814,7 +7213,7 @@ function inputInit(canvas) {
     if (APP.ui.tool === 'road') {
       const t = tileAt(p.x, p.y);
       if (inMap(t.x, t.y)) { APP.ui.strokeA = tileIdx(t.x, t.y); APP.ui.strokeAxis = ''; strokeTo(t.x, t.y); gesture.kind = 'road'; }
-    } else if (BUILDINGS[APP.ui.tool] && e.pointerType !== 'mouse') {
+    } else if ((BUILDINGS[APP.ui.tool] || APP.ui.tool === 'clear') && e.pointerType !== 'mouse') {
       // a finger with a building tool: the ghost follows it (snapped); lifting after a drag leaves it there
       gesture.kind = 'place';
       ghostUpdate(p.x, p.y);
@@ -7112,23 +7511,28 @@ function floaterAdd(x, y, text, color, big, id) {
 
 function eventsHandle() {
   const s = APP.state, evs = s.ev.splice(0), downs = [];
+  // A big town's payday would rise as a cloud of labels: keep the five largest gains and the five largest costs.
+  const money = evs.filter(e => e.kind === 'money');
+  const keep = new Set(money.length <= 12 ? money : [
+    ...money.filter(e => e.n > 0).sort((a, b) => b.n - a.n).slice(0, 5),
+    ...money.filter(e => e.n < 0).sort((a, b) => a.n - b.n).slice(0, 5)]);
   for (const e of evs) {
     const b = e.id && bById(s, e.id);
+    if (e.kind === 'money' && !keep.has(e)) continue;
     if (e.kind === 'money' && b) floaterAdd(b.x + b.w / 2, b.y + b.h / 2, fmtSigned(e.n), e.n < 0 ? '#c0392b' : '#2e8b3e', false, b.id);
     else if (e.kind === 'payday') { receiptShow(e.receipt); gameSave(); }
     else if (e.kind === 'levelup' && b) { floaterAdd(b.x + 0.5, b.y + 0.5, LEVELS[e.level].name + '!', '#167a7a', true, b.id); toastShow('A home became a ' + LEVELS[e.level].name.toLowerCase() + ': more people, more rent.'); }
     else if (e.kind === 'leveldown' && b) { floaterAdd(b.x + 0.5, b.y + 0.5, LEVELS[e.level].name + ' again', '#c0392b', true, b.id); downs.push(e); }
     else if (e.kind === 'stage') { stageCardOpen(e.stage); APP.R.terrainKey = ''; }
     else if (e.kind === 'year') yearCardShow(e.year);
+    else if (e.kind === 'cleared') { floaterAdd(e.x + 1, e.y + 1, '−' + money$(e.cost), '#c0392b'); APP.R.geo = null; APP.R.terrainKey = ''; if (APP.spots) APP.spots = {}; }
     else if (e.kind === 'residence' && b) { floaterAdd(b.x + b.w / 2, b.y + b.h / 2, RESIDENCE[e.level].name + '!', '#167a7a', true, b.id); toastShow('The ' + RESIDENCE[e.level].name + ' stands on the hill.'); }
     else if (e.kind === 'palace' && b) { floaterAdd(b.x + b.w / 2, b.y + b.h / 2, "Governor's palace!", '#167a7a', true, b.id); APP.R.terrainKey = ''; barBuild(); }
     else if (e.kind === 'guide') guideRender();
     else if (e.kind === 'log' && /settlers? arrived|left the island/.test(e.text)) toastShow(e.text);
   }
-  // Homes that stepped down this month: one toast (Rosa explains the first one; a ↓ mark stays on each until tapped).
-  if (downs.length && s.guide.seen.down && !(s.guide.msg && s.guide.msg.key === 'hint-down' && downs.length === 1)) {
-    toastShow(downs.length === 1 ? downs[0].text + ' The ↓ mark shows where.' : downs.length + ' homes stepped down a level: they lacked what their cards mark ✗. The ↓ marks show where.');
-  }
+  // Block 6 (playtest 2): no toast for homes stepping down (it came every month for fifty years). Rosa says it once per
+  // cause with the count and the fix; the ↓ marks stay a month or until the home has what it lacked again.
 }
 
 // Saves the island (every payday, when the page is hidden or closed). Never throws: a full storage or a private window
