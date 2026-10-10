@@ -305,6 +305,17 @@ body.titled #sndpop { display: none; }
 #title .tsnd .ic { width: 22px; height: 22px; fill: var(--ink2); }
 #title .tsnd.off .ic { opacity: 0.6; }
 #title .tsnd:active { background: var(--paper2); }
+/* Now playing (block 8): a piece's title for 4 s when it starts, a small paper slip under the brand (placed by
+   audioNowPlace below the stage pill or a toast if they are in the way); never takes a tap. */
+#nowplay { position: fixed; z-index: 4; left: calc(var(--gap) + var(--sl)); top: calc(var(--gap) + 64px + var(--st)); display: flex; align-items: center; gap: 6px;
+  padding: 3px 13px 4px 9px; background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink); border-radius: 999px;
+  font: italic 600 14.5px/1.25 var(--serif); box-shadow: 0 2px 0 rgba(58, 42, 31, 0.22), 0 6px 14px rgba(30, 20, 10, 0.12);
+  white-space: nowrap; max-width: calc(100% - 2 * var(--gap) - var(--sl) - var(--sr)); overflow: hidden; text-overflow: ellipsis;
+  opacity: 0; transform: translateY(-4px); transition: opacity 0.6s, transform 0.6s; pointer-events: none; }
+#nowplay.show { opacity: 0.95; transform: none; }
+#nowplay .ic { width: 15px; height: 15px; fill: var(--ink2); }
+#nowplay i { overflow: hidden; text-overflow: ellipsis; }
+body.titled #nowplay { display: none !important; }
 #safe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 </style>
@@ -7562,8 +7573,12 @@ function titleNew() {
 //
 // What plays when:
 // - title screen: dawn, then a stretch of only the sea, then evening and dawn in turn.
-// - in the game: town -> 20-45 s of only the sea -> dawn or evening (the one not heard last) -> the sea -> town ...;
-//   3 s crossfades, never the same piece twice in a row; the game starting crossfades the title's piece into town.
+// - in the game: the new pieces and the old game's radio take turns: town -> the sea -> an old piece -> the sea ->
+//   dawn or evening (the one not heard last) -> the sea -> an old piece -> the sea -> town ... The old pieces are the
+//   ones whose year the island has reached (AUDIO_PIECES[..].from; the theme always), least recently heard first, so a
+//   dance that just arrived plays soon. After a new stage the anthem takes the next turn. 20-45 s of only the sea
+//   between pieces, 3 s crossfades, never the same piece twice in a row; the game starting crossfades the title's piece
+//   into town. A piece starting in the game shows its title for 4 s under the brand (not while a card is open).
 // - the sea loops quietly under everything (two elements crossfading at the loop point, so an MP3's padding never
 //   clicks) and comes up a little in the gaps. "Music" in the sound panel is the music and the sea.
 // - sounds (AUDIO_SFX): building placed, road stroke built, removed / forest cleared, payday (every payday at 1x, every
@@ -7572,9 +7587,27 @@ function titleNew() {
 //   and a very soft tap on buttons. Sounds that arrive together play 0.38 s apart; the music ducks ~6 dB under them.
 
 // The files the build found in dist/audio/ (path -> version), filled in by build.sh; {} = no audio, the game is silent.
-const AUDIO_FILES = {"amb/sea.mp3":"badf582d","music/dawn.mp3":"41395cbc","music/evening.mp3":"58494e3b","music/town.mp3":"00f246e2","sfx/levelup.mp3":"465e4f5a","sfx/payday.mp3":"0828d629","sfx/place.mp3":"12fd158e","sfx/remove.mp3":"355857e2","sfx/residence.mp3":"d5894493","sfx/road.mp3":"077e18d2","sfx/settlers.mp3":"c2a0b0bd","sfx/ship.mp3":"becabd89","sfx/stage.mp3":"c77dac36","sfx/tap.mp3":"2f4e4692"};
+const AUDIO_FILES = {"amb/sea.mp3":"badf582d","music/dawn.mp3":"41395cbc","music/evening.mp3":"58494e3b","music/old-anthem.mp3":"27eee580","music/old-bolero.mp3":"4aa52623","music/old-calypso.mp3":"8a37e593","music/old-chacha.mp3":"80acca82","music/old-danzon.mp3":"73e715ac","music/old-mambo.mp3":"9d986bbb","music/old-son.mp3":"bb8688dd","music/old-theme.mp3":"e50f45ce","music/town.mp3":"00f246e2","place/bakery.mp3":"ec538d70","place/beach.mp3":"a4dfbe1a","place/cathedral.mp3":"bf17bc91","place/chapel.mp3":"a463dd60","place/cigars.mp3":"71d2808f","place/clinic.mp3":"e18a2bb9","place/field.mp3":"9fe70c02","place/fishing.mp3":"b7553444","place/harbor.mp3":"34c7c449","place/home.mp3":"7cf51066","place/home1920.mp3":"7d644942","place/lighthouse.mp3":"666e46a3","place/lumber.mp3":"702d6498","place/market.mp3":"068f703d","place/opera.mp3":"aa9f9880","place/park.mp3":"3fa3be06","place/quay.mp3":"f0c50cff","place/ranch.mp3":"72a07de4","place/residence.mp3":"fabfb9e4","place/roastery.mp3":"75338ff3","place/sawmill.mp3":"7c3e1613","place/school.mp3":"d83a35dd","place/works.mp3":"33521921","sfx/levelup.mp3":"465e4f5a","sfx/payday.mp3":"0828d629","sfx/place.mp3":"12fd158e","sfx/remove.mp3":"355857e2","sfx/residence.mp3":"d5894493","sfx/road.mp3":"077e18d2","sfx/settlers.mp3":"c2a0b0bd","sfx/ship.mp3":"becabd89","sfx/stage.mp3":"c77dac36","sfx/tap.mp3":"2f4e4692"};
 const AUDIO_KEY = 'isla-nova-audio';
-const AUDIO_XF = 3, AUDIO_SEA_XF = 2.2, AUDIO_GAP = [20, 45], AUDIO_SEA = [0.3, 0.5];
+const AUDIO_XF = 3, AUDIO_SEA_XF = 2.2, AUDIO_GAP = [20, 45], AUDIO_SEA = [0.3, 0.5], AUDIO_NOW_MS = 4000;
+
+// The pieces (music/<name>.mp3). title: the "now playing" line. The old game's pieces (old: nova/audio/old_render.py
+// renders them from game/src/audio.js) keep its titles and its years: from = the year the dance joins the rotation
+// (the old radio played the dance of the decade: danzón 1900s, son 1920s, bolero 1930s, mambo 1949, chachachá 1953,
+// calypso 1950s). No year: from the start. stage: only the turn after a new stage (the anthem, for great days).
+const AUDIO_PIECES = {
+  dawn: { title: 'Dawn over the Bay' },
+  town: { title: 'Building the Town' },
+  evening: { title: 'Evening on the Plaza' },
+  'old-theme': { title: 'Isla Nueva', old: true },
+  'old-danzon': { title: 'Danzón de la Bahía', from: 1900, old: true },
+  'old-son': { title: 'Son del Puerto', from: 1920, old: true },
+  'old-bolero': { title: 'Bolero de la Luna', from: 1932, old: true },
+  'old-mambo': { title: 'Mambo Palmera', from: 1949, old: true },
+  'old-chacha': { title: 'Chachachá del Malecón', from: 1953, old: true },
+  'old-calypso': { title: 'Calypso Sunday', from: 1956, old: true },
+  'old-anthem': { title: 'Himno de Isla Nueva', old: true, stage: true },
+};
 
 // lvl: the sound's gain; duck: the music's gain under it (0.5 = -6 dB); gap: least seconds between two of it.
 const AUDIO_SFX = {
@@ -7593,7 +7626,8 @@ const AUDIO_SFX = {
 const AUD = {
   set: { music: true, vol: 50, sfx: true },
   ctx: null, dead: false, master: null, duck: null, vol: null, seaLvl: null, sfxBus: null,
-  decks: [], sea: [], seaCur: -1, seaTo: -1, cur: null, last: '', lastCalm: '', hist: [], gapUntil: 0, scene: '',
+  decks: [], sea: [], seaCur: -1, seaTo: -1, cur: null, last: '', lastCalm: '', lastNew: '', played: {}, seq: 0, anthemDue: false,
+  np: null, npT: 0, npText: '', hist: [], gapUntil: 0, scene: '',
   startAt: 0, buf: {}, failed: {}, seaFailed: false, next: 0, gate: {}, month: {}, log: [], started: 0,
   timer: 0, tryT: 0, offT: 0, shipSt: '', btn: null, drag: false, r: { vol: {}, sea: {}, sfx: {}, duck: null },
 };
@@ -7603,7 +7637,10 @@ function audioUrl(rel) {
   return 'audio/' + rel + '?v=' + AUDIO_FILES[rel];
 }
 
-function audioHasMusic() { return ['dawn', 'town', 'evening'].some((n) => audioUrl('music/' + n + '.mp3')) || !!audioUrl('amb/sea.mp3'); }
+function audioHasMusic() { return Object.keys(AUDIO_PIECES).some((n) => audioUrl('music/' + n + '.mp3')) || !!audioUrl('amb/sea.mp3'); }
+
+// The island's year (the game's calendar); before a game, the start year.
+function audioYear() { return TUNE.startYear + (APP.state ? Math.floor(APP.state.month / 12) : 0); }
 function audioWanted() { return AUD.set.music || AUD.set.sfx; }
 function audioVolGain() { return Math.pow(Math.max(0, Math.min(100, AUD.set.vol)) / 100, 1.6); }
 
@@ -7752,14 +7789,30 @@ function audioDeckFade(d, s) {
   d.out = performance.now() + s * 1000 + 150;
 }
 
-// The next piece: title dawn / evening in turn; in the game town, then the calm piece not heard last, then town.
+// The old game's pieces the island has reached (by its year; the anthem only after a new stage): the anthem first when
+// it is due, then the least recently heard; of those not heard yet, the newest dance first (the dance of the decade,
+// as on the old radio; a dance that just arrived plays at the next turn), the theme last.
+function audioOldPool() {
+  const y = audioYear();
+  const pool = Object.keys(AUDIO_PIECES).filter((n) => { const p = AUDIO_PIECES[n]; return p.old && (p.stage ? AUD.anthemDue : !(p.from > y)); });
+  const key = (n) => (AUDIO_PIECES[n].stage ? -1 : AUD.played[n] || 0), yr = (n) => AUDIO_PIECES[n].from || 0;
+  return pool.sort((a, b) => key(a) - key(b) || yr(b) - yr(a));
+}
+
+// The next piece. Title: dawn / evening in turn. Game: the new pieces (town, then the calm one not heard last, then
+// town) and the old ones take turns; after a new stage the anthem comes next.
 function audioPick(scene) {
   const ok = (n) => !AUD.failed[n] && !!audioUrl('music/' + n + '.mp3');
   const calm = AUD.lastCalm === 'dawn' ? ['evening', 'dawn'] : ['dawn', 'evening'];
   let list;
   if (scene === 'title') list = AUD.last === 'dawn' ? ['evening', 'dawn'] : ['dawn', 'evening'];
-  else if (AUD.last === 'town') list = calm.concat('town');
-  else list = ['town'].concat(calm);
+  else {
+    const neu = AUD.lastNew === 'town' ? calm.concat('town') : ['town'].concat(calm), old = audioOldPool();
+    // an old piece's turn after a new one; the game's first piece is a new one (town)
+    const oldTurn = !!AUD.last && !(AUDIO_PIECES[AUD.last] || {}).old;
+    list = AUD.anthemDue && ok('old-anthem') ? ['old-anthem'] : [];
+    list = list.concat(oldTurn ? old.concat(neu) : neu.concat(old));
+  }
   list = list.filter(ok);
   const fresh = list.filter((n) => n !== AUD.last);
   return (fresh.length ? fresh : list)[0] || '';
@@ -7775,9 +7828,42 @@ function audioNextPiece(name) {
   if (!d || !audioDeckPlay(d, 'music/' + name + '.mp3', AUDIO_XF)) { AUD.failed[name] = 1; return; }
   d.piece = name;
   AUD.cur = d; AUD.last = name;
-  if (name !== 'town') AUD.lastCalm = name;
+  const p = AUDIO_PIECES[name] || {};
+  if (name === 'dawn' || name === 'evening') AUD.lastCalm = name;
+  if (!p.old) AUD.lastNew = name;
+  if (p.stage) AUD.anthemDue = false;
+  AUD.played[name] = ++AUD.seq;
   AUD.hist.push(name);
   if (AUD.hist.length > 20) AUD.hist.shift();
+  audioNowShow(name);
+}
+
+// ---------- "now playing" ----------
+
+// The piece's title for 4 s, under the brand (below the stage pill or a toast when they are in the way); only in the
+// game, never while a card, a sheet, the year card, the legend or the sound panel is open.
+function audioNowShow(name) {
+  const p = AUDIO_PIECES[name], el = AUD.np;
+  if (!p || !el || AUD.scene !== 'game' || APP.titleOn) return;
+  if (['card', 'sheet', 'yearcard', 'pop', 'sndpop'].some((id) => { const e = $(id); return e && e.classList.contains('show'); })) return;
+  el.innerHTML = iconSvg('music') + '<i>' + esc(p.title) + '</i>';
+  audioNowPlace();
+  el.classList.add('show');
+  AUD.npText = p.title;
+  clearTimeout(AUD.npT);
+  AUD.npT = setTimeout(() => { el.classList.remove('show'); AUD.npText = ''; }, AUDIO_NOW_MS);
+}
+
+function audioNowPlace() {
+  const el = AUD.np, brand = document.querySelector('#top .brand'), top0 = $('top');
+  if (!el || !brand || !top0) return;
+  const left = brand.getBoundingClientRect().left, w = el.offsetWidth, h = el.offsetHeight;
+  let top = top0.getBoundingClientRect().bottom + 8;
+  const busy = [$('pill'), $('toast')].filter((e) => e && (e.id !== 'toast' || e.classList.contains('show')))
+    .map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).sort((a, b) => a.top - b.top);
+  for (const r of busy) if (r.left < left + w + 8 && r.right > left - 8 && r.top < top + h + 6 && r.bottom + 6 > top) top = r.bottom + 8;
+  el.style.left = Math.round(left) + 'px';
+  el.style.top = Math.round(top) + 'px';
 }
 
 function audioGapStart(now) {
@@ -7956,7 +8042,8 @@ function audioEvents(evs) {
     else if (k === 'levelup') want.push('levelup');
     else if (k === 'log' && /settlers? arrived/.test(e.text)) want.push('settlers');
   }
-  if (stage) audioCue('stage');
+  // a new stage: the stage sound now, the anthem as the next piece
+  if (stage) { audioCue('stage'); AUD.anthemDue = true; }
   const order = ['place', 'remove', 'residence', 'payday', 'levelup', 'settlers'];
   for (const n of order) {
     if (!want.includes(n)) continue;
@@ -8106,6 +8193,11 @@ function audioInit() {
   b.setAttribute('aria-haspopup', 'dialog');
   b.addEventListener('click', audioPanelToggle);
   AUD.btn = b;
+  const np = document.createElement('div');
+  np.id = 'nowplay';
+  np.setAttribute('aria-live', 'polite');
+  document.body.appendChild(np);
+  AUD.np = np;
   audioPanelBuild();
   audioBtnPlace();
   audioBtnRender();
@@ -8132,9 +8224,171 @@ function audioState() {
   const deck = (d) => ({ piece: d.piece, rel: d.rel, want: d.want, paused: d.el.paused, t: Math.round(d.el.currentTime * 10) / 10, dur: d.el.duration });
   return {
     ctx: AUD.ctx ? AUD.ctx.state : 'none', set: Object.assign({}, AUD.set), files: Object.keys(AUDIO_FILES).length,
-    cur: AUD.cur ? AUD.cur.piece : '', scene: AUD.scene, gap: AUD.gapUntil ? Math.max(0, Math.round((AUD.gapUntil - performance.now()) / 100) / 10) : 0,
+    cur: AUD.cur ? AUD.cur.piece : '', year: audioYear(), now: AUD.npText, anthemDue: AUD.anthemDue, scene: AUD.scene, gap: AUD.gapUntil ? Math.max(0, Math.round((AUD.gapUntil - performance.now()) / 100) / 10) : 0,
     hist: AUD.hist.slice(), decks: AUD.decks.map(deck), sea: AUD.sea.map(deck), seaTo: AUD.seaTo, buf: Object.keys(AUD.buf), log: AUD.log.slice(), started: AUD.started,
   };
+}
+
+// ---- src/ui/placesound.js
+// Place sounds (block 8): a tap on a building plays what that place sounds like, once: voices and dishes behind a
+// home's wall (a guitar next door before 1920, a crackly radio after), children and the hand bell at a school, the
+// engine and the belts of a distillery, the saw biting a log, the market's crowd with a vendor's sung call and hens,
+// bells at the chapel and the cathedral, gulls and creaking planks at the harbor, the liner's horn at the quay ...
+// All synthesised (nova/audio/places.py); files in audio/place/<kind>.mp3, listed by build.sh in AUDIO_FILES.
+//
+// - Only a tap on the map with no tool armed (the tap that opens the building's card). Not with a build tool, not on
+//   the title screen, not with Sounds off (the sound panel), not while the page is hidden.
+// - The same building again within 2 s: nothing (a second tap cycles the card, it should not restart the sound).
+// - Each file is fetched and decoded the first time it is wanted and kept (3-4 s mono: ~0.6 MB decoded); at most
+//   PLACE_BUFS are kept, the least recently heard goes first. A file that is missing or fails is never asked again.
+// - It plays on the sound-effects bus at PLACE_LVL; the music ducks ~3 dB under it; a new place fades the last one.
+// - A tap on open land by the sea (or the water at the shore) plays a few seconds of the beach.
+// Uses audio.js (AUD, audioUrl, audioDuck) and never changes it.
+
+// Building type -> its place's sound. Same table as KIND_OF in nova/audio/places.py.
+const PLACE_KIND = {
+  casita: 'home', school: 'school', distillery: 'works', cannery: 'works', roastery: 'roastery', cigars: 'cigars',
+  sawmill: 'sawmill', lumber: 'lumber', market: 'market', butcher: 'market', bakery: 'bakery', chapel: 'chapel',
+  cathedral: 'cathedral', harbor: 'harbor', pier: 'harbor', quay: 'quay', fishing: 'fishing', cane: 'field',
+  tobacco: 'field', finca: 'field', grove: 'field', ranch: 'ranch', clinic: 'clinic', park: 'park', garden: 'park',
+  palms: 'park', fountain: 'park', statue: 'park', bandstand: 'park', opera: 'opera', lighthouse: 'lighthouse',
+  residence: 'residence',
+};
+// A home from this year on has the radio (broadcasting in Cuba began in 1922; a gramophone or radio by the 1920s).
+const PLACE_RADIO_YEAR = 1920;
+const PLACE_LVL = 0.7, PLACE_DUCK = 0.7, PLACE_GAP = 2000, PLACE_LATE = 900, PLACE_BUFS = 10;
+
+const PLACE = { buf: {}, use: {}, wait: {}, failed: {}, last: {}, cur: null, log: [], played: 0 };
+
+// The kind of place a building is (a home's era decides guitar or radio).
+function placeKind(s, b) {
+  if (!b) return '';
+  let k = PLACE_KIND[b.type] || '';
+  if (k === 'home' && s && TUNE.startYear + Math.floor(s.month / 12) >= PLACE_RADIO_YEAR && placeHas('home1920')) k = 'home1920';
+  return k;
+}
+
+function placeHas(kind) { return !!audioUrl('place/' + kind + '.mp3'); }
+
+// Fetch and decode once; resolves to the buffer or null. Never throws.
+function placeLoad(kind) {
+  if (PLACE.buf[kind]) return Promise.resolve(PLACE.buf[kind]);
+  if (PLACE.wait[kind]) return PLACE.wait[kind];
+  const url = audioUrl('place/' + kind + '.mp3');
+  if (PLACE.failed[kind] || !url || !window.fetch || !AUD.ctx) return Promise.resolve(null);
+  const p = fetch(url).then((r) => (r.ok ? r.arrayBuffer() : null)).then((ab) => new Promise((res) => {
+    if (!ab || !AUD.ctx) { res(null); return; }
+    let done = false;
+    // a short sound only (a long file is never decoded: memory)
+    const ok = (b) => { if (!done) { done = true; res(b && b.duration < 8 ? b : null); } };
+    const bad = () => { if (!done) { done = true; res(null); } };
+    try { const q = AUD.ctx.decodeAudioData(ab, ok, bad); if (q && q.then) q.then(ok, bad); } catch (e) { bad(); }
+  })).catch(() => null).then((b) => {
+    delete PLACE.wait[kind];
+    if (b) { PLACE.buf[kind] = b; placeTrim(kind); } else PLACE.failed[kind] = 1;
+    return b;
+  });
+  PLACE.wait[kind] = p;
+  return p;
+}
+
+// Keep the PLACE_BUFS most recently heard buffers.
+function placeTrim(keep) {
+  const ks = Object.keys(PLACE.buf);
+  if (ks.length <= PLACE_BUFS) return;
+  ks.sort((a, b) => (PLACE.use[a] || 0) - (PLACE.use[b] || 0));
+  for (const k of ks.slice(0, ks.length - PLACE_BUFS)) if (k !== keep) delete PLACE.buf[k];
+}
+
+// Asks for a place's sound (key: what the 2 s gate is per, e.g. one building). True when it plays or will play as
+// soon as its file is decoded (a first tap waits for the decode, at most PLACE_LATE ms; later it is skipped).
+function placeSound(kind, key) {
+  if (!kind || !AUD.ctx || AUD.dead || !AUD.set.sfx || APP.titleOn || document.hidden) return false;
+  const now = performance.now(), gate = key || kind;
+  if (now - (PLACE.last[gate] || -1e9) < PLACE_GAP) return false;
+  const sea = kind === 'beach' && !placeHas('beach') && AUD.buf.sea;
+  if (!PLACE.buf[kind] && !sea && (!placeHas(kind) || PLACE.failed[kind])) return false;
+  PLACE.last[gate] = now;
+  PLACE.log.push(kind);
+  if (PLACE.log.length > 40) PLACE.log.shift();
+  if (sea) return placeStart(kind, AUD.buf.sea, 3.2);
+  const go = (b) => { if (b && performance.now() - now < PLACE_LATE) placeStart(kind, b); };
+  if (PLACE.buf[kind]) go(PLACE.buf[kind]); else placeLoad(kind).then(go);
+  return true;
+}
+
+// Plays a decoded buffer now on the sound-effects bus (len: only that many seconds of it, faded; for the sea).
+function placeStart(kind, b, len) {
+  const c = AUD.ctx;
+  if (!c || c.state !== 'running' || !AUD.set.sfx || document.hidden || !AUD.sfxBus) return false;
+  try {
+    const t = c.currentTime;
+    // one place at a time: the last one fades out quickly
+    const o = PLACE.cur;
+    if (o) {
+      try { o.g.gain.cancelScheduledValues(t); o.g.gain.setValueAtTime(o.lvl, t); o.g.gain.linearRampToValueAtTime(0, t + 0.2); o.src.stop(t + 0.25); } catch (e) { /* already ended */ }
+    }
+    const src = c.createBufferSource(), g = c.createGain();
+    src.buffer = b;
+    src.connect(g); g.connect(AUD.sfxBus);
+    let dur = b.duration;
+    if (len && b.duration > len + 1) {
+      // a slice of a long buffer (the sea): faded in and out so it never clicks
+      const off = Math.random() * (b.duration - len - 0.5);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(PLACE_LVL, t + 0.3);
+      g.gain.setValueAtTime(PLACE_LVL, t + len - 0.8); g.gain.linearRampToValueAtTime(0, t + len);
+      src.start(t, off, len);
+      dur = len;
+    } else {
+      g.gain.value = PLACE_LVL;
+      src.start(t);
+    }
+    const cur = { src, g, kind, lvl: PLACE_LVL };
+    src.onended = () => { try { src.disconnect(); g.disconnect(); } catch (e) { /* gone */ } if (PLACE.cur === cur) PLACE.cur = null; };
+    PLACE.cur = cur;
+    PLACE.use[kind] = performance.now();
+    if (AUD.set.music && AUD.duck) audioDuck(PLACE_DUCK, t, dur);
+    PLACE.played++;
+    return true;
+  } catch (e) { return false; }
+}
+
+// Open land by the sea, or the water at the shore: within two tiles of the other, and no building on the tile.
+function placeShore(s, x, y) {
+  if (!s || !inMap(x, y) || bAt(s, x, y)) return false;
+  const wet = s.terrain[tileIdx(x, y)] === SEA;
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      if (!inMap(x + dx, y + dy)) continue;
+      if ((s.terrain[tileIdx(x + dx, y + dy)] === SEA) !== wet) return true;
+    }
+  }
+  return false;
+}
+
+// After a tap on the map with no tool: the building whose card it opened, or the beach. Returns the kind asked for.
+function placeTap(sx, sy) {
+  if (APP.titleOn || !AUD.ctx || !AUD.set.sfx) return '';
+  const s = APP.state, card = $('card'), b = APP.ui.sel && card && card.classList.contains('show') ? bById(s, APP.ui.sel) : null;
+  if (b) { const k = placeKind(s, b); return k && placeSound(k, 'b' + b.id) ? k : ''; }
+  const t = tileAt(sx, sy);
+  return placeShore(s, t.x, t.y) && placeSound('beach', 'beach') ? 'beach' : '';
+}
+
+// The map's tap (input.js) wrapped: the card opens first, then its place is heard. A sound never stops the game.
+{
+  const tapAtPlain = tapAt;
+  tapAt = function (sx, sy) {
+    const look = APP.ui.tool === 'look';
+    const r = tapAtPlain.apply(this, arguments);
+    if (look) { try { placeTap(sx, sy); } catch (e) { /* silent */ } }
+    return r;
+  };
+}
+
+// What the place sounds did (the console and the tests).
+function placeState() {
+  return { buf: Object.keys(PLACE.buf), failed: Object.keys(PLACE.failed), log: PLACE.log.slice(), played: PLACE.played, cur: PLACE.cur ? PLACE.cur.kind : '' };
 }
 
 // ---- src/ui/main.js
