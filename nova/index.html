@@ -2,10 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- iPad home-screen app (block 5): full screen, the map under a translucent status bar, its own name; the icon is drawn at boot (ios.js) -->
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="apple-touch-icon" href="../icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Isla Nueva">
+<meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
 <meta name="theme-color" content="#2793ad">
 <title>Isla Nueva</title>
 <style>
@@ -17,13 +20,19 @@
   --serif: Palatino, "Palatino Linotype", "Book Antiqua", "GFS Baskerville", Charter, "Bitstream Charter", Georgia, serif;
   --sans: "Avenir Next", Avenir, "Trebuchet MS", "Segoe UI", Carlito, "DejaVu Sans", system-ui, sans-serif;
   --bar-h: 84px; --gap: 10px;
+  /* safe areas (home indicator, rounded corners, a phone's notch in landscape): every edge element adds its side */
+  --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px); --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
 }
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #2793ad; color: var(--ink);
-  font: 15px/1.3 var(--sans); -webkit-user-select: none; user-select: none; }
-button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
+/* iOS Safari (block 5): no tap flash, no long-press callout or text selection, no page pinch or rubber band (the body is
+   fixed and never scrolls; panels that scroll keep their scroll to themselves), buttons answer the first tap. */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavior: none; height: 100%; background: #2793ad; }
+html, body { margin: 0; overflow: hidden; color: var(--ink); font: 15px/1.3 var(--sans); -webkit-user-select: none; user-select: none; }
+body { position: fixed; inset: 0; width: 100%; height: 100%; overscroll-behavior: none; background: #2793ad; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; touch-action: manipulation; }
+#sheet, #card, #pop, #bar .tray { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .ic { width: 22px; height: 22px; fill: currentColor; flex: none; }
-#map { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+#map { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; -webkit-user-select: none; user-select: none; }
 /* warm light and a soft vignette over the map, like the paper sample (no blend modes: cheap on the iPad) */
 #paper { position: fixed; inset: 0; pointer-events: none; z-index: 1;
   background: radial-gradient(ellipse 120% 95% at 50% 46%, rgba(255, 236, 200, 0) 58%, rgba(110, 72, 40, 0.20) 100%),
@@ -31,7 +40,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .panel { background: var(--panel); border: 2px solid var(--ink); border-radius: 16px; box-shadow: var(--shadow); }
 
 /* Top bar */
-#top { position: fixed; top: calc(var(--gap) + env(safe-area-inset-top)); left: var(--gap); right: var(--gap);
+#top { position: fixed; top: calc(var(--gap) + var(--st)); left: calc(var(--gap) + var(--sl)); right: calc(var(--gap) + var(--sr));
   display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: start; pointer-events: none; z-index: 5; }
 #top > * { pointer-events: auto; }
 .brand { padding: 6px 16px 6px 14px; min-height: 54px; display: flex; flex-direction: column; justify-content: center; }
@@ -50,16 +59,16 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .ctrl button.on { background: var(--coral); color: #fff7ea; box-shadow: inset 0 0 0 2px var(--ink), inset 0 -3px 0 rgba(0, 0, 0, 0.16); }
 .ctrl button:not(.on):active { background: var(--paper2); }
 .ctrl .sep { width: 0; height: 26px; border-left: 2px dotted rgba(58, 42, 31, 0.32); margin: 0 4px; }
-#pill { position: fixed; top: calc(var(--gap) + 64px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 4;
+#pill { position: fixed; top: calc(var(--gap) + 64px + var(--st)); left: calc(50% + (var(--sl) - var(--sr)) / 2); transform: translateX(-50%); z-index: 4;
   background: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 999px; padding: 5px 16px; font-weight: 600; font-size: 14px;
   box-shadow: 0 2px 0 rgba(58, 42, 31, 0.28), 0 6px 14px rgba(30, 20, 10, 0.14);
-  white-space: nowrap; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; }
+  white-space: nowrap; max-width: calc(100% - 20px - var(--sl) - var(--sr)); overflow: hidden; text-overflow: ellipsis; }
 #pill .ok { color: var(--green); font-weight: 800; } #pill .no { color: #a8562a; font-weight: 800; }
 
 /* Build bar */
-#bar { position: fixed; bottom: calc(var(--gap) + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 5;
+#bar { position: fixed; bottom: calc(var(--gap) + var(--sb)); left: calc(50% + (var(--sl) - var(--sr)) / 2); transform: translateX(-50%); z-index: 5;
   display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 6px; width: max-content;
-  min-width: min(560px, calc(100% - 2 * var(--gap))); max-width: calc(100% - 2 * var(--gap)); }
+  min-width: min(560px, calc(100% - 2 * var(--gap) - var(--sl) - var(--sr))); max-width: calc(100% - 2 * var(--gap) - var(--sl) - var(--sr)); }
 #bar .tray { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
 #bar .tray::-webkit-scrollbar { display: none; }
 #bar .tabs { display: flex; gap: 4px; }
@@ -89,7 +98,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .tool.new::after { content: ''; position: absolute; top: 6px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); border: 1.5px solid var(--ink); }
 
 /* Lower area: toast, guide, receipt */
-#lower { position: fixed; left: var(--gap); right: var(--gap); bottom: calc(var(--bar-h) + 2 * var(--gap) + env(safe-area-inset-bottom));
+#lower { position: fixed; left: calc(var(--gap) + var(--sl)); right: calc(var(--gap) + var(--sr)); bottom: calc(var(--bar-h) + 2 * var(--gap) + var(--sb));
   display: flex; align-items: flex-end; gap: 10px; pointer-events: none; z-index: 4; }
 #lower > * { pointer-events: auto; }
 #guide { display: none; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; max-width: 460px; }
@@ -112,7 +121,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #receipt .row.sub { color: var(--ink2); }
 #receipt .row.sum { border-top: 2px dotted rgba(58, 42, 31, 0.35); margin-top: 4px; padding-top: 4px; font-weight: 800; }
 .pos { color: var(--green); } .neg { color: var(--red); }
-#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--bar-h) + 2 * var(--gap) + 128px + env(safe-area-inset-bottom));
+#toast { position: fixed; left: calc(50% + (var(--sl) - var(--sr)) / 2); transform: translateX(-50%); bottom: calc(var(--bar-h) + 2 * var(--gap) + 128px + var(--sb));
   background: rgba(58, 42, 31, 0.94); color: #fbf3df; border-radius: 12px; padding: 9px 16px; font-weight: 600; font-size: 14px;
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18), 0 8px 18px rgba(30, 20, 10, 0.2);
   max-width: min(520px, calc(100% - 20px)); text-align: center; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 6; }
@@ -121,7 +130,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #done { position: fixed; z-index: 5; display: none; min-height: 56px; min-width: 104px; padding: 0 18px; border-radius: 14px; align-items: center; justify-content: center;
   gap: 6px; background: var(--teal); color: #fff7ea; font-weight: 800; font-size: 17px; border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink), 0 8px 18px rgba(30, 20, 10, 0.2); }
 body.armed #done { display: flex; }
-body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + env(safe-area-inset-bottom)); }
+body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + var(--sb)); }
 #guide.fresh { animation: guideIn 0.6s ease-out; }
 #guide.fresh .act { animation: actWait 0.9s steps(1, end); }
 @keyframes guideIn { from { transform: translateY(8px); opacity: 0.2; } to { transform: none; opacity: 1; } }
@@ -138,8 +147,8 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + e
 
 /* Building card */
 #card, #sheet { background: var(--paper); }
-#card { position: fixed; z-index: 7; display: none; padding: 14px 16px; width: 310px; right: var(--gap);
-  top: calc(var(--gap) + 112px + env(safe-area-inset-top)); max-height: calc(100% - 232px); overflow-y: auto; }
+#card { position: fixed; z-index: 7; display: none; padding: 14px 16px; width: 310px; right: calc(var(--gap) + var(--sr));
+  top: calc(var(--gap) + 112px + var(--st)); max-height: calc(100% - 232px - var(--st) - var(--sb)); overflow-y: auto; }
 #card.show { display: block; }
 #card h3 { margin: 0 0 2px; font: italic 700 20px var(--serif); display: flex; align-items: center; gap: 8px; padding-right: 36px; }
 #card h3 .ic { fill: var(--coral); stroke: var(--ink); stroke-width: 1.2px; paint-order: stroke; }
@@ -158,8 +167,8 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + e
 /* Sheets and cards */
 #veil { position: fixed; inset: 0; background: rgba(40, 28, 18, 0.35); z-index: 8; display: none; }
 #veil.show { display: block; }
-#sheet { position: fixed; z-index: 9; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(540px, calc(100% - 20px));
-  max-height: calc(100% - 40px); overflow-y: auto; padding: 18px; display: none; }
+#sheet { position: fixed; z-index: 9; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(540px, calc(100% - 20px - var(--sl) - var(--sr)));
+  max-height: calc(100% - 40px - var(--st) - var(--sb)); overflow-y: auto; padding: 18px; display: none; }
 #sheet.show { display: block; }
 #sheet h2 { margin: 0 0 4px; font: italic 700 24px var(--serif); }
 #sheet h4 { margin: 14px 0 6px; font-size: 15px; }
@@ -180,12 +189,12 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + e
 #stagecard ul { text-align: left; margin: 10px auto; padding-left: 20px; max-width: 360px; }
 .go { display: block; width: 100%; min-height: 50px; border-radius: 12px; background: var(--teal); color: #fff7ea; font-weight: 800; font-size: 16px; margin-top: 12px;
   box-shadow: inset 0 0 0 2px var(--ink), 0 3px 0 var(--ink); }
-#yearcard { position: fixed; z-index: 6; left: 50%; transform: translateX(-50%); top: calc(var(--gap) + 106px + env(safe-area-inset-top));
+#yearcard { position: fixed; z-index: 6; left: 50%; transform: translateX(-50%); top: calc(var(--gap) + 106px + var(--st));
   padding: 12px 16px; display: none; width: min(420px, calc(100% - 20px)); }
 #yearcard.show { display: block; }
 #yearcard b { font: italic 700 20px var(--serif); }
 #yearcard p { margin: 3px 0 0; font-size: 14px; }
-#pop { position: fixed; z-index: 7; display: none; padding: 10px 14px; left: 50%; transform: translateX(-50%); top: calc(var(--gap) + 106px + env(safe-area-inset-top)); width: min(330px, calc(100% - 20px)); }
+#pop { position: fixed; z-index: 7; display: none; padding: 10px 14px; left: 50%; transform: translateX(-50%); top: calc(var(--gap) + 106px + var(--st)); width: min(330px, calc(100% - 20px)); }
 #pop.show { display: block; }
 #pop .line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
 
@@ -193,7 +202,7 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + e
 @media (max-width: 900px) {
   .tool { width: 72px; }
   body.carded #lower, body.carded #toast { display: none; }
-  #card { left: var(--gap); right: var(--gap); width: auto; top: auto; bottom: calc(var(--bar-h) + 2 * var(--gap) + env(safe-area-inset-bottom)); max-height: 46vh; }
+  #card { left: calc(var(--gap) + var(--sl)); right: calc(var(--gap) + var(--sr)); width: auto; top: auto; bottom: calc(var(--bar-h) + 2 * var(--gap) + var(--sb)); max-height: 46vh; max-height: 46dvh; }
 }
 @media (max-width: 600px) {
   :root { --gap: 8px; }
@@ -206,16 +215,48 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + e
   .ctrl .sep { margin: 0 2px; }
   .stats { grid-column: 1 / 3; grid-row: 2; justify-self: stretch; justify-content: space-around; min-height: 48px; }
   .stat { font-size: 18px; padding: 4px 8px; }
-  #pill { top: calc(var(--gap) + 116px + env(safe-area-inset-top)); font-size: 13px; white-space: normal; text-align: center; border-radius: 14px; width: calc(100% - 16px); }
-  #yearcard, #pop { top: calc(var(--gap) + 156px + env(safe-area-inset-top)); }
+  #pill { top: calc(var(--gap) + 116px + var(--st)); font-size: 13px; white-space: normal; text-align: center; border-radius: 14px; width: calc(100% - 16px - var(--sl) - var(--sr)); }
+  #yearcard, #pop { top: calc(var(--gap) + 156px + var(--st)); }
   .tool { width: 66px; }
-  #bar { width: calc(100% - 2 * var(--gap)); }
+  #bar { width: calc(100% - 2 * var(--gap) - var(--sl) - var(--sr)); }
   .tab { min-width: 0; padding: 0 2px; font-size: 11px; }
   #lower { flex-direction: column; align-items: stretch; }
   #guide { max-width: none; }
   #receipt { align-self: flex-end; }
-  #toast { bottom: auto; top: calc(var(--gap) + 156px + env(safe-area-inset-top)); }
+  #toast { bottom: auto; top: calc(var(--gap) + 156px + var(--st)); }
 }
+
+/* The title screen (block 5): the island behind, one paper card in front; also where the home-screen app opens. */
+body.titled #top, body.titled #pill, body.titled #lower, body.titled #bar, body.titled #done, body.titled #toast, body.titled #card,
+body.titled #yearcard, body.titled #pop { display: none !important; }
+#title { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
+  padding: calc(16px + var(--st)) calc(16px + var(--sr)) calc(16px + var(--sb)) calc(16px + var(--sl));
+  background: radial-gradient(ellipse 70% 62% at 50% 50%, rgba(40, 28, 18, 0.06), rgba(40, 28, 18, 0.34)); }
+body.titled #title { display: flex; }
+#title .tcard { width: min(440px, 100%); padding: 26px 28px 24px; text-align: center; position: relative; animation: titleIn 0.45s ease-out; }
+@keyframes titleIn { from { transform: translateY(14px); } to { transform: none; } }
+/* the card beside the town (landscape: on the left; portrait and phone: low), the island in the open part */
+@media (min-aspect-ratio: 1/1) { #title { justify-content: flex-start; padding-left: calc(max(16px, 6vw) + var(--sl)); } }
+@media (max-aspect-ratio: 1/1) { #title { align-items: flex-end; padding-bottom: calc(max(16px, 7vh) + var(--sb)); } }
+#title .kick { font-size: 12px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink2); }
+#title h1 { margin: 6px 0 2px; font: italic 700 54px/1.02 var(--serif); letter-spacing: 0.005em; color: var(--ink); }
+#title .rule { display: flex; align-items: center; gap: 10px; margin: 10px 8px 16px; color: var(--ink2); }
+#title .rule::before, #title .rule::after { content: ''; flex: 1; border-top: 2px dotted rgba(58, 42, 31, 0.35); }
+#title .rule svg { width: 34px; height: 34px; flex: none; }
+#title .tbtn { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; min-height: 60px; border-radius: 14px;
+  padding: 8px 14px; margin-top: 10px; font-weight: 800; font-size: 18px; background: var(--paper2); color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--ink), 0 3px 0 var(--ink); }
+#title .tbtn small { font-size: 13px; font-weight: 600; color: var(--ink2); margin-top: 2px; }
+#title .tbtn.main { background: var(--teal); color: #fff7ea; }
+#title .tbtn.main small { color: #e3f4f1; }
+#title .tbtn.warn { background: var(--coral); color: #fff7ea; }
+#title .tbtn:active { transform: translateY(2px); box-shadow: inset 0 0 0 2px var(--ink), 0 1px 0 var(--ink); }
+#title .ask { margin: 14px 4px 0; font-size: 15px; }
+#title .note { margin: 14px 0 0; padding: 9px 12px; border-radius: 10px; background: var(--coral-soft); color: #7e2e1c; font-size: 14px; border: 1.5px solid rgba(58, 42, 31, 0.25); text-align: left; }
+#title .foot { margin-top: 14px; font-size: 12px; color: var(--ink2); }
+@media (max-width: 600px) { #title h1 { font-size: 44px; } #title .tcard { padding: 22px 18px 20px; } }
+#safe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 </style>
 </head>
 <body>
@@ -244,6 +285,8 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + e
 <div id="yearcard" class="panel"></div>
 <div id="veil"></div>
 <div id="sheet" class="panel"></div>
+<div id="title" role="dialog" aria-label="Isla Nueva"></div>
+<div id="safe"></div>
 <script>
 'use strict';
 // ---- src/sim/data.js
@@ -1598,8 +1641,10 @@ function biggestCost(state, only) {
 }
 
 // Rosa never suggests closing a market or a food building (block 4: in the playtest she advised closing the market
-// that fed everyone): closing them starves the homes.
-function closable(b) { const def = BUILDINGS[b.type]; return !(def.kind === 'market' || def.food); }
+// that fed everyone): closing them starves the homes. Food buildings are everything on the build bar's Food tab
+// (block 5: she still told Tugba to close a bakery with a full yard; bakery, ranch and butcher have no def.food).
+function foodBuilding(b) { const def = BUILDINGS[b.type]; return !!(def.food || def.group === 'food'); }
+function closable(b) { const def = BUILDINGS[b.type]; return !(def.kind === 'market' || foodBuilding(b)); }
 
 // "rum, cigars and coffee"
 function listAnd(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
@@ -1631,7 +1676,7 @@ function yardText(s, b) {
   }
   const cost = -bNumber(s, b).n;
   const exp = EXPORTABLE.includes(def.makes) && !s.exp[def.makes] && countHarbors(s) ? ', or export ' + g + ' at the desk' : '';
-  if (def.food) return 'The ' + name + ' makes more ' + g + ' than the homes eat: its yard is full. More homes will eat it' + exp + '.';
+  if (foodBuilding(b)) return 'The ' + name + ' makes more ' + g + ' than the island eats: its yard is full. More homes will eat it' + exp + '.';
   return 'The ' + name + ' makes more ' + g + ' than the island uses: its yard is full. Close it to save $' + cost + ' a month' + exp + '.';
 }
 
@@ -1741,8 +1786,11 @@ const GUIDE_PROBLEMS = [
       btn: toolLabel(fix.tool), act: { tool: fix.tool } };
   } },
   { key: 'yard', check(s) {
-    const b = s.b.find((o) => o.blocked === 'yard');
+    // A food building that simply makes more than the homes eat comes last, and its button builds a home (block 5).
+    const full = s.b.filter((o) => o.blocked === 'yard'), surplus = (o) => foodBuilding(o) && takerState(s, o) === 'full';
+    const b = full.find((o) => !surplus(o)) || full[0];
     if (!b) return null;
+    if (surplus(b)) return { text: yardText(s, b), btn: 'Home', act: { tool: 'casita' } };
     return { text: yardText(s, b), btn: 'Show', act: { select: b.id, roads: takerState(s, b) === 'unreached' } };
   } },
   { key: 'workers', check(s) {
@@ -2475,8 +2523,12 @@ const ISO = (() => {
   // Zoom levels (half-width of a tile in CSS px). The view settles on one of them after a pinch, so every sprite and
   // ground chunk is drawn 1:1, sharp and fast; in between, the nearest cached level is scaled.
   const BUCKETS = [8, 9.7, 11.7, 14, 16.8, 20.2, 24.2, 29, 34.8, 41.8, 50.2, 60.2, 72];
-  // Memory (iPad Safari limits all canvases together): at most 64 ground chunks (~1 MB each at 2x; the gesture picture needs ~45) and ~18 M sprite px.
-  const CHUNK = 256, RES = 4, PAD = 3, CHUNK_CAP = 64, SPR_CAP = 18e6, RW = 0.6;
+  // Memory (iPad Safari limits all canvases of a page together, and kills the page near that limit): the caches share
+  // one budget, MEM_BUDGET bytes of canvas pixels, set per screen by memBudget() (see the numbers there and in
+  // nova/README.md): the screen, the still ground and the gesture picture first, then ground chunks (~1 MB each at 2x),
+  // then sprites; labels and floaters have their own small cap (UI_CAP device px). No canvas may exceed CANVAS_MAX px.
+  const CHUNK = 256, RES = 4, PAD = 3, RW = 0.6;
+  const MEM_BUDGET = 190e6, UI_CAP = 1.5e6, CANVAS_MAX = 16.7e6, GM_MAX = 200;
   const SANS = '"Avenir Next", Avenir, "Trebuchet MS", "Segoe UI", Carlito, "DejaVu Sans", sans-serif';
 
   // ---------- small utils ----------
@@ -2497,6 +2549,9 @@ const ISO = (() => {
   function rgba(c, a) { const A = hx(c); return 'rgba(' + A[0] + ',' + A[1] + ',' + A[2] + ',' + a + ')'; }
   function canvasNew(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); return c; }
   function canvasFree(c) { if (c) { c.width = 0; c.height = 0; } }
+  // One small context to measure text with (a new 4x4 canvas per label was garbage on every new label).
+  let MEAS = null;
+  function measCtx() { if (!MEAS) MEAS = canvasNew(4, 4).getContext('2d'); return MEAS; }
 
   // ---------- the pen: projection used by every painter ----------
   let ctx = null, ox = 0, oy = 0, hw = 32, hh = 16, zs = 30, S = 1, LW = 1, DP = 1;
@@ -4086,12 +4141,24 @@ const ISO = (() => {
   // ---------- bubbles, labels, floaters (screen-sized sprites) ----------
   const ICON_COL = { bread: '#b8732e', fish: '#3f74a8', market: '#df684c', chapel: '#7a5a1a', barrel: '#8a4a22', school: '#3f74a8', clinic: '#c0392b', road: '#a37b4c', worker: '#3a2a1f', full: '#b8732e', cane: '#5d9640', leaf: '#8a7a2c', tree: '#3f7c45' };
   function rrPath(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.quadraticCurveTo(x + w, y, x + w, y + r); c.lineTo(x + w, y + h - r); c.quadraticCurveTo(x + w, y + h, x + w - r, y + h); c.lineTo(x + r, y + h); c.quadraticCurveTo(x, y + h, x, y + h - r); c.lineTo(x, y + r); c.quadraticCurveTo(x, y, x + r, y); c.closePath(); }
+  // Labels, bubbles and floaters are cached by their text: a long evening makes thousands of different ones (every
+  // road price, every payday amount), so the cache keeps the least recently drawn out beyond UI_CAP device px.
+  function uiGet(R, key) { const sp = R.ui.get(key); if (sp) sp.used = R.frame; return sp; }
+  function uiPut(R, key, sp) { sp.px = sp.c.width * sp.c.height; sp.used = R.frame; R.ui.set(key, sp); R.uiPx += sp.px; }
+  function uiEvict(R) {
+    if (R.uiPx <= UI_CAP) return;
+    const all = [...R.ui.entries()].sort((a, b) => a[1].used - b[1].used);
+    for (const [key, sp] of all) {
+      if (R.uiPx < UI_CAP * 0.7 || sp.used >= R.frame) break;
+      canvasFree(sp.c); R.ui.delete(key); R.uiPx -= sp.px;
+    }
+  }
   function bubbleSprite(R, icon, warn, text, sc) {
     const key = 'bub|' + icon + '|' + (warn ? 1 : 0) + '|' + (text || '') + '|' + sc + '|' + R.dpr;
-    let sp = R.ui.get(key);
+    let sp = uiGet(R, key);
     if (sp) return sp;
     const d = R.dpr, s = 26 * sc;
-    const meas = canvasNew(4, 4).getContext('2d'); meas.font = '800 ' + Math.round(13 * sc) + 'px ' + SANS;
+    const meas = measCtx(); meas.font = '800 ' + Math.round(13 * sc) + 'px ' + SANS;
     const tw = text ? meas.measureText(text).width + 4 * sc : 0;
     const w = s + 6 * sc + tw, h = s, tail = 7 * sc, W = w + 10 * sc, H = h + tail + 8 * sc;
     const c = canvasNew(W * d, H * d), g = c.getContext('2d');
@@ -4106,15 +4173,15 @@ const ISO = (() => {
     if (typeof iconDraw === 'function') iconDraw(g, icon, x + 3 * sc + s / 2, y + h / 2, s * 0.62, warn ? (ICON_COL[icon] || '#c0392b') : rgba(ICON_COL[icon] ? ICON_COL[icon] : '#5a6d73', 0.8));
     if (text) { g.font = '800 ' + Math.round(13 * sc) + 'px ' + SANS; g.fillStyle = warn ? '#a33a28' : INK; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(text, x + s + 2 * sc, y + h / 2 + 0.5 * sc); }
     sp = { c, ax: cx, ay: H - 1 * sc, w: W, h: H };
-    R.ui.set(key, sp);
+    uiPut(R, key, sp);
     return sp;
   }
   function labelSprite(R, text, ok) {
     const key = 'lab|' + text + '|' + (ok ? 1 : 0) + '|' + R.dpr;
-    let sp = R.ui.get(key);
+    let sp = uiGet(R, key);
     if (sp) return sp;
     const d = R.dpr, font = '700 14px ' + SANS;
-    const meas = canvasNew(4, 4).getContext('2d'); meas.font = font;
+    const meas = measCtx(); meas.font = font;
     const tw = meas.measureText(text).width + 24, h = 30, W = tw + 8, H = h + 8;
     const c = canvasNew(W * d, H * d), g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
     g.save(); g.shadowColor = 'rgba(40,25,10,.3)'; g.shadowOffsetY = 2 * d; g.shadowBlur = 3 * d;
@@ -4122,15 +4189,15 @@ const ISO = (() => {
     rrPath(g, 4, 3, tw, h, h / 2); g.strokeStyle = INK; g.lineWidth = 2; g.stroke();
     g.font = font; g.fillStyle = ok ? INK : '#fff7ea'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, W / 2, 3 + h / 2 + 0.5);
     sp = { c, ax: W / 2, ay: H / 2, w: W, h: H };
-    R.ui.set(key, sp);
+    uiPut(R, key, sp);
     return sp;
   }
   function floaterSprite(R, text, color, big) {
     const key = 'fl|' + text + '|' + color + '|' + (big ? 1 : 0) + '|' + R.dpr;
-    let sp = R.ui.get(key);
+    let sp = uiGet(R, key);
     if (sp) return sp;
     const d = R.dpr, sz = big ? 18 : 15, font = '800 ' + sz + 'px ' + SANS, coin = /\$/.test(text);
-    const meas = canvasNew(4, 4).getContext('2d'); meas.font = font;
+    const meas = measCtx(); meas.font = font;
     const tw = meas.measureText(text).width, W = tw + (coin ? 22 : 0) + 12, H = sz + 14;
     const c = canvasNew(W * d, H * d), g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
     let x = 6; const y = H / 2;
@@ -4145,7 +4212,7 @@ const ISO = (() => {
     g.strokeStyle = INK; g.lineWidth = 1.1; g.strokeText(text, x, y);
     g.fillStyle = color; g.fillText(text, x, y);
     sp = { c, ax: W / 2, ay: H / 2, w: W, h: H };
-    R.ui.set(key, sp);
+    uiPut(R, key, sp);
     return sp;
   }
 
@@ -4490,10 +4557,17 @@ const ISO = (() => {
   // The visible ground is composed from chunks into one canvas a margin larger than the screen (GM px each side).
   // Still frames copy it 1:1. While a finger pans or pinches (or the zoom eases to its level) the same image is only
   // moved and scaled; it is composed again when it no longer covers the screen, and once, sharp, when the view rests.
-  const GM = 200;
   // Still frames: the ground composed once into a screen-sized canvas and copied 1:1 (block 2's fast path).
   function groundDraw(R, s) {
     const d = R.dpr, C = R.gc, main = R.ctx;
+    if (!R.still) {
+      // a big screen (memBudget): no screen-sized copy of the ground; the chunks are drawn straight onto the screen
+      main.setTransform(1, 0, 0, 1, 0, 0); main.globalAlpha = 1; main.fillStyle = SEA_C; main.fillRect(0, 0, R.canvas.width, R.canvas.height);
+      R.pending = false;
+      groundCompose(R, s);
+      R.groundDirty = R.pending;
+      return;
+    }
     if (C && !R.groundDirty && C.B === R.B && C.dpr === d && C.hw === R.hw && C.w === R.w && C.h === R.h &&
       Math.abs(C.ox - R.ox) < 0.01 && Math.abs(C.oy - R.oy) < 0.01) {
       main.setTransform(1, 0, 0, 1, 0, 0); main.drawImage(C.c, 0, 0);
@@ -4548,29 +4622,85 @@ const ISO = (() => {
       g.drawImage(ch.c, Math.round(L * d), Math.round(Tt * d), Math.round((L + cs) * d) - Math.round(L * d), Math.round((Tt + cs) * d) - Math.round(Tt * d));
       ch.used = R.frame;
     }
-    if (R.chunks.size > CHUNK_CAP) {
-      const list = [...R.chunks.entries()].sort((a, b) => a[1].used - b[1].used);
-      for (let i = 0; i < list.length - CHUNK_CAP; i++) { canvasFree(list[i][1].c); R.chunks.delete(list[i][0]); }
-    }
+    chunkEvict(R);
+  }
+  // Over the cap: chunks of other zoom levels go first, then the least recently drawn.
+  function chunkEvict(R) {
+    if (R.chunks.size <= R.chunkCap) return;
+    const list = [...R.chunks.entries()].sort((a, b) => ((a[1].B === R.B) - (b[1].B === R.B)) || (a[1].used - b[1].used));
+    for (let i = 0; i < list.length - R.chunkCap; i++) { canvasFree(list[i][1].c); R.chunks.delete(list[i][0]); }
   }
 
   // ---------- sprites: one cached canvas per look and zoom bucket ----------
+  // The sprite of one look at the current zoom level. Memory (block 5, iPad): a new sprite first makes room by dropping
+  // the least recently drawn ones; when the sprites drawn in this very frame already fill the cap (a big screen zoomed
+  // far in), the new one is painted up to three levels coarser and drawn scaled (sp.low), and painted sharp again
+  // once memory is free. So the cap holds even in the worst case.
+  function sprDims(B, foot, H) {
+    const fw = foot[0], fd = foot[1], mg = 0.45 * B;
+    const L = fd * B + mg + (foot[2] || 0) * B, Rr = fw * B + mg + H * 0.75 * B, T = H * B * ZS + mg, Bt = (fw + fd) * B / 2 + mg + (foot[3] || 0) * B;
+    return { L, T, W: L + Rr, H: T + Bt };
+  }
+  // A painted sprite canvas is mostly empty margin (room for chimneys, smoke, flags and the shadow): only ~34 % of its
+  // pixels lie inside what was drawn. The sprite keeps just that box (whole device px, so 1:1 drawing stays sharp).
+  function sprTrim(c) {
+    const W = c.width, H = c.height;
+    if (W * H < 64) return { c, x: 0, y: 0 };
+    let a;
+    try { a = new Uint32Array(c.getContext('2d').getImageData(0, 0, W, H).data.buffer); } catch (e) { return { c, x: 0, y: 0 }; }
+    const LE = new Uint8Array(new Uint32Array([0x01020304]).buffer)[0] === 4;
+    const alpha = LE ? (i) => a[i] >>> 24 : (i) => a[i] & 0xff;
+    let y0 = 0, y1 = H - 1, x0 = 0, x1 = W - 1;
+    const rowEmpty = (y) => { for (let x = 0, i = y * W; x < W; x++, i++) if (alpha(i) > 1) return false; return true; };
+    const colEmpty = (x) => { for (let y = y0, i = y0 * W + x; y <= y1; y++, i += W) if (alpha(i) > 1) return false; return true; };
+    while (y0 <= y1 && rowEmpty(y0)) y0++;
+    if (y0 > y1) { canvasFree(c); return { c: canvasNew(1, 1), x: 0, y: 0 }; }
+    while (rowEmpty(y1)) y1--;
+    while (colEmpty(x0)) x0++;
+    while (colEmpty(x1)) x1--;
+    // one px of air on each side keeps the anti-aliased edge whole
+    x0 = Math.max(0, x0 - 1); y0 = Math.max(0, y0 - 1); x1 = Math.min(W - 1, x1 + 1); y1 = Math.min(H - 1, y1 + 1);
+    if ((x1 - x0 + 1) * (y1 - y0 + 1) > W * H * 0.85) return { c, x: 0, y: 0 };
+    const t = canvasNew(x1 - x0 + 1, y1 - y0 + 1);
+    t.getContext('2d').drawImage(c, x0, y0, t.width, t.height, 0, 0, t.width, t.height);
+    canvasFree(c);
+    return { c: t, x: x0, y: y0 };
+  }
+  function sprRoom(R, px) {
+    if (R.sprPx + px <= R.sprCap) return;
+    const all = [];
+    for (const [base, m] of R.spr) for (const [B, sp] of m) if (sp.used < R.frame) all.push([base, B, sp]);
+    all.sort((a, b) => a[2].used - b[2].used);
+    for (const [base, B, sp] of all) {
+      if (R.sprPx + px <= R.sprCap * 0.9) break;
+      canvasFree(sp.c); R.spr.get(base).delete(B); R.sprPx -= sp.px;
+    }
+  }
   function sprite(R, base, foot, H, paint) {
     let m = R.spr.get(base);
     if (!m) { m = new Map(); R.spr.set(base, m); }
     let sp = m.get(R.B);
+    if (sp && sp.low && R.sprPx < R.sprCap * 0.6 && performance.now() - R.frameStart < R.budget) { canvasFree(sp.c); R.sprPx -= sp.px; m.delete(R.B); sp = null; }
     if (!sp) {
       if (!m.size || performance.now() - R.frameStart < R.budget) {
-        const B = R.B, d = R.dpr, fw = foot[0], fd = foot[1], mg = 0.45 * B;
-        const L = fd * B + mg + (foot[2] || 0) * B, Rr = fw * B + mg + H * 0.75 * B, T = H * B * ZS + mg, Bt = (fw + fd) * B / 2 + mg + (foot[3] || 0) * B;
-        const c = canvasNew((L + Rr) * d, (T + Bt) * d), g = c.getContext('2d');
+        const d = R.dpr, px = (B) => { const q = sprDims(B, foot, H); return Math.ceil(q.W * d) * Math.ceil(q.H * d); };
+        sprRoom(R, px(R.B) / 3);
+        // a trimmed sprite keeps about a third of the painted canvas (measured on a late town): px / 3 for the check
+        let B = R.B;
+        for (let k = BUCKETS.indexOf(R.B); k > 0 && R.sprPx + px(B) / 3 > R.sprCap; ) B = BUCKETS[--k];
+        const q = sprDims(B, foot, H);
+        let c = canvasNew(q.W * d, q.H * d);
+        const g = c.getContext('2d');
         g.setTransform(d, 0, 0, d, 0, 0); g.lineCap = 'round'; g.lineJoin = 'round';
         const saved = [ctx, ox, oy, hw, DP];
-        pen(g, L, T, B, d);
+        pen(g, q.L, q.T, B, d);
         paint();
         pen(saved[0], saved[1], saved[2], saved[3], saved[4]);
-        sp = { c, ax: L, ay: T, w: c.width / d, h: c.height / d, B, px: c.width * c.height, used: R.frame };
-        m.set(B, sp); R.sprPx += sp.px; R.stats.sprites++;
+        const cut = sprTrim(c);
+        c = cut.c;
+        sp = { c, ax: q.L - cut.x / d, ay: q.T - cut.y / d, w: c.width / d, h: c.height / d, B, px: c.width * c.height, used: R.frame, low: B !== R.B };
+        m.set(R.B, sp); R.sprPx += sp.px; R.stats.sprites++;
+        if (sp.low) R.stats.lowSprites = (R.stats.lowSprites || 0) + 1;
       } else {
         for (const s2 of m.values()) if (!sp || Math.abs(Math.log(s2.B / R.B)) < Math.abs(Math.log(sp.B / R.B))) sp = s2;
         R.pending = true;
@@ -4593,12 +4723,12 @@ const ISO = (() => {
     if (alpha !== undefined) g.globalAlpha = 1;
   }
   function sprEvict(R) {
-    if (R.sprPx <= SPR_CAP) return;
+    if (R.sprPx <= R.sprCap) return;
     const all = [];
     for (const [base, m] of R.spr) for (const [B, sp] of m) all.push([base, B, sp]);
     all.sort((a, b) => a[2].used - b[2].used);
     for (const [base, B, sp] of all) {
-      if (R.sprPx < SPR_CAP * 0.75 || sp.used >= R.frame - 1) break;
+      if (R.sprPx < R.sprCap * 0.75 || sp.used >= R.frame - 1) break;
       canvasFree(sp.c); R.spr.get(base).delete(B); R.sprPx -= sp.px;
     }
   }
@@ -5222,10 +5352,66 @@ const ISO = (() => {
     const dpr = Math.min(window.devicePixelRatio || 1, 2), w = R.canvas.clientWidth, h = R.canvas.clientHeight;
     if (w === R.w && h === R.h && dpr === R.dpr) return;
     R.groundDirty = true;
-    if (dpr !== R.dpr) { for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; } for (const ch of R.chunks.values()) canvasFree(ch.c); R.chunks.clear(); for (const m of R.spr.values()) for (const sp of m.values()) canvasFree(sp.c); R.spr.clear(); R.sprPx = 0; R.ui.clear(); }
+    if (dpr !== R.dpr) { for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; } for (const ch of R.chunks.values()) canvasFree(ch.c); R.chunks.clear(); for (const m of R.spr.values()) for (const sp of m.values()) canvasFree(sp.c); R.spr.clear(); R.sprPx = 0; for (const sp of R.ui.values()) canvasFree(sp.c); R.ui.clear(); R.uiPx = 0; }
     R.w = w; R.h = h; R.dpr = dpr;
     R.canvas.width = Math.round(w * dpr); R.canvas.height = Math.round(h * dpr);
+    memBudget(R);
+    // the still ground and the gesture picture are made again at the new size (no stale big canvases left behind)
+    for (const k of ['gc', 'sc']) if (R[k] && (R[k].w !== w || R[k].h !== h)) { canvasFree(R[k].c); R[k] = null; }
+    chunkEvict(R); sprEvict(R);
   }
+  // The caches' caps for this screen, all in device px (4 bytes each). Fixed: the screen, the still ground (both the
+  // screen's size) and the gesture picture (the screen plus a margin gm on each side). The ground chunks get what one
+  // gesture picture needs plus 8 for the previous zoom level (at most 64); the sprites get the rest. On a big screen
+  // the margin shrinks until the sprites keep at least SPR_MIN. Worst cases at DPR 2 are in nova/README.md.
+  // If that leaves the sprites less than SPR_GOOD (trimmed sprites of the largest town, palace and 1,364 people, zoomed
+  // all the way in on an iPad Air: ~14 M px; at the opening zoom ~6 M), the
+  // still ground's copy goes first (its chunks are then drawn straight, ~45 blits a frame), then the margin shrinks.
+  const SPR_GOOD = 12e6;
+  function memBudget(R) {
+    const d = R.dpr, scr = R.canvas.width * R.canvas.height, chunkPx = CHUNK * CHUNK * d * d, total = MEM_BUDGET / 4;
+    let b = null;
+    for (const still of [true, false]) {
+      for (let gm = GM_MAX; gm >= 100; gm -= 20) {
+        const sc = (R.w + 2 * gm) * (R.h + 2 * gm) * d * d;
+        const need = (Math.ceil((R.w + 2 * gm) / CHUNK) + 1) * (Math.ceil((R.h + 2 * gm) / CHUNK) + 1);
+        const chunkCap = Math.max(24, Math.min(64, need + 8)), spr = total - scr - (still ? scr : 0) - sc - UI_CAP - chunkCap * chunkPx;
+        b = { still, gm, sc, need, chunkCap, sprCap: Math.max(6e6, spr) };
+        if (sc <= CANVAS_MAX && spr >= SPR_GOOD) break;
+      }
+      if (b.sc <= CANVAS_MAX && b.sprCap >= SPR_GOOD) break;
+    }
+    if (R.still && !b.still && R.gc) { canvasFree(R.gc.c); R.gc = null; }
+    R.still = b.still; R.gm = b.gm; R.chunkCap = b.chunkCap; R.sprCap = b.sprCap; R.chunkNeed = b.need;
+    R.memPlan = { screen: scr, still: b.still ? scr : 0, gesture: b.sc, chunks: b.chunkCap * chunkPx, sprites: b.sprCap, ui: UI_CAP };
+  }
+  // What the canvases hold now, in MB (4 bytes a px), and the plan's worst case.
+  function mem(R) {
+    const mb = (px) => Math.round(px * 4 / 1e5) / 10;
+    let ch = 0; for (const c of R.chunks.values()) ch += c.c.width * c.c.height;
+    const now = { screen: R.canvas.width * R.canvas.height, still: R.gc ? R.gc.c.width * R.gc.c.height : 0, gesture: R.sc ? R.sc.c.width * R.sc.c.height : 0,
+      chunks: ch, sprites: R.sprPx, ui: R.uiPx, other: (R.geo && R.geo.hillShade ? R.geo.hillShade.width * R.geo.hillShade.height : 0) + 128 * 128 };
+    const out = { dpr: R.dpr, still: R.still, gm: R.gm, lowSprites: R.stats.lowSprites || 0, chunkCap: R.chunkCap, chunkNeed: R.chunkNeed, chunkCount: R.chunks.size, uiCount: R.ui.size, sprCap: Math.round(R.sprCap / 1e5) / 10, now: {}, plan: {} };
+    let t = 0, tp = 0;
+    for (const k in now) { out.now[k] = mb(now[k]); t += now[k]; }
+    for (const k in R.memPlan || {}) { out.plan[k] = mb(R.memPlan[k]); tp += R.memPlan[k]; }
+    out.now.total = mb(t); out.plan.total = mb(tp);
+    let used = 0; for (const m of R.spr.values()) for (const sp of m.values()) if (sp.used >= R.frame - 1) used += sp.px;
+    out.spritesInUse = mb(used);
+    let big = 0; for (const c of [R.canvas, R.gc && R.gc.c, R.sc && R.sc.c]) if (c) big = Math.max(big, c.width * c.height);
+    out.biggestCanvasMpx = Math.round(big / 1e5) / 10;
+    return out;
+  }
+  // The page is hidden (another app, the home screen): the two screen-sized pictures go; they are drawn again on return.
+  // A new island on the same canvas: every cache goes (the map, the roads and the buildings are new).
+  function reset(R) {
+    trim(R);
+    for (const ch of R.chunks.values()) canvasFree(ch.c); R.chunks.clear();
+    for (const m of R.spr.values()) for (const sp of m.values()) canvasFree(sp.c); R.spr.clear(); R.sprPx = 0;
+    for (const sp of R.ui.values()) canvasFree(sp.c); R.ui.clear(); R.uiPx = 0;
+    R.geo = null; R.ship = null; R.shipMoney = []; R.objKey = ''; R.groundStage = -1; R.roadVer = -1; R.roadSnap = null; R.order = []; R.bubbles = [];
+  }
+  function trim(R) { for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; } R.groundDirty = true; }
   function bucketFor(R, z) {
     for (const b of BUCKETS) if (Math.abs(b - z) < 1e-3) return b;
     if (R.B && z <= R.B * 1.02 && z >= R.B / 1.3) return R.B;
@@ -5443,7 +5629,7 @@ const ISO = (() => {
   function snapDraw(R, s, ui, now, t, mark) {
     const d = R.dpr, C = R.sc, main = R.ctx;
     if (C && !R.groundDirty && C.B === R.B && C.dpr === d && C.objKey === R.objKey && C.uiKey === snapUiKey(ui)) {
-      const k = R.hw / C.hw, L = R.ox - (C.ox + GM) * k, Tp = R.oy - (C.oy + GM) * k;
+      const k = R.hw / C.hw, L = R.ox - (C.ox + C.gm) * k, Tp = R.oy - (C.oy + C.gm) * k;
       const covers = L <= 0.5 && Tp <= 0.5 && L + C.W * k >= R.w - 0.5 && Tp + C.H * k >= R.h - 0.5;
       // while the fingers move fast past the picture's edge, it is drawn again at most every 300 ms (sea meanwhile)
       const gest = typeof APP !== 'undefined' && !!APP.gesturing, wait = gest && now - (C.t || 0) < 300 && k > 0.45 && k < 2.2;
@@ -5457,7 +5643,7 @@ const ISO = (() => {
         return;
       }
     }
-    const W = R.w + 2 * GM, H = R.h + 2 * GM;
+    const GM = R.gm, W = R.w + 2 * GM, H = R.h + 2 * GM;
     let c = C && C.dpr === d && C.W === W && C.H === H ? C.c : null;
     if (!c) { if (C) canvasFree(C.c); c = canvasNew(W * d, H * d); }
     const g = c.getContext('2d');
@@ -5468,7 +5654,7 @@ const ISO = (() => {
     sceneDraw(R, s, ui, now, t, mark);
     [R.ctx, R.ox, R.oy, R.w, R.h] = saved;
     pen(main, R.ox, R.oy, R.hw, d);
-    R.sc = { c, t: now, ox: R.ox, oy: R.oy, hw: R.hw, B: R.B, dpr: d, W, H, w: R.w, h: R.h, objKey: R.objKey, uiKey: snapUiKey(ui) };
+    R.sc = { c, t: now, ox: R.ox, oy: R.oy, hw: R.hw, B: R.B, dpr: d, W, H, w: R.w, h: R.h, gm: GM, objKey: R.objKey, uiKey: snapUiKey(ui) };
     R.groundDirty = R.pending;
     R.stats.snaps = (R.stats.snaps || 0) + 1;
     main.setTransform(1, 0, 0, 1, 0, 0); main.drawImage(c, -GM * d, -GM * d);
@@ -5528,16 +5714,19 @@ const ISO = (() => {
     for (const f of ui.floaters || []) {
       const age = (now - f.t0) / 1600;
       if (age < 0 || age > 1) continue;
-      const p = P(f.x, f.y, 1.1);
+      // over the roof of its building (block 5); a floater without one (a road, a removed building) over its tile
+      const fb = f.id ? bById(s, f.id) : null;
+      const p = fb ? P(fb.x + fb.w / 2, fb.y + fb.h / 2, bubbleZ(fb) + 0.25) : P(f.x, f.y, 0.6);
       uiDraw(R, floaterSprite(R, f.text, f.color, f.big), p[0], p[1] - age * 34, 1 - age * age);
     }
     mark('overlay');
-    lockLabels(R, s); mark('locks');
+    if (!(typeof APP !== 'undefined' && APP.titleOn)) lockLabels(R, s);
+    mark('locks');
     ghostDraw(R, s, ui, t);
     const ms = performance.now() - t0;
     R.stats.frames++; R.stats.ms = R.stats.ms ? R.stats.ms * 0.9 + ms * 0.1 : ms; R.stats.last = ms;
     R.stats.hist.push(ms); if (R.stats.hist.length > 240) R.stats.hist.shift();
-    sprEvict(R);
+    sprEvict(R); uiEvict(R);
   }
   function lockLabels(R, s) {
     const best = {}, cx = R.w / 2, cy = R.h / 2;
@@ -5610,12 +5799,12 @@ const ISO = (() => {
   function create(canvas) {
     return {
       canvas, ctx: canvas.getContext('2d'), dpr: 0, w: 0, h: 0, B: 0, prevB: 0, hw: 32, ox: 0, oy: 0,
-      chunks: new Map(), spr: new Map(), ui: new Map(), sprPx: 0, geo: null, order: [], grid: null, objKey: '', frame: 0,
+      chunks: new Map(), spr: new Map(), ui: new Map(), sprPx: 0, uiPx: 0, still: true, chunkCap: 64, sprCap: 18e6, gm: GM_MAX, chunkNeed: 0, memPlan: null, geo: null, order: [], grid: null, objKey: '', frame: 0,
       budget: 9, frameStart: 0, frameChunks: 0, pending: false, groundStage: -1, roadVer: -1, roadSnap: null, unlocked: null, gc: null, sc: null, groundDirty: true, movedT: 0,
       stats: { frames: 0, ms: 0, last: 0, chunks: 0, sprites: 0, geoMs: 0, hist: [], parts: {} },
     };
   }
-  return { create, draw, toScreen, toTile, pick, pickAll };
+  return { create, draw, toScreen, toTile, pick, pickAll, mem, trim, reset };
 })();
 
 // ---- src/render/view.js
@@ -5658,6 +5847,15 @@ function renderPickAll(R, view, state, sx, sy) {
   return b ? [b] : [];
 }
 
+// What the renderer's canvases hold now and its worst-case plan, in MB (iso only; the flat one keeps no caches).
+function renderMem(R) { return R.kind === 'flat' ? null : ISO.mem(R); }
+
+// The page went to the background: let go of the big screen-sized pictures (drawn again on return).
+function renderTrim(R) { if (R.kind !== 'flat') ISO.trim(R); }
+
+// A new island: the iso renderer forgets its caches (the flat one has none to forget).
+function renderReset(R) { if (R.kind !== 'flat') ISO.reset(R); }
+
 // ---- src/ui/dom.js
 // Small DOM helpers and the one app object the UI shares.
 
@@ -5677,6 +5875,7 @@ function fmtSigned(n) { return (n > 0 ? '+' : n < 0 ? '−' : '') + '$' + Math.a
 
 function storeGet(key) { try { return window.localStorage.getItem(key); } catch (e) { return null; } }
 function storeSet(key, v) { try { window.localStorage.setItem(key, v); return true; } catch (e) { return false; } }
+function storeDel(key) { try { window.localStorage.removeItem(key); } catch (e) { /* private window */ } }
 
 // ---- src/ui/icons_more.js
 // Icons for the stages 4–6 buildings, paved roads and the palace (24 x 24 path data, evenodd), merged into the
@@ -5836,11 +6035,11 @@ function hintCheck() {
 
 // "✓ Done" sits beside the build bar while a tool is armed (above it when the screen is too narrow).
 function donePlace() {
-  const el = $('done'), bar = $('bar').getBoundingClientRect(), gap = 10, w = el.offsetWidth || 110;
-  const beside = window.innerWidth - bar.right >= w + 2 * gap;
+  const el = $('done'), bar = $('bar').getBoundingClientRect(), gap = 10, w = el.offsetWidth || 110, ins = safeInsets();
+  const beside = window.innerWidth - ins.r - bar.right >= w + 2 * gap;
   document.body.classList.toggle('doneup', !beside);
   if (beside) { el.style.left = (bar.right + gap) + 'px'; el.style.right = 'auto'; el.style.bottom = (window.innerHeight - bar.bottom) + 'px'; }
-  else { el.style.left = 'auto'; el.style.right = gap + 'px'; el.style.bottom = (window.innerHeight - bar.top + gap) + 'px'; }
+  else { el.style.left = 'auto'; el.style.right = (gap + ins.r) + 'px'; el.style.bottom = (window.innerHeight - bar.top + gap) + 'px'; }
 }
 
 // ---- src/ui/bar.js
@@ -6573,7 +6772,7 @@ function tapAt(sx, sy) {
     const r = f.why ? { ok: false, why: f.why } : placeBuilding(s, tool, f.x, f.y);
     if (r.ok) {
       APP.ui.ghost = null;
-      floaterAdd(f.x + BUILDINGS[tool].w / 2, f.y, '−$' + BUILDINGS[tool].cost, '#c0392b');
+      floaterAdd(f.x + BUILDINGS[tool].w / 2, f.y + BUILDINGS[tool].h / 2, '−$' + BUILDINGS[tool].cost, '#c0392b', false, r.b && r.b.id);
       guideIntro(s); guideRender();
     } else {
       APP.ui.ghost = { type: tool, x: f.x, y: f.y, why: r.why };
@@ -6584,7 +6783,7 @@ function tapAt(sx, sy) {
     const t = targetAt(sx, sy), g = APP.ui.ghost;
     if (g && g.remove && g.armed && g.x === t.x && g.y === t.y) {
       const r = removeAt(s, t.x, t.y);
-      if (!r.why) { floaterAdd(t.x + 0.5, t.y, '+$' + r.refund, '#2e8b3e'); if (r.b && r.b.id === APP.ui.sel) cardClose(); }
+      if (!r.why) { floaterAdd(r.b ? r.b.x + r.b.w / 2 : t.x + 0.5, r.b ? r.b.y + r.b.h / 2 : t.y + 0.5, '+$' + r.refund, '#2e8b3e'); if (r.b && r.b.id === APP.ui.sel) cardClose(); }
       APP.ui.ghost = null;
     } else {
       const info = removeInfo(s, t.x, t.y);
@@ -6598,8 +6797,8 @@ function inputInit(canvas) {
   let gesture = null;
   const pos = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
 
-  canvas.addEventListener('pointerdown', (e) => {
-    canvas.setPointerCapture(e.pointerId);
+  const down = (e) => {
+    try { if (e.real) canvas.setPointerCapture(e.pointerId); } catch (err) { /* touch fallback: no capture */ }
     const p = pos(e);
     ptrs.set(e.pointerId, p);
     APP.gesturing = true;
@@ -6620,9 +6819,9 @@ function inputInit(canvas) {
       gesture.kind = 'place';
       ghostUpdate(p.x, p.y);
     }
-  });
+  };
 
-  canvas.addEventListener('pointermove', (e) => {
+  const move = (e) => {
     const p = pos(e);
     if (!ptrs.has(e.pointerId)) {
       if (e.pointerType === 'mouse') ghostUpdate(p.x, p.y);
@@ -6662,7 +6861,7 @@ function inputInit(canvas) {
       }
       if (e.pointerType === 'mouse' && BUILDINGS[APP.ui.tool]) ghostUpdate(p.x, p.y);
     }
-  });
+  };
 
   const end = (e) => {
     const p = pos(e);
@@ -6674,7 +6873,7 @@ function inputInit(canvas) {
       const st = APP.ui.stroke, blk = APP.ui.strokeBlock;
       if (st && st.length) {
         const r = placeRoad(APP.state, st);
-        if (r.built) { floaterAdd((st[st.length - 1] % MAP_W) + 0.5, (st[st.length - 1] / MAP_W) | 0, '−$' + r.cost, '#c0392b'); guideIntro(APP.state); guideRender(); }
+        if (r.built) { floaterAdd((st[st.length - 1] % MAP_W) + 0.5, ((st[st.length - 1] / MAP_W) | 0) + 0.5, '−$' + r.cost, '#c0392b'); guideIntro(APP.state); guideRender(); }
         if (r.why) toastShow(r.why + (r.built ? ' (built ' + r.built + ' tiles)' : ''));
         else if (blk && r.built) toastShow('The road stops there: ' + blk.why.charAt(0).toLowerCase() + blk.why.slice(1) + '.');
       }
@@ -6687,8 +6886,27 @@ function inputInit(canvas) {
     }
     gesture = null;
   };
-  canvas.addEventListener('pointerup', end);
-  canvas.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); APP.gesturing = ptrs.size > 0; APP.ui.stroke = null; APP.ui.strokeBlock = null; gesture = null; });
+  const cancel = (e) => { ptrs.delete(e.pointerId); APP.gesturing = ptrs.size > 0; APP.ui.stroke = null; APP.ui.strokeBlock = null; gesture = null; };
+  if (window.PointerEvent) {
+    const real = (f) => (e) => { e.real = true; f(e); };
+    canvas.addEventListener('pointerdown', real(down));
+    canvas.addEventListener('pointermove', real(move));
+    canvas.addEventListener('pointerup', real(end));
+    canvas.addEventListener('pointercancel', real(cancel));
+  } else {
+    // Block 5: an iPad without Pointer Events (iOS 12 and older): each touch becomes the same pointer the code expects.
+    const each = (f, type) => (te) => {
+      te.preventDefault();
+      for (const t of te.changedTouches) f({ pointerId: t.identifier + 1, clientX: t.clientX, clientY: t.clientY, pointerType: 'touch', button: 0, type });
+    };
+    canvas.addEventListener('touchstart', each(down, 'pointerdown'), { passive: false });
+    canvas.addEventListener('touchmove', each(move, 'pointermove'), { passive: false });
+    canvas.addEventListener('touchend', each(end, 'pointerup'), { passive: false });
+    canvas.addEventListener('touchcancel', each(cancel, 'pointercancel'), { passive: false });
+    canvas.addEventListener('mousedown', (e) => down({ pointerId: 0, clientX: e.clientX, clientY: e.clientY, pointerType: 'mouse', button: e.button, type: 'pointerdown' }));
+    window.addEventListener('mousemove', (e) => move({ pointerId: 0, clientX: e.clientX, clientY: e.clientY, pointerType: 'mouse', button: e.button, type: 'pointermove' }));
+    window.addEventListener('mouseup', (e) => end({ pointerId: 0, clientX: e.clientX, clientY: e.clientY, pointerType: 'mouse', button: e.button, type: 'pointerup' }));
+  }
   canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); toolSet('look'); });
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -6700,16 +6918,195 @@ function inputInit(canvas) {
     viewClamp();
   }, { passive: false });
   window.addEventListener('keydown', (e) => {
+    if (APP.titleOn) return;
     if (e.key === 'Escape') { if ($('sheet').classList.contains('show')) sheetClose(); else { toolSet('look'); cardClose(); } }
     if (e.key === ' ') { speedSet(APP.speed ? 0 : 1); e.preventDefault(); }
   });
 }
 
+// ---- src/ui/ios.js
+// iPad Safari and the home-screen app (block 5). Known iOS behaviour this guards against, none of it testable without
+// a real iPad (see nova/README.md, "Not verified"):
+// - Safari pinches the whole page (gesturestart / gesturechange) even with user-scalable=no; a double tap zooms.
+// - A long press on the canvas offers "Save image"; a long press on text selects it (CSS: -webkit-touch-callout, user-select).
+// - The page rubber-bands when a finger drags outside a scrolling panel (CSS: overscroll-behavior, a fixed body; here:
+//   touchmove is cancelled unless it scrolls a panel).
+// - :active styles only show on iOS when the document has a touchstart listener.
+// - After a rotation iOS can leave the page scrolled and report the old innerHeight for a moment: the layout is read
+//   again a little later. The map keeps its centre tile (view.cx / cy) through any resize.
+// - Old iPads without Pointer Events: input.js maps touch events to the same handlers.
+
+function iosInit() {
+  const stop = (e) => { e.preventDefault(); };
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, stop, { passive: false });
+  document.addEventListener('dblclick', stop, { passive: false });
+  document.addEventListener('contextmenu', stop);
+  document.addEventListener('selectstart', stop);
+  document.addEventListener('touchstart', () => {}, { passive: true });
+  // a drag may scroll a panel that can scroll; anything else would move the page
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches.length > 1) { e.preventDefault(); return; }
+    if (!iosScrollable(e.target)) e.preventDefault();
+  }, { passive: false });
+  const relayout = () => {
+    try { if (window.scrollX || window.scrollY) window.scrollTo(0, 0); } catch (e) { /* ignore */ }
+    APP.barW = ''; APP.barH = 0; APP.insets = null;
+    if (APP.state) { barHeight(); donePlace(); }
+  };
+  window.addEventListener('resize', () => { relayout(); setTimeout(relayout, 120); setTimeout(relayout, 450); });
+  window.addEventListener('orientationchange', () => { setTimeout(relayout, 60); setTimeout(relayout, 450); });
+  iconAdd();
+}
+
+// A panel that scrolls in the direction a finger can move it (the sheet, the card, the build bar's tray, the legend).
+function iosScrollable(el) {
+  for (let n = el; n && n !== document.body; n = n.parentElement) {
+    if (n.id === 'map') return false;
+    if (n.scrollHeight > n.clientHeight + 1 || n.scrollWidth > n.clientWidth + 1) {
+      const st = getComputedStyle(n);
+      if (/(auto|scroll)/.test(st.overflowY + st.overflowX)) return true;
+    }
+  }
+  return false;
+}
+
+// The safe-area insets in px (read from a hidden probe padded with env(); 0 outside iOS).
+function safeInsets() {
+  if (APP.insets) return APP.insets;
+  const el = $('safe');
+  let r = { t: 0, r: 0, b: 0, l: 0 };
+  if (el) { const st = getComputedStyle(el); r = { t: parseFloat(st.paddingTop) || 0, r: parseFloat(st.paddingRight) || 0, b: parseFloat(st.paddingBottom) || 0, l: parseFloat(st.paddingLeft) || 0 }; }
+  APP.insets = r;
+  return r;
+}
+
+// The home-screen icon: drawn here once (a PNG data URL; iOS reads apple-touch-icon when "Add to Home Screen" is tapped).
+// Paper-and-ink: teal sea with wave lines, a sand and grass island, a palm, an ink ring.
+function iconAdd() {
+  try {
+    if (document.querySelector('link[rel="apple-touch-icon"]')) return;
+    const N = 180, c = document.createElement('canvas'); c.width = N; c.height = N;
+    const g = c.getContext('2d');
+    g.fillStyle = '#2793ad'; g.fillRect(0, 0, N, N);
+    g.strokeStyle = 'rgba(255,255,255,.28)'; g.lineWidth = 3; g.lineCap = 'round';
+    for (const [x, y, l] of [[30, 40, 26], [128, 30, 22], [24, 142, 20], [140, 150, 28], [100, 58, 14]]) { g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + l / 2, y - 5, x + l, y); g.stroke(); }
+    g.beginPath(); g.ellipse(92, 112, 62, 30, -0.12, 0, Math.PI * 2); g.fillStyle = '#9fe0d6'; g.globalAlpha = 0.45; g.fill(); g.globalAlpha = 1;
+    g.beginPath(); g.ellipse(92, 110, 52, 24, -0.12, 0, Math.PI * 2); g.fillStyle = '#f1dcaa'; g.fill(); g.strokeStyle = '#3a2a1f'; g.lineWidth = 3; g.stroke();
+    g.beginPath(); g.ellipse(98, 106, 34, 15, -0.12, 0, Math.PI * 2); g.fillStyle = '#9cc46a'; g.fill();
+    g.strokeStyle = '#7a4f2e'; g.lineWidth = 6; g.beginPath(); g.moveTo(86, 108); g.quadraticCurveTo(80, 76, 92, 50); g.stroke();
+    g.fillStyle = '#4f9a45'; g.strokeStyle = '#2f5e2c'; g.lineWidth = 2;
+    for (const a of [-2.6, -1.9, -1.2, -0.5, 0.2]) { g.beginPath(); g.moveTo(92, 50); g.quadraticCurveTo(92 + Math.cos(a) * 30, 50 + Math.sin(a) * 30 - 12, 92 + Math.cos(a) * 44, 50 + Math.sin(a) * 44 + 8); g.quadraticCurveTo(92 + Math.cos(a) * 22, 50 + Math.sin(a) * 22, 92, 50); g.fill(); g.stroke(); }
+    g.beginPath(); g.arc(70, 104, 6, 0, Math.PI * 2); g.fillStyle = '#df684c'; g.fill(); g.strokeStyle = '#3a2a1f'; g.lineWidth = 2; g.stroke();
+    const link = document.createElement('link');
+    link.rel = 'apple-touch-icon'; link.href = c.toDataURL('image/png');
+    document.head.appendChild(link);
+    c.width = 0; c.height = 0;
+  } catch (e) { /* no icon: iOS uses a screenshot */ }
+}
+
+// ---- src/ui/title.js
+// The title screen (block 5): the island drawn behind, "Isla Nueva", Continue (with the save's date, people and stage)
+// and New island (a second step when a save exists: the island being replaced is kept as SAVE_KEY + '-prev').
+// The home-screen app opens here. The clock is stopped while it shows.
+
+function titleOpen(hasSave) {
+  APP.titleOn = true;
+  APP.titleHasSave = hasSave;
+  APP.titleSpeed = APP.speed || 1;
+  speedSet(0);
+  toolSet('look');
+  cardClose();
+  document.body.classList.add('titled');
+  titleView();
+  titleRender('main');
+}
+
+// The view behind the title: the town (or the bay of a new island), a little farther out than play.
+function titleView() {
+  const s = APP.state, homes = s.b.filter((b) => b.type === 'casita');
+  viewHome();
+  if (homes.length >= 6) {
+    let x = 0, y = 0;
+    for (const h of homes) { x += h.x; y += h.y; }
+    APP.view.cx = x / homes.length; APP.view.cy = y / homes.length;
+  }
+  // the island's part in the open: landscape, right of the card (+18 % of the width); portrait, above it (-20 % of the height)
+  const w = window.innerWidth, h = window.innerHeight, z = APP.view.z;
+  if (w >= h) { const k = 0.09 * w / z; APP.view.cx -= k; APP.view.cy += k; } else { const k = 0.2 * h / z; APP.view.cx += k; APP.view.cy += k; }
+  viewClamp();
+}
+
+// "today, 21:40" / "yesterday, 9:05" / "8 Oct, 21:40"
+function titleWhen(t) {
+  if (!t) return '';
+  const d = new Date(t), now = new Date(), hm = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const k = Math.round((day(now) - day(d)) / 864e5);
+  return (k === 0 ? 'today' : k === 1 ? 'yesterday' : d.getDate() + ' ' + MONTHS[d.getMonth()].slice(0, 3)) + ', ' + hm;
+}
+
+function titleRender(mode) {
+  const el = $('title'), has = APP.titleHasSave;
+  const palm = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 36c-1-8-1-15 1-22" fill="none" stroke="#7a4f2e" stroke-width="2.6" stroke-linecap="round"/>' +
+    '<path d="M21 14c-5-5-11-5-15-2 5-1 9 0 15 2zm0 0c4-6 10-7 14-5-5 0-9 2-14 5zm0 0c-2-6-1-10 2-12-1 4-1 8-2 12zm0 0c6-1 11 2 13 6-4-3-8-5-13-6zm0 0c-6 0-10 3-12 7 3-4 7-6 12-7z" fill="#4f9a45" stroke="#2f5e2c" stroke-width="1.1" stroke-linejoin="round"/>' +
+    '<path d="M6 36h28" stroke="#3a2a1f" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  let h = '<div class="tcard panel"><div class="kick">A Caribbean island · 1902</div><h1>Isla Nueva</h1><div class="rule">' + palm + '</div>';
+  if (mode === 'ask') {
+    const m = saveSummary();
+    h += '<p class="ask">Start a new island? Your ' + esc(m.stage) + ' of ' + plural(m.people, 'person', 'people') + ' (' + esc(m.date) + ') is kept aside on this device as a backup.</p>' +
+      '<button class="tbtn warn" id="tNewYes">Start a new island</button><button class="tbtn" id="tBack">Keep my island</button>';
+  } else if (has) {
+    const m = saveSummary(), when = titleWhen(m.savedAt);
+    h += '<button class="tbtn main" id="tGo">Continue<small>' + esc(m.stage + ' · ' + plural(m.people, 'person', 'people') + ' · ' + m.date) + '</small></button>' +
+      '<button class="tbtn" id="tNew">New island</button>' + (when ? '<div class="foot">Saved ' + esc(when) + ' · the game saves itself at every payday</div>' : '');
+  } else {
+    h += '<button class="tbtn main" id="tGo">New island<small>Governor of a small bay: roads, homes, a market</small></button>' +
+      '<div class="foot">The game saves itself at every payday</div>';
+  }
+  if (APP.loadNote && mode !== 'ask') h += '<p class="note">' + esc(APP.loadNote) + '</p>';
+  el.innerHTML = h + '</div>';
+  const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
+  on('tGo', titleClose);
+  on('tNew', () => titleRender('ask'));
+  on('tBack', () => titleRender('main'));
+  on('tNewYes', titleNew);
+}
+
+function titleClose() {
+  APP.titleOn = false;
+  APP.loadNote = '';
+  document.body.classList.remove('titled');
+  $('title').innerHTML = '';
+  viewHome();
+  if (APP.titleHasSave) titleView();
+  APP.barW = ''; APP.hudKey = '';
+  barBuild();
+  guideRender();
+  speedSet(APP.titleSpeed || 1);
+}
+
+// A new island in place of the saved one (kept as SAVE_KEY + '-prev').
+function titleNew() {
+  const old = storeGet(SAVE_KEY);
+  if (old) storeSet(SAVE_KEY + '-prev', old);
+  APP.state = newGame(1902);
+  renderReset(APP.R);
+  APP.ui.floaters = []; APP.ui.hint = null; APP.ui.downSeen = null; APP.ui.confirm = null; APP.ui.space = null;
+  APP.titleHasSave = false;
+  APP.acc = 0;
+  titleClose();
+  gameSave();
+}
+
 // ---- src/ui/main.js
 // The app: load or start an island, run the clock (pause / 1x / 2x / 3x), turn sim events into what she sees, autosave.
+// Block 5 (iPad): the title screen first, the loop and the clock stop while the page is hidden, saving never throws,
+// a save that cannot be read is kept aside and a new island starts with a note.
 
-function floaterAdd(x, y, text, color, big) {
-  APP.ui.floaters.push({ x, y, text, color, big, t0: performance.now() });
+// A floater with a building id rises from that building's roof (block 5: they rose from the tile's back corner, which
+// on screen is often the building behind, e.g. the Governor's residence); x, y are used when it has none.
+function floaterAdd(x, y, text, color, big, id) {
+  APP.ui.floaters.push({ x, y, text, color, big, id: id || 0, t0: performance.now() });
   if (APP.ui.floaters.length > 80) APP.ui.floaters.shift();
 }
 
@@ -6717,14 +7114,14 @@ function eventsHandle() {
   const s = APP.state, evs = s.ev.splice(0), downs = [];
   for (const e of evs) {
     const b = e.id && bById(s, e.id);
-    if (e.kind === 'money' && b) floaterAdd(b.x + b.w / 2, b.y, fmtSigned(e.n), e.n < 0 ? '#c0392b' : '#2e8b3e');
+    if (e.kind === 'money' && b) floaterAdd(b.x + b.w / 2, b.y + b.h / 2, fmtSigned(e.n), e.n < 0 ? '#c0392b' : '#2e8b3e', false, b.id);
     else if (e.kind === 'payday') { receiptShow(e.receipt); gameSave(); }
-    else if (e.kind === 'levelup' && b) { floaterAdd(b.x + 0.5, b.y - 0.3, LEVELS[e.level].name + '!', '#167a7a', true); toastShow('A home became a ' + LEVELS[e.level].name.toLowerCase() + ': more people, more rent.'); }
-    else if (e.kind === 'leveldown' && b) { floaterAdd(b.x + 0.5, b.y - 0.3, LEVELS[e.level].name + ' again', '#c0392b', true); downs.push(e); }
+    else if (e.kind === 'levelup' && b) { floaterAdd(b.x + 0.5, b.y + 0.5, LEVELS[e.level].name + '!', '#167a7a', true, b.id); toastShow('A home became a ' + LEVELS[e.level].name.toLowerCase() + ': more people, more rent.'); }
+    else if (e.kind === 'leveldown' && b) { floaterAdd(b.x + 0.5, b.y + 0.5, LEVELS[e.level].name + ' again', '#c0392b', true, b.id); downs.push(e); }
     else if (e.kind === 'stage') { stageCardOpen(e.stage); APP.R.terrainKey = ''; }
     else if (e.kind === 'year') yearCardShow(e.year);
-    else if (e.kind === 'residence' && b) { floaterAdd(b.x + 1, b.y - 0.3, RESIDENCE[e.level].name + '!', '#167a7a', true); toastShow('The ' + RESIDENCE[e.level].name + ' stands on the hill.'); }
-    else if (e.kind === 'palace' && b) { floaterAdd(b.x + 1, b.y - 0.3, "Governor's palace!", '#167a7a', true); APP.R.terrainKey = ''; barBuild(); }
+    else if (e.kind === 'residence' && b) { floaterAdd(b.x + b.w / 2, b.y + b.h / 2, RESIDENCE[e.level].name + '!', '#167a7a', true, b.id); toastShow('The ' + RESIDENCE[e.level].name + ' stands on the hill.'); }
+    else if (e.kind === 'palace' && b) { floaterAdd(b.x + b.w / 2, b.y + b.h / 2, "Governor's palace!", '#167a7a', true, b.id); APP.R.terrainKey = ''; barBuild(); }
     else if (e.kind === 'guide') guideRender();
     else if (e.kind === 'log' && /settlers? arrived|left the island/.test(e.text)) toastShow(e.text);
   }
@@ -6734,12 +7131,45 @@ function eventsHandle() {
   }
 }
 
-function gameSave() { storeSet(SAVE_KEY, JSON.stringify(saveGame(APP.state))); }
+// Saves the island (every payday, when the page is hidden or closed). Never throws: a full storage or a private window
+// says so once in a toast and the game goes on. Not while the title screen shows a fresh island nobody has played.
+function gameSave() {
+  if (!APP.state || APP.titleOn) return false;
+  let txt = '';
+  try { const o = saveGame(APP.state); o.savedAt = Date.now(); txt = JSON.stringify(o); } catch (e) { return false; }
+  if (storeSet(SAVE_KEY, txt)) { APP.saveFail = 0; return true; }
+  // storage full: the kept-aside broken save and the previous island make room for the island being played
+  storeDel(SAVE_KEY + '-broken'); storeDel(SAVE_KEY + '-prev');
+  if (storeSet(SAVE_KEY, txt)) return true;
+  if (!APP.saveFail) toastShow('The island could not be saved on this device (storage full or a private window). The game goes on.');
+  APP.saveFail = 1;
+  return false;
+}
 
+// The saved island, or null. A save that cannot be read, or that breaks the first month, is kept aside under
+// SAVE_KEY + '-broken' (never deleted) and APP.loadNote says so on the title screen; a new island starts.
 function gameLoad() {
   const raw = storeGet(SAVE_KEY);
   if (!raw) return null;
-  try { return loadGame(raw); } catch (e) { return null; }
+  try {
+    const s = loadGame(raw);
+    if (!Array.isArray(s.terrain) || s.terrain.length !== MAP_W * MAP_H || !Array.isArray(s.road) || s.road.length !== MAP_W * MAP_H) throw new Error('map');
+    if (s.b.some((b) => !BUILDINGS[b.type])) throw new Error('unknown building');
+    // one month on a copy: a save whose numbers break the simulation is caught here, not as a frozen screen
+    const t = simClone(s); t.ev = []; t.walk = [];
+    simRunMonths(t, 1);
+    return s;
+  } catch (e) {
+    if (storeSet(SAVE_KEY + '-broken', raw)) storeDel(SAVE_KEY);
+    APP.loadNote = 'The saved island could not be opened (' + String(e && e.message || e).slice(0, 60) + '). It is kept aside on this device, and a new island starts.';
+    return null;
+  }
+}
+
+// What the title screen says about a save: its month, people, stage and when it was saved.
+function saveSummary() {
+  const s = APP.state;
+  return { date: dateLabel(s.month), people: popCount(s), stage: STAGES[s.stage].name, savedAt: APP.savedAt || 0 };
 }
 
 function viewHome() {
@@ -6753,7 +7183,27 @@ function viewHome() {
   viewClamp();
 }
 
+// The loop runs while the page is visible; hidden, it stops (no frames, no clock) and resumes where it was.
+function loopStart() {
+  if (APP.raf) return;
+  APP.last = 0;
+  APP.raf = requestAnimationFrame(frame);
+}
+
+function loopStop() {
+  if (APP.raf) cancelAnimationFrame(APP.raf);
+  APP.raf = 0;
+}
+
 function frame(now) {
+  APP.raf = requestAnimationFrame(frame);
+  try { frameRun(now); } catch (e) {
+    // one bad frame must not stop the game: the error is shown once in the console and the next frame tries again
+    if (!APP.frameErr) { APP.frameErr = 1; console.error(e); }
+  }
+}
+
+function frameRun(now) {
   const s = APP.state;
   const dt = Math.min(0.25, (now - (APP.last || now)) / 1000);
   APP.last = now;
@@ -6774,21 +7224,32 @@ function frame(now) {
   receiptTick(now);
   APP.ui.floaters = APP.ui.floaters.filter((f) => now - f.t0 < 1700);
   renderDraw(APP.R, s, APP.view, APP.ui);
-  requestAnimationFrame(frame);
 }
 
+// ?new: a new island at once (the old save is kept as SAVE_KEY + '-prev'); ?play: the saved island at once (tests);
+// otherwise the title screen. The address is cleaned afterwards, so a home-screen icon never starts with ?new.
 function boot() {
-  const params = new URLSearchParams(location.search);
-  APP.state = (!params.has('new') && gameLoad()) || newGame(+(params.get('seed') || 1902));
+  const params = new URLSearchParams(location.search), fresh = params.has('new'), play = params.has('play');
+  if (fresh) { const old = storeGet(SAVE_KEY); if (old) storeSet(SAVE_KEY + '-prev', old); }
+  const saved = fresh ? null : gameLoad();
+  if (saved) { try { APP.savedAt = JSON.parse(storeGet(SAVE_KEY)).savedAt || 0; } catch (e) { APP.savedAt = 0; } }
+  APP.state = saved || newGame(+(params.get('seed') || 1902));
   APP.R = renderCreate($('map'));
+  iosInit();
   hudInit();
   speedSet(1);
   viewHome();
   inputInit($('map'));
   guideRender();
-  window.addEventListener('pagehide', gameSave);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) gameSave(); });
-  requestAnimationFrame(frame);
+  window.addEventListener('pagehide', () => { gameSave(); });
+  window.addEventListener('pageshow', () => { if (!document.hidden) loopStart(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { gameSave(); loopStop(); renderTrim(APP.R); } else loopStart();
+  });
+  if (!fresh && !play) titleOpen(!!saved);
+  else if (APP.loadNote) toastShow(APP.loadNote);
+  try { if (location.search && history.replaceState) history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* file: or sandbox */ }
+  loopStart();
 }
 
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
