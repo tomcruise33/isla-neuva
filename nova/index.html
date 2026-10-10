@@ -208,6 +208,12 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
   .brand b, .brand span { white-space: nowrap; }
   .brand b { font-size: 18px; }
   .brand span { letter-spacing: 0.06em; font-size: 11px; }
+  /* block 7: the stats and the clock's buttons a little tighter in portrait (a Capital's numbers and the sound button
+     made the top bar 45 px wider than the screen) */
+  .stat { padding: 6px 10px; gap: 6px; font-size: 19px; }
+  .stat .ic { width: 24px; height: 24px; }
+  .ctrl { gap: 2px; }
+  .ctrl button { min-width: 42px; }
   .tool { width: 72px; }
   body.carded #lower, body.carded #toast { display: none; }
   #card { left: calc(var(--gap) + var(--sl)); right: calc(var(--gap) + var(--sr)); width: auto; top: auto; bottom: calc(var(--bar-h) + 2 * var(--gap) + var(--sb)); max-height: 46vh; max-height: 46dvh; }
@@ -218,11 +224,12 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
   .brand { grid-column: 1; padding: 6px 12px; min-height: 50px; }
   .brand b { display: none; }
   .brand span { font: italic 700 16px/1.15 var(--serif); color: var(--ink); letter-spacing: 0; text-transform: none; margin: 0; }
+  #top .brand .ml { display: none; } #top .brand .ms { display: inline; }
   .ctrl { grid-column: 2; grid-row: 1; min-height: 50px; }
   .ctrl button { min-width: 40px; }
   .ctrl .sep { margin: 0 2px; }
   .stats { grid-column: 1 / 3; grid-row: 2; justify-self: stretch; justify-content: space-around; min-height: 48px; }
-  .stat { font-size: 18px; padding: 4px 8px; }
+  .stat { font-size: 18px; padding: 4px 6px; }
   #pill { top: calc(var(--gap) + 116px + var(--st)); font-size: 13px; white-space: normal; text-align: center; border-radius: 14px; width: calc(100% - 16px - var(--sl) - var(--sr)); }
   #yearcard, #pop { top: calc(var(--gap) + 156px + var(--st)); }
   .tool { width: 66px; }
@@ -263,6 +270,41 @@ body.titled #title { display: flex; }
 #title .note { margin: 14px 0 0; padding: 9px 12px; border-radius: 10px; background: var(--coral-soft); color: #7e2e1c; font-size: 14px; border: 1.5px solid rgba(58, 42, 31, 0.25); text-align: left; }
 #title .foot { margin-top: 14px; font-size: 12px; color: var(--ink2); }
 @media (max-width: 600px) { #title h1 { font-size: 44px; } #title .tcard { padding: 22px 18px 20px; } }
+/* Sound (block 7): the speaker in the top bar (with the clock's buttons; on a phone at the end of the stats), its small
+   paper panel (Music and the sea + volume, Sounds), and the title card's speaker. */
+.ctrl #bSnd { min-width: 44px; height: 44px; }
+#bSnd .ic { width: 22px; height: 22px; fill: var(--ink); }
+#bSnd.off .ic { fill: var(--ink2); opacity: 0.75; }
+.stats #bSnd { min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0 4px 0 8px; margin-left: 2px;
+  border-left: 2px dotted rgba(58, 42, 31, 0.32); }
+.brand em { font-style: inherit; } .brand .ms { display: none; }
+#sndpop { position: fixed; z-index: 12; display: none; width: 284px; max-width: calc(100% - 16px - var(--sl) - var(--sr)); padding: 10px 14px 8px; }
+#sndpop.show { display: block; }
+#sndpop h4 { margin: 0 0 2px; font: italic 700 19px var(--serif); }
+#sndpop .sw { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; text-align: left; padding: 4px 0; }
+#sndpop .sw + .vol, #sndpop .vol + .sw { border-top: 2px dotted rgba(58, 42, 31, 0.2); }
+#sndpop .sw > .ic { width: 24px; height: 24px; fill: #7a604b; stroke: var(--ink); stroke-width: 1.1px; paint-order: stroke; }
+#sndpop .sw.on > .ic { fill: var(--coral); }
+#sndpop .sw b { flex: 1; font-size: 16px; font-weight: 800; }
+#sndpop .sw small { display: block; font-size: 12px; font-weight: 600; color: var(--ink2); }
+#sndpop .tg { width: 54px; height: 32px; border-radius: 999px; background: var(--paper2); box-shadow: inset 0 0 0 2px var(--ink); position: relative; flex: none; transition: background 0.15s; }
+#sndpop .tg::after { content: ''; position: absolute; top: 5px; left: 5px; width: 22px; height: 22px; border-radius: 50%; background: #fff7ea;
+  box-shadow: inset 0 0 0 2px var(--ink), 0 1px 0 var(--ink); transition: left 0.15s; }
+#sndpop .sw.on .tg { background: var(--teal); }
+#sndpop .sw.on .tg::after { left: 27px; }
+#sndpop .vol { display: flex; align-items: center; gap: 6px; min-height: 48px; padding-left: 26px; }
+#sndpop.mute .vol { opacity: 0.45; }
+#sndpop .pct { width: 44px; text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+.slider { position: relative; flex: 1; height: 44px; touch-action: none; cursor: pointer; }
+.slider .track { position: absolute; left: 13px; right: 13px; top: 18px; height: 8px; border-radius: 4px; background: var(--paper2); box-shadow: inset 0 0 0 1.5px var(--ink); overflow: hidden; }
+.slider .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--coral); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.slider .knob { position: absolute; top: 8px; width: 28px; height: 28px; margin-left: -14px; border-radius: 50%; background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
+body.titled #sndpop { display: none; }
+#title .tsnd { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+#title .tsnd .ic { width: 22px; height: 22px; fill: var(--ink2); }
+#title .tsnd.off .ic { opacity: 0.6; }
+#title .tsnd:active { background: var(--paper2); }
 #safe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 </style>
@@ -293,6 +335,7 @@ body.titled #title { display: flex; }
 <div id="yearcard" class="panel"></div>
 <div id="veil"></div>
 <div id="sheet" class="panel"></div>
+<div id="sndpop" class="panel" role="dialog" aria-label="Sound"></div>
 <div id="title" role="dialog" aria-label="Isla Nueva"></div>
 <div id="safe"></div>
 <script>
@@ -6288,7 +6331,9 @@ function hudUpdate() {
   const key = [s.money, pop, s.happy, s.month, s.stage, s.res, boat, s.ver, sc.conds.map((c) => c.label + c.ok).join()].join('|');
   if (key !== APP.hudKey) {
     APP.hudKey = key;
-    $('date').textContent = dateLabel(s.month);
+    // block 7: a phone shows the month short ("Sep 1902"): its top row was wider than the screen
+    const mo = MONTHS[s.month % 12], yr = dateLabel(s.month).slice(mo.length);
+    $('date').innerHTML = '<em class="ml">' + mo + '</em><em class="ms">' + mo.slice(0, 3) + '</em>' + esc(yr);
     $('sMoney').innerHTML = statHtml('coin', fmtMoney(s.money));
     $('sMoney').classList.toggle('neg', s.money < 0);
     $('sPeople').innerHTML = statHtml('people', pop);
@@ -6779,7 +6824,7 @@ function cardRender() {
     cardRender();
   });
   const rm = $('cardRemove');
-  if (rm) rm.addEventListener('click', () => cardConfirm(b.id, 'remove', () => { const r = removeAt(s, b.x, b.y); if (!r.why) { toastShow(BUILDINGS[b.type].name + ' removed: +$' + r.refund + '.'); cardClose(); } }));
+  if (rm) rm.addEventListener('click', () => cardConfirm(b.id, 'remove', () => { const r = removeAt(s, b.x, b.y); if (!r.why) { toastShow(BUILDINGS[b.type].name + ' removed: +$' + r.refund + '.'); cardClose(); audioCue('remove'); } }));
 }
 
 // --- sheets ---
@@ -7182,7 +7227,7 @@ function tapAt(sx, sy) {
     const t = targetAt(sx, sy), g = APP.ui.ghost;
     if (g && g.remove && g.armed && g.x === t.x && g.y === t.y) {
       const r = removeAt(s, t.x, t.y);
-      if (!r.why) { floaterAdd(r.b ? r.b.x + r.b.w / 2 : t.x + 0.5, r.b ? r.b.y + r.b.h / 2 : t.y + 0.5, '+$' + r.refund, '#2e8b3e'); if (r.b && r.b.id === APP.ui.sel) cardClose(); }
+      if (!r.why) { floaterAdd(r.b ? r.b.x + r.b.w / 2 : t.x + 0.5, r.b ? r.b.y + r.b.h / 2 : t.y + 0.5, '+$' + r.refund, '#2e8b3e'); if (r.b && r.b.id === APP.ui.sel) cardClose(); audioCue('remove'); }
       APP.ui.ghost = null;
     } else {
       const info = removeInfo(s, t.x, t.y);
@@ -7272,7 +7317,7 @@ function inputInit(canvas) {
       const st = APP.ui.stroke, blk = APP.ui.strokeBlock;
       if (st && st.length) {
         const r = placeRoad(APP.state, st);
-        if (r.built) { floaterAdd((st[st.length - 1] % MAP_W) + 0.5, ((st[st.length - 1] / MAP_W) | 0) + 0.5, '−$' + r.cost, '#c0392b'); guideIntro(APP.state); guideRender(); }
+        if (r.built) { floaterAdd((st[st.length - 1] % MAP_W) + 0.5, ((st[st.length - 1] / MAP_W) | 0) + 0.5, '−$' + r.cost, '#c0392b'); guideIntro(APP.state); guideRender(); audioCue('road'); }
         if (r.why) toastShow(r.why + (r.built ? ' (built ' + r.built + ' tiles)' : ''));
         else if (blk && r.built) toastShow('The road stops there: ' + blk.why.charAt(0).toLowerCase() + blk.why.slice(1) + '.');
       }
@@ -7463,12 +7508,14 @@ function titleRender(mode) {
       '<div class="foot">The game saves itself at every payday</div>';
   }
   if (APP.loadNote && mode !== 'ask') h += '<p class="note">' + esc(APP.loadNote) + '</p>';
-  el.innerHTML = h + '</div>';
+  // block 7: the small speaker in the card's corner (music and sounds on / off)
+  el.innerHTML = h + audioTitleBtn() + '</div>';
   const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
   on('tGo', titleClose);
   on('tNew', () => titleRender('ask'));
   on('tBack', () => titleRender('main'));
   on('tNewYes', titleNew);
+  on('tSnd', audioTitleTap);
 }
 
 function titleClose() {
@@ -7497,6 +7544,599 @@ function titleNew() {
   gameSave();
 }
 
+// ---- src/ui/audio.js
+// Music, the sea and sounds (block 7).
+//
+// How it plays (iPad Safari and the home-screen app first):
+// - Music and the sea stream through <audio> elements routed into Web Audio (createMediaElementSource -> GainNode):
+//   iOS keeps HTMLMediaElement.volume read-only, so every fade is a gain ramp. The long files are never decoded (a
+//   decoded 2-minute stereo track is ~50 MB; README "iPad memory"). Short sounds are decoded once into buffers.
+// - Nothing loads and no AudioContext exists before her first tap (iOS starts sound only inside a gesture). That tap
+//   creates the context, sets navigator.audioSession.type = 'playback' (plays with the ringer switch on silent) and
+//   "blesses" each <audio> element with a play() call, so the playlist can start the next piece later on its own.
+// - Hidden page (home screen, another app, the lock screen): the elements pause and the context suspends; visible: both
+//   come back. A phone call or Siri ('interrupted'): the tick retries every 3 s and any touch resumes.
+// - A file that is missing or fails: that piece is skipped; with none the game is silent, never an error. The build
+//   lists the files that exist (AUDIO_FILES), so nothing is ever requested that is not there; a page opened from
+//   file:// (the tests) loads nothing.
+//
+// What plays when:
+// - title screen: dawn, then a stretch of only the sea, then evening and dawn in turn.
+// - in the game: town -> 20-45 s of only the sea -> dawn or evening (the one not heard last) -> the sea -> town ...;
+//   3 s crossfades, never the same piece twice in a row; the game starting crossfades the title's piece into town.
+// - the sea loops quietly under everything (two elements crossfading at the loop point, so an MP3's padding never
+//   clicks) and comes up a little in the gaps. "Music" in the sound panel is the music and the sea.
+// - sounds (AUDIO_SFX): building placed, road stroke built, removed / forest cleared, payday (every payday at 1x, every
+//   second at 3x: at most one each 12 s), a home moving up (one per payday), settlers (one per payday, at most every
+//   40 s), the ship leaving (at most every 45 s), a new stage (the music ducks 12 dB for it), the residence or palace,
+//   and a very soft tap on buttons. Sounds that arrive together play 0.38 s apart; the music ducks ~6 dB under them.
+
+// The files the build found in dist/audio/ (path -> version), filled in by build.sh; {} = no audio, the game is silent.
+const AUDIO_FILES = {"amb/sea.mp3":"badf582d","music/dawn.mp3":"41395cbc","music/evening.mp3":"58494e3b","music/town.mp3":"00f246e2","sfx/levelup.mp3":"465e4f5a","sfx/payday.mp3":"0828d629","sfx/place.mp3":"12fd158e","sfx/remove.mp3":"355857e2","sfx/residence.mp3":"d5894493","sfx/road.mp3":"077e18d2","sfx/settlers.mp3":"c2a0b0bd","sfx/ship.mp3":"becabd89","sfx/stage.mp3":"c77dac36","sfx/tap.mp3":"2f4e4692"};
+const AUDIO_KEY = 'isla-nova-audio';
+const AUDIO_XF = 3, AUDIO_SEA_XF = 2.2, AUDIO_GAP = [20, 45], AUDIO_SEA = [0.3, 0.5];
+
+// lvl: the sound's gain; duck: the music's gain under it (0.5 = -6 dB); gap: least seconds between two of it.
+const AUDIO_SFX = {
+  tap: { lvl: 0.16, duck: 1, gap: 0.07 },
+  place: { lvl: 0.5, duck: 0.5, gap: 0.08 },
+  road: { lvl: 0.42, duck: 0.5, gap: 0.08 },
+  remove: { lvl: 0.45, duck: 0.5, gap: 0.08 },
+  payday: { lvl: 0.4, duck: 0.5, gap: 12 },
+  levelup: { lvl: 0.48, duck: 0.5, gap: 0, month: true },
+  settlers: { lvl: 0.42, duck: 0.5, gap: 40, month: true },
+  ship: { lvl: 0.4, duck: 0.5, gap: 45 },
+  residence: { lvl: 0.7, duck: 0.4, gap: 0 },
+  stage: { lvl: 0.8, duck: 0.25, gap: 0 },
+};
+
+const AUD = {
+  set: { music: true, vol: 50, sfx: true },
+  ctx: null, dead: false, master: null, duck: null, vol: null, seaLvl: null, sfxBus: null,
+  decks: [], sea: [], seaCur: -1, seaTo: -1, cur: null, last: '', lastCalm: '', hist: [], gapUntil: 0, scene: '',
+  startAt: 0, buf: {}, failed: {}, seaFailed: false, next: 0, gate: {}, month: {}, log: [], started: 0,
+  timer: 0, tryT: 0, offT: 0, shipSt: '', btn: null, drag: false, r: { vol: {}, sea: {}, sfx: {}, duck: null },
+};
+
+function audioUrl(rel) {
+  if (!AUDIO_FILES[rel] || typeof location === 'undefined' || location.protocol === 'file:') return '';
+  return 'audio/' + rel + '?v=' + AUDIO_FILES[rel];
+}
+
+function audioHasMusic() { return ['dawn', 'town', 'evening'].some((n) => audioUrl('music/' + n + '.mp3')) || !!audioUrl('amb/sea.mp3'); }
+function audioWanted() { return AUD.set.music || AUD.set.sfx; }
+function audioVolGain() { return Math.pow(Math.max(0, Math.min(100, AUD.set.vol)) / 100, 1.6); }
+
+function audioSettingsLoad() {
+  try {
+    const o = JSON.parse(storeGet(AUDIO_KEY) || 'null');
+    if (o && typeof o === 'object') {
+      if (typeof o.music === 'boolean') AUD.set.music = o.music;
+      if (typeof o.sfx === 'boolean') AUD.set.sfx = o.sfx;
+      if (typeof o.vol === 'number' && isFinite(o.vol)) AUD.set.vol = Math.max(0, Math.min(100, Math.round(o.vol)));
+    }
+  } catch (e) { /* a broken setting: the defaults */ }
+}
+
+function audioSettingsSave() { storeSet(AUDIO_KEY, JSON.stringify(AUD.set)); }
+
+// ---------- the graph ----------
+
+// A gain ramp from wherever the gain is now (tracked here: an AudioParam's value is not reliable mid-ramp on Safari).
+function audioRamp(p, rec, to, s) {
+  const t = AUD.ctx.currentTime, r = rec.ramp, d = Math.max(0.02, s);
+  const v = !r ? p.value : t >= r.t1 ? r.b : r.a + (r.b - r.a) * (t - r.t0) / Math.max(1e-3, r.t1 - r.t0);
+  p.cancelScheduledValues(t);
+  p.setValueAtTime(v, t);
+  p.linearRampToValueAtTime(to, t + d);
+  rec.ramp = { a: v, b: to, t0: t, t1: t + d };
+}
+
+// One <audio> element into its own gain. Without createMediaElementSource it never plays (it would play at full volume).
+function audioDeck(out) {
+  const el = document.createElement('audio');
+  el.preload = 'none';
+  el.setAttribute('playsinline', '');
+  const d = { el, gain: AUD.ctx.createGain(), rel: '', piece: '', want: false, blessed: false, out: 0, tTry: 0, dead: false, rec: {} };
+  d.gain.gain.value = 0;
+  d.gain.connect(out);
+  try { AUD.ctx.createMediaElementSource(el).connect(d.gain); } catch (e) { d.dead = true; }
+  el.addEventListener('ended', () => audioEnded(d));
+  el.addEventListener('error', () => audioFailed(d));
+  return d;
+}
+
+function audioGraph() {
+  const c = AUD.ctx;
+  AUD.master = c.createGain(); AUD.master.connect(c.destination);
+  AUD.duck = c.createGain(); AUD.duck.connect(AUD.master);
+  AUD.vol = c.createGain(); AUD.vol.gain.value = audioVolGain(); AUD.vol.connect(AUD.duck);
+  AUD.seaLvl = c.createGain(); AUD.seaLvl.gain.value = AUDIO_SEA[0]; AUD.seaLvl.connect(AUD.vol);
+  AUD.sfxBus = c.createGain(); AUD.sfxBus.gain.value = AUD.set.sfx ? 0.9 : 0; AUD.sfxBus.connect(AUD.master);
+  AUD.decks = [audioDeck(AUD.vol), audioDeck(AUD.vol)];
+  AUD.sea = [audioDeck(AUD.seaLvl), audioDeck(AUD.seaLvl)];
+}
+
+// A 50 ms silent WAV: what an element plays inside the first tap when it has nothing of its own yet.
+function audioSilent() {
+  if (AUD.silent) return AUD.silent;
+  const n = 400, b = new Uint8Array(44 + n), v = new DataView(b.buffer);
+  const w = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  w(36, 'data'); v.setUint32(40, n, true); b.fill(128, 44);
+  let s = '';
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return (AUD.silent = 'data:audio/wav;base64,' + btoa(s));
+}
+
+// ---------- the first tap, the page hidden, interruptions ----------
+
+// Every tap, click or key (capture phase): the first creates the context; later ones resume it if iOS stopped it.
+function audioGesture() {
+  if (AUD.dead || !audioWanted()) return;
+  try {
+    if (!AUD.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { AUD.dead = true; return; }
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* older iOS: no audioSession */ }
+      AUD.ctx = new AC();
+      audioGraph();
+      if (AUD.ctx.addEventListener) AUD.ctx.addEventListener('statechange', audioStateChange); else AUD.ctx.onstatechange = audioStateChange;
+      // the music starts a moment later: the tap that unlocked may be "Continue", and then the game's piece plays
+      AUD.startAt = performance.now() + 150;
+      AUD.timer = setInterval(audioTick, 250);
+      audioSfxLoad();
+    }
+    if (AUD.ctx.state !== 'running' && !document.hidden) { const p = AUD.ctx.resume(); if (p && p.catch) p.catch(() => {}); }
+    for (const d of AUD.decks.concat(AUD.sea)) if (!d.blessed && !d.dead) audioBless(d);
+    audioResume(true);
+  } catch (e) { AUD.dead = true; }
+}
+
+// iOS lets an element start later without a tap only if play() was first called inside one.
+function audioBless(d) {
+  const el = d.el;
+  d.blessed = true;
+  if (!d.want) el.src = audioSilent();
+  const p = el.play();
+  if (p && p.then) p.then(() => { if (!d.want) el.pause(); }, (err) => { if (err && err.name === 'NotAllowedError') d.blessed = false; });
+}
+
+// Elements that should play but stand paused (after an interruption, the page coming back): play again.
+function audioResume(force) {
+  if (!AUD.ctx || document.hidden || AUD.ctx.state !== 'running') return;
+  const now = performance.now();
+  for (const d of AUD.decks.concat(AUD.sea)) {
+    if (d.want && d.el.paused && !d.dead && (force || now - d.tTry > 2000)) audioPlayEl(d);
+  }
+}
+
+function audioPlayEl(d) {
+  d.tTry = performance.now();
+  try { const p = d.el.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* not allowed yet: the next tap */ }
+}
+
+function audioStateChange() { if (AUD.ctx && AUD.ctx.state === 'running') audioResume(true); }
+
+function audioVisibility() {
+  if (!AUD.ctx) return;
+  try {
+    if (document.hidden) {
+      for (const d of AUD.decks.concat(AUD.sea)) d.el.pause();
+      const p = AUD.ctx.suspend && AUD.ctx.suspend(); if (p && p.catch) p.catch(() => {});
+    } else if (audioWanted()) {
+      const p = AUD.ctx.resume();
+      if (p && p.then) p.then(() => audioResume(true), () => {});
+    }
+  } catch (e) { /* the next tap resumes */ }
+}
+
+// ---------- music and the sea ----------
+
+function audioDeckPlay(d, rel, fade) {
+  const url = audioUrl(rel);
+  if (!url || d.dead) return false;
+  const el = d.el;
+  if (d.rel !== rel || !el.src || el.src.indexOf(url) < 0) { el.preload = 'auto'; el.src = url; d.rel = rel; } else { try { el.currentTime = 0; } catch (e) { /* not loaded yet */ } }
+  d.want = true; d.out = 0;
+  audioRamp(d.gain.gain, d.rec, 1, fade);
+  audioPlayEl(d);
+  return true;
+}
+
+function audioDeckFade(d, s) {
+  if (!d) return;
+  audioRamp(d.gain.gain, d.rec, 0, s);
+  d.want = false;
+  d.out = performance.now() + s * 1000 + 150;
+}
+
+// The next piece: title dawn / evening in turn; in the game town, then the calm piece not heard last, then town.
+function audioPick(scene) {
+  const ok = (n) => !AUD.failed[n] && !!audioUrl('music/' + n + '.mp3');
+  const calm = AUD.lastCalm === 'dawn' ? ['evening', 'dawn'] : ['dawn', 'evening'];
+  let list;
+  if (scene === 'title') list = AUD.last === 'dawn' ? ['evening', 'dawn'] : ['dawn', 'evening'];
+  else if (AUD.last === 'town') list = calm.concat('town');
+  else list = ['town'].concat(calm);
+  list = list.filter(ok);
+  const fresh = list.filter((n) => n !== AUD.last);
+  return (fresh.length ? fresh : list)[0] || '';
+}
+
+function audioNextPiece(name) {
+  name = name || audioPick(AUD.scene);
+  AUD.gapUntil = 0;
+  if (!name) return;
+  const old = AUD.cur, d = AUD.decks.find((x) => x !== old && !x.want && !x.dead) || AUD.decks.find((x) => x !== old && !x.dead);
+  if (old) audioDeckFade(old, AUDIO_XF);
+  AUD.cur = null;
+  if (!d || !audioDeckPlay(d, 'music/' + name + '.mp3', AUDIO_XF)) { AUD.failed[name] = 1; return; }
+  d.piece = name;
+  AUD.cur = d; AUD.last = name;
+  if (name !== 'town') AUD.lastCalm = name;
+  AUD.hist.push(name);
+  if (AUD.hist.length > 20) AUD.hist.shift();
+}
+
+function audioGapStart(now) {
+  AUD.gapUntil = now + AUDIO_XF * 1000 + (AUDIO_GAP[0] + Math.random() * (AUDIO_GAP[1] - AUDIO_GAP[0])) * 1000;
+}
+
+function audioEnded(d) {
+  if (AUD.cur === d) { AUD.cur = null; d.want = false; audioGapStart(performance.now()); }
+}
+
+// A file that cannot be played: that piece is skipped from now on (or the sea, or a deck that cannot route).
+function audioFailed(d) {
+  if (!d.want || !d.el.src || d.el.src.indexOf('data:') === 0) return;
+  d.want = false;
+  if (AUD.sea.includes(d)) { AUD.seaFailed = true; return; }
+  if (d.piece) AUD.failed[d.piece] = 1;
+  if (AUD.cur === d) { AUD.cur = null; AUD.gapUntil = performance.now() + 1500; }
+}
+
+function audioSeaTick(on) {
+  const rel = 'amb/sea.mp3';
+  if (!on || AUD.seaFailed || !audioUrl(rel)) {
+    for (const d of AUD.sea) if (d.want) audioDeckFade(d, 1.2);
+    AUD.seaCur = -1;
+    return;
+  }
+  const d = AUD.sea[AUD.seaCur];
+  if (!d || !d.want) {
+    AUD.seaCur = 0;
+    AUD.sea[0].el.loop = AUD.sea[1].el.loop = true;
+    audioDeckPlay(AUD.sea[0], rel, AUDIO_XF);
+  } else {
+    const dur = d.el.duration;
+    if (isFinite(dur) && dur > 8 && d.el.currentTime >= dur - AUDIO_SEA_XF - 0.1) {
+      audioDeckFade(d, AUDIO_SEA_XF);
+      AUD.seaCur = 1 - AUD.seaCur;
+      audioDeckPlay(AUD.sea[AUD.seaCur], rel, AUDIO_SEA_XF);
+    }
+  }
+  // quietly under the music, a little up in the gaps
+  const lvl = AUD.cur ? AUDIO_SEA[0] : AUDIO_SEA[1];
+  if (AUD.seaTo !== lvl) { AUD.seaTo = lvl; audioRamp(AUD.seaLvl.gain, AUD.r.sea, lvl, AUDIO_XF); }
+}
+
+function audioTick() {
+  try { audioTickRun(); } catch (e) { if (!AUD.tickErr) { AUD.tickErr = 1; console.warn('audio', e); } }
+}
+
+function audioTickRun() {
+  const c = AUD.ctx;
+  if (!c) return;
+  const now = performance.now();
+  for (const d of AUD.decks.concat(AUD.sea)) if (!d.want && d.out && now > d.out) { d.out = 0; d.el.pause(); }
+  if (!audioWanted()) {
+    // both off: the context sleeps (no audio session held, nothing for the battery)
+    if (c.state === 'running' && now - AUD.offT > 1500) { const p = c.suspend(); if (p && p.catch) p.catch(() => {}); }
+    return;
+  }
+  if (document.hidden) return;
+  if (c.state !== 'running') {
+    // a phone call, Siri, another app's audio ('interrupted'): try again every 3 s; any tap also resumes
+    if (now - AUD.tryT > 3000) { AUD.tryT = now; const p = c.resume(); if (p && p.then) p.then(() => audioResume(true), () => {}); }
+    return;
+  }
+  audioResume(false);
+  // the ship turning away from the pier (the renderer's ship), at most every 45 s
+  const sh = APP.R && APP.R.ship, st = sh ? sh.st : '';
+  if ((st === 'turn' || st === 'leave') && AUD.shipSt === 'load' && !APP.titleOn) audioCue('ship');
+  AUD.shipSt = st;
+  if (now < AUD.startAt) return;
+  const on = AUD.set.music && audioHasMusic();
+  audioSeaTick(on);
+  if (!on) {
+    if (AUD.cur) { audioDeckFade(AUD.cur, 1.2); AUD.cur = null; }
+    AUD.gapUntil = 0; AUD.scene = '';
+    return;
+  }
+  const scene = APP.titleOn ? 'title' : 'game', prev = AUD.scene;
+  AUD.scene = scene;
+  // the game begins: the title's piece crossfades into town
+  if (prev === 'title' && scene === 'game' && !(AUD.cur && AUD.cur.piece === 'town') && !AUD.failed.town && audioUrl('music/town.mp3')) { audioNextPiece('town'); return; }
+  const d = AUD.cur;
+  if (d) {
+    const dur = d.el.duration;
+    if (isFinite(dur) && dur > AUDIO_XF * 3 && d.el.currentTime >= dur - AUDIO_XF - 0.15) {
+      audioDeckFade(d, AUDIO_XF);
+      AUD.cur = null;
+      audioGapStart(now);
+    }
+  } else if (!AUD.gapUntil || now >= AUD.gapUntil) audioNextPiece();
+}
+
+// ---------- sounds ----------
+
+function audioSfxLoad() {
+  if (!window.fetch) return;
+  for (const name in AUDIO_SFX) {
+    const url = audioUrl('sfx/' + name + '.mp3');
+    if (!url) continue;
+    fetch(url).then((r) => (r.ok ? r.arrayBuffer() : null)).then((ab) => {
+      if (!ab || !AUD.ctx) return;
+      // short sounds only: a long file is never decoded (memory)
+      const done = (b) => { if (b && b.duration < 12) AUD.buf[name] = b; };
+      const p = AUD.ctx.decodeAudioData(ab, done, () => {});
+      if (p && p.then) p.then(done, () => {});
+    }).catch(() => {});
+  }
+}
+
+// The music under a sound: down to `depth` in 80 ms, held while it plays, back up in 0.9 s. Overlapping ducks join.
+function audioDuck(depth, when, dur) {
+  const p = AUD.duck.gain, t = AUD.ctx.currentTime, r = AUD.r.duck;
+  const val = (x) => {
+    if (!r || x <= r.t0) return r ? r.v0 : 1;
+    if (x < r.t1) return r.v0 + (r.d - r.v0) * (x - r.t0) / (r.t1 - r.t0);
+    if (x < r.t2) return r.d;
+    if (x < r.t3) return r.d + (1 - r.d) * (x - r.t2) / (r.t3 - r.t2);
+    return 1;
+  };
+  const v0 = val(t), holding = r && t < r.t2;
+  const d = holding ? Math.min(depth, r.d) : depth, t1 = Math.max(t + 0.08, when), t2 = Math.max(t1, when + dur, holding ? r.t2 : 0), t3 = t2 + 0.9;
+  p.cancelScheduledValues(t);
+  p.setValueAtTime(v0, t);
+  p.linearRampToValueAtTime(d, t1);
+  p.setValueAtTime(d, t2);
+  p.linearRampToValueAtTime(1, t3);
+  AUD.r.duck = { t0: t, v0, d, t1, t2, t3 };
+}
+
+// Plays one sound now (sounds asked for together start 0.38 s apart). Returns false when it cannot (off, not loaded).
+function sfxPlay(name) {
+  const def = AUDIO_SFX[name], c = AUD.ctx, buf = AUD.buf[name];
+  if (!def || !c || !AUD.set.sfx || c.state !== 'running' || document.hidden || !buf) return false;
+  try {
+    const now = c.currentTime;
+    let when = now;
+    if (name !== 'tap') { when = Math.max(now, AUD.next); AUD.next = when + 0.38; }
+    const src = c.createBufferSource(), g = c.createGain();
+    src.buffer = buf; g.gain.value = def.lvl;
+    src.connect(g); g.connect(AUD.sfxBus);
+    src.onended = () => { try { src.disconnect(); g.disconnect(); } catch (e) { /* gone */ } };
+    src.start(when);
+    if (def.duck < 1 && AUD.set.music) audioDuck(def.duck, when, buf.duration);
+    AUD.started++;
+    return true;
+  } catch (e) { return false; }
+}
+
+// A sound asked for by the game: the gates (least seconds between, one per payday) say whether it plays.
+function audioCue(name) {
+  const def = AUDIO_SFX[name];
+  if (!def || !AUD.ctx || !AUD.set.sfx) return false;
+  const now = performance.now(), s = APP.state;
+  if (def.gap && now - (AUD.gate[name] || -1e9) < def.gap * 1000) return false;
+  if (def.month && s && AUD.month[name] === s.month) return false;
+  AUD.gate[name] = now;
+  if (def.month && s) AUD.month[name] = s.month;
+  AUD.log.push(name);
+  if (AUD.log.length > 40) AUD.log.shift();
+  return sfxPlay(name);
+}
+
+// The month's events as sounds (called from eventsHandle). A new stage is the moment: payday, homes and settlers of the
+// same month stay quiet under it.
+function audioEvents(evs) {
+  if (!AUD.ctx || !evs.length) return;
+  const want = [];
+  let stage = false;
+  for (const e of evs) {
+    const k = e.kind;
+    if (k === 'built') want.push('place');
+    else if (k === 'cleared') want.push('remove');
+    else if (k === 'residence' || k === 'palace') want.push('residence');
+    else if (k === 'stage') stage = true;
+    else if (k === 'payday') want.push('payday');
+    else if (k === 'levelup') want.push('levelup');
+    else if (k === 'log' && /settlers? arrived/.test(e.text)) want.push('settlers');
+  }
+  if (stage) audioCue('stage');
+  const order = ['place', 'remove', 'residence', 'payday', 'levelup', 'settlers'];
+  for (const n of order) {
+    if (!want.includes(n)) continue;
+    if (stage && (n === 'payday' || n === 'levelup' || n === 'settlers')) continue;
+    audioCue(n);
+  }
+}
+
+// ---------- the sound button, its panel and the title's speaker ----------
+
+if (typeof ICONS !== 'undefined') {
+  Object.assign(ICONS, {
+    sound: 'M3 9 H7 L12 4.5 V19.5 L7 15 H3 Z M15 8.2 C16.3 9.2 17 10.5 17 12 C17 13.5 16.3 14.8 15 15.8 L14 14.6 C14.9 13.9 15.4 13 15.4 12 C15.4 11 14.9 10.1 14 9.4 Z M17.6 5.2 C19.7 6.8 21 9.2 21 12 C21 14.8 19.7 17.2 17.6 18.8 L16.6 17.6 C18.3 16.3 19.4 14.3 19.4 12 C19.4 9.7 18.3 7.7 16.6 6.4 Z',
+    mute: 'M3 9 H7 L12 4.5 V19.5 L7 15 H3 Z M15.3 8.6 L18 11.3 L20.7 8.6 L21.8 9.7 L19.1 12.4 L21.8 15.1 L20.7 16.2 L18 13.5 L15.3 16.2 L14.2 15.1 L16.9 12.4 L14.2 9.7 Z',
+    music: 'M9 4.5 L20 2 V16 C20 17.9 18.4 19.5 16.5 19.5 C14.6 19.5 13 17.9 13 16 C13 14.1 14.6 12.5 16.5 12.5 C17 12.5 17.5 12.6 18 12.8 V6.6 L11 8.1 V18.5 C11 20.4 9.4 22 7.5 22 C5.6 22 4 20.4 4 18.5 C4 16.6 5.6 15 7.5 15 C8 15 8.5 15.1 9 15.3 Z',
+    bell: 'M12 2 C12.8 2 13.4 2.6 13.4 3.4 V4.1 C16.3 4.8 18 7.2 18 10.2 V15 L20 17.5 V18.5 H4 V17.5 L6 15 V10.2 C6 7.2 7.7 4.8 10.6 4.1 V3.4 C10.6 2.6 11.2 2 12 2 Z M9.5 19.5 H14.5 C14.5 20.9 13.4 22 12 22 C10.6 22 9.5 20.9 9.5 19.5 Z',
+  });
+}
+
+function audioIconName() { return AUD.set.music || AUD.set.sfx ? 'sound' : 'mute'; }
+
+// The speaker sits with the clock's buttons on the iPad; on a phone (the top row is full) at the end of the stats.
+function audioBtnPlace() {
+  const b = AUD.btn;
+  if (!b) return;
+  const host = window.innerWidth <= 600 ? document.querySelector('#top .stats') : $('ctrl');
+  if (host && b.parentNode !== host) host.appendChild(b);
+  if ($('sndpop').classList.contains('show')) audioPanelPlace();
+}
+
+function audioBtnRender() {
+  const on = AUD.set.music || AUD.set.sfx;
+  if (AUD.btn) {
+    AUD.btn.innerHTML = iconSvg(audioIconName());
+    AUD.btn.classList.toggle('off', !on);
+    AUD.btn.setAttribute('aria-label', 'Sound: ' + (on ? 'on' : 'off'));
+  }
+  const t = $('tSnd');
+  if (t) { t.innerHTML = iconSvg(audioIconName()); t.classList.toggle('off', !on); t.setAttribute('aria-label', 'Sound: ' + (on ? 'on' : 'off')); }
+}
+
+// The title card's small speaker (titleRender puts it in the card).
+function audioTitleBtn() {
+  const on = AUD.set.music || AUD.set.sfx;
+  return '<button class="tsnd' + (on ? '' : ' off') + '" id="tSnd" aria-label="Sound: ' + (on ? 'on' : 'off') + '">' + iconSvg(audioIconName()) + '</button>';
+}
+
+// On the title the speaker is one switch: anything on -> all off; all off -> music and sounds on.
+function audioTitleTap() {
+  const on = AUD.set.music || AUD.set.sfx;
+  AUD.set.music = AUD.set.sfx = !on;
+  audioApply();
+}
+
+// After a change of the settings: save, the buses, the icons, the panel. Turned on from all off, the tap that did it
+// starts the sound (the first tap was ignored while everything was off).
+function audioApply() {
+  audioSettingsSave();
+  if (audioWanted()) audioGesture();
+  if (AUD.ctx) {
+    audioRamp(AUD.sfxBus.gain, AUD.r.sfx, AUD.set.sfx ? 0.9 : 0, 0.05);
+    audioRamp(AUD.vol.gain, AUD.r.vol, audioVolGain(), 0.08);
+    if (!audioWanted()) AUD.offT = performance.now();
+  }
+  audioBtnRender();
+  audioPanelSync();
+}
+
+function audioPanelToggle() {
+  const pop = $('sndpop');
+  if (pop.classList.contains('show')) { audioPanelClose(); return; }
+  audioPanelSync();
+  pop.classList.add('show');
+  audioPanelPlace();
+}
+
+function audioPanelClose() { $('sndpop').classList.remove('show'); }
+
+// Under the button, kept inside the screen and its safe areas.
+function audioPanelPlace() {
+  const pop = $('sndpop'), r = AUD.btn.getBoundingClientRect(), ins = safeInsets(), w = pop.offsetWidth || 280;
+  const left = Math.max(ins.l + 8, Math.min(r.right - w, window.innerWidth - ins.r - 8 - w));
+  pop.style.left = left + 'px';
+  pop.style.top = Math.round(r.bottom + 10) + 'px';
+}
+
+function audioPanelBuild() {
+  const pop = $('sndpop');
+  pop.innerHTML = '<h4>Sound</h4>' +
+    '<button class="sw" id="sndMusic" role="switch">' + iconSvg('music') + '<b>Music<small>and the sea</small></b><span class="tg"></span></button>' +
+    '<div class="vol"><div class="slider" id="sndVol" role="slider" tabindex="0" aria-label="Music volume" aria-valuemin="0" aria-valuemax="100">' +
+    '<div class="track"><div class="fill"></div></div><div class="knob"></div></div><span class="pct"></span></div>' +
+    '<button class="sw" id="sndSfx" role="switch">' + iconSvg('bell') + '<b>Sounds<small>building, payday, the ship</small></b><span class="tg"></span></button>';
+  $('sndMusic').addEventListener('click', () => { AUD.set.music = !AUD.set.music; audioApply(); });
+  $('sndSfx').addEventListener('click', () => { AUD.set.sfx = !AUD.set.sfx; audioApply(); });
+  const sl = $('sndVol');
+  const setX = (x) => {
+    const r = sl.getBoundingClientRect(), u = Math.max(0, Math.min(1, (x - r.left - 13) / Math.max(1, r.width - 26)));
+    audioVolSet(Math.round(u * 20) * 5);
+  };
+  const up = () => { if (AUD.drag) { AUD.drag = false; audioApply(); } };
+  if (window.PointerEvent) {
+    sl.addEventListener('pointerdown', (e) => { try { sl.setPointerCapture(e.pointerId); } catch (x) { /* no capture */ } AUD.drag = true; setX(e.clientX); });
+    sl.addEventListener('pointermove', (e) => { if (AUD.drag) setX(e.clientX); });
+    sl.addEventListener('pointerup', up);
+    sl.addEventListener('pointercancel', up);
+  } else {
+    sl.addEventListener('touchstart', (e) => { AUD.drag = true; setX(e.touches[0].clientX); e.preventDefault(); }, { passive: false });
+    sl.addEventListener('touchmove', (e) => { if (AUD.drag) setX(e.touches[0].clientX); e.preventDefault(); }, { passive: false });
+    sl.addEventListener('touchend', up);
+    sl.addEventListener('mousedown', (e) => { AUD.drag = true; setX(e.clientX); });
+    window.addEventListener('mousemove', (e) => { if (AUD.drag) setX(e.clientX); });
+    window.addEventListener('mouseup', up);
+  }
+  sl.addEventListener('keydown', (e) => {
+    const k = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 5 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -5 : 0;
+    if (k) { audioVolSet(AUD.set.vol + k); audioApply(); e.preventDefault(); }
+  });
+}
+
+// Moving the slider while the music is off turns it on.
+function audioVolSet(v) {
+  AUD.set.vol = Math.max(0, Math.min(100, v));
+  if (AUD.set.vol > 0 && !AUD.set.music) { AUD.set.music = true; audioApply(); }
+  if (AUD.ctx) audioRamp(AUD.vol.gain, AUD.r.vol, audioVolGain(), 0.08);
+  audioPanelSync();
+}
+
+function audioPanelSync() {
+  const pop = $('sndpop');
+  if (!pop || !$('sndVol')) return;
+  const st = AUD.set;
+  for (const [id, on] of [['sndMusic', st.music], ['sndSfx', st.sfx]]) { const b = $(id); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }
+  pop.classList.toggle('mute', !st.music);
+  const u = st.vol / 100;
+  pop.querySelector('.fill').style.width = (u * 100) + '%';
+  pop.querySelector('.knob').style.left = 'calc(13px + (100% - 26px) * ' + u + ')';
+  pop.querySelector('.pct').textContent = st.vol + '%';
+  $('sndVol').setAttribute('aria-valuenow', String(st.vol));
+}
+
+// Called once at boot (after hudInit): settings, the button, the panel, the listeners. Nothing sounds before a tap.
+function audioInit() {
+  audioSettingsLoad();
+  const b = document.createElement('button');
+  b.id = 'bSnd';
+  b.setAttribute('aria-haspopup', 'dialog');
+  b.addEventListener('click', audioPanelToggle);
+  AUD.btn = b;
+  audioPanelBuild();
+  audioBtnPlace();
+  audioBtnRender();
+  audioPanelSync();
+  window.addEventListener('resize', () => { audioBtnPlace(); setTimeout(audioBtnPlace, 150); });
+  for (const t of ['pointerup', 'touchend', 'click', 'keydown']) document.addEventListener(t, audioGesture, true);
+  // a soft tap for buttons (after the button did its work, so "Sounds on" already ticks)
+  document.addEventListener('click', (e) => {
+    const t = e.target && e.target.closest ? e.target.closest('button, [role="slider"]') : null;
+    if (t && t.id !== 'bSnd') audioCue('tap');
+  });
+  // a tap outside the panel closes it
+  document.addEventListener('pointerdown', (e) => {
+    const pop = $('sndpop');
+    if (pop.classList.contains('show') && !pop.contains(e.target) && !b.contains(e.target)) audioPanelClose();
+  }, true);
+  document.addEventListener('visibilitychange', audioVisibility);
+  window.addEventListener('pagehide', () => { if (AUD.ctx) { for (const d of AUD.decks.concat(AUD.sea)) d.el.pause(); } });
+  window.addEventListener('pageshow', () => { if (AUD.ctx && !document.hidden) audioVisibility(); });
+}
+
+// What plays now (the console and the tests).
+function audioState() {
+  const deck = (d) => ({ piece: d.piece, rel: d.rel, want: d.want, paused: d.el.paused, t: Math.round(d.el.currentTime * 10) / 10, dur: d.el.duration });
+  return {
+    ctx: AUD.ctx ? AUD.ctx.state : 'none', set: Object.assign({}, AUD.set), files: Object.keys(AUDIO_FILES).length,
+    cur: AUD.cur ? AUD.cur.piece : '', scene: AUD.scene, gap: AUD.gapUntil ? Math.max(0, Math.round((AUD.gapUntil - performance.now()) / 100) / 10) : 0,
+    hist: AUD.hist.slice(), decks: AUD.decks.map(deck), sea: AUD.sea.map(deck), seaTo: AUD.seaTo, buf: Object.keys(AUD.buf), log: AUD.log.slice(), started: AUD.started,
+  };
+}
+
 // ---- src/ui/main.js
 // The app: load or start an island, run the clock (pause / 1x / 2x / 3x), turn sim events into what she sees, autosave.
 // Block 5 (iPad): the title screen first, the loop and the clock stop while the page is hidden, saving never throws,
@@ -7516,6 +8156,8 @@ function eventsHandle() {
   const keep = new Set(money.length <= 12 ? money : [
     ...money.filter(e => e.n > 0).sort((a, b) => b.n - a.n).slice(0, 5),
     ...money.filter(e => e.n < 0).sort((a, b) => a.n - b.n).slice(0, 5)]);
+  // block 7: the same events as sounds (audio.js decides which play and when)
+  audioEvents(evs);
   for (const e of evs) {
     const b = e.id && bById(s, e.id);
     if (e.kind === 'money' && !keep.has(e)) continue;
@@ -7641,6 +8283,7 @@ function boot() {
   APP.R = renderCreate($('map'));
   iosInit();
   hudInit();
+  audioInit();
   speedSet(1);
   viewHome();
   inputInit($('map'));
