@@ -195,6 +195,27 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
 #sheet .x { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
 #sheet .x .ic { fill: var(--ink2); }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+/* M4: each lever's rule, and what the last change did (after the fact) */
+#sheet p.rule { margin: 6px 2px 0; font-size: 12.5px; color: var(--ink2); }
+#sheet p.after { margin: 6px 0 2px; padding: 8px 10px; border-radius: 10px; font-size: 14px; font-weight: 700; background: #fbe3d9; border: 1.5px solid #c4553f; color: #7a2a1c; }
+#sheet p.after.good { background: #e2f1e4; border-color: #2e7a3e; color: #1f5a2c; }
+/* M4: where the money comes from */
+#sheet .mline { display: grid; grid-template-columns: 1fr auto 70px; align-items: center; gap: 8px; min-height: 44px; border-top: 2px dotted rgba(58, 42, 31, 0.22); font-size: 15px; }
+#sheet .mline b { font-variant-numeric: tabular-nums; font-size: 16px; }
+#sheet .mline b.y { color: #2e7a3e; } #sheet .mline b.n { color: #b23a26; }
+#sheet .mline .mshow { min-height: 40px; border-radius: 10px; background: var(--paper2); box-shadow: inset 0 0 0 1.5px rgba(58, 42, 31, 0.4); font-weight: 700; font-size: 13px; }
+#sheet h4 { margin-top: 12px; }
+#sheet .btns button { min-height: 44px; padding: 0 14px; border-radius: 12px; background: var(--teal); color: #fff7ea; font-weight: 800; box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
+#sMoney { cursor: pointer; }
+#bMoney.on { background: #f0c04a; box-shadow: inset 0 0 0 2px var(--ink); border-radius: 10px; }
+/* a phone's top row has no room for it: the money panel (tap the money) has the Money layer's button */
+@media (max-width: 520px) { #bMoney { display: none; } }
+#moneyLegend { position: fixed; right: calc(var(--gap) + var(--sr)); top: calc(var(--st, 0px) + 118px); z-index: 30; display: none; align-items: center; gap: 8px; max-width: calc(100vw - 24px);
+  background: rgba(251, 243, 223, 0.96); border: 2px solid var(--ink); border-radius: 14px; padding: 4px 4px 4px 12px; font-size: 13px; box-shadow: 0 3px 0 rgba(58, 42, 31, 0.35); }
+#moneyLegend.show { display: flex; }
+#moneyLegend .y { color: #2e7a3e; font-weight: 800; } #moneyLegend .n { color: #b23a26; font-weight: 800; }
+#moneyLegend button { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 10px; }
+#moneyLegend button svg { width: 18px; height: 18px; }
 .seg button, .exp button { border-radius: 12px; background: var(--paper2); padding: 8px; min-height: 56px; text-align: left; box-shadow: inset 0 0 0 1.5px rgba(58, 42, 31, 0.35); }
 .seg button b, .exp button b { display: block; font-size: 15px; }
 .seg button span, .exp button span { font-size: 12px; color: var(--ink2); }
@@ -505,6 +526,20 @@ body.titled #todo, body.titled #greet { display: none !important; }
 }
 #safe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+
+/* M5: the Traffic layer's legend (under the pill; a tap closes the layer) */
+#trlegend { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--pill-b, 118px) + 8px); z-index: 30; display: none; align-items: center; flex-wrap: wrap; justify-content: center;
+  gap: 2px 8px; max-width: min(560px, calc(100vw - 32px)); padding: 8px 14px; border-radius: 14px; background: var(--paper, #fbf3df); color: var(--ink, #3a2a1f);
+  border: 1.5px solid var(--line, #d8c7a4); box-shadow: 0 6px 18px rgba(40,25,10,.18); font-size: 14px; line-height: 1.3; }
+#trlegend.show { display: flex; }
+#trlegend .k { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-left: 6px; vertical-align: -2px; }
+#trlegend .k.free { background: #4aa55a; } #trlegend .k.busy { background: #f0a828; } #trlegend .k.jam { background: #d63a28; }
+#trlegend .g { white-space: nowrap; }
+@media (max-width: 600px) { #trlegend { font-size: 13px; padding: 6px 10px; gap: 2px 6px; } #trlegend small { font-size: 11px; } }
+#trlegend small { flex-basis: 100%; text-align: center; opacity: .75; font-size: 12px; }
+#trlegend i { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; margin: -8px -10px -8px 4px; cursor: pointer; }
+#trlegend i svg { width: 18px; height: 18px; fill: currentColor; }
+.note.trip { border-left: 3px solid #f0a828; }
 </style>
 </head>
 <body>
@@ -617,6 +652,17 @@ const TUNE = {
   // patch at a time, priced a tile by stage (clearing gets dearer as wages rise). The way out when no grass is left by a road.
   clearStage: 1,
   clearCost: [300, 300, 400, 600, 800, 1000],
+  // M4: strikes. With wages low and happiness below strikeHappy at strikeMonths month-ends running, the biggest works
+  // (strikeJobs workers or more) strikes for a month: no output, no wages. Raising wages ends it; settling costs a month
+  // of its wages at fair, once (then no strike there for strikeCalm months).
+  strikeHappy: 72,
+  strikeMonths: 2,
+  strikeJobs: 12,
+  strikeCalm: 12,
+  // M4: streets cost upkeep from Town on (sweepers, lamps, watchmen): $1 a month for every two dirt tiles, $1 a paved
+  // tile, on the residence's line ("Streets and lamps"), so a bigger town costs more to keep.
+  streetStage: 2,
+  streetCost: [0, 0.5, 1],
   decoHappy: 10,          // happiness: + up to 10 for the share of homes with a decoration in reach
   palaceHappy: 5,
   cathedralHappy: 5,
@@ -699,6 +745,19 @@ const BUILDINGS = {
   // Capital
   cathedral:  { name: 'Cathedral', kind: 'service', w: 3, h: 3, cost: 60000, jobs: 8, stage: 5, gives: 'church', reach: 15, icon: 'chapel', art: 'civic', color: '#eadfca', group: 'services' },
   opera:      { name: 'Opera house', short: 'Opera', kind: 'service', w: 3, h: 2, cost: 80000, jobs: 12, stage: 5, gives: 'opera', reach: 12, icon: 'opera', art: 'civic', color: '#c05a6b', group: 'services' },
+  // M4 grand projects (one a stage from Town; kind 'service', `project`: the months it takes to build, `island`: its
+  // effect is for the whole island, not a reach). Each is a multi-month build (scaffolding, a bar on the to-do list),
+  // then a big building on the map and a lasting effect while it runs (DESIGN.md §20). History behind them:
+  // water works: Havana's Albear aqueduct (Canal de Albear, 1858-1893) brought spring water from Vento to the city;
+  // power station: the Havana Electric Railway, Light & Power Co. (1912) electrified Havana, and electric light and
+  // motors spread to the island's towns through the 1920s; hospital: Havana's Hospital Nuestra Señora de las Mercedes
+  // (1886) and the mutual-aid *quintas* of the Spanish societies (Quinta de Dependientes, 1890s; Covadonga, 1897);
+  // university: the University of Havana moved to its hill in 1902; the Aula Magna and the Alma Mater (1919), the
+  // great staircase (1927).
+  waterworks: { name: 'Water works', kind: 'service', w: 3, h: 2, cost: 30000, jobs: 4, stage: 2, gives: 'water', island: true, project: 8, upkeep: 0.005, icon: 'fountain', art: 'civic', color: '#6fb6c9', group: 'services' },
+  power:      { name: 'Power station', kind: 'service', w: 3, h: 2, cost: 45000, jobs: 10, stage: 3, gives: 'power', island: true, project: 10, upkeep: 0.005, icon: 'light', art: 'civic', color: '#8c6a58', group: 'industry' },
+  hospital:   { name: 'Hospital', kind: 'service', w: 3, h: 3, cost: 60000, jobs: 12, stage: 4, gives: 'hospital', island: true, project: 12, upkeep: 0.005, icon: 'clinic', art: 'civic', color: '#f3efe6', group: 'services' },
+  university: { name: 'University', kind: 'service', w: 3, h: 3, cost: 80000, jobs: 10, stage: 5, gives: 'university', island: true, project: 12, upkeep: 0.005, icon: 'school', art: 'civic', color: '#e6d7b8', group: 'services' },
   // Decorations (block 3): cheap to dear, each a little farther reaching.
   garden:     { name: 'Flower garden', short: 'Garden', kind: 'deco', deco: 'garden', w: 1, h: 1, cost: 600, stage: 0, reach: 3, icon: 'flower', art: 'field', color: '#e0789a', group: 'homes' },
   palms:      { name: 'Palm row', short: 'Palms', kind: 'deco', deco: 'palms', w: 1, h: 1, cost: 1500, stage: 1, reach: 4, icon: 'palm', art: 'field', color: '#3f8f4a', group: 'homes' },
@@ -711,7 +770,16 @@ const BUILDINGS = {
 // The build bar order (within each group).
 const BUILD_ORDER = ['casita', 'fishing', 'grove', 'market', 'cane', 'distillery', 'bakery', 'chapel', 'harbor',
   'school', 'clinic', 'tobacco', 'cigars', 'lumber', 'sawmill', 'finca', 'roastery', 'central', 'ranch', 'butcher', 'park',
-  'quay', 'cannery', 'lighthouse', 'cathedral', 'opera', 'garden', 'palms', 'fountain', 'statue', 'bandstand'];
+  'quay', 'cannery', 'lighthouse', 'cathedral', 'opera', 'waterworks', 'power', 'hospital', 'university', 'garden', 'palms', 'fountain', 'statue', 'bandstand'];
+// M4: the grand projects, one a stage from Town, and what each does once it runs (said on its card, the build bar's
+// ghost, Rosa's line and the stage card).
+const PROJECTS = ['waterworks', 'power', 'hospital', 'university'];
+const PROJECT_FX = {
+  water: { happy: 5, boat: 2, text: 'clean water in every street: +5 happiness, and the boats bring 2 more settlers a month' },
+  power: { happy: 3, output: 0.1, text: 'electric light and motors: every workplace makes 10 % more, +3 happiness' },
+  hospital: { happy: 5, leave: 0.5, text: 'a hospital for the island: +5 happiness, and half as many people leave' },
+  university: { happy: 5, rent: 0.05, text: 'a university: +5 happiness, and every home pays 5 % more rent (its graduates earn more)' },
+};
 const DECOS = BUILD_ORDER.filter((t) => BUILDINGS[t].kind === 'deco');
 
 // The build bar groups (tabs). 'road', 'paved', 'remove' and 'palace' are tools, not buildings.
@@ -768,9 +836,15 @@ const RESIDENCE = [
   { name: "Governor's mansion", cost: 30000, stage: 3 }, // block 6: was $100,000 (20 paydays at City); now about 7
 ];
 
+// M4 (12 Oct 2026, Tomáš's N17: "changing rents and wages has no effect on the game"). Before, rent changed only the
+// money and a few points of happiness that stayed above 50, so high rent was free money; wages changed output by 10 %.
+// Now each choice is a trade-off she can feel within one to three months, both ways (DESIGN.md §20):
+// rent: `arrive` multiplies what the boats bring (word of the island travels), `leave` is the share of the people who
+// leave each month because of it; wages: `output` is what a worker makes, and low wages with happiness below
+// TUNE.strikeHappy lead to strikes in the big works (TUNE.strikeJobs workers or more).
 const LEVERS = {
-  rent:  { low: { mult: 0.7, happy: 8 },  fair: { mult: 1, happy: 0 }, high: { mult: 1.4, happy: -10 } },
-  wages: { low: { mult: 0.7, happy: -8, output: 0.9 }, fair: { mult: 1, happy: 0, output: 1 }, high: { mult: 1.4, happy: 6, output: 1.1 } },
+  rent:  { low: { mult: 0.8, happy: 6, arrive: 1.5, leave: 0 },  fair: { mult: 1, happy: 0, arrive: 1, leave: 0 }, high: { mult: 1.3, happy: -8, arrive: 0.5, leave: 0.005 } },
+  wages: { low: { mult: 0.75, happy: -8, output: 0.85 }, fair: { mult: 1, happy: 0, output: 1 }, high: { mult: 1.3, happy: 6, output: 1.2 } },
 };
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
@@ -918,7 +992,8 @@ const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 // state.road[i]: 0 none, 1 dirt road, 2 paved road (City on; carts go twice as fast on it).
 function isRoad(state, x, y) { return inMap(x, y) && state.road[tileIdx(x, y)] > 0; }
 
-function isPaved(state, x, y) { return inMap(x, y) && state.road[tileIdx(x, y)] === 2; }
+// M5: 3 is an avenue (paved, two carriageways with palms between them; carries twice as many carts).
+function isPaved(state, x, y) { return inMap(x, y) && state.road[tileIdx(x, y)] >= 2; }
 
 // The road tiles orthogonally next to a building: where carts and people enter it.
 function bEntrances(state, b) {
@@ -1028,7 +1103,7 @@ function homeReach(state) {
   const homes = state.b.filter((b) => b.type === 'casita');
   for (const h of homes) {
     const ent = bEntrances(state, h);
-    reach[h.id] = { road: ent.length > 0, paved: ent.some((i) => state.road[i] === 2), markets: [], svc: {}, deco: [], cut: [] };
+    reach[h.id] = { road: ent.length > 0, paved: ent.some((i) => state.road[i] >= 2), markets: [], svc: {}, deco: [], cut: [] };
   }
   for (const s of state.b) {
     const def = BUILDINGS[s.type];
@@ -1037,7 +1112,7 @@ function homeReach(state) {
       continue;
     }
     if (def.kind !== 'market' && def.kind !== 'service') continue;
-    if (def.gives === 'light') continue;
+    if (def.gives === 'light' || def.gives === 'air') continue;
     const lim = bReach(def);
     for (const h of homes) {
       if (footDist(s, h) > lim) continue;
@@ -1162,6 +1237,8 @@ function placeBuilding(state, type, x, y) {
   const def = BUILDINGS[type], b = newBuilding(state, type, x, y);
   state.money -= def.cost;
   state.b.push(b);
+  // M4: a grand project stands under scaffolding for its months (leversTick), then runs
+  if (def.project) b.wip = projectTicks(def);
   // One cart per producer to start; it sends more when loads wait (cartsMore, up to TUNE.cartsMax). Block 6: harbors
   // have no carts (the ship's flour reaches the bakeries directly).
   if (def.kind === 'producer') state.carts.push({ id: b.id, home: b.id, st: 'idle', good: '', n: 0, dest: 0, path: null, pos: 0 });
@@ -1182,13 +1259,16 @@ function canRoad(state, x, y) {
 }
 
 // The road the road tool lays now: 1 dirt, 2 paved (chosen on the build bar; not saved).
-function roadKindNow(state, kind) { return kind || (state._roadKind === 2 && state.stage >= PAVED_STAGE ? 2 : 1); }
+// M5: 3 an avenue (City, like the paved road; TR in transport.js).
+function roadKindNow(state, kind) { return kind || (state._roadKind >= 2 && state.stage >= PAVED_STAGE ? state._roadKind : 1); }
 
-function roadTileCost(kind) { return kind === 2 ? TUNE.pavedCost : TUNE.roadCost; }
+function roadTileCost(kind) { return kind === 3 ? TR.avenueCost : kind === 2 ? TUNE.pavedCost : TUNE.roadCost; }
 
 // Plans a stroke: which tiles are new (or dirt to pave), which are blocked (and why), and the cost of the new ones.
 function roadPlan(state, tiles, kind) {
   kind = roadKindNow(state, kind);
+  // M5: an avenue is two tiles wide (avenueWiden in transport.js)
+  if (kind === 3) tiles = avenueWiden(tiles);
   const add = [], bad = [];
   for (const i of tiles) {
     const x = i % MAP_W, y = (i / MAP_W) | 0;
@@ -1395,7 +1475,8 @@ function wayFor(state, type) {
     const [ax, ay] = anchors[goal[hit]];
     for (let y = ay; y < ay + def.h; y++) for (let x = ax; x < ax + def.w; x++) if (state.terrain[tileIdx(x, y)] === FOREST) return { step: 'clear', at: [x, y], n: path.length, foot: true };
   }
-  return { step: 'road', at: xy(path[0] !== undefined ? path[0] : hit), n: path.filter((i) => !state.road[i]).length, to: xy(hit) };
+  // M4+M5: the road tiles to lay and the spot they open (the scripted players follow the step like a player does)
+  return { step: 'road', at: xy(path[0] !== undefined ? path[0] : hit), n: path.filter((i) => !state.road[i]).length, to: xy(hit), path: path.filter((i) => !state.road[i]), spot: anchors[goal[hit]] };
 }
 
 // ---- src/sim/economy.js
@@ -1421,12 +1502,12 @@ function jobsAssign(state) {
   const list = state.b.filter((b) => BUILDINGS[b.type].jobs)
     .sort((a, b) => ((BUILDINGS[a.type].food ? 0 : 1) - (BUILDINGS[b.type].food ? 0 : 1)) || (a.id - b.id));
   for (const b of list) {
-    b.workers = b.open && free > 0 ? 1 : 0;
+    b.workers = b.open && !b.wip && free > 0 ? 1 : 0;
     free -= b.workers;
-    if (b.open) jobs += BUILDINGS[b.type].jobs;
+    if (b.open && !b.wip) jobs += BUILDINGS[b.type].jobs;
   }
   for (const b of list) {
-    const more = b.open ? Math.min(free, BUILDINGS[b.type].jobs - b.workers) : 0;
+    const more = b.open && !b.wip ? Math.min(free, BUILDINGS[b.type].jobs - b.workers) : 0;
     b.workers += more; free -= more;
   }
   state.workforce = workforceOf(pop);
@@ -1434,7 +1515,8 @@ function jobsAssign(state) {
   state.jobless = free;
 }
 
-function outputMult(state) { return LEVERS.wages[state.lev.wages].output; }
+// M4: what a worker makes: the wage setting, and 10 % more once the power station runs.
+function outputMult(state) { return LEVERS.wages[state.lev.wages].output * (projectOn(state, 'power') ? 1 + PROJECT_FX.power.output : 1); }
 
 // M3: a bigger works has a bigger yard, a bigger store for its input and bigger carts (a wagon for the sugar central):
 // the scale is its monthly flow in tens (at least 1), so a 45-sack central does not stop with a 6-sack yard.
@@ -1448,6 +1530,7 @@ function prodTick(state, b) {
   b.blocked = '';
   if (!b.open) { b.blocked = 'closed'; return; }
   if (!b.workers) { b.blocked = 'workers'; return; }
+  if (b.strike) { b.blocked = 'strike'; return; }
   if (b.yard >= yardCapOf(def)) { b.blocked = 'yard'; return; }
   if (def.uses) for (const g in def.uses) if ((b.inp[g] || 0) < def.uses[g] - 1e-9) { b.blocked = 'input'; return; }
   b.prog += def.rate * (b.workers / def.jobs) * outputMult(state) / TUNE.ticksPerMonth;
@@ -1573,7 +1656,8 @@ function cartDispatch(state, c, b) {
   const best = consumerFind(state, b, g);
   b.noTaker = !best;
   if (!best) return;
-  const path = roadPath(state, b, best.d);
+  // M5: the fastest route (surface and traffic), not only the shortest (cartRoute in transport.js)
+  const path = cartRoute(state, b, best.d);
   if (!path) return;
   const n = Math.min(cartLoadOf(BUILDINGS[b.type]), have, best.room);
   if (BUILDINGS[b.type].kind === 'harbor') b.flour -= n; else b.yard -= n;
@@ -1618,7 +1702,8 @@ function cartTick(state, c) {
     c.ver = state.ver;
   }
   const at = c.path[Math.min(c.path.length - 1, Math.floor(c.pos))];
-  c.pos += TUNE.cartSpeed * (state.road[at] === 2 ? TUNE.pavedSpeed : 1);
+  // M5: surface and traffic (a busy tile slows the carts on it: cartStep in transport.js)
+  c.pos += cartStep(state, at);
   if (c.pos < c.path.length - 1) return;
   if (c.st === 'go') {
     cartDeliver(state, c);
@@ -2046,8 +2131,8 @@ function waitHouse(state) {
 
 // What the next boat brings: shipSettlers, but word gets around: families come for the free beds and at most
 // TUNE.waitMax more to wait at the pier (two families), fewer while families already wait there.
-function boatSettlers(state) {
-  return Math.max(0, Math.min(shipSettlers(state), freeBeds(state) + TUNE.waitMax - (state.waiting || 0)));
+function boatSettlers(state, rent) {
+  return Math.max(0, Math.min(shipSettlers(state, rent), freeBeds(state) + TUNE.waitMax - (state.waiting || 0)));
 }
 
 // The tiles where the waiting families' tents stand: free land nearest the pier's landward end (one tent a family).
@@ -2076,9 +2161,11 @@ function homesOccupied(state) { return state.b.filter((b) => b.type === 'casita'
 
 // How many settlers the boat can bring this month: 4 + 2 % of the people, at most 12; with a steamship quay twice
 // that, at most 24. Steady, not exponential (block 3; was 4 + 5 % without a cap).
-function shipSettlers(state) {
-  const q = quayOn(state);
-  return Math.min(q ? TUNE.quayArrivalCap : TUNE.arrivalCap, (TUNE.arrivalBase + Math.floor(TUNE.arrivalPct * popCount(state))) * (q ? 2 : 1));
+// M4: the rent changes it (word of the island travels: low rent x1.5, high x0.4, the cap too); the water works adds 2.
+function shipSettlers(state, rent) {
+  const q = quayOn(state), k = rentArrive(state, rent);
+  const base = Math.min(q ? TUNE.quayArrivalCap : TUNE.arrivalCap, (TUNE.arrivalBase + Math.floor(TUNE.arrivalPct * popCount(state))) * (q ? 2 : 1));
+  return Math.round(base * k) + (projectOn(state, 'water') ? PROJECT_FX.water.boat : 0);
 }
 
 // Arrivals with the boat (happiness >= 50 and free beds); departures when happiness < 35.
@@ -2095,8 +2182,11 @@ function peopleMonth(state) {
   let sailed = 0;
   while (state.waitQ.length && state.month - state.waitQ[0].m >= TUNE.waitLeaveMonths) sailed += state.waitQ.shift().n;
   waitSync(state);
+  // M4: what the boat would have brought at the rent before her last change (the desk's "did not come")
+  const fx = state.levFx && state.levFx.rent;
   if (state.happy >= TUNE.happyArrive || !foodStood(state)) {
     // M2: the boat brings families whether or not there is room; those without a bed wait at the pier in tents.
+    if (fx) state.lastMoves.boatFrom = boatSettlers(state, fx.from);
     const boat = boatSettlers(state);
     let n = boat;
     for (const h of state.b) {
@@ -2114,7 +2204,7 @@ function peopleMonth(state) {
     if (n > 0) { state.waitQ.push({ n, m: state.month }); state.lastMoves.waiting = n; }
     waitSync(state);
   } else if (state.happy < TUNE.happyLeave && pop > 0 && foodStood(state)) {
-    let n = Math.max(1, Math.round(TUNE.leavePct * pop));
+    let n = Math.max(1, Math.round(TUNE.leavePct * pop * (projectOn(state, 'hospital') ? PROJECT_FX.hospital.leave : 1)));
     state.lastMoves.left = n;
     const homes = homesOccupied(state).sort((a, b) => (b.miss.length - a.miss.length) || (b.id - a.id));
     for (const h of homes) {
@@ -2123,6 +2213,21 @@ function peopleMonth(state) {
       h.res -= k; n -= k;
       walkersSpawn(state, h, k, false);
     }
+  }
+  // M4: high rent: a share of the people leave each month (the most crowded homes first; half with a hospital)
+  const rl = LEVERS.rent[state.lev.rent].leave * (projectOn(state, 'hospital') ? PROJECT_FX.hospital.leave : 1);
+  if (rl > 0 && foodStood(state) && pop > 0) {
+    let n = Math.round(rl * popCount(state));
+    state.lastMoves.rentLeft = n;
+    const homes = homesOccupied(state).sort((a, b) => (b.res - a.res) || (b.id - a.id));
+    for (const h of homes) {
+      if (n <= 0) break;
+      const k = Math.min(n, Math.max(1, Math.round(h.res / 4)));
+      h.res -= k; n -= k;
+      walkersSpawn(state, h, k, false);
+    }
+    state.lastMoves.rentLeft -= n;
+    if (state.lastMoves.rentLeft) simLog(state, plural(state.lastMoves.rentLeft, 'person', 'people') + ' left the island: the rent is high.');
   }
   if (sailed) {
     state.lastMoves.sailed = sailed;
@@ -2164,6 +2269,7 @@ function happyCalc(state) {
     if (deco > 0) parts.push({ label: 'Decorations near homes', v: Math.round(TUNE.decoHappy * deco) });
     if (state.b.some((b) => b.type === 'cathedral' && b.open && b.workers > 0)) parts.push({ label: 'The cathedral', v: TUNE.cathedralHappy });
     if (state.palace) parts.push({ label: "The Governor's palace", v: TUNE.palaceHappy });
+    for (const p of projectHappy(state)) parts.push(p);
   }
   const rent = LEVERS.rent[state.lev.rent].happy, wages = LEVERS.wages[state.lev.wages].happy;
   if (rent) parts.push({ label: 'Rent ' + state.lev.rent, v: rent });
@@ -2214,10 +2320,14 @@ function bNumber(state, b) {
   const out = { n: 0, rent: 0, wages: 0, upkeep: 0, exports: 0, imports: 0, sales: 0, buys: 0 };
   if (def.kind === 'home') {
     const lv = LEVELS[b.level];
-    out.rent = Math.round(lv.rent * LEVERS.rent[state.lev.rent].mult * b.res / lv.people * (operaNear(state, b) ? 1 + TUNE.operaRent : 1));
+    out.rent = Math.round(lv.rent * LEVERS.rent[state.lev.rent].mult * b.res / lv.people * (operaNear(state, b) ? 1 + TUNE.operaRent : 1) * (projectOn(state, 'university') ? 1 + PROJECT_FX.university.rent : 1));
+  } else if (def.kind === 'fixed') {
+    // M4: the residence carries the streets' upkeep (from Town on): "Streets and lamps" on the receipt
+    if (b.type === 'residence') out.upkeep = streetsCost(state);
   } else if (def.jobs) {
-    out.wages = Math.round(b.workers * wageNow(state) * LEVERS.wages[state.lev.wages].mult);
-    out.upkeep = Math.round(upkeepOf(def) * (b.open ? 1 : TUNE.closedUpkeep));
+    // M4: strikers are not paid; a grand project under scaffolding has no workers and no upkeep yet
+    out.wages = b.strike ? 0 : Math.round(b.workers * wageNow(state) * LEVERS.wages[state.lev.wages].mult);
+    out.upkeep = b.wip ? 0 : Math.round(upkeepOf(def) * (b.open ? 1 : TUNE.closedUpkeep));
     out.exports = def.kind === 'harbor' ? (b.mFee || 0) : (b.mExp || 0);
     out.sales = b.mSale || 0; out.buys = b.mBuy || 0;
     // block 6: the flour a bakery buys from the ship is on the bakery's own number (harbors no longer carry it)
@@ -2316,7 +2426,8 @@ function harborLedger(state, b) {
 }
 
 // Upkeep a month at full use: a share of the building's cost, a larger share for the big ones (block 6, TUNE.bigUpkeep).
-function upkeepOf(def) { return def.cost * (def.cost >= TUNE.bigUpkeep.from ? TUNE.bigUpkeep.pct : TUNE.upkeepPct); }
+// M4: a grand project keeps its own lighter share (def.upkeep, 0.5 %).
+function upkeepOf(def) { return def.cost * (def.upkeep !== undefined ? def.upkeep : def.cost >= TUNE.bigUpkeep.from ? TUNE.bigUpkeep.pct : TUNE.upkeepPct); }
 
 // A worker's monthly wage at "fair": it rises with each stage (TUNE.stageWage).
 function wageNow(state) { return TUNE.stageWage[Math.min(state.stage, TUNE.stageWage.length - 1)]; }
@@ -2325,7 +2436,11 @@ function paydayRun(state) {
   const r = { month: state.month, rent: 0, exports: 0, wagesUpkeep: 0, imports: 0, result: 0, lines: [] };
   for (const b of state.b) {
     const x = bNumber(state, b);
-    if (BUILDINGS[b.type].kind === 'fixed') continue;
+    if (BUILDINGS[b.type].kind === 'fixed') {
+      // M4: the streets' upkeep is the residence's line (the town hall pays the sweepers and the lamps)
+      if (x.n) { r.streets = -x.n; r.wagesUpkeep += -x.n; r.result += x.n; r.lines.push({ id: b.id, n: x.n }); simEvent(state, { kind: 'money', id: b.id, n: x.n }); }
+      continue;
+    }
     r.rent += x.rent; r.exports += x.exports + x.sales - x.buys; r.wagesUpkeep += x.wages + x.upkeep; r.imports += x.imports;
     r.result += x.n;
     r.lines.push({ id: b.id, n: x.n });
@@ -2396,7 +2511,8 @@ function stageConds(state) {
 
 // What a stage opens, for the stage card: its buildings, the home level, paved roads, the palace.
 function stageOpens(stage) {
-  const list = BUILD_ORDER.filter((t) => BUILDINGS[t].stage === stage).map((t) => BUILDINGS[t].name);
+  // M4: a grand project says what it does
+  const list = BUILD_ORDER.filter((t) => BUILDINGS[t].stage === stage).map((t) => BUILDINGS[t].project ? 'Grand project: the ' + BUILDINGS[t].name.toLowerCase() + ' (' + money$(BUILDINGS[t].cost) + ', ' + BUILDINGS[t].project + ' months): ' + PROJECT_FX[BUILDINGS[t].gives].text : BUILDINGS[t].name);
   if (stage === PAVED_STAGE) list.push('Paved road (carts twice as fast)');
   const lv = LEVELS.findIndex((l) => l && l.stage === stage && stage > 0);
   if (lv > 0) list.push('Homes can become ' + LEVELS[lv].name + 's (' + LEVELS[lv].people + ' people)');
@@ -2738,6 +2854,13 @@ const GUIDE_PROBLEMS = [
     return { text: 'You are ' + money$(s.money) + ' in the red. Biggest cost you can spare: the ' + BUILDINGS[c.b.type].name.toLowerCase() + ', ' + money$(c.n) + ' a month. Shut it down for now, or raise the rent at the desk.',
       btn: 'Show', act: { select: c.b.id } };
   }, now: true },
+  { key: 'strike', check(s) {
+    // M4: a strike is said at once, with both fixes and their prices
+    const b = s.b.find((o) => o.strike);
+    if (!b) return null;
+    return { text: 'The workers of the ' + BUILDINGS[b.type].name.toLowerCase() + ' are on strike: wages are low and happiness is ' + s.happy + '. Nothing is made there this month. Raise wages at the desk, or settle once for ' + money$(strikeCost(s, b)) + ' (on its card).',
+      btn: 'Show', act: { select: b.id } };
+  }, now: true },
   { key: 'loss', check(s) {
     // No loss advice in the first six months: the island is still being laid out (block 4, the playtest).
     if (s.month < 6) return null;
@@ -2842,7 +2965,7 @@ const GUIDE_PROBLEMS = [
     return { text: yardText(s, b), btn: 'Show', act: { select: b.id } };
   } },
   { key: 'workers', check(s) {
-    const b = s.b.find((o) => BUILDINGS[o.type].jobs && o.open && o.workers === 0);
+    const b = s.b.find((o) => BUILDINGS[o.type].jobs && o.open && !o.wip && o.workers === 0);
     if (!b) return null;
     return { text: 'The ' + BUILDINGS[b.type].name.toLowerCase() + ' has no workers. Half of the people work: build homes.', btn: 'Home', act: { tool: 'casita', select: b.id } };
   } },
@@ -2858,6 +2981,14 @@ const GUIDE_PROBLEMS = [
     if (!big || s.stage === 0) return { text: plural(s.jobless, 'person has', 'people have') + ' no work. Build a farm: more food lets more homes fill.', btn: toolLabel('grove'), act: { tool: 'grove' } };
     const t = big.src && !s.b.some((o) => o.type === big.src) ? big.src : big.t;
     return { text: plural(s.jobless, 'person has', 'people have') + ' no work. The biggest employer you can build: ' + big.text + '.' + (t === big.src ? ' Its ' + BUILDINGS[t].name.toLowerCase() + 's first.' : ''), btn: toolLabel(t), act: { tool: t } };
+  } },
+  { key: 'project', check(s) {
+    // M4: money with a destination: when the treasury holds more than four paydays, Rosa names the stage's grand project
+    const t = projectNext(s), r = s.lastReceipt;
+    if (!t || !r || s.money < 4 * Math.max(1000, r.result) || stageConds(s).conds.some((c) => c.landmark && !c.ok)) return null;
+    const def = BUILDINGS[t];
+    return { text: 'The treasury holds ' + money$(s.money) + ': ' + (s.money >= def.cost ? 'enough for' : 'saving for') + ' the ' + def.name.toLowerCase() + ' (' + money$(def.cost) + ', ' + def.project + ' months to build): ' + PROJECT_FX[def.gives].text + '.',
+      btn: toolLabel(t), act: { tool: t } };
   } },
   { key: 'beds', check(s) {
     if (s.waiting || freeBeds(s) > 0 || s.happy < TUNE.happyArrive || countType(s, 'casita') < 3) return null;
@@ -2918,22 +3049,33 @@ function guideStageHint(state) {
 // The Governor's desk: rent, wages, exports, open/close. Every preview simulates the change on a copy of the island.
 
 function deskApply(state, change) {
-  if (change.lever) state.lev[change.lever] = change.value;
+  // M4: through leverSet, so the desk can name the change's effect afterwards (and higher wages end a strike)
+  if (change.lever) leverSet(state, change.lever, change.value);
   if (change.exp) state.exp[change.exp] = !!change.on;
   if (change.close !== undefined) { const b = bById(state, change.close); if (b) b.open = !change.shut; }
 }
 
 // Run a copy to the end of this month and through one more; the second payday is the "a month" figure.
+// M4: also the settlers the two boats bring (and those who wait at the pier) and the people who leave.
 function previewRun(s) {
-  simRunMonths(s, 1);
-  simRunMonths(s, 1);
-  return { result: s.lastReceipt.result, happy: s.happy };
+  let came = 0, left = 0;
+  for (let k = 0; k < 2; k++) {
+    simRunMonths(s, 1);
+    const mv = s.lastMoves || {};
+    came += (mv.came || 0) + (mv.waiting || 0); left += (mv.left || 0) + (mv.rentLeft || 0);
+  }
+  return { result: s.lastReceipt.result, happy: s.happy, came, left };
 }
 
-function previewText(money, happy) {
+// M4: a rent choice also names the boats (the rule: up to N settlers, now M) and who leaves a month; the money and
+// happiness are the two-month simulation's (the boats themselves are limited by free beds, so the rule says it better).
+function previewText(money, happy, came, left, boat) {
   const parts = [];
-  if (money) parts.push((money > 0 ? '+' : '−') + '$' + Math.abs(money) + ' a month');
+  if (money) parts.push((money > 0 ? '+' : '−') + '$' + Math.abs(money).toLocaleString('en-US') + ' a month');
   if (happy) parts.push('happiness ' + (happy > 0 ? '+' : '−') + Math.abs(happy));
+  if (boat && boat.to !== boat.now) parts.push('boats up to ' + boat.to + ' settlers (now ' + boat.now + ')');
+  const l = Math.round((left || 0) / 2);
+  if (l > 0) parts.push('≈' + l + ' leave a month');
   return parts.length ? parts.join(' · ') : 'no change';
 }
 
@@ -2945,8 +3087,9 @@ function deskPreviews(state, changes) {
     const s = simClone(state);
     deskApply(s, c.change);
     const r = previewRun(s);
-    const money = r.result - base.result, happy = r.happy - base.happy;
-    out[c.id] = { money, happy, text: previewText(money, happy) };
+    const money = r.result - base.result, happy = r.happy - base.happy, came = r.came - base.came, left = r.left - base.left;
+    const boat = c.change.lever === 'rent' ? { to: shipSettlers(state, c.change.value), now: shipSettlers(state) } : null;
+    out[c.id] = { money, happy, came, left, boat, text: previewText(money, happy, came, left, boat) };
   }
   return out;
 }
@@ -2961,6 +3104,210 @@ function deskChanges(state) {
 
 // A good shows at the desk once a building on the island makes it.
 function goodSeen(state, g) { return state.b.some((b) => BUILDINGS[b.type].makes === g); }
+
+// ---- src/sim/levers.js
+// M4 (12 Oct 2026): levers that bite, and money that always has a destination (Tomáš's N17, PSYCHOLOGY.md §2-4,
+// DESIGN.md §20). Rent changes who comes and who leaves; wages change what a worker makes and, when low on an unhappy
+// island, bring strikes in the big works; the desk names the last change's effect after the fact. Grand projects (one
+// a stage from Town) take months to build and change the island for good; streets cost upkeep as the town grows.
+
+// ---------- the levers ----------
+// Her choice at the desk. The effect after the fact is counted from this month on (state.levFx[lever]):
+// { from, to, m, months, money (last month), came (settlers more (+) or fewer (−) than `from` would have brought),
+//   left (people who left because of the rent), madePct, ship (last month's export difference), strikes }.
+function leverSet(state, lever, value, quiet) {
+  const was = state.lev[lever];
+  if (was === value) return false;
+  state.lev[lever] = value;
+  if (!state.levFx) state.levFx = {};
+  state.levFx[lever] = quiet ? null : { from: was, to: value, m: state.month, months: 0, money: 0, came: 0, left: 0, ship: 0, strikes: 0 };
+  // Raising wages ends a strike at once (the workers go back in): the fix Rosa names.
+  if (lever === 'wages' && LEVERS.wages[value].mult > LEVERS.wages[was].mult) for (const b of state.b) if (b.strike) strikeEnd(state, b, 'wages');
+  return true;
+}
+
+// What the boat would bring at a rent setting (the arrivals rule with that setting's `arrive`).
+function rentArrive(state, rent) { return LEVERS.rent[rent || state.lev.rent].arrive; }
+
+// Month's end, after payday and the people: count what the last change did this month.
+function leversMonth(state) {
+  const fx = state.levFx || {}, r = state.lastReceipt;
+  const R = fx.rent, W = fx.wages;
+  if (R && r) {
+    const mn = LEVERS.rent[R.to].mult, mf = LEVERS.rent[R.from].mult;
+    R.money = Math.round(r.rent * (1 - mf / mn));
+    R.came += (state.lastMoves.came || 0) + (state.lastMoves.waiting || 0) - (state.lastMoves.boatFrom || 0);
+    R.left += state.lastMoves.rentLeft || 0;
+    R.months++;
+  }
+  if (W && r) {
+    let wages = 0, ship = 0;
+    const on = LEVERS.wages[W.to], of = LEVERS.wages[W.from];
+    for (const b of state.b) {
+      if (!b.last || b.last.m !== state.month) continue;
+      wages += b.last.wages || 0;
+      if (BUILDINGS[b.type].kind === 'producer') ship += b.last.exports || 0;
+    }
+    W.money = -Math.round(wages * (1 - of.mult / on.mult));
+    W.ship = Math.round(ship * (1 - of.output / on.output));
+    W.madePct = Math.round(100 * (on.output / of.output - 1));
+    W.months++;
+  }
+  strikesMonth(state);
+}
+
+// "Since you raised rent in May 1915: +$420 a month · 36 settlers did not come · 12 left." ('' before any change)
+function levFxText(state, lever) {
+  const f = state.levFx && state.levFx[lever];
+  if (!f) return '';
+  const up = LEVERS[lever][f.to].mult > LEVERS[lever][f.from].mult;
+  const head = 'Since you ' + (up ? 'raised ' : 'lowered ') + lever + ' in ' + dateLabel(f.m) + ' (' + f.from + ' → ' + f.to + ')';
+  if (!f.months) return head + ': the first payday shows its effect.';
+  const parts = [];
+  if (lever === 'rent') {
+    parts.push(signed$(f.money) + ' a month in rent');
+    if (f.came < 0) parts.push(plural(-f.came, 'settler', 'settlers') + ' did not come');
+    else if (f.came > 0) parts.push(plural(f.came, 'settler', 'settlers') + ' more came');
+    else parts.push('the boats brought as many');
+    if (f.left) parts.push(plural(f.left, 'person', 'people') + ' left');
+  } else {
+    parts.push(signed$(f.money) + ' a month in wages');
+    parts.push('workers make ' + Math.abs(f.madePct || 0) + ' % ' + ((f.madePct || 0) >= 0 ? 'more' : 'less') + (f.ship ? ' (' + signed$(f.ship) + ' from the ship)' : ''));
+    if (f.strikes) parts.push(plural(f.strikes, 'strike', 'strikes'));
+  }
+  return head + ': ' + parts.join(' · ') + '.';
+}
+
+// The rule of each lever in one line (the desk; nothing hidden changes her score).
+function leverRule(lever) {
+  if (lever === 'rent') return 'Low rent: the boats bring half again as many settlers. High rent: they bring half as many, and 1 in 200 people leaves each month.';
+  return 'Low wages: workers make 15 % less, and below ' + TUNE.strikeHappy + ' happiness the big works (' + TUNE.strikeJobs + '+ workers) strike after ' + TUNE.strikeMonths + ' months. High wages: workers make 20 % more.';
+}
+
+// ---------- strikes ----------
+// The big works on the island now: open, staffed, strikeJobs workers or more, finished.
+function strikeWorks(state) { return state.b.filter((b) => BUILDINGS[b.type].kind === 'producer' && BUILDINGS[b.type].jobs >= TUNE.strikeJobs && b.open && b.workers > 0); }
+
+// Month's end: grievances grow while wages are low and happiness is under strikeHappy; at strikeMonths the biggest
+// works with a grievance strikes (one strike at a time on the island).
+function strikesMonth(state) {
+  const low = state.lev.wages === 'low' && state.happy < TUNE.strikeHappy;
+  const works = strikeWorks(state);
+  for (const b of works) b.grieve = low && !(b.calm > state.month) && !b.strike ? (b.grieve || 0) + 1 : 0;
+  if (state.b.some((b) => b.strike)) return;
+  const due = works.filter((b) => b.grieve >= TUNE.strikeMonths).sort((a, b) => BUILDINGS[b.type].jobs - BUILDINGS[a.type].jobs || a.id - b.id)[0];
+  if (due) strikeStart(state, due);
+}
+
+function strikeStart(state, b) {
+  b.strike = TUNE.ticksPerMonth; b.grieve = 0;
+  state.stats.strikes = (state.stats.strikes || 0) + 1;
+  if (state.levFx && state.levFx.wages) state.levFx.wages.strikes++;
+  const name = BUILDINGS[b.type].name.toLowerCase();
+  simLog(state, 'The workers of the ' + name + ' are on strike: wages are low and happiness is ' + state.happy + '. Nothing is made there for a month.', [b.x + b.w / 2, b.y + b.h / 2]);
+  simEvent(state, { kind: 'strike', id: b.id });
+}
+
+// how: 'over' (a month passed), 'wages' (she raised them), 'settled' (she paid once)
+function strikeEnd(state, b, how) {
+  b.strike = 0; b.grieve = 0;
+  if (how !== 'over') b.calm = state.month + TUNE.strikeCalm;
+  const name = BUILDINGS[b.type].name.toLowerCase();
+  simLog(state, how === 'settled' ? 'The strike at the ' + name + ' is settled: the workers are back.' : how === 'wages' ? 'Wages are up: the workers of the ' + name + ' are back.' : 'The strike at the ' + name + ' is over.', [b.x + b.w / 2, b.y + b.h / 2]);
+  simEvent(state, { kind: 'strikeEnd', id: b.id, how });
+}
+
+// Settling once: a month of its wages at fair.
+function strikeCost(state, b) { return Math.round(BUILDINGS[b.type].jobs * wageNow(state)); }
+
+function strikeSettle(state, b) {
+  if (!b || !b.strike) return { ok: false, why: 'No strike here' };
+  const cost = strikeCost(state, b);
+  if (state.money < cost) return { ok: false, why: 'Not enough money (' + money$(cost) + ')' };
+  state.money -= cost;
+  strikeEnd(state, b, 'settled');
+  return { ok: true, cost };
+}
+
+// Every tick: a strike lasts a month; a grand project's scaffolding comes down when its months are over.
+function leversTick(state) {
+  for (const b of state.b) {
+    if (b.strike && --b.strike <= 0) strikeEnd(state, b, 'over');
+    if (b.wip && --b.wip <= 0) {
+      b.wip = 0;
+      state.ver++;
+      simLog(state, 'The ' + BUILDINGS[b.type].name.toLowerCase() + ' is finished: ' + PROJECT_FX[BUILDINGS[b.type].gives].text + '.', [b.x + b.w / 2, b.y + b.h / 2]);
+      simEvent(state, { kind: 'project', id: b.id });
+    }
+  }
+}
+
+// ---------- grand projects ----------
+// A grand project of this kind ('water', 'power', ...) stands finished, open and staffed.
+function projectOn(state, gives) { return state.b.some((b) => BUILDINGS[b.type].gives === gives && !b.wip && b.open && b.workers > 0); }
+
+// A project's whole build time in ticks, and how far it is (0..1).
+function projectTicks(def) { return (def.project || 0) * TUNE.ticksPerMonth; }
+function projectDone(b) { const def = BUILDINGS[b.type]; return def.project ? 1 - (b.wip || 0) / projectTicks(def) : 1; }
+
+// The grand project of the island's stage that is not built yet (the one to save for), or null.
+function projectNext(state) {
+  for (const t of PROJECTS) if (BUILDINGS[t].stage <= state.stage && !countType(state, t)) return t;
+  return null;
+}
+
+// The happiness a running project gives (happyCalc's parts).
+function projectHappy(state) {
+  const out = [];
+  for (const t of PROJECTS) { const g = BUILDINGS[t].gives; if (projectOn(state, g)) out.push({ label: 'The ' + BUILDINGS[t].name.toLowerCase(), v: PROJECT_FX[g].happy }); }
+  return out;
+}
+
+// ---------- streets ----------
+// What the streets cost a month (from Town on): dirt tiles and paved tiles at TUNE.streetCost.
+function streetsCost(state) {
+  if (state.stage < TUNE.streetStage) return 0;
+  let n = 0;
+  for (const v of state.road) if (v) n += TUNE.streetCost[v] || TUNE.streetCost[TUNE.streetCost.length - 1];
+  return Math.round(n);
+}
+
+// ---------- where the money comes from (the money panel and the Money layer) ----------
+// A building's monthly number as the map's Money layer shows it: a workplace's last payday line (this month's so far
+// before its first payday), a home's rent, the residence's streets; null for what has none (decorations, the pier).
+function bMonthly(state, b) {
+  const def = BUILDINGS[b.type];
+  if (def.kind === 'deco' || b.type === 'pier') return null;
+  if (b.last && b.last.m === state.month - 1) return b.last.n;
+  const n = bNumber(state, b).n;
+  return n || (def.kind === 'home' ? 0 : null);
+}
+
+// Last month in plain parts, each with the buildings behind it (largest first) for Show:
+// { result, income: [{ key, label, n, ids }], costs: [{ key, label, n, ids }], best: [{ id, n }], worst: [{ id, n }] }.
+function moneySources(state) {
+  const r = state.lastReceipt;
+  if (!r) return null;
+  const by = (f) => state.b.map((b) => ({ b, v: f(b) })).filter((o) => o.v > 0).sort((a, c) => c.v - a.v).map((o) => o.b.id);
+  const L = (b) => (b.last && b.last.m === r.month ? b.last : null);
+  const homes = state.b.filter((b) => BUILDINGS[b.type].kind === 'home' && b.res > 0);
+  const income = [{ key: 'rent', label: 'Rent from ' + plural(homes.length, 'home', 'homes'), n: r.rent, ids: by((b) => BUILDINGS[b.type].kind === 'home' ? bNumber(state, b).rent : 0) }];
+  const sv = r.soldValue || {};
+  for (const g of Object.keys(sv).filter((k) => sv[k] > 0).sort((a, c) => sv[c] - sv[a])) {
+    income.push({ key: 'exp:' + g, label: (r.soldUnits[g] || 0) + ' ' + GOODS[g].name.toLowerCase() + ' to the ship', n: sv[g], ids: by((b) => (BUILDINGS[b.type].makes === g && L(b) ? L(b).exports : 0)) });
+  }
+  let wages = 0, upkeep = 0, flour = 0;
+  for (const b of state.b) { const x = L(b); if (x) { wages += x.wages; upkeep += x.upkeep; flour += x.imports || 0; } }
+  const costs = [
+    { key: 'wages', label: 'Wages', n: -wages, ids: by((b) => (L(b) ? L(b).wages : 0)) },
+    { key: 'upkeep', label: 'Upkeep of buildings', n: -upkeep, ids: by((b) => (L(b) ? L(b).upkeep : 0)) },
+  ];
+  if (flour) costs.push({ key: 'flour', label: 'Flour (the ship)', n: -flour, ids: by((b) => (L(b) ? L(b).imports || 0 : 0)) });
+  if (r.streets) costs.push({ key: 'streets', label: 'Streets and lamps', n: -r.streets, ids: state.b.filter((b) => b.type === 'residence').map((b) => b.id) });
+  const lines = r.lines.filter((l) => { const b = bById(state, l.id); return b && BUILDINGS[b.type].kind !== 'home' && BUILDINGS[b.type].kind !== 'fixed'; });
+  const best = lines.filter((l) => l.n > 0).sort((a, c) => c.n - a.n).slice(0, 3), worst = lines.filter((l) => l.n < 0).sort((a, c) => a.n - c.n).slice(0, 3);
+  return { result: r.result, month: r.month, income, costs, best, worst };
+}
 
 // ---- src/sim/save.js
 // Save and load: the state is one plain JSON object. Caches (keys starting with "_"), events and walkers are not saved.
@@ -2981,6 +3328,7 @@ function loadGame(obj) {
   if (s.mv < 4) saveMigrate3(s);
   if (s.mv < 5) saveMigrate4(s);
   if (s.mv < 6) saveMigrate5(s);
+  if (s.mv < 7) saveMigrate6(s);
   s.ev = [];
   s.walk = [];
   return s;
@@ -3047,6 +3395,13 @@ function saveMigrate5(s) {
   s.mv = 6;
 }
 
+// M3 saves -> M4 (12 Oct 2026): the levers' after-effect starts counting at her next change; no strikes yet.
+function saveMigrate6(s) {
+  s.levFx = {};
+  for (const b of s.b) { if (b.strike) b.strike = 0; }
+  s.mv = 7;
+}
+
 // A detached copy for previews: no events, no walkers.
 function simClone(state) {
   const s = loadGame(saveGame(state));
@@ -3068,7 +3423,7 @@ function newGame(seed) {
     happy: 50, workforce: 0, jobs: 0, jobless: 0, exported: {}, monthExported: {}, monthImports: {},
     lastReceipt: null, history: [], log: [], stageMonth: { 0: 0 }, stats: { levelUps: 0 },
     guide: { step: 0, msg: null, cnt: {}, seen: {}, snooze: {} }, lastMoves: { came: 0, left: 0 },
-    walk: [], ev: [], palace: 0, res: 0, mv: 6, downs: {}, downNeed: {}, waitQ: [], waiting: 0,
+    walk: [], ev: [], palace: 0, res: 0, mv: 7, downs: {}, downNeed: {}, waitQ: [], waiting: 0, levFx: {},
   };
   for (const i of map.stub) state.road[i] = 1;
   state.b.push(newBuilding(state, 'pier', map.pier.x, map.pier.y));
@@ -3102,6 +3457,7 @@ function simTick(state) {
   // M2: settlers waiting at the pier move into a free bed within a second of it existing (a new home, an upgrade)
   if (state.waiting && state.mt % 5 === 2) waitHouse(state);
   if (state.mt % 10 === 0) homeCountsUpdate(state);
+  leversTick(state);
   walkersTick(state);
   state.tick++;
   state.mt++;
@@ -3122,6 +3478,7 @@ function monthEnd(state) {
   state.monthExported = {}; state.monthExpV = {};
   state.happy = happyCalc(state).value;
   peopleMonth(state);
+  leversMonth(state);
   jobsAssign(state);
   stageCheck(state);
   homeCountsUpdate(state);
@@ -3156,6 +3513,654 @@ function guideDismiss(state) {
   const g = state.guide;
   if (g.msg) g.snooze[g.msg.key] = state.month + 3;
   g.msg = null;
+}
+
+// ---- src/sim/transport.js
+// M5 (12 Oct 2026, Tomáš's note N11 after Tugba played: "she misses the transport element: improving traffic, roads,
+// infrastructure, trains, airports"): traffic on the roads, avenues, the tram, the cane railway and the airfield.
+// Rules and numbers: DESIGN.md §21. Every rule is on a card, the Traffic layer, the build bar or Rosa's line.
+// History (M5 had no web access; from the standard histories, to be checked against them before quoting in the game):
+// - Boulevards: Havana's Paseo del Prado (laid out 1772, rebuilt 1928 with its laurels and bronze lions) is the model
+//   of the Avenue: two carriageways with a planted promenade between them.
+// - Trams: electric street railways ran in Port of Spain (1895), Kingston (1899), Havana (1901) and San Juan (1901);
+//   a ride cost a few centavos (Allen Morrison, *Latin America by Streetcar*, 1996).
+// - Cane railways: after 1900 every sugar central laid narrow-gauge track into the cane, so land far from any road could
+//   be planted and the cane reached the mill fresh (Zanetti & García, *Sugar and Railroads: A Cuban History,
+//   1837-1959*, 1998).
+// - Flying boats: Aeromarine West Indies Airways flew Key West-Havana from November 1920; Pan American's first scheduled
+//   flight, Key West-Havana, was in October 1927 (Bender & Altschul, *The Chosen Instrument*, 1982). So the airfield
+//   opens at Port city, not before 1920.
+
+const TR = {
+  // Road kinds: 1 dirt, 2 paved, 3 avenue. A cart's speed multiplier on each, and how many carts a month pass a tile
+  // (both ways, measured each quarter month) before they slow down: dirt 80, paved twice that, an avenue tile twice again.
+  speed: [1, 1, 2, 2],
+  cap: [1, 80, 160, 320],
+  busy: 0.6,              // load / cap above this: busy (amber), carts start to slow
+  jam: 1,                 // load / cap above this: jammed (red)
+  slowMin: 0.3,           // a jammed cart still moves at 30 % of its speed (no deadlock)
+  window: 25,             // ticks per traffic measurement (a quarter of a month)
+  avenueCost: 400,        // a tile; the avenue is two tiles wide, so $800 a step
+  avenueStage: 3,         // City (with the paved road)
+  tramCost: 300, tramStage: 2, tramUpkeep: 20, tramFare: 2, tramWalk: 2, tramRide: 6, tramGap: 3,
+  railCost: 200, railStage: 3, railUpkeep: 10, railNear: 2, railTrip: 20, railLoad: 48,
+  airYear: 1920, visitSpend: 45, airHappy: 4,
+  walkToWork: 16,         // a workplace finds workers among the people within this many tiles (or by tram)
+};
+
+// The airfield (Port city, from 1920): a grass strip, a hangar and a slipway for the flying boats.
+BUILDINGS.airfield = { name: 'Airfield', kind: 'service', w: 3, h: 3, cost: 60000, jobs: 10, stage: 4, year: TR.airYear, site: 'coast', gives: 'air',
+  icon: 'plane', art: 'airfield', color: '#cfd8c8', group: 'roads' };
+BUILD_ORDER.push('airfield');
+BAR_GROUPS[0].name = 'Transport';
+
+// ---------- traffic ----------
+// state.traffic = { load: { tile: carts a month }, cnt: { tile: carts this window }, route: load when the month began }
+// (saved: a reloaded island drives on the same). A cart counts once on each tile it enters (c.lt: its last tile).
+function trState(state) {
+  if (!state.traffic) state.traffic = { load: {}, cnt: {} };
+  return state.traffic;
+}
+
+function roadKindAt(state, i) { return state.road[i] || 0; }
+
+// How full a road tile is: its load over what its kind carries (0 free, 1 jammed).
+function trafficLevel(state, i) {
+  const k = roadKindAt(state, i);
+  if (!k) return 0;
+  return (trState(state).load[i] || 0) / TR.cap[k];
+}
+
+// The speed factor of a tile's traffic: 1 up to busy, then down to slowMin.
+function trSlowOf(x) { return x <= TR.busy ? 1 : Math.max(TR.slowMin, 1 / (1 + 1.5 * (x - TR.busy))); }
+
+// Tiles a tick a cart moves on tile i (economy.js cartTick and the renderer use it).
+function cartStep(state, i) {
+  const k = roadKindAt(state, i);
+  return TUNE.cartSpeed * (TR.speed[k] || 1) * trSlowOf(trafficLevel(state, i));
+}
+
+function trFold(state) {
+  const T = trState(state), next = {};
+  const keys = new Set(Object.keys(T.load).concat(Object.keys(T.cnt)));
+  for (const k of keys) {
+    const v = 0.5 * (T.load[k] || 0) + 0.5 * (T.cnt[k] || 0) * TUNE.ticksPerMonth / TR.window;
+    if (v >= 0.5 && state.road[+k]) next[k] = Math.round(v * 10) / 10;
+  }
+  T.load = next; T.cnt = {};
+}
+
+function trTick(state) {
+  const T = trState(state);
+  for (const c of state.carts) {
+    if (c.st === 'idle' || !c.path) continue;
+    const i = c.path[Math.min(c.path.length - 1, Math.floor(c.pos))];
+    if (c.lt === i) continue;
+    c.lt = i;
+    T.cnt[i] = (T.cnt[i] || 0) + 1;
+  }
+  if (state.tick % TR.window === TR.window - 1) trFold(state);
+  if (state.mt === 0) T.route = Object.assign({}, T.load);
+  if ((state.rail || []).length && state.tick % TR.railTrip === TR.railTrip - 1) railRun(state);
+}
+
+// Routes are planned on the traffic as it was when the month began (T.route, saved), so a reloaded island plans the
+// same routes. Is any tile busy in it (then routes are planned again each month, else only when roads change)?
+function routeLevel(state, i) {
+  const k = roadKindAt(state, i), T = trState(state);
+  return k ? ((T.route || T.load)[i] || 0) / TR.cap[k] : 0;
+}
+function trBusy(state) {
+  const T = trState(state), L = T.route || T.load;
+  for (const k in L) if (routeLevel(state, +k) > TR.busy) return true;
+  return false;
+}
+
+// A small binary heap for the routes.
+function heapPush(h, d, i) { h.push([d, i]); let k = h.length - 1; while (k) { const p = (k - 1) >> 1; if (h[p][0] <= h[k][0]) break; [h[p], h[k]] = [h[k], h[p]]; k = p; } }
+function heapPop(h) { const top = h[0], last = h.pop(); if (h.length) { h[0] = last; let k = 0; for (;;) { const a = 2 * k + 1, b = a + 1; let m = k; if (a < h.length && h[a][0] < h[m][0]) m = a; if (b < h.length && h[b][0] < h[m][0]) m = b; if (m === k) break; [h[m], h[k]] = [h[k], h[m]]; k = m; } } return top; }
+
+// The fastest way (in ticks) from a building's entrances over the roads, counting surface and traffic: a cart takes the
+// paved road when it is quicker, and goes round a jam when the way round is shorter in time. Cached per source until
+// the roads change (and, while some road is busy, for one month).
+function routeTree(state, a) {
+  const c = simCache(state), ep = trBusy(state) ? state.month : -1;
+  if (!c.rt || c.rtEp !== ep) {
+    c.rt = {}; c.rtEp = ep;
+    // ticks to cross each road tile (Infinity off the road), once per month and road change
+    const n = MAP_W * MAP_H, cost = new Float64Array(n).fill(Infinity);
+    for (let i = 0; i < n; i++) if (state.road[i]) cost[i] = 1 / (TUNE.cartSpeed * (TR.speed[state.road[i]] || 1) * trSlowOf(routeLevel(state, i)));
+    c.rcost = cost;
+  }
+  if (c.rt[a.id]) return c.rt[a.id];
+  const n = MAP_W * MAP_H, cost = c.rcost, dist = new Float64Array(n).fill(Infinity), par = new Int32Array(n).fill(-1), h = [];
+  for (const i of bEntrances(state, a)) { dist[i] = 0; heapPush(h, 0, i); }
+  while (h.length) {
+    const top = heapPop(h), d = top[0], i = top[1];
+    if (d > dist[i]) continue;
+    const x = i % MAP_W;
+    for (let k = 0; k < 4; k++) {
+      const j = k === 0 ? (x + 1 < MAP_W ? i + 1 : -1) : k === 1 ? (x > 0 ? i - 1 : -1) : k === 2 ? i + MAP_W : i - MAP_W;
+      if (j < 0 || j >= n) continue;
+      const nd = d + cost[j];
+      if (nd < dist[j] - 1e-9) { dist[j] = nd; par[j] = i; heapPush(h, nd, j); }
+    }
+  }
+  return (c.rt[a.id] = { dist, par });
+}
+
+// The cart's path from a to b along the fastest route (falls back on the shortest road path).
+function cartRoute(state, a, b) {
+  const { dist, par } = routeTree(state, a);
+  let at = -1, best = Infinity;
+  for (const e of bEntrances(state, b)) if (dist[e] < best) { best = dist[e]; at = e; }
+  if (at < 0) return roadPath(state, a, b);
+  const path = [];
+  for (let i = at; i >= 0; i = par[i]) path.push(i);
+  return path.reverse();
+}
+
+// A trip along a path: ticks now, ticks on the same roads with no traffic, ticks if all were paved and free.
+function tripTicks(state, path) {
+  let now = 0, free = 0, best = 0, worst = -1, wl = 0;
+  for (const i of path) {
+    const k = roadKindAt(state, i) || 1, l = trafficLevel(state, i);
+    now += 1 / cartStep(state, i); free += 1 / (TUNE.cartSpeed * TR.speed[k]); best += 1 / (TUNE.cartSpeed * TR.speed[2]);
+    if (l > wl) { wl = l; worst = i; }
+  }
+  return { now, free, best, worst, worstLevel: wl, tiles: path.length };
+}
+
+// A producer's road trip for its card: { tiles, ratio (now / paved and free), jam (now / free), worst tile } or null.
+function producerTrip(state, b) {
+  const def = BUILDINGS[b.type];
+  if (def.kind !== 'producer') return null;
+  const cart = state.carts.find((c) => c.home === b.id && c.st === 'go' && c.path);
+  let path = cart ? cart.path : null;
+  if (!path) { const best = consumerFind(state, b, def.makes); if (best) path = cartRoute(state, b, best.d); }
+  if (!path || path.length < 2) return null;
+  const t = tripTicks(state, path);
+  return { tiles: t.tiles, ratio: t.now / t.best, jam: t.now / t.free, worst: t.worst, worstLevel: t.worstLevel, paved: path.every((i) => state.road[i] >= 2) };
+}
+
+// The worst jam on the island: { i, level, carts, kind } or null (a tile at or over its capacity).
+function worstJam(state) {
+  const L = trState(state).load;
+  let best = null;
+  for (const k in L) { const i = +k, l = trafficLevel(state, i); if (l >= TR.jam && (!best || l > best.level)) best = { i, level: l, carts: L[k], kind: state.road[i] }; }
+  return best;
+}
+
+// Counts for the Traffic layer's legend and the tests: road tiles free / busy / jammed.
+function trafficCounts(state) {
+  const out = { free: 0, busy: 0, jam: 0 };
+  for (let i = 0; i < state.road.length; i++) if (state.road[i]) { const l = trafficLevel(state, i); out[l >= TR.jam ? 'jam' : l > TR.busy ? 'busy' : 'free']++; }
+  return out;
+}
+
+// The building nearest a tile (for "the road by the market").
+function nearestB(state, i) {
+  const x = i % MAP_W, y = (i / MAP_W) | 0;
+  let best = null;
+  for (const b of state.b) { if (BUILDINGS[b.type].kind === 'home') continue; const d = footDist(b, { x, y, w: 1, h: 1 }); if (!best || d < best.d) best = { b, d }; }
+  return best && best.d <= 6 ? best.b : null;
+}
+
+function placeName(state, i) {
+  const b = nearestB(state, i);
+  return b ? 'the road by the ' + (BUILDINGS[b.type].short || BUILDINGS[b.type].name).toLowerCase() : 'a road in town';
+}
+
+// ---------- avenues ----------
+// An avenue stroke is two tiles wide: each tile of the stroke and its neighbour on the far side (down for a stroke along
+// x, right for one along y), so the second carriageway runs beside the first with the palm promenade between them.
+function avenueWiden(tiles) {
+  const out = [], seen = new Set();
+  const add = (i) => { if (!seen.has(i)) { seen.add(i); out.push(i); } };
+  tiles.forEach((i, k) => {
+    const x = i % MAP_W, y = (i / MAP_W) | 0, p = tiles[k - 1], n = tiles[k + 1];
+    const alongX = [p, n].some((j) => j !== undefined && ((j / MAP_W) | 0) === y) || (p === undefined && n === undefined);
+    const alongY = [p, n].some((j) => j !== undefined && j % MAP_W === x);
+    add(i);
+    if (alongX && inMap(x, y + 1)) add(tileIdx(x, y + 1));
+    if (alongY && inMap(x + 1, y)) add(tileIdx(x + 1, y));
+  });
+  return out;
+}
+
+// ---------- tram ----------
+function tramSet(state) {
+  const c = simCache(state);
+  if (!c.tramSet) { c.tramSet = new Uint8Array(MAP_W * MAP_H); for (const i of state.tram || []) c.tramSet[i] = 1; }
+  return c.tramSet;
+}
+
+function tramWhy(state, x, y) {
+  if (!inMap(x, y)) return 'Off the island';
+  if (!state.road[tileIdx(x, y)]) return 'A tram runs on a road: lay the road first';
+  return '';
+}
+
+function tramPlan(state, tiles) {
+  const set = tramSet(state), add = [], bad = [];
+  for (const i of tiles) { if (set[i]) continue; const why = tramWhy(state, i % MAP_W, (i / MAP_W) | 0); if (why) bad.push({ i, why }); else if (!add.includes(i)) add.push(i); }
+  return { add, bad, cost: add.length * TR.tramCost };
+}
+
+function placeTram(state, tiles) {
+  if (state.stage < TR.tramStage) return { built: 0, cost: 0, why: 'Opens at ' + STAGES[TR.tramStage].name };
+  const plan = tramPlan(state, tiles);
+  let built = 0;
+  for (const i of plan.add) { if (state.money < TR.tramCost) break; state.tram = (state.tram || []).concat(i); state.money -= TR.tramCost; built++; }
+  if (built) { state.tram.sort((a, b) => a - b); state.ver++; simEvent(state, { kind: 'tram', n: built }); }
+  return { built, cost: built * TR.tramCost, why: plan.bad.length ? plan.bad[0].why : built < plan.add.length ? 'Not enough money' : '' };
+}
+
+// Connected pieces of track (4-neighbours) of a tile set: [{ tiles, ends, path }]; path runs end to end (the longest
+// way through the piece) for the tram car or the train.
+function trackLines(set, list) {
+  const comp = new Int32Array(MAP_W * MAP_H).fill(-1), lines = [];
+  const nb = (i) => { const x = i % MAP_W, y = (i / MAP_W) | 0, o = []; for (const [dx, dy] of DIRS4) { const nx = x + dx, ny = y + dy; if (inMap(nx, ny) && set[tileIdx(nx, ny)]) o.push(tileIdx(nx, ny)); } return o; };
+  const bfs = (s0) => { const d = new Map([[s0, 0]]), par = new Map([[s0, -1]]), q = [s0]; for (let h = 0; h < q.length; h++) for (const j of nb(q[h])) if (!d.has(j)) { d.set(j, d.get(q[h]) + 1); par.set(j, q[h]); q.push(j); } return { d, par, q }; };
+  for (const i0 of list) {
+    if (comp[i0] >= 0) continue;
+    const a = bfs(i0), tiles = a.q;
+    for (const i of tiles) comp[i] = lines.length;
+    const far = tiles.reduce((m, i) => (a.d.get(i) > a.d.get(m) ? i : m), tiles[0]);
+    const b = bfs(far), end = b.q.reduce((m, i) => (b.d.get(i) > b.d.get(m) ? i : m), far), path = [];
+    for (let i = end; i >= 0; i = b.par.get(i)) path.push(i);
+    lines.push({ tiles, path, nb, deg: (i) => nb(i).length });
+  }
+  return { lines, comp };
+}
+
+// Tram lines with their stops (ends, junctions, and every TR.tramGap tiles along the line) and, for each stop, the stops
+// within TR.tramRide tiles of track (a short ride). Cached until the roads or the track change.
+function tramLines(state) {
+  const c = simCache(state);
+  if (c.tram) return c.tram;
+  const set = tramSet(state), { lines, comp } = trackLines(set, state.tram || []);
+  for (const L of lines) {
+    const start = L.path[0], since = new Map([[start, 0]]), q = [start], stops = [];
+    for (let h = 0; h < q.length; h++) {
+      const i = q[h], d = since.get(i);
+      const stop = L.deg(i) !== 2 || d >= TR.tramGap;
+      if (stop) stops.push(i);
+      for (const j of L.nb(i)) if (!since.has(j)) { since.set(j, stop ? 1 : d + 1); q.push(j); }
+    }
+    L.stops = stops;
+    L.ride = {};
+    for (const s0 of stops) {
+      const d = new Map([[s0, 0]]), q2 = [s0];
+      for (let h = 0; h < q2.length; h++) { const i = q2[h]; if (d.get(i) >= TR.tramRide) continue; for (const j of L.nb(i)) if (!d.has(j)) { d.set(j, d.get(i) + 1); q2.push(j); } }
+      L.ride[s0] = stops.filter((t) => d.has(t));
+    }
+  }
+  return (c.tram = { lines, comp, stops: lines.reduce((a, L) => a.concat(L.stops), []) });
+}
+
+const tile1 = (i) => ({ x: i % MAP_W, y: (i / MAP_W) | 0, w: 1, h: 1 });
+
+// The stops within walking distance of a footprint (homes and workplaces).
+function stopsNear(state, b) {
+  const T = tramLines(state), out = [];
+  for (const L of T.lines) if (L.stops.length >= 2) for (const s0 of L.stops) if (footDist(b, tile1(s0)) <= TR.tramWalk) out.push({ L, s: s0 });
+  return out;
+}
+
+// The stops a home reaches by tram (a short ride from a stop it walks to).
+function tramRideStops(state, h) {
+  const out = new Set();
+  for (const { L, s } of stopsNear(state, h)) for (const t of L.ride[s]) out.add(t);
+  return out;
+}
+
+// Homes near a stop reach markets and services farther away: those within their usual reach of a stop a short ride
+// along the line (TR.tramRide tiles of track). No road join is needed: the tram is the link. Marked in r.tram.
+function tramReach(state, reach) {
+  const homes = state.b.filter((b) => b.type === 'casita');
+  const svc = state.b.filter((s) => { const d = BUILDINGS[s.type]; return (d.kind === 'market' || d.kind === 'service') && d.gives !== 'light' && d.gives !== 'air'; });
+  for (const h of homes) {
+    const r = reach[h.id], ride = tramRideStops(state, h);
+    if (!r || !ride.size) continue;
+    for (const s of svc) {
+      const def = BUILDINGS[s.type], lim = bReach(def);
+      const has = def.kind === 'market' ? r.markets.includes(s.id) : (r.svc[def.gives] || []).includes(s.id);
+      if (has) continue;
+      let ok = false;
+      for (const t of ride) if (footDist(s, tile1(t)) <= lim) { ok = true; break; }
+      if (!ok) continue;
+      if (def.kind === 'market') r.markets.push(s.id); else (r.svc[def.gives] = r.svc[def.gives] || []).push(s.id);
+      (r.tram = r.tram || []).push(s.id);
+      r.cut = r.cut.filter((id) => id !== s.id);
+    }
+  }
+}
+
+{
+  const _homeReach = homeReach;
+  homeReach = function (state) {
+    const c = simCache(state);
+    if (c.reach) return c.reach;
+    const reach = _homeReach(state);
+    if ((state.tram || []).length) tramReach(state, reach);
+    return reach;
+  };
+}
+
+// The people who ride: everyone living within walking distance of a stop on a line with two or more stops.
+function tramRiders(state) {
+  if (!(state.tram || []).length) return 0;
+  let n = 0;
+  for (const h of state.b) if (h.type === 'casita' && h.res && stopsNear(state, h).length) n += h.res;
+  return n;
+}
+
+// ---------- jobs within reach ----------
+// A workplace finds workers among the people living within TR.walkToWork tiles (a square around it, like reach), or
+// riding the tram from a stop near their home to a stop a short ride from it. Workers who would have to walk farther
+// take another job (or none). People in the square are summed from a grid of residents (cheap enough for every tick).
+function resPrefix(state) {
+  const W = MAP_W + 1, P = new Int32Array(W * (MAP_H + 1));
+  for (const h of state.b) if (h.type === 'casita' && h.res) P[(h.y + 1) * W + h.x + 1] += h.res;
+  for (let y = 1; y <= MAP_H; y++) for (let x = 1; x <= MAP_W; x++) P[y * W + x] += P[(y - 1) * W + x] + P[y * W + x - 1] - P[(y - 1) * W + x - 1];
+  return P;
+}
+function boxSum(P, x0, y0, x1, y1) {
+  const W = MAP_W + 1;
+  x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(MAP_W - 1, x1); y1 = Math.min(MAP_H - 1, y1);
+  if (x1 < x0 || y1 < y0) return 0;
+  return P[(y1 + 1) * W + x1 + 1] - P[y0 * W + x1 + 1] - P[(y1 + 1) * W + x0] + P[y0 * W + x0];
+}
+// The homes (ids) beyond walking distance that reach a workplace by tram: a stop near the home and a stop near the
+// workplace on the same line (workers ride the whole line to work; shoppers ride a few stops). Cached until the roads,
+// the track or the buildings change.
+function jobTramHomes(state, b) {
+  const c = simCache(state);
+  if (!c.jt) c.jt = {};
+  if (c.jt[b.id]) return c.jt[b.id];
+  const out = [];
+  if ((state.tram || []).length) {
+    const lines = new Set(stopsNear(state, b).map((o) => o.L));
+    if (lines.size) for (const h of state.b) if (h.type === 'casita' && footDist(b, h) > TR.walkToWork && stopsNear(state, h).some((o) => lines.has(o.L))) out.push(h.id);
+  }
+  return (c.jt[b.id] = out);
+}
+function jobPeople(state, b, P) {
+  P = P || resPrefix(state);
+  const R = TR.walkToWork, near = boxSum(P, b.x - R, b.y - R, b.x + b.w - 1 + R, b.y + b.h - 1 + R);
+  const tram = jobTramHomes(state, b).reduce((a, id) => a + ((bById(state, id) || {}).res || 0), 0);
+  return { near, tram };
+}
+
+// After the usual assignment: no workplace has more workers than half the people in its reach; the rest go to
+// workplaces that have room and people near (food first, then build order, as jobsAssign does).
+function commuteCap(state) {
+  const list = state.b.filter((b) => BUILDINGS[b.type].jobs && b.open)
+    .sort((a, b) => ((BUILDINGS[a.type].food ? 0 : 1) - (BUILDINGS[b.type].food ? 0 : 1)) || (a.id - b.id));
+  if (!list.length) return;
+  const P = resPrefix(state), cap = {};
+  let free = 0;
+  const rail = (state.rail || []).length > 0;
+  for (const b of list) {
+    // a field on the railway: the cutters ride the cane train out (no cap)
+    if (rail && railField(BUILDINGS[b.type]) && railTakes(state, b)) { cap[b.id] = BUILDINGS[b.type].jobs; continue; }
+    const p = jobPeople(state, b, P);
+    cap[b.id] = Math.ceil((p.near + p.tram) / 2);
+    const far = b.workers > cap[b.id] ? b.workers - cap[b.id] : 0;
+    if (far) { free += far; b.workers = cap[b.id]; }
+  }
+  if (!free) return;
+  for (const b of list) {
+    const more = Math.min(free, BUILDINGS[b.type].jobs - b.workers, Math.max(0, cap[b.id] - b.workers));
+    if (more > 0) { b.workers += more; free -= more; }
+  }
+  state.jobless += free;
+}
+
+{
+  const _jobsAssign = jobsAssign;
+  jobsAssign = function (state) { _jobsAssign(state); commuteCap(state); };
+}
+
+// ---------- the cane railway ----------
+function railSet(state) {
+  const c = simCache(state);
+  if (!c.railSet) { c.railSet = new Uint8Array(MAP_W * MAP_H); for (const i of state.rail || []) c.railSet[i] = 1; }
+  return c.railSet;
+}
+
+function railAt(state, i) { return (state.rail || []).length > 0 && railSet(state)[i] === 1; }
+
+function railWhy(state, x, y) {
+  if (!inMap(x, y)) return 'Off the island';
+  const i = tileIdx(x, y), t = state.terrain[i];
+  if (t === SEA) return 'Cannot build on the sea';
+  if (t === FOREST) return 'Forest in the way';
+  if (!tileOpenAt(state, i)) return 'Land opens at ' + regionStageName(state, i);
+  if (occMap(state)[i]) return 'Something is in the way';
+  return '';
+}
+
+function railPlan(state, tiles) {
+  const set = railSet(state), add = [], bad = [];
+  for (const i of tiles) { if (set[i]) continue; const why = railWhy(state, i % MAP_W, (i / MAP_W) | 0); if (why) bad.push({ i, why }); else if (!add.includes(i)) add.push(i); }
+  return { add, bad, cost: add.length * TR.railCost };
+}
+
+function placeRail(state, tiles) {
+  if (state.stage < TR.railStage) return { built: 0, cost: 0, why: 'Opens at ' + STAGES[TR.railStage].name };
+  const plan = railPlan(state, tiles);
+  let built = 0;
+  for (const i of plan.add) { if (state.money < TR.railCost) break; state.rail = (state.rail || []).concat(i); state.money -= TR.railCost; built++; }
+  if (built) { state.rail.sort((a, b) => a - b); state.ver++; simEvent(state, { kind: 'rail', n: built }); }
+  return { built, cost: built * TR.railCost, why: plan.bad.length ? plan.bad[0].why : built < plan.add.length ? 'Not enough money' : '' };
+}
+
+// A field (a raw-goods producer: cane, fruit, tobacco, coffee, cattle) loads onto the railway.
+function railField(def) { return def.kind === 'producer' && !def.uses && def.w * def.h > 1; }
+
+// Rail lines with the fields and the takers (workshops, markets, harbors) within TR.railNear tiles of their track.
+function railLines(state) {
+  const c = simCache(state);
+  if (c.rail) return c.rail;
+  const set = railSet(state), { lines } = trackLines(set, state.rail || []);
+  for (const L of lines) {
+    const near = (b) => L.tiles.some((i) => footDist(b, tile1(i)) <= TR.railNear);
+    L.fields = state.b.filter((b) => railField(BUILDINGS[b.type]) && near(b)).map((b) => b.id);
+    L.takers = state.b.filter((b) => { const k = BUILDINGS[b.type].kind; return (k === 'producer' && BUILDINGS[b.type].uses) || k === 'market' || k === 'harbor'; }).filter(near).map((b) => b.id);
+  }
+  return (c.rail = { lines });
+}
+
+function railLineOf(state, b) { return railLines(state).lines.find((L) => L.fields.includes(b.id) || L.takers.includes(b.id)) || null; }
+
+// Does the railway take this field's crop (a taker of it on its line)?
+function railTakes(state, b) {
+  const L = railLines(state).lines.find((l) => l.fields.includes(b.id));
+  if (!L) return false;
+  const g = BUILDINGS[b.type].makes;
+  return L.takers.some((id) => { const d = bById(state, id), def = d && BUILDINGS[d.type]; return d && ((def.uses && def.uses[g] !== undefined) || (def.kind === 'market' && NEED_GOODS.includes(goodNeed(g))) || (def.kind === 'harbor' && state.exp[g])); });
+}
+
+// A train every TR.railTrip ticks on each line: it loads the fields' yards and unloads at the takers with room (markets
+// first, then workshops, then the harbor, like the carts), up to TR.railLoad loads a trip. Booked like a cart delivery.
+function railRun(state) {
+  for (const L of railLines(state).lines) {
+    let room = TR.railLoad, moved = 0;
+    for (const fid of L.fields) {
+      const f = bById(state, fid);
+      if (!f || !f.open) continue;
+      const g = BUILDINGS[f.type].makes;
+      const takers = L.takers.map((id) => bById(state, id)).filter(Boolean)
+        .sort((a, b) => { const r = (d) => { const k = BUILDINGS[d.type].kind; return k === 'market' ? 0 : k === 'harbor' ? 2 : 1; }; return r(a) - r(b) || a.id - b.id; });
+      for (const d of takers) {
+        const n = Math.min(Math.floor(f.yard + 1e-9), Math.floor(roomFor(state, d, g) + 1e-9), room);
+        if (n < 1) continue;
+        f.yard -= n; room -= n; moved += n;
+        if (BUILDINGS[d.type].kind === 'producer') d.inp[g] = (d.inp[g] || 0) + n; else d.stock[g] = (d.stock[g] || 0) + n;
+        deliverBook(state, f, d, g, n);
+        f.mRail = (f.mRail || 0) + n;
+        simEvent(state, { kind: 'drop', id: d.id, good: g, n });
+      }
+    }
+    L.moved = moved;
+    state.railMoved = (state.railMoved || 0) + moved;
+  }
+}
+
+{
+  // a field on the railway: its crop is not "unreached" while the line has a taker for it
+  const _takerState = takerState;
+  takerState = function (state, b) {
+    const r = _takerState(state, b);
+    return (r === 'unreached' || r === 'none') && (state.rail || []).length && railTakes(state, b) ? 'full' : r;
+  };
+}
+
+// ---------- removing track ----------
+{
+  const _removeInfo = removeInfo;
+  removeInfo = function (state, x, y) {
+    const r = _removeInfo(state, x, y);
+    if (r.why && inMap(x, y) && railAt(state, tileIdx(x, y))) return { rail: tileIdx(x, y), refund: Math.floor(TR.railCost * TUNE.refund) };
+    if (r.road !== undefined && tramSet(state)[r.road] && (state.tram || []).length) r.refund += Math.floor(TR.tramCost * TUNE.refund);
+    return r;
+  };
+  const _removeAt = removeAt;
+  removeAt = function (state, x, y) {
+    const info = removeInfo(state, x, y);
+    if (info.rail !== undefined) {
+      state.rail = state.rail.filter((i) => i !== info.rail);
+      state.money += info.refund; state.ver++;
+      return info;
+    }
+    const r = _removeAt(state, x, y);
+    // a road taken away takes its tram track with it (the refund above counts it)
+    if (!r.why && (state.tram || []).length) state.tram = state.tram.filter((i) => state.road[i]);
+    return r;
+  };
+}
+
+// ---------- the airfield ----------
+function airfieldOn(state) { return state.b.some((b) => b.type === 'airfield' && b.open && b.workers > 0); }
+
+// Visitors a month: the flying boats bring more to a bigger, happier island (at most 60), each spending TR.visitSpend
+// in the town (hotels, meals, guides, rum): an income on the airfield's own number.
+function airVisitors(state) {
+  if (!airfieldOn(state)) return 0;
+  return Math.min(60, Math.round((10 + popCount(state) / 25) * Math.max(0.3, state.happy / 60)));
+}
+
+function yearOf(state) { return TUNE.startYear + Math.floor(state.month / 12); }
+
+{
+  const _canPlace = canPlace;
+  canPlace = function (state, type, x, y, opts) {
+    const def = BUILDINGS[type];
+    if (def && def.year && def.stage <= state.stage && yearOf(state) < def.year) return 'Opens in ' + def.year;
+    // M5: a field next to the railway needs no road (the train takes its crop); track blocks buildings
+    const fieldOnRail = def && railField(def) && (state.rail || []).length && (state.rail || []).some((i) => footDist({ x, y, w: def.w, h: def.h }, tile1(i)) <= TR.railNear);
+    const why = _canPlace(state, type, x, y, fieldOnRail ? Object.assign({}, opts, { noRoad: true }) : opts);
+    if (why) return why;
+    if ((state.rail || []).length) for (let ty = y; ty < y + def.h; ty++) for (let tx = x; tx < x + def.w; tx++) if (railAt(state, tileIdx(tx, ty))) return 'The railway is in the way';
+    return '';
+  };
+  const _bNumber = bNumber;
+  bNumber = function (state, b) {
+    const out = _bNumber(state, b);
+    if (b.type === 'airfield') { const v = airVisitors(state) * TR.visitSpend; out.exports += v; out.n += v; out.visitors = v; }
+    return out;
+  };
+  const _happyCalc = happyCalc;
+  happyCalc = function (state) {
+    const r = _happyCalc(state);
+    if (airfieldOn(state)) { r.parts.push({ label: 'The airfield: flying boats to Havana and Key West', v: TR.airHappy }); r.value = Math.max(0, Math.min(100, r.value + TR.airHappy)); }
+    return r;
+  };
+}
+
+// ---------- money: tram fares and upkeep, railway upkeep (two lines on the receipt) ----------
+function transportMonth(state) {
+  const tiles = (state.tram || []).length, riders = tramRiders(state), rail = (state.rail || []).length;
+  const fares = riders * TR.tramFare, tramUp = tiles * TR.tramUpkeep, railUp = rail * TR.railUpkeep;
+  return { tiles, riders, fares, tramUp, tramN: fares - tramUp, rail, railN: -railUp, railMoved: state.railMoved || 0 };
+}
+
+{
+  const _paydayRun = paydayRun;
+  paydayRun = function (state) {
+    const r = _paydayRun(state), t = transportMonth(state);
+    const add = (what, n) => { if (!n) return; r.lines.push({ id: 0, what, n }); r.result += n; state.money += n; };
+    add('tram', t.tramN); add('rail', t.railN);
+    r.transport = t;
+    const hh = state.history[state.history.length - 1];
+    if (hh && hh.m === state.month) { hh.money = state.money; hh.result = r.result; }
+    state.railMoved = 0;
+    for (const b of state.b) if (b.mRail !== undefined) { b.lastRail = b.mRail; b.mRail = 0; }
+    return r;
+  };
+  const _receiptLines = receiptLines;
+  receiptLines = function (state, r) {
+    const lines = _receiptLines(state, r), t = r.transport;
+    if (!t || (!t.tiles && !t.rail)) return lines;
+    const at = lines.findIndex((l) => l[0] === 'Wages and upkeep');
+    const add = [];
+    if (t.tiles) add.push(['Tram: fares ' + money$(t.fares) + ', upkeep ' + money$(t.tramUp), t.tramN]);
+    if (t.rail) add.push(['Railway upkeep (' + t.rail + ' tiles)', t.railN]);
+    lines.splice(at >= 0 ? at + 1 : lines.length, 0, ...add);
+    return lines.slice(0, 11);
+  };
+}
+
+// ---------- the tick ----------
+{
+  const _simTick = simTick;
+  simTick = function (state) { trTick(state); _simTick(state); };
+}
+
+// ---------- Rosa: the worst jam, once (with Show and the tool that fixes it) ----------
+GUIDE_PROBLEMS.splice(GUIDE_PROBLEMS.findIndex((p) => p.key === 'yard'), 0, { key: 'jam', check(s) {
+  if (s.guide.seen.jam) return null;
+  const j = worstJam(s);
+  if (!j) return null;
+  const where = placeName(s, j.i), at = [j.i % MAP_W, (j.i / MAP_W) | 0], slow = Math.round(1 / trSlowOf(j.level) * 10) / 10;
+  if (j.kind === 1) {
+    const paved = s.stage >= PAVED_STAGE;
+    return { text: 'Traffic jam on ' + where + ': carts there go ' + slow + '× slower. ' + (paved ? 'Pave it: a paved road is twice as fast and carries twice as many carts. Or lay a second road beside it.' : 'Lay a second road beside it, so the carts share the way (paved roads come at City).'),
+      btn: paved ? 'Paved road' : 'Road', act: { tool: paved ? 'paved' : 'road', at } };
+  }
+  return { text: 'Traffic jam on ' + where + ', even paved: carts there go ' + slow + '× slower. An avenue carries twice as many carts, or a second road beside it shares the load.', btn: 'Avenue', act: { tool: 'avenue', at } };
+} });
+
+// ---------- M4+M5 together: a dense town with no lot left for a service (Rosa names the tram) ----------
+// Measured on the merged scripted islands (LOG.md "M4+M5 together"): at City and Port city the homes fill every lot,
+// so "build a clinic near them" lit tiles 15+ tiles away (52 Houses lacked a clinic, 17 Villas a park, for 100 months).
+// The tram is the tool for this: homes by a stop reach a service within its reach of a stop a short ride along the line.
+// When no free lot for the service is in reach of the homes, Rosa says so and her button arms the Tram line.
+function lotInReach(s, t, at) {
+  const def = BUILDINGS[t], lim = bReach(def), h = { x: at[0], y: at[1], w: 1, h: 1 };
+  return fitAnchors(s, t).some(([x, y]) => footDist({ x, y, w: def.w, h: def.h }, h) <= lim);
+}
+{
+  const _needCause = needCause;
+  needCause = function (s, need, homes) {
+    const r = _needCause(s, need, homes);
+    const t = NEED_FIX[need];
+    if (!r || !r.at || r.tool !== t || !(SERVICE_NEEDS.includes(need) || need === 'market') || s.stage < TR.tramStage || lotInReach(s, t, r.at)) return r;
+    const name = BUILDINGS[t].name.toLowerCase(), lim = bReach(BUILDINGS[t]);
+    return Object.assign({}, r, { text: 'no free lot for a ' + name + ' is left within ' + lim + ' tiles of them: lay a tram line from their street toward a ' + name + ' (homes by a stop reach it ' + TR.tramRide + ' tiles along the line), or remove two homes for a lot', tool: 'tram' });
+  };
+  const _toolLabel = toolLabel;
+  toolLabel = function (t) { return t === 'tram' ? 'Tram line' : t === 'avenue' ? 'Avenue' : _toolLabel(t); };
+}
+
+{
+  const _guideMonth = guideMonth;
+  guideMonth = function (state) {
+    _guideMonth(state);
+    if (state.guide.msg && state.guide.msg.key === 'jam') state.guide.seen.jam = state.month + 1;
+  };
 }
 
 // ---- src/render/icons.js
@@ -3463,7 +4468,8 @@ function bubbleDraw(ctx, x, y, icon, z, warn, text) {
 // What a workplace shows above itself when something is wrong.
 function bProblemMark(state, b) {
   const def = BUILDINGS[b.type];
-  if (!def.jobs || !b.open) return null;
+  // M4: a grand project under scaffolding has no workers yet (its own label says how far it is)
+  if (!def.jobs || !b.open || b.wip) return null;
   if (b.workers < def.jobs && state.workforce > 0) return { icon: 'worker', text: b.workers + '/' + def.jobs, warn: b.workers === 0 };
   if (def.kind === 'producer') {
     if (b.blocked === 'yard') return { icon: 'full', warn: takerState(state, b) !== 'full' };
@@ -4331,11 +5337,49 @@ const ISO = (() => {
       drawBush(0.3, def.h - 0.3, 0.7, '#f0a3c0'); drawBush(def.w - 0.3, def.h - 0.3, 0.7, '#f2c75a');
     }
   }
+  // M4: the grand projects, each a big building that changes the skyline (DESIGN.md §20)
+  function paintProject(def) {
+    const W = def.w, D = def.h, g = def.gives;
+    groundPatch(0.04, 0.04, W - 0.04, D - 0.04, g === 'hospital' || g === 'university' ? '#d9cfb6' : '#b9ad8f', ln('#b9ad8f'));
+    if (g === 'water') {
+      // a stone water tower on arches, a basin and a pump house: the island's aqueduct reaches the town here
+      const wv = walls(0.25, 0.3, 1.2, 1.3, 0, 0.9, '#d8c7a6'); wallsOutline(wv); hipRoof(0.25, 0.3, 1.2, 1.3, 0.9, 0.35, 0.06, '#b9553c');
+      for (let k = 0; k < 4; k++) { const x = 1.6 + k * 0.32; boxAt(x, 0.6, 0.12, 0.12, 0, 1.25, '#cdbb98'); }
+      boxAt(1.55, 0.5, 1.35, 0.35, 1.25, 0.14, '#cdbb98');
+      const c = P(2.25, 1.35, 0); ell(c[0], c[1], 0.75 * hw, 0.38 * hw, '#5fa9c4'); ctx.strokeStyle = INK; ctx.lineWidth = LW; ctx.stroke();
+      ell(c[0], c[1] - 0.04 * hw, 0.45 * hw, 0.2 * hw, '#8fd0e3');
+      const tw = walls(2.15, 0.45, 0.6, 0.6, 1.39, 0.7, '#e5d8bd'); wallsOutline(tw); hipRoof(2.15, 0.45, 0.6, 0.6, 2.09, 0.3, 0.04, '#6f8f9a');
+    } else if (g === 'power') {
+      // a brick power house with two tall chimneys and a coal heap
+      const wv = walls(0.2, 0.25, 2.2, 1.45, 0, 1.15, '#a8573f'); wallsOutline(wv); bands(wv, 2.2, 1.45, 1.15);
+      gableX(0.2, 0.25, 2.2, 1.45, 1.15, 0.45, 0.05, '#5a4a44', '#a8573f');
+      for (let k = 0; k < 6; k++) win(wv.fl, 0.25 + k * 0.33, 0.35, 0.16, 0.45);
+      chimney(2.55, 0.35, 0.28, 2.9, 0); chimney(2.55, 1.0, 0.28, 2.5, 0);
+      const h = P(0.6, 1.85, 0); ell(h[0], h[1], 0.5 * hw, 0.2 * hw, '#2f2a28');
+    } else if (g === 'hospital') {
+      // a long white pavilion hospital with a central block, red roofs and a cross
+      const L = walls(0.2, 0.3, 2.6, 0.9, 0, 0.9, '#f6f2ea'); wallsOutline(L); hipRoof(0.2, 0.3, 2.6, 0.9, 0.9, 0.35, 0.06, '#b9553c');
+      const C = walls(1.05, 1.1, 0.9, 1.6, 0, 1.25, '#fbf7ee'); wallsOutline(C); hipRoof(1.05, 1.1, 0.9, 1.6, 1.25, 0.4, 0.06, '#b9553c');
+      for (let k = 0; k < 6; k++) win(L.fl, 0.2 + k * 0.42, 0.3, 0.16, 0.4);
+      const p = P(1.5, 1.9, 1.75); poly([[p[0] - 3 * S, p[1] - 8 * S], [p[0] + 3 * S, p[1] - 8 * S], [p[0] + 3 * S, p[1] + 8 * S], [p[0] - 3 * S, p[1] + 8 * S]], '#c4553f');
+      poly([[p[0] - 8 * S, p[1] - 3 * S], [p[0] + 8 * S, p[1] - 3 * S], [p[0] + 8 * S, p[1] + 3 * S], [p[0] - 8 * S, p[1] + 3 * S]], '#c4553f');
+      for (const [x, y] of [[0.3, 2.4], [2.6, 2.4], [2.5, 1.5]]) drawTree(x, y, 0.9, '#4e9a45', x * 7 + y);
+    } else {
+      // the university on its hill: a columned hall with a dome and a broad stair
+      const wv = walls(0.35, 0.35, 2.3, 1.7, 0.25, 1.1, '#efe4cc'); wallsOutline(wv);
+      boxAt(0.2, 2.1, 2.6, 0.7, 0, 0.25, '#d9cfb6');
+      for (let k = 0; k < 6; k++) column(0.55 + k * 0.38, 2.15, 0.25, 1.3, 0.07, '#fbf7ee');
+      flatRoof(0.35, 0.35, 2.3, 1.7, 1.35, 0.08, '#e3d6b8');
+      drum(1.5, 1.2, 1.43, 1.75, 0.5, '#efe4cc'); dome(1.5, 1.2, 1.75, 0.5, 0.55, '#8aa7a0');
+      for (const [x, y] of [[0.15, 0.2], [2.85, 0.25]]) royalPalm(x, y, 2.2, 0.9);
+    }
+  }
   function paintCivic(def, sea) {
     if (def.gives === 'church') { if (def.w >= 3) paintCathedral(def); else paintChapel(); return; }
     if (def.gives === 'opera') { paintOpera(def); return; }
     if (def.gives === 'park') { paintPark(def); return; }
     if (def.gives === 'light') { paintLighthouse(def, sea); return; }
+    if (def.island) { paintProject(def); return; }
     paintSchoolClinic(def);
   }
 
@@ -5207,6 +6251,14 @@ const ISO = (() => {
     seg([l0[0] - 2 * S, l0[1]], [l1[0] - 2 * S, l1[1]], '#8a6a45', 1 * S); seg([l0[0] + 2 * S, l0[1]], [l1[0] + 2 * S, l1[1]], '#8a6a45', 1 * S);
     for (let k = 1; k < 6; k++) { const yy = lerp(l0[1], l1[1], k / 6); seg([l0[0] - 2 * S, yy], [l0[0] + 2 * S, yy], '#8a6a45', 0.8 * S); }
   }
+  // M4: a grand project being built: a fenced site, timber scaffolding, a crane
+  function paintProjectScaffold(W, D) {
+    groundPatch(0.05, 0.05, W - 0.05, D - 0.05, 'rgba(160,130,90,.55)');
+    for (let i = 0; i <= 4; i++) for (let j = 0; j <= 3; j++) { if (i % 2 && j % 2) continue; const x = 0.3 + i * (W - 0.6) / 4, y = 0.3 + j * (D - 0.6) / 3; seg(P(x, y, 0), P(x, y, 1.6), '#8a6a45', 1.6 * S); }
+    for (const z of [0.55, 1.1, 1.6]) { pline([P(0.3, 0.3, z), P(W - 0.3, 0.3, z), P(W - 0.3, D - 0.3, z)], '#8a6a45', 1.4 * S); pline([P(0.3, 0.3, z), P(0.3, D - 0.3, z), P(W - 0.3, D - 0.3, z)], '#a07a50', 1.2 * S); }
+    seg(P(W - 0.5, 0.5, 0), P(W - 0.5, 0.5, 2.6), INK, 1.8 * S); seg(P(W - 0.5, 0.5, 2.6), P(0.4, 0.5, 2.6), INK, 1.6 * S); seg(P(0.6, 0.5, 2.6), P(0.6, 0.5, 2.0), INK, 1 * S);
+    boxAt(0.5, 0.35, 0.3, 0.3, 1.75, 0.25, '#c9733d');
+  }
   function paintPerson(x, y, v, fr, leaving) {
     const p = P(x, y, 0), s = S * 1.0, px = p[0], py = p[1];
     const wk = fr ? 1 : -1, bob = fr ? 0.7 * s : 0;
@@ -5329,6 +6381,45 @@ const ISO = (() => {
     sp = { c, ax: W / 2, ay: H / 2, w: W, h: H };
     uiPut(R, key, sp);
     return sp;
+  }
+  // M4: the Money layer's tag: a small pill, green when the building earns, coral when it costs (homes: a house icon)
+  function moneyTagSprite(R, text, pos, home) {
+    const key = 'mt|' + text + '|' + (pos ? 1 : 0) + '|' + (home ? 1 : 0) + '|' + R.dpr;
+    let sp = uiGet(R, key);
+    if (sp) return sp;
+    const d = R.dpr, font = '800 13px ' + SANS;
+    const meas = measCtx(); meas.font = font;
+    const ic = home ? 14 : 0, tw = meas.measureText(text).width + 16 + ic, h = 22, W = tw + 6, H = h + 6;
+    const c = canvasNew(W * d, H * d), g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+    g.save(); g.shadowColor = 'rgba(40,25,10,.3)'; g.shadowOffsetY = 1.5 * d; g.shadowBlur = 2 * d;
+    rrPath(g, 3, 2, tw, h, h / 2); g.fillStyle = pos ? '#e2f1e4' : '#fbe3d9'; g.fill(); g.restore();
+    rrPath(g, 3, 2, tw, h, h / 2); g.strokeStyle = pos ? '#2e7a3e' : '#b23a26'; g.lineWidth = 1.8; g.stroke();
+    if (home) { g.beginPath(); g.moveTo(11, 9); g.lineTo(16, 5); g.lineTo(21, 9); g.lineTo(21, 17); g.lineTo(11, 17); g.closePath(); g.fillStyle = pos ? '#2e7a3e' : '#b23a26'; g.fill(); }
+    g.font = font; g.fillStyle = pos ? '#1f5a2c' : '#8a2a1a'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 3 + (tw + ic) / 2, 2 + h / 2 + 0.5);
+    sp = { c, ax: W / 2, ay: H / 2, w: W, h: H };
+    uiPut(R, key, sp);
+    return sp;
+  }
+  function moneyShort(n) { const a = Math.abs(Math.round(n)); return (n < 0 ? '−$' : '+$') + (a >= 10000 ? Math.round(a / 1000) + 'k' : a >= 1000 ? (a / 1000).toFixed(1) + 'k' : a); }
+  // The tags (rebuilt once a month or when buildings change): one per workplace, one per street block of homes.
+  function moneyTags(R, s) {
+    const key = s.month + '|' + s.ver + '|' + s.b.length;
+    if (R.mtKey === key && R.mtags) return R.mtags;
+    const out = [], blocks = {};
+    for (const b of s.b) {
+      const def = BUILDINGS[b.type];
+      const n = typeof bMonthly === 'function' ? bMonthly(s, b) : null;
+      if (n === null) continue;
+      if (def.kind === 'home') {
+        if (!b.res) continue;
+        const k = Math.floor(b.x / TUNE.bubbleCell) + ',' + Math.floor(b.y / TUNE.bubbleCell);
+        const o = blocks[k] || (blocks[k] = { n: 0, x: 0, y: 0, c: 0 });
+        o.n += n; o.x += b.x + 0.5; o.y += b.y + 0.5; o.c++;
+      } else out.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, z: bubbleZ(b) + 0.2, n, home: false, id: b.id });
+    }
+    for (const k in blocks) { const o = blocks[k]; out.push({ x: o.x / o.c, y: o.y / o.c, z: 1.2, n: o.n, home: true, homes: o.c }); }
+    R.mtKey = key; R.mtags = out;
+    return out;
   }
   function floaterSprite(R, text, color, big) {
     const key = 'fl|' + text + '|' + color + '|' + (big ? 1 : 0) + '|' + R.dpr;
@@ -5649,8 +6740,10 @@ const ISO = (() => {
     const rx0 = Math.max(0, tx0 - 1), ry0 = Math.max(0, ty0 - 1), rx1 = Math.min(MAP_W - 1, tx1 + 1), ry1 = Math.min(MAP_H - 1, ty1 + 1);
     const rd = roadGeom((x, y) => isRoad(s, x, y), rx0, ry0, rx1, ry1);
     if (rd.n) roadsStroke(g, rd);
-    const pv = pavedGeom((x, y) => inMap(x, y) && s.road[tileIdx(x, y)] === 2, rx0, ry0, rx1, ry1);
+    const pv = pavedGeom((x, y) => inMap(x, y) && s.road[tileIdx(x, y)] >= 2, rx0, ry0, rx1, ry1);
     if (pv.n) pavedStroke(g, pv);
+    // M5: avenue medians (a planted promenade between the two carriageways), tram tracks, the cane railway
+    trackPaint(g, s, rx0, ry0, rx1, ry1);
     // locked land: washed, hatched, with a dashed border
     const U = R.unlocked;
     if (U && (U.x0 > 0 || U.y0 > 0 || U.x1 < MAP_W || U.y1 < MAP_H)) {
@@ -5678,14 +6771,14 @@ const ISO = (() => {
       R.groundStage = s.stage; R.unlocked = unlockedRect(s);
       for (const ch of R.chunks.values()) ch.stale = true;
       R.groundDirty = true;
-      R.roadSnap = Uint8Array.from(s.road);
+      R.roadSnap = trackCodes(s);
       return;
     }
     if (R.roadVer === s.ver) return;
     R.roadVer = s.ver;
-    const snap = R.roadSnap, ch = [];
-    // a road laid, removed or paved (dirt 1 -> paved 2) changes the ground under it
-    for (let i = 0; i < s.road.length; i++) if (s.road[i] !== snap[i]) { ch.push(i); snap[i] = s.road[i]; }
+    const snap = R.roadSnap, ch = [], now = trackCodes(s);
+    // a road laid, removed or paved (dirt 1 -> paved 2), or track laid (M5), changes the ground under it
+    for (let i = 0; i < s.road.length; i++) if (now[i] !== snap[i]) { ch.push(i); snap[i] = now[i]; }
     if (!ch.length) return;
     for (const c of R.chunks.values()) {
       if (c.stale) continue;
@@ -6172,12 +7265,13 @@ const ISO = (() => {
     if (art === 'home') return [1.1, 1.1, 1.65, 1.75, 2.0, 1.9][b.level || 1] || 1.9;
     if (art === 'field') return def.makes === 'beans' ? 1.0 : 0.75;
     if (art === 'workshop') return def.w >= 2 ? 2.5 : 1.5;
-    if (art === 'civic') return { church: def.w >= 3 ? 3.4 : 2.6, opera: 2.4, park: 1.3, light: 3.3 }[def.gives] || 1.5;
+    if (art === 'civic') return { church: def.w >= 3 ? 3.4 : 2.6, opera: 2.4, park: 1.3, light: 3.3, water: 2.6, power: 3.4, hospital: 2.4, university: 3.0 }[def.gives] || 1.5;
     if (art === 'market') return 1.6;
     if (art === 'harbor') return def.ships > 1 ? 2.2 : 1.5;
     if (art === 'hut') return 1.0;
     if (art === 'residence') return [1.3, 1.6, 1.7, 1.9, 1.9, 2.3, 3.0][Math.min(6, b.level || 0)];
     if (art === 'pier') return 1.3;
+    if (art === 'airfield') return 1.6;
     return 1.2;
   }
   function pickHeight(b) {
@@ -6216,6 +7310,7 @@ const ISO = (() => {
     if (art === 'hut') { const sea = seaSide(s, b); return sprite(R, 'hut|' + b.type + '|' + (sea ? sea.join(',') : '-'), [def.w, def.h], H, () => paintHut(def, sea)); }
     if (art === 'residence') { const lv = Math.min(6, b.level || 0); return sprite(R, 'res|' + lv, [def.w, def.h], H, () => paintResidence(lv)); }
     if (art === 'pier') return sprite(R, 'pier|' + def.w, [def.w, def.h, 0.2, 0], H, () => paintPier(def));
+    if (art === 'airfield') { const sea = seaSide(s, b); return sprite(R, 'airfield|' + (sea ? sea.join(',') : '-'), [def.w, def.h], H, () => paintAirfield(def, sea)); }
     return sprite(R, 'box|' + b.type, [def.w, def.h], H, () => boxAt(0.15, 0.15, def.w - 0.3, def.h - 0.3, 0, 0.6, '#d9c7a4'));
   }
   // Where a building keeps its piles (local tile coordinates of each pile's centre).
@@ -6255,6 +7350,7 @@ const ISO = (() => {
       else if (t === BEACH && r < 0.24 && !nearPier(x, y)) list.push({ k: 'palm', v: Math.floor(r * 100), x0: x, y0: y, x1: x + 1, y1: y + 1, h: 2.2 });
       else if ((t === GRASS || t === HILL) && r < 0.035) list.push({ k: r < 0.018 ? 'tree' : 'bush', v: Math.floor(r * 1000), x0: x, y0: y, x1: x + 1, y1: y + 1, h: r < 0.018 ? 1.1 : 0.4 });
     }
+    for (const m of medians(s)) if ((m.x + m.y) % 2 === 0) list.push({ k: 'palm', v: (m.x * 7 + m.y * 13) % 100, x0: m.cx - 0.45, y0: m.cy - 0.5, x1: m.cx + 0.45, y1: m.cy + 0.5, h: 2.2 });
     for (const o of list) { o.X0 = o.x0 - o.y1 - 0.4; o.X1 = o.x1 - o.y0 + 0.4 + (o.k === 'b' ? o.h * 0.6 : 0.3); o.Y0 = (o.x0 + o.y0) / 2 - o.h * ZS - 0.4; o.Y1 = (o.x1 + o.y1) / 2 + 0.4; }
     const order = topo(list);
     const grid = new Int32Array(MAP_W * MAP_H).fill(-1);
@@ -6582,6 +7678,249 @@ const ISO = (() => {
     }
   }
 
+  // ---------- M5: transport (DESIGN.md §21) ----------
+  function trLayerOn() { return typeof trafficOn === 'function' && typeof APP !== 'undefined' && trafficOn(); }
+  // What the ground shows per tile: road kind + 4 tram + 8 rail (a change marks the chunk stale).
+  function trackCodes(s) {
+    const out = Uint8Array.from(s.road);
+    if ((s.tram || []).length) for (const i of s.tram) out[i] += 4;
+    if ((s.rail || []).length) for (const i of s.rail) out[i] += 8;
+    return out;
+  }
+  // Avenue medians: between two avenue tiles side by side, where no street crosses: { x, y, cx, cy, ax } (ax: along x).
+  function medians(s) {
+    const out = [], A = (x, y) => inMap(x, y) && s.road[tileIdx(x, y)] === 3, Rd = (x, y) => isRoad(s, x, y);
+    for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+      if (!A(x, y)) continue;
+      if (A(x, y + 1) && (A(x - 1, y) || A(x + 1, y)) && !Rd(x, y - 1) && !Rd(x, y + 2)) out.push({ x, y, cx: x + 0.5, cy: y + 1, ax: true });
+      if (A(x + 1, y) && (A(x, y - 1) || A(x, y + 1)) && !Rd(x - 1, y) && !Rd(x + 2, y)) out.push({ x, y, cx: x + 1, cy: y + 0.5, ax: false });
+    }
+    return out;
+  }
+  // Two lines offset from the centre of each track tile (steel rails), through curves and junctions like the roads.
+  function trackGeom(has, x0, y0, x1, y1, offs) {
+    const core = new Path2D(), lines = offs.map(() => new Path2D()), mids = [[1, 0.5], [0.5, 1], [0, 0.5], [0.5, 0]]; let n = 0;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (!has(x, y)) continue;
+      n++;
+      const nb = [has(x + 1, y), has(x, y + 1), has(x - 1, y), has(x, y - 1)], cnt = nb.filter(Boolean).length, cx = x + 0.5, cy = y + 0.5, M2 = (k) => [x + mids[k][0], y + mids[k][1]];
+      const pls = [];
+      if (cnt === 0) pls.push([[cx - 0.3, cy], [cx + 0.3, cy]]);
+      else if (cnt === 1) { const k = nb.indexOf(true), o = M2((k + 2) % 4); pls.push([[(cx + o[0]) / 2, (cy + o[1]) / 2], [cx, cy], M2(k)]); }
+      else if (cnt === 2 && nb[0] !== nb[2]) { const a = nb.indexOf(true), b = nb.lastIndexOf(true); pls.push(quadPts(M2(a), [cx, cy], M2(b), 8)); }
+      else for (let k = 0; k < 4; k++) if (nb[k]) pls.push([[cx, cy], M2(k)]);
+      for (const pl of pls) { addPl(core, pl); offs.forEach((o, i) => addPl(lines[i], offsetPl(pl, o))); }
+    }
+    return { core, lines, n };
+  }
+  function trackPaint(g, s, x0, y0, x1, y1) {
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    // the promenade between an avenue's carriageways: a clipped hedge on a stone kerb
+    for (const m of medians(s)) {
+      const w = 0.2;
+      g.beginPath(); if (m.ax) g.rect(m.x + 0.02, m.cy - w, 0.96, 2 * w); else g.rect(m.cx - w, m.y + 0.02, 2 * w, 0.96);
+      g.fillStyle = '#d9cfb8'; g.fill();
+      g.beginPath(); if (m.ax) g.rect(m.x + 0.06, m.cy - w + 0.05, 0.88, 2 * w - 0.1); else g.rect(m.cx - w + 0.05, m.y + 0.06, 2 * w - 0.1, 0.88);
+      g.fillStyle = '#7fae55'; g.fill(); g.strokeStyle = 'rgba(70,110,50,.6)'; g.lineWidth = 0.02; g.stroke();
+      for (let k = 0; k < 3; k++) { const u = 0.2 + k * 0.3, px = m.ax ? m.x + u : m.cx + (k - 1) * 0.06, py = m.ax ? m.cy + (k - 1) * 0.06 : m.y + u; g.beginPath(); g.arc(px, py, 0.035, 0, TAU); g.fillStyle = ['#f2c75a', '#e0583e', '#f0a3c0'][(m.x + m.y + k) % 3]; g.fill(); }
+    }
+    if ((s.rail || []).length) {
+      const set = new Set(s.rail), rg = trackGeom((x, y) => inMap(x, y) && set.has(tileIdx(x, y)), x0, y0, x1, y1, [-0.085, 0.085]);
+      if (rg.n) {
+        g.strokeStyle = 'rgba(80,70,50,.35)'; g.lineWidth = 0.46; g.stroke(rg.core);
+        g.strokeStyle = '#b3a487'; g.lineWidth = 0.4; g.stroke(rg.core);
+        g.setLineDash([0.035, 0.012]); g.strokeStyle = 'rgba(140,125,100,.6)'; g.lineWidth = 0.38; g.stroke(rg.core); g.setLineDash([]);
+        g.setLineDash([0.06, 0.1]); g.lineCap = 'butt'; g.strokeStyle = '#6e4b2c'; g.lineWidth = 0.32; g.stroke(rg.core); g.setLineDash([]); g.lineCap = 'round';
+        for (const l of rg.lines) { g.strokeStyle = '#4f5257'; g.lineWidth = 0.04; g.stroke(l); g.strokeStyle = '#c9cdd2'; g.lineWidth = 0.014; g.stroke(l); }
+      }
+    }
+    if ((s.tram || []).length) {
+      const set = new Set(s.tram), tg = trackGeom((x, y) => inMap(x, y) && set.has(tileIdx(x, y)), x0, y0, x1, y1, [-0.075, 0.075]);
+      if (tg.n) {
+        g.strokeStyle = 'rgba(120,110,95,.35)'; g.lineWidth = 0.24; g.stroke(tg.core);
+        for (const l of tg.lines) { g.strokeStyle = '#55585d'; g.lineWidth = 0.032; g.stroke(l); g.strokeStyle = '#e4e6e8'; g.lineWidth = 0.012; g.stroke(l); }
+      }
+    }
+  }
+  // The Traffic layer: each road tile tinted by how many carts pass it a month against what its kind carries.
+  function trafficGround(R, s, t) {
+    if (!trLayerOn()) return;
+    const g = R.ctx, L = (s.traffic || {}).load || {};
+    tileXf(R);
+    const cols = ['rgba(46,150,80,.62)', 'rgba(244,160,24,.82)', 'rgba(214,48,32,.86)'];
+    const paths = [new Path2D(), new Path2D(), new Path2D()];
+    for (let i = 0; i < s.road.length; i++) {
+      if (!s.road[i]) continue;
+      const l = trafficLevel(s, i), k = l >= TR.jam ? 2 : l > TR.busy ? 1 : 0;
+      paths[k].rect(i % MAP_W + 0.14, ((i / MAP_W) | 0) + 0.14, 0.72, 0.72);
+    }
+    paths.forEach((p, k) => { g.fillStyle = cols[k]; g.fill(p); });
+    if (L) { g.strokeStyle = 'rgba(160,30,20,' + (0.5 + 0.3 * Math.sin(t * 4)).toFixed(3) + ')'; g.lineWidth = 0.06; for (let i = 0; i < s.road.length; i++) if (s.road[i] && trafficLevel(s, i) >= TR.jam) g.strokeRect(i % MAP_W + 0.1, ((i / MAP_W) | 0) + 0.1, 0.8, 0.8); }
+  }
+  // A soft haze of dust over busy dirt roads (always, not only in the layer).
+  function dustDraw(R, s, t) {
+    const L = (s.traffic || {}).load;
+    if (!L) return;
+    const g = R.ctx, sc = R.hw / 44;
+    for (const k in L) {
+      const i = +k;
+      if (s.road[i] !== 1) continue;
+      const l = trafficLevel(s, i);
+      if (l <= TR.busy) continue;
+      const x = i % MAP_W, y = (i / MAP_W) | 0, p = P(x + 0.5, y + 0.5, 0.2);
+      if (p[0] < -40 || p[0] > R.w + 40 || p[1] < -40 || p[1] > R.h + 40) continue;
+      const a = Math.min(0.28, 0.1 + 0.12 * (l - TR.busy));
+      for (let n = 0; n < 3; n++) {
+        const ph = t * 0.6 + n * 2.1 + x * 0.7 + y * 1.3, u = (ph % 3) / 3;
+        g.globalAlpha = a * Math.sin(u * Math.PI);
+        circ(p[0] + Math.sin(ph) * 9 * sc + (n - 1) * 8 * sc, p[1] - u * 12 * sc, (7 + u * 9) * sc, '#e4cfa3');
+      }
+    }
+    g.globalAlpha = 1;
+  }
+  function pingpong(u, len, rest) {
+    const T = 2 * (len + rest), v = ((u % T) + T) % T;
+    if (v < rest) return { pos: 0, dir: 1, stop: true };
+    if (v < rest + len) return { pos: v - rest, dir: 1 };
+    if (v < 2 * rest + len) return { pos: len, dir: -1, stop: true };
+    return { pos: len - (v - 2 * rest - len), dir: -1 };
+  }
+  // Tram cars (one per line, back and forth, a short stop at each end), its stops, and the cane trains.
+  function trItems(R, s, out, now) {
+    const t = now / 1000;
+    if ((s.tram || []).length) {
+      const T = tramLines(s);
+      T.lines.forEach((L, k) => {
+        for (const st of L.stops) { const x = st % MAP_W, y = (st / MAP_W) | 0; out.push({ k: 'stop', x: x + 0.82, y: y + 0.82 }); }
+        if (L.path.length < 2) return;
+        const len = L.path.length - 1, q = pingpong(t * 1.3 + k * 5, len, 1.5);
+        const [x, y, dx, dy] = pathAt(L.path, Math.min(len - 0.001, q.pos)), h = head8(dx * q.dir, dy * q.dir), f = [Math.round(h[0]), Math.round(h[1])];
+        out.push({ k: 'tram', x, y, fx: f[0] || (Math.abs(h[0]) > Math.abs(h[1]) ? Math.sign(h[0]) : 0), fy: f[1] || (Math.abs(h[1]) >= Math.abs(h[0]) ? Math.sign(h[1]) : 0) });
+      });
+    }
+    if ((s.rail || []).length) {
+      railLines(s).lines.forEach((L, k) => {
+        if (L.path.length < 3) return;
+        const len = L.path.length - 1, q = pingpong(t * 1.0 + k * 7, len, 2.5), loaded = q.dir > 0 ? 0 : 1;
+        for (let w = 0; w < 4; w++) {
+          const pos = q.dir > 0 ? q.pos - w * 0.62 : q.pos + w * 0.62;
+          if (pos < 0 || pos > len) continue;
+          const [x, y, dx, dy] = pathAt(L.path, Math.min(len - 0.001, pos)), ax = Math.abs(dx) >= Math.abs(dy), fx = ax ? Math.sign(dx * q.dir) : 0, fy = ax ? 0 : Math.sign(dy * q.dir);
+          out.push(w === 0 ? { k: 'loco', x, y, fx, fy } : { k: 'wagon', x, y, fx, fy, load: loaded });
+        }
+      });
+    }
+  }
+  function paintTram(fx, fy) {
+    blobShadow(0, 0, 0.3);
+    obox(0, 0, fx, fy, 0.82, 0.36, 0.05, 0.16, '#b8442f');
+    const tp = obox(0, 0, fx, fy, 0.82, 0.36, 0.21, 0.24, '#efe3c4');
+    // windows along both sides, then the roof and the trolley pole
+    const sx = -fy, sy = fx;
+    for (const side of [-1, 1]) for (let k = -2; k <= 2; k++) { const a = k * 0.15, c = P(fx * a + sx * side * 0.181, fy * a + sy * side * 0.181, 0.36); if ((sx * side + sy * side) > 0) { ctx.fillStyle = '#4a5866'; ctx.fillRect(c[0] - 2.2 * S, c[1] - 2.6 * S, 4.4 * S, 4.2 * S); } }
+    obox(0, 0, fx, fy, 0.88, 0.4, 0.45, 0.04, '#7a3b2a');
+    seg(P(-fx * 0.1, -fy * 0.1, 0.49), P(-fx * 0.42, -fy * 0.42, 0.95), '#2f2a28', 1.4 * S);
+    circ(P(-fx * 0.42, -fy * 0.42, 0.95)[0], P(-fx * 0.42, -fy * 0.42, 0.95)[1], 1.2 * S, '#2f2a28');
+  }
+  function paintLoco(fx, fy) {
+    blobShadow(0, 0, 0.28);
+    obox(0, 0, fx, fy, 0.6, 0.3, 0.04, 0.1, '#2f2a28');
+    obox(fx * 0.08, fy * 0.08, fx, fy, 0.38, 0.24, 0.14, 0.2, '#2e5a3c');
+    obox(-fx * 0.17, -fy * 0.17, fx, fy, 0.22, 0.28, 0.14, 0.32, '#2e5a3c');
+    obox(-fx * 0.17, -fy * 0.17, fx, fy, 0.26, 0.32, 0.46, 0.04, '#1f1b19');
+    const ch = P(fx * 0.2, fy * 0.2, 0.34), ct = P(fx * 0.2, fy * 0.2, 0.56);
+    seg(ch, ct, '#1f1b19', 4.2 * S); circ(ct[0], ct[1], 3 * S, '#3a3330');
+    const bell = P(fx * 0.3, fy * 0.3, 0.12); circ(bell[0], bell[1], 1.6 * S, '#c9a24a');
+  }
+  function paintWagon(fx, fy, load) {
+    blobShadow(0, 0, 0.24);
+    obox(0, 0, fx, fy, 0.52, 0.28, 0.05, 0.08, '#3a3330');
+    obox(0, 0, fx, fy, 0.5, 0.28, 0.13, 0.12, '#8a5a3c');
+    if (load) for (let k = -1; k <= 1; k++) { const a = k * 0.14; obox(fx * a, fy * a, fx, fy, 0.12, 0.26, 0.25, 0.1, k ? '#7fae47' : '#93c055'); }
+  }
+  function paintStop() {
+    const b = P(0, 0, 0), tp = P(0, 0, 0.62);
+    seg(b, tp, '#2f2a28', 1.6 * S);
+    ctx.fillStyle = '#f2c14e'; ctx.strokeStyle = INK; ctx.lineWidth = 0.9 * S;
+    ctx.beginPath(); ctx.rect(tp[0] - 5 * S, tp[1] - 7 * S, 10 * S, 7 * S); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = INK; ctx.font = 'bold ' + (5.5 * S).toFixed(1) + 'px ' + SANS; ctx.textAlign = 'center'; ctx.fillText('T', tp[0], tp[1] - 1.6 * S);
+  }
+  function puffDraw(R, q, t) {
+    const sc = R.hw / 44, base = P(q.x + q.fx * 0.2, q.y + q.fy * 0.2, 0.6), g = R.ctx;
+    for (let i = 0; i < 4; i++) { const age = ((t * 0.8 + i / 4) % 1); g.globalAlpha = (1 - age) * 0.6; circ(base[0] + age * 10 * sc, base[1] - age * 26 * sc, (2.5 + age * 6) * sc, '#f1ece4'); }
+    g.globalAlpha = 1;
+  }
+  // The airfield: a mown strip with white markers, a hangar with an arched roof, the office with its windsock, and a
+  // slipway into the sea for the flying boats.
+  function paintAirfield(def, sea) {
+    lawn(def.w, def.h, '#a9c97a');
+    groundPatch(0.25, 1.15, def.w - 0.2, 1.95, '#c6d996', '#93ad64');
+    for (let k = 0; k < 6; k++) { const x = 0.45 + k * 0.42; groundPatch(x, 1.52, x + 0.2, 1.58, '#fbf8ee'); }
+    for (const y of [1.2, 1.84]) for (const x of [0.3, def.w - 0.45]) groundPatch(x, y, x + 0.14, y + 0.08, '#fbf8ee');
+    if (sea) {
+      const [dx, dy] = sea, cx = dx > 0 ? def.w - 0.25 : dx < 0 ? 0.25 : 1.5, cy = dy > 0 ? def.h - 0.25 : dy < 0 ? 0.25 : 2.6;
+      groundPatch(cx - (dx ? 0.25 : 0.2), cy - (dy ? 0.25 : 0.2), cx + (dx ? 0.25 : 0.2), cy + (dy ? 0.25 : 0.2), '#a07a50', '#6b4a33');
+    }
+    // the hangar
+    const hx = 0.15, hy = 0.12, hw2 = 1.4, hd = 0.85, hz = 0.5, col = '#d9d2c3';
+    walls(hx, hy, hw2, hd, 0, hz, col); 
+    const arch = (y) => { const pts = []; for (let k = 0; k <= 10; k++) { const u = k / 10; pts.push(P(hx + u * hw2, y, hz + Math.sin(u * Math.PI) * 0.38)); } return pts; };
+    const fr = arch(hy), bk = arch(hy + hd);
+    for (let k = 0; k < 10; k++) poly([fr[k], fr[k + 1], bk[k + 1], bk[k]], k < 5 ? '#b9bcbf' : '#9ea2a6', 'rgba(60,60,70,.5)', 0.6 * S);
+    poly(bk.concat([P(hx + hw2, hy + hd, 0), P(hx, hy + hd, 0)]), '#cfc6b4', ln('#cfc6b4'), 0.8 * S);
+    const dq = [P(hx + 0.35, hy + hd, 0), P(hx + 1.05, hy + hd, 0), P(hx + 1.05, hy + hd, 0.42), P(hx + 0.35, hy + hd, 0.42)];
+    poly(dq, '#5a4a3c', INK, 0.8 * S);
+    faceText({ o: [hx, hy + hd, 0], a: [1, 0] }, hw2 / 2, 0.62, 'ISLA NUEVA', 5.5 * S, '#7a3b2a');
+    // the office and the windsock
+    boxAt(2.25, 0.25, 0.5, 0.5, 0, 0.42, '#f3ead8');
+    flatRoof && flatRoof(2.2, 0.2, 0.6, 0.6, 0.42, 0.05, '#c8553d', '#c8553d');
+    const pb = P(2.6, 2.65, 0), pt = P(2.6, 2.65, 0.9); seg(pb, pt, '#4a4440', 1.4 * S);
+    poly([pt, [pt[0] + 12 * S, pt[1] + 2 * S], [pt[0] + 12 * S, pt[1] + 5 * S], [pt[0], pt[1] + 6 * S]], '#e8743c', INK, 0.8 * S);
+    seg([pt[0] + 4 * S, pt[1] + 0.7 * S], [pt[0] + 4 * S, pt[1] + 5.4 * S], '#fbf8ee', 1.6 * S); seg([pt[0] + 8.5 * S, pt[1] + 1.4 * S], [pt[0] + 8.5 * S, pt[1] + 4.8 * S], '#fbf8ee', 1.6 * S);
+  }
+  // A small high-wing monoplane (the island's mail plane) at (x, y, z) heading (fx, fy).
+  function paintPlane(x, y, z, fx, fy) {
+    const sx = -fy, sy = fx, Q = (a, c, h) => P(x + fx * a + sx * c, y + fy * a + sy * c, z + h);
+    const g0 = P(x, y, 0); ell(g0[0], g0[1], 16 * S, 6 * S, 'rgba(37,28,56,' + Math.max(0.06, 0.2 - z * 0.03).toFixed(3) + ')');
+    poly([Q(0.38, 0, 0.05), Q(0.1, 0.07, 0.1), Q(-0.42, 0.03, 0.08), Q(-0.42, -0.03, 0.08), Q(0.1, -0.07, 0.1)], '#e9e4d6', INK, 0.9 * S);
+    poly([Q(-0.34, 0, 0.08), Q(-0.44, 0.17, 0.09), Q(-0.47, 0.17, 0.09), Q(-0.42, 0, 0.08), Q(-0.47, -0.17, 0.09), Q(-0.44, -0.17, 0.09)], '#c8553d', INK, 0.8 * S);
+    poly([Q(-0.38, 0, 0.08), Q(-0.46, 0, 0.26), Q(-0.42, 0, 0.26)], '#c8553d', INK, 0.8 * S);
+    poly([Q(0.14, 0.62, 0.2), Q(-0.04, 0.62, 0.2), Q(-0.04, -0.62, 0.2), Q(0.14, -0.62, 0.2)], '#f2c14e', INK, 0.9 * S);
+    seg(Q(0.06, 0.25, 0.2), Q(0.04, 0.07, 0.08), INK, 0.8 * S); seg(Q(0.06, -0.25, 0.2), Q(0.04, -0.07, 0.08), INK, 0.8 * S);
+    const pr = Q(0.4, 0, 0.06); ell(pr[0], pr[1], 4.2 * S, 4.2 * S, 'rgba(60,50,40,.35)');
+  }
+  // Each airfield's plane: lands along its strip from the sea side, rolls, waits, takes off again (a 26 s cycle).
+  function planesDraw(R, s, now) {
+    const t = now / 1000;
+    for (const b of s.b) {
+      if (b.type !== 'airfield' || !b.open) continue;
+      const y = b.y + 1.55, x0 = b.x + 0.3, x1 = b.x + b.w - 0.3, u = (t + b.id * 3.7) % 26;
+      let x, z, fx = 1;
+      if (u < 6) { const e = u / 6; x = lerp(x0 - 9, x0 + 0.3, e); z = 3.2 * Math.pow(1 - e, 1.6); }
+      else if (u < 9) { const e = (u - 6) / 3; x = lerp(x0 + 0.3, x1 - 0.3, 1 - (1 - e) * (1 - e)); z = 0; }
+      else if (u < 15) { x = x1 - 0.3; z = 0; }
+      else if (u < 18) { const e = (u - 15) / 3; x = lerp(x1 - 0.3, x0 + 0.3, e * e); z = 0; fx = -1; }
+      else if (u < 23) { const e = (u - 18) / 5; x = lerp(x0 + 0.3, x0 - 10, e); z = 3.6 * e * e; fx = -1; }
+      else continue;
+      const p = P(x, y, z);
+      if (p[0] < -60 || p[0] > R.w + 60 || p[1] < -80 || p[1] > R.h + 60) continue;
+      pen(R.ctx, R.ox, R.oy, R.hw, R.dpr);
+      paintPlane(x, y, z, fx, 0);
+    }
+  }
+  // While she draws a tram line or a railway: the tiles, the blocked one, the price and what it is for.
+  function trackGhost(R, s, ui, t) {
+    const tram = ui.tool === 'tram', plan = tram ? tramPlan(s, ui.stroke) : railPlan(s, ui.stroke), bad = new Set(plan.bad.map((b) => b.i));
+    const g = R.ctx, d = R.dpr;
+    g.setTransform(d, 0, 0, d, 0, 0);
+    for (const i of ui.stroke) { const x = i % MAP_W, y = (i / MAP_W) | 0; diamond(R, x + 0.1, y + 0.1, x + 0.9, y + 0.9, bad.has(i) ? 'rgba(196,85,63,.45)' : tram ? 'rgba(70,90,120,.38)' : 'rgba(120,85,50,.42)', bad.has(i) ? '#a33a28' : '#fbf3df', 1.6, [5, 3]); }
+    const blk = ui.strokeBlock;
+    if (blk) { const bx = blk.i % MAP_W, by = (blk.i / MAP_W) | 0; diamond(R, bx + 0.04, by + 0.04, bx + 0.96, by + 0.96, 'rgba(196,85,63,.6)', '#a33a28', 2.4); }
+    const last = ui.stroke[ui.stroke.length - 1], p = P(last % MAP_W + 0.5, ((last / MAP_W) | 0) + 0.5, 0), afford = s.money >= plan.cost;
+    const text = blk ? blk.why : plan.bad.length ? plan.bad[0].why : plan.add.length ? (tram ? 'Tram line' : 'Railway') + ' · $' + plan.cost.toLocaleString('en-US') + ' · ' + plan.add.length + ' tiles' + (afford ? '' : ' · not enough money') : (tram ? 'Already tram track' : 'Already track');
+    uiDraw(R, labelSprite(R, text, !blk && !plan.bad.length && afford), p[0], p[1] - 34);
+  }
+
   // ---------- frame ----------
   function viewOrigin(R, view) { const w = R.w || R.canvas.clientWidth, h = R.h || R.canvas.clientHeight; return { ox: w / 2 - (view.cx - view.cy) * view.z, oy: h / 2 - (view.cx + view.cy) * view.z / 2, hw: view.z }; }
   function toScreen(R, view, tx, ty) { const o = viewOrigin(R, view); return { x: o.ox + (tx - ty) * o.hw, y: o.oy + (tx + ty) * o.hw / 2 }; }
@@ -6781,7 +8120,7 @@ const ISO = (() => {
     for (const c of s.carts) {
       if (c.st === 'idle' || !c.path || c.path.length < 2) continue;
       const at = c.path[Math.min(c.path.length - 1, Math.floor(c.pos))];
-      const pos = Math.min(c.path.length - 1.001, c.pos + TUNE.cartSpeed * (s.road[at] === 2 ? TUNE.pavedSpeed : 1) * f);
+      const pos = Math.min(c.path.length - 1.001, c.pos + cartStep(s, at) * f);
       const [x, y, dx, dy] = pathAt(c.path, pos), h = head8(dx, dy);
       out.push({ k: 'cart', x: x - dy * 0.14, y: y + dx * 0.14, fx: h[0], fy: h[1], good: c.st === 'go' ? c.good : '', n: c.st === 'go' ? c.n : 0, fr, bob: Math.abs(Math.sin(now / 160 + c.id)) });
     }
@@ -6807,6 +8146,7 @@ const ISO = (() => {
     // M2: the waiting families' tents by the pier (one a family; tentSpots in people.js), drawn in depth order
     tentSpots(s).forEach(([tx, ty], k) => out.push({ k: 'tent', x: tx, y: ty, v: (tx * 7 + ty * 3 + k) % 4, box: [tx + 0.1, ty + 0.1, tx + 0.9, ty + 0.9] }));
     shipItems(R, s, out);
+    trItems(R, s, out, now);
     // slot each moving thing right after the last static object it stands in front of
     for (const q of out) {
       let mx = -1;
@@ -6828,6 +8168,10 @@ const ISO = (() => {
     sprDraw(R, dynSprite(R, q), p[0], p[1] - (q.bob || 0) * 0.9 * R.hw / 44);
   }
   function dynSprite(R, q) {
+    if (q.k === 'tram') return sprite(R, 'tram|' + q.fx + ',' + q.fy, [0.01, 0.01, 0.9, 0.5], 1.3, () => paintTram(q.fx, q.fy));
+    if (q.k === 'loco') return sprite(R, 'loco|' + q.fx + ',' + q.fy, [0.01, 0.01, 0.9, 0.5], 1.3, () => paintLoco(q.fx, q.fy));
+    if (q.k === 'wagon') return sprite(R, 'wagon|' + q.fx + ',' + q.fy + '|' + q.load, [0.01, 0.01, 0.8, 0.5], 1.0, () => paintWagon(q.fx, q.fy, q.load));
+    if (q.k === 'stop') return sprite(R, 'stop', [0.01, 0.01, 0.3, 0.2], 1.0, paintStop);
     if (q.k === 'tent') return sprite(R, 'tent|' + q.v, [1, 1], 0.8, () => paintTent(q.v));
     if (q.k === 'cart') return sprite(R, 'cart|' + q.fx.toFixed(2) + ',' + q.fy.toFixed(2) + '|' + q.good + '|' + Math.min(3, q.n) + '|' + q.fr, [0.01, 0.01, 0.9, 0.5], 1.2, () => paintCart(q.fx, q.fy, q.good, q.n, q.fr));
     return sprite(R, 'walk|' + (q.v % 12) + '|' + (q.leaving ? 1 : 0) + '|' + q.fr, [0.01, 0.01, 0.3, 0.2], 0.55, () => paintPerson(0, 0, q.v, q.fr, q.leaving));
@@ -6858,6 +8202,7 @@ const ISO = (() => {
     wavesDraw(R, t); mark('waves');
     if (ui.tool && ui.tool !== 'look') gridDraw(R);
     spaceGround(R, s, ui, t);
+    trafficGround(R, s, t);
     g.setTransform(d, 0, 0, d, 0, 0); g.lineCap = 'round'; g.lineJoin = 'round';
     pen(g, R.ox, R.oy, R.hw, d);
     sailboatsDraw(R, t);
@@ -6873,6 +8218,7 @@ const ISO = (() => {
           const b = ob.b, def = BUILDINGS[b.type];
           sprDraw(R, bSprite(R, s, b), p[0], p[1], b.open === false ? 0.6 : undefined);
           if (b.build) sprDraw(R, sprite(R, 'scaf|' + (b.level || 1), [1, 1], 2.4, () => paintScaffold(b.level || 1)), p[0], p[1]);
+          if (b.wip) sprDraw(R, sprite(R, 'pscaf|' + b.w + 'x' + b.h, [b.w, b.h], 2.8, () => paintProjectScaffold(b.w, b.h)), p[0], p[1]);
           for (const [good, n, lx, ly] of pileSpots(s, b)) { const q = P(b.x + lx, b.y + ly, 0); sprDraw(R, pileSprite(R, good, Math.min(12, n)), q[0], q[1]); }
           if (smokeOf(def) && b.open && b.workers > 0 && !b.blocked) smoke.push(b);
         } else sprDraw(R, objSprite(R, s, ob, now), p[0], p[1]);
@@ -6881,6 +8227,8 @@ const ISO = (() => {
     }
     drawDyn(1e9); mark('objects');
     for (const b of smoke) smokeDraw(R, b, t);
+    dustDraw(R, s, t);
+    for (const q of dyn) if (q.k === 'loco') puffDraw(R, q, t);
   }
   function smokeDraw(R, b, t) {
     const g = R.ctx, def = BUILDINGS[b.type], c = chimneyTop(def), base = P(b.x + c[0], b.y + c[1], c[2] + 0.02), sc = R.hw / 44, k = c[3] || 1;
@@ -6928,7 +8276,7 @@ const ISO = (() => {
     R.stats.snaps = (R.stats.snaps || 0) + 1;
     main.setTransform(1, 0, 0, 1, 0, 0); main.drawImage(c, -GM * d, -GM * d);
   }
-  function snapUiKey(ui) { return (ui.tool && ui.tool !== 'look' ? 'grid' : '') + '|' + (ui.space ? ui.space.key : ''); }
+  function snapUiKey(ui) { return (ui.tool && ui.tool !== 'look' ? 'grid' : '') + '|' + (ui.space ? ui.space.key : '') + '|' + (trLayerOn() ? 'tr' : ''); }
   function draw(R, s, view, ui) {
     const t0 = performance.now();
     resize(R);
@@ -6964,13 +8312,20 @@ const ISO = (() => {
     g.setTransform(d, 0, 0, d, 0, 0); g.lineCap = 'round'; g.lineJoin = 'round';
     pen(g, R.ox, R.oy, R.hw, d);
     shipOverlay(R, s, now, t);
+    planesDraw(R, s, now);
     // marks above buildings: what a home lacks, workers short, a full yard
     const sc = clamp(Math.round(R.hw / 34 * 8) / 8, 0.75, 1.25), sel = ui.sel;
     R.bubbles = [];
     for (const ob of R.order) {
       if (ob.k !== 'b' || !onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1)) continue;
-      const b = ob.b, m = bubbleOf(s, b, R.hw);
+      const b = ob.b, m = ui.money ? null : bubbleOf(s, b, R.hw);
       if (b.open === false) { const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) * 0.6); uiDraw(R, labelSprite(R, 'Closed', true), p[0], p[1]); }
+      // M4: a strike: workers outside the gate with placards, and the word over the roof
+      if (b.strike) {
+        for (let k = 0; k < 5; k++) { const fx = b.x + 0.2 + k * (b.w - 0.3) / 5, fy = b.y + b.h + 0.35 + (k % 2) * 0.25; paintPerson(fx, fy, k + b.id, Math.floor(t * 2 + k) % 2, false); const q = P(fx, fy, 0); seg([q[0] + 3 * S, q[1] - 10 * S], [q[0] + 3 * S, q[1] - 24 * S], '#6b4a2e', 1.2 * S); poly([[q[0] - 3 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 22 * S], [q[0] - 3 * S, q[1] - 22 * S]], '#fbf3df', INK, 0.8 * S); }
+        const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) + 0.5); uiDraw(R, labelSprite(R, 'On strike', false), p[0], p[1] - 6);
+      }
+      if (b.wip && !ui.money) { const p = P(b.x + b.w / 2, b.y + b.h / 2, 2.9); uiDraw(R, labelSprite(R, 'Being built · ' + Math.round(100 * projectDone(b)) + ' %', true), p[0], p[1]); }
       if (!m) continue;
       const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b));
       if (p[0] < -40 || p[0] > R.w + 40 || p[1] < -40 || p[1] > R.h + 60) continue;
@@ -6978,6 +8333,12 @@ const ISO = (() => {
       R.bubbles.push({ x: p[0], y: p[1] - 4 - 16 * sc, id: b.id, home: b.type === 'casita', need: b.type === 'casita' ? (b.lacks[0] || b.wants[0]) : '', warn: m.warn });
     }
     spaceMarks(R, s, ui, t);
+    // M4: the Money layer: every building's monthly number, homes one tag a street block
+    if (ui.money) for (const q of moneyTags(R, s)) {
+      const p = P(q.x, q.y, q.z);
+      if (p[0] < -60 || p[0] > R.w + 60 || p[1] < -30 || p[1] > R.h + 30) continue;
+      uiDraw(R, moneyTagSprite(R, moneyShort(q.n), q.n >= 0, q.home), p[0], p[1]);
+    }
     // selection
     if (sel) { const b = bById(s, sel); if (b) { diamond(R, b.x - 0.06, b.y - 0.06, b.x + b.w + 0.06, b.y + b.h + 0.06, 'rgba(255,246,223,.18)', '#fbf3df', 5); diamond(R, b.x - 0.06, b.y - 0.06, b.x + b.w + 0.06, b.y + b.h + 0.06, null, '#df684c', 2.4, [8, 5]); } }
     // payday floaters; one that would sit on top of another already drawn this frame is skipped (no label clouds)
@@ -7016,10 +8377,11 @@ const ISO = (() => {
   }
   function ghostDraw(R, s, ui, t) {
     const g = R.ctx, d = R.dpr, z = R.hw;
+    if (ui.stroke && ui.stroke.length && (ui.tool === 'tram' || ui.tool === 'rail')) { trackGhost(R, s, ui, t); return; }
     if (ui.stroke && ui.stroke.length) {
-      const plan = roadPlan(s, ui.stroke), bad = new Set(plan.bad.map((b) => b.i)), set = new Set(ui.stroke);
+      const plan = roadPlan(s, ui.stroke), bad = new Set(plan.bad.map((b) => b.i)), set = new Set(plan.kind === 3 ? avenueWiden(ui.stroke) : ui.stroke);
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-      for (const i of ui.stroke) { const x = i % MAP_W, y = (i / MAP_W) | 0; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      for (const i of set) { const x = i % MAP_W, y = (i / MAP_W) | 0; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
       g.setTransform(d * z, d * z / 2, -d * z, d * z / 2, d * R.ox, d * R.oy);
       const rg = roadGeom((x, y) => inMap(x, y) && set.has(tileIdx(x, y)) && !bad.has(tileIdx(x, y)), x0, y0, x1, y1);
       g.lineDashOffset = -t * 0.25;
@@ -7030,7 +8392,7 @@ const ISO = (() => {
       g.globalAlpha = 1 - pu; g.beginPath(); g.ellipse(p[0], p[1], (10 + pu * 16), (5 + pu * 8), 0, 0, TAU); g.strokeStyle = '#fff6df'; g.lineWidth = 2; g.stroke(); g.globalAlpha = 1;
       circ(p[0], p[1] - 3, 7.5, '#fffaf0', INK, 1.6); circ(p[0], p[1] - 3, 3.8, '#df684c');
       const afford = s.money >= plan.cost;
-      const text = plan.bad.length ? plan.bad[0].why : (plan.add.length ? '$' + plan.cost + ' · ' + plan.add.length + ' tiles' + (afford ? '' : ' · not enough money') : 'Already a road');
+      const text = plan.bad.length ? plan.bad[0].why : (plan.add.length ? (plan.kind === 3 ? 'Avenue · ' : '') + '$' + plan.cost.toLocaleString('en-US') + ' · ' + plan.add.length + ' tiles' + (afford ? '' : ' · not enough money') : 'Already a road');
       // block 4: the stroke stops at whatever is in the way; its tile is drawn red with the reason
       const blk = ui.strokeBlock;
       if (blk) {
@@ -7413,7 +8775,7 @@ const BAR_TAB_KEY = 'isla-nova-tab';
 
 // The tab a tool lives in.
 function barGroupOf(tool) {
-  if (tool === 'road' || tool === 'paved' || tool === 'remove' || tool === 'clear') return 'roads';
+  if (tool === 'road' || tool === 'paved' || tool === 'remove' || tool === 'clear' || TR_TOOLS[tool]) return 'roads';
   if (tool === 'palace') return 'services';
   return BUILDINGS[tool] ? BUILDINGS[tool].group : '';
 }
@@ -7421,7 +8783,7 @@ function barGroupOf(tool) {
 // The buttons of one tab: what she can build now first, then only the nearest stage's locked ones (so a tab is never a
 // wall of grey); 'remove' stays last on the Roads tab.
 function barTools(s, group) {
-  const all = barToolsAll(s, group), stageOf = (t) => (t.id === 'paved' ? PAVED_STAGE : t.id === 'clear' ? TUNE.clearStage : t.id === 'palace' ? STAGES.length - 1 : BUILDINGS[t.id] ? BUILDINGS[t.id].stage : 0);
+  const all = barToolsAll(s, group), stageOf = (t) => (TR_TOOLS[t.id] ? TR_TOOLS[t.id].stage : t.id === 'paved' ? PAVED_STAGE : t.id === 'clear' ? TUNE.clearStage : t.id === 'palace' ? STAGES.length - 1 : BUILDINGS[t.id] ? BUILDINGS[t.id].stage : 0);
   const open = all.filter((t) => !t.locked && t.id !== 'remove'), locked = all.filter((t) => t.locked);
   const next = locked.length ? Math.min(...locked.map(stageOf)) : -1;
   return open.concat(locked.filter((t) => stageOf(t) === next), all.filter((t) => t.id === 'remove'));
@@ -7433,6 +8795,8 @@ function barToolsAll(s, group) {
   if (group === 'roads') {
     tools.push({ id: 'road', name: 'Road', icon: 'road', cost: '$' + TUNE.roadCost + '/tile' });
     tools.push({ id: 'paved', name: 'Paved road', icon: 'paved', cost: '$' + TUNE.pavedCost + '/tile', locked: s.stage < PAVED_STAGE ? STAGES[PAVED_STAGE].name : '', price: TUNE.pavedCost });
+    // M5: the Transport tab: avenue, tram line, cane railway, the Traffic layer (the airfield comes with the buildings)
+    for (const id in TR_TOOLS) { const t = TR_TOOLS[id]; tools.push({ id, name: t.name, icon: t.icon, cost: t.cost, locked: s.stage < t.stage ? STAGES[t.stage].name : '', price: t.price || 0 }); }
     // block 6: clears forest in the open land, a 2 x 2 patch at a time (the way out when no grass is left by a road)
     tools.push({ id: 'clear', name: 'Clear forest', icon: 'tree', cost: '$' + clearTileCost(s) + '/tile', locked: s.stage < TUNE.clearStage ? STAGES[TUNE.clearStage].name : '', price: clearTileCost(s) });
     tools.push({ id: 'remove', name: 'Remove', icon: 'remove', cost: '' });
@@ -7440,7 +8804,7 @@ function barToolsAll(s, group) {
   for (const t of BUILD_ORDER) {
     const d = BUILDINGS[t];
     if (d.group !== group) continue;
-    tools.push({ id: t, name: d.short || d.name, icon: d.icon, cost: fmtMoney(d.cost), locked: d.stage > s.stage ? STAGES[d.stage].name : '', price: d.cost });
+    tools.push({ id: t, name: d.short || d.name, icon: d.icon, cost: fmtMoney(d.cost), locked: d.stage > s.stage ? STAGES[d.stage].name : d.year && yearOf(s) < d.year ? 'from ' + d.year : '', price: d.cost });
   }
   if (group === 'services') {
     const last = STAGES.length - 1;
@@ -7453,7 +8817,7 @@ function barToolsAll(s, group) {
 function barTabNew(s, group) {
   if (!s.stage || (APP.ui.tabSeen || {})[group] === s.stage) return false;
   return barToolsAll(s, group).some((t) => !t.locked && ((BUILDINGS[t.id] && BUILDINGS[t.id].stage === s.stage) ||
-    (t.id === 'paved' && s.stage === PAVED_STAGE) || (t.id === 'clear' && s.stage === TUNE.clearStage) || (t.id === 'palace' && s.stage === STAGES.length - 1)));
+    (t.id === 'paved' && s.stage === PAVED_STAGE) || (TR_TOOLS[t.id] && TR_TOOLS[t.id].stage === s.stage && s.stage > 0) || (t.id === 'clear' && s.stage === TUNE.clearStage) || (t.id === 'palace' && s.stage === STAGES.length - 1)));
 }
 
 function barTabRead() {
@@ -7499,8 +8863,9 @@ function barShow(tool) {
 function barToolTap(id, locked) {
   const s = APP.state;
   if (locked) {
-    const st = id === 'paved' ? PAVED_STAGE : id === 'clear' ? TUNE.clearStage : id === 'palace' ? STAGES.length - 1 : BUILDINGS[id].stage;
-    toastShow((id === 'paved' ? 'Paved roads' : id === 'clear' ? 'Clearing forest' : id === 'palace' ? "The Governor's palace" : BUILDINGS[id].name) + ' opens at ' + STAGES[st].name + '.');
+    const st = TR_TOOLS[id] ? TR_TOOLS[id].stage : id === 'paved' ? PAVED_STAGE : id === 'clear' ? TUNE.clearStage : id === 'palace' ? STAGES.length - 1 : BUILDINGS[id].stage;
+    if (BUILDINGS[id] && BUILDINGS[id].year && st <= s.stage) { toastShow(BUILDINGS[id].name + ' opens in ' + BUILDINGS[id].year + ': the first flying boats came to the islands then.'); return; }
+    toastShow((TR_TOOLS[id] ? TR_TOOLS[id].long : id === 'paved' ? 'Paved roads' : id === 'clear' ? 'Clearing forest' : id === 'palace' ? "The Governor's palace" : BUILDINGS[id].name) + ' opens at ' + STAGES[st].name + '.');
     return;
   }
   if (id === 'palace') {
@@ -7510,7 +8875,9 @@ function barToolTap(id, locked) {
     if (r) { viewFocus(r.x + 1, r.y + 1); cardOpen(r.id); }
     return;
   }
-  const cur = APP.ui.tool === 'road' ? (s._roadKind === 2 ? 'paved' : 'road') : APP.ui.tool;
+  // M5: the Traffic layer is a switch, not a tool
+  if (id === 'traffic') { trafficToggle(); return; }
+  const cur = APP.ui.tool === 'road' ? (s._roadKind === 3 ? 'avenue' : s._roadKind === 2 ? 'paved' : 'road') : APP.ui.tool;
   if (cur === id) { toolSet('look'); return; }
   toolSet(id);
 }
@@ -7518,10 +8885,10 @@ function barToolTap(id, locked) {
 // Picks a tool: 'look', 'road', 'paved' (the road tool laying paved road), 'remove' or a building type.
 // keepHint: the tool was picked from a tool's hint (Rosa: "Lay a road along the beach first"); the hint stays on.
 function toolSet(tool, keepHint) {
-  if (tool === 'paved' || tool === 'road') { APP.state._roadKind = tool === 'paved' ? 2 : 1; tool = 'road'; }
+  if (tool === 'paved' || tool === 'road' || tool === 'avenue') { APP.state._roadKind = tool === 'avenue' ? 3 : tool === 'paved' ? 2 : 1; tool = 'road'; }
   APP.ui.tool = tool;
   APP.ui.ghost = null; APP.ui.stroke = null; APP.ui.strokeBlock = null;
-  if (tool !== 'look') { barShow(tool === 'road' && APP.state._roadKind === 2 ? 'paved' : tool); cardClose(); }
+  if (tool !== 'look') { barShow(tool === 'road' && APP.state._roadKind >= 2 ? 'paved' : tool); cardClose(); }
   // a building with no spot in the open land: Rosa names the one step that makes one
   if (!keepHint) {
     const h = BUILDINGS[tool] ? noSpotHint(APP.state, tool) : null;
@@ -7535,8 +8902,8 @@ function toolSet(tool, keepHint) {
 
 function barMark() {
   const s = APP.state, t = APP.ui.tool;
-  const on = t === 'road' ? (s._roadKind === 2 ? 'paved' : 'road') : t;
-  $('bar').querySelectorAll('.tool').forEach((b) => b.classList.toggle('on', b.dataset.tool === on));
+  const on = t === 'road' ? (s._roadKind === 3 ? 'avenue' : s._roadKind === 2 ? 'paved' : 'road') : t;
+  $('bar').querySelectorAll('.tool').forEach((b) => b.classList.toggle('on', b.dataset.tool === on || (b.dataset.tool === 'traffic' && APP.ui.layer === 'traffic')));
 }
 
 // Prices she cannot pay yet show in red; a building with no spot in the open land says the step that makes one
@@ -7545,7 +8912,7 @@ function barPoor() {
   const s = APP.state;
   $('bar').querySelectorAll('.tool').forEach((b) => {
     const id = b.dataset.tool, small = b.querySelector('small');
-    const price = id === 'paved' ? TUNE.pavedCost : id === 'clear' ? clearTileCost(s) : id === 'palace' ? (s.palace ? 0 : TUNE.palaceCost) : id === 'road' ? TUNE.roadCost : BUILDINGS[id] ? BUILDINGS[id].cost : 0;
+    const price = TR_TOOLS[id] ? TR_TOOLS[id].price || 0 : id === 'paved' ? TUNE.pavedCost : id === 'clear' ? clearTileCost(s) : id === 'palace' ? (s.palace ? 0 : TUNE.palaceCost) : id === 'road' ? TUNE.roadCost : BUILDINGS[id] ? BUILDINGS[id].cost : 0;
     if (id === 'clear' && small && !small.dataset.cost) small.dataset.cost = '$' + clearTileCost(s) + '/tile';
     const locked = b.classList.contains('locked');
     const h = !locked && BUILDINGS[id] ? noSpotHint(s, id) : null;
@@ -7569,6 +8936,10 @@ function barHeight() {
 function bStatus(s, b) {
   const def = BUILDINGS[b.type];
   if (!b.open) return { text: 'Closed: no wages, no output, half the upkeep.' };
+  // M4: a grand project under scaffolding; a strike
+  if (b.wip) return { text: 'Being built: ' + Math.round(100 * projectDone(b)) + ' % (' + Math.ceil(b.wip / TUNE.ticksPerMonth) + ' of ' + def.project + ' months left). Then: ' + PROJECT_FX[def.gives].text + '.' };
+  if (b.strike) return { text: 'On strike: wages are low and happiness is ' + s.happy + '. Nothing is made, no wages are paid. Raise wages at the desk, or settle once for ' + money$(strikeCost(s, b)) + '.' };
+  if (def.island) return { text: 'Runs: ' + PROJECT_FX[def.gives].text + '.', good: true };
   if (def.jobs && b.workers === 0) return { text: 'No workers. Half of the people work: build homes.' };
   if (def.kind === 'producer') {
     if (b.blocked === 'yard') return { text: yardText(s, b) };
@@ -7680,7 +9051,9 @@ function cardHtml(s, b) {
       h += '<div class="line"><span>On the shelves</span><span>' + (shelf.length ? shelf.map((g) => Math.floor(b.stock[g]) + ' ' + GOODS[g].name.toLowerCase()).join(' · ') : '') +
         (marketFood(b) < 1 ? (shelf.length ? ' · ' : '') + '<span class="n">No food on the shelves</span>' : '') + '</span></div>';
     }
-    if (def.kind === 'service' && def.gives !== 'light') h += '<div class="line"><span>Homes in reach (' + bReach(def) + ' tiles)</span><span>' + serviceHomes(s, b.id).length + '</span></div>';
+    if (def.island && b.wip) h += '<div class="hold"><div class="bar"><i style="width:' + Math.round(100 * projectDone(b)) + '%"></i></div><span>Built: <b>' + Math.round(100 * projectDone(b)) + ' %</b> · ' + Math.ceil(b.wip / TUNE.ticksPerMonth) + ' months to go</span></div>';
+    if (b.strike) h += '<div class="btns"><button id="cardSettle"' + (s.money < strikeCost(s, b) ? ' class="poor"' : '') + '>Settle the strike · ' + money$(strikeCost(s, b)) + '</button><button id="cardDesk">Desk: wages</button></div>';
+    if (def.kind === 'service' && def.gives !== 'light' && !def.island) h += '<div class="line"><span>Homes in reach (' + bReach(def) + ' tiles)</span><span>' + serviceHomes(s, b.id).length + '</span></div>';
     if (def.kind === 'harbor' && countType(s, 'bakery')) h += '<div class="line"><span>Flour</span><span>the ship takes it straight to every bakery (on each bakery\'s number)</span></div>';
     const st = bStatus(s, b);
     h += '<p class="note' + (st.good ? ' good' : '') + '">' + esc(st.text) + (cutOff(s, b) ? ' <button class="link" id="cardRoads">Show roads</button>' : '') + '</p>';
@@ -7844,6 +9217,11 @@ function cardRender() {
   if (op) op.addEventListener('click', () => { if (b.open) cardConfirm(b.id, 'shut', flip); else flip(); });
   const rd = $('cardRoads');
   if (rd) rd.addEventListener('click', () => { if (APP.ui.roadShow === b.id) APP.ui.roadShow = 0; else roadsShow(b.id); });
+  // M4: settling a strike once; the desk for the wages
+  const sb = $('cardSettle');
+  if (sb) sb.addEventListener('click', () => { const r = strikeSettle(s, b); toastShow(r.ok ? 'The strike is settled: ' + money$(r.cost) + '. The workers are back.' : r.why + '.'); APP.cardKey = ''; cardRender(); });
+  const db = $('cardDesk');
+  if (db) db.addEventListener('click', () => deskOpen());
   const rb = $('cardRes');
   if (rb) rb.addEventListener('click', () => { const r = resBuild(s); toastShow(r.ok ? 'The ' + RESIDENCE[s.res].name + ' is built.' : r.why + '.'); cardRender(); });
   const pal = $('cardPalace');
@@ -7890,17 +9268,22 @@ function sheetClose() {
 function deskOpen() {
   const s = APP.state;
   const pv = deskPreviews(s, deskChanges(s));
-  const seg = (lever, label) => '<h4>' + label + '</h4><div class="seg">' + ['low', 'fair', 'high'].map((v) => {
-    const on = s.lev[lever] === v, p = pv[lever + ':' + v];
-    return '<button data-lever="' + lever + '" data-v="' + v + '" class="' + (on ? 'on' : '') + '"><b>' + v[0].toUpperCase() + v.slice(1) + '</b><span>' + (on ? 'now' : esc(p.text)) + '</span></button>';
-  }).join('') + '</div>';
+  // M4: under each lever its rule in one line, and the last change's effect after the fact (green or coral)
+  const seg = (lever, label) => {
+    const fx = levFxText(s, lever), f = s.levFx && s.levFx[lever];
+    const good = f && f.months && (lever === 'rent' ? f.came >= 0 && !f.left : !f.strikes);
+    return '<h4>' + label + '</h4><div class="seg">' + ['low', 'fair', 'high'].map((v) => {
+      const on = s.lev[lever] === v, p = pv[lever + ':' + v];
+      return '<button data-lever="' + lever + '" data-v="' + v + '" class="' + (on ? 'on' : '') + '"><b>' + v[0].toUpperCase() + v.slice(1) + '</b><span>' + (on ? 'now' : esc(p.text)) + '</span></button>';
+    }).join('') + '</div><p class="rule">' + esc(leverRule(lever)) + '</p>' + (fx ? '<p class="after' + (good ? ' good' : '') + '" id="after-' + lever + '">' + esc(fx) + '</p>' : '');
+  };
   const harbor = countType(s, 'harbor') > 0;
   const goods = harbor ? EXPORTABLE.filter((g) => goodSeen(s, g)) : [];
   const exp = !harbor ? '<h4>The ship buys</h4><p class="sub">Exports start with a harbor (opens at ' + STAGES[BUILDINGS.harbor.stage].name + '): rum ' + money$(GOODS.rum.price) + ', fish ' + money$(GOODS.fish.price) + ' each.</p>' : goods.length ? '<h4>The ship buys</h4><p class="sub">Exported goods go to the harbor once the markets have what homes need. The ship buys up to ' + TUNE.shipBuys + ' of each good a month' + (BUILDINGS.quay.stage <= s.stage ? ' (the steamship ' + BUILDINGS.quay.buys + ', twice a month)' : '') + '.</p><div class="exp">' + goods.map((g) => {
     const p = pv['exp:' + g];
     return '<button data-exp="' + g + '" class="' + (s.exp[g] ? 'on' : '') + '"><b>' + esc(GOODS[g].name) + ': ' + (s.exp[g] ? 'export' : 'keep') + '</b><span>' + money$(exportPrice(s, g)) + ' each · switch: ' + esc(p.text) + '</span></button>';
   }).join('') + '</div>' : '';
-  sheetOpen('<h2>Governor\'s desk</h2><p class="sub">Each choice shows what it would change over a month, simulated on your island.</p>' +
+  sheetOpen('<h2>Governor\'s desk</h2><p class="sub">Each choice shows what it would change over a month, simulated on your island; under it, what your last change did.</p>' +
     seg('rent', 'Rent ($' + (LEVELS[1].rent / LEVELS[1].people).toFixed(2) + ' a person at fair, at every home level)') +
     seg('wages', 'Wages ($' + wageNow(s) + ' a worker at fair; wages rise with each stage; also how much the workshops make)') + exp +
     '<p class="sub" style="margin-top:12px">To close a building, tap it on the map.</p>');
@@ -8121,7 +9504,7 @@ function glanceRows(kind) {
       const big = s.stage > 0 && bigEmployer(s), t = big ? (big.src && !s.b.some((o) => o.type === big.src) ? big.src : big.t) : 'grove';
       rows.push({ text: plural(d.jobless, 'person has', 'people have') + ' no work: ' + (big ? big.text : 'a farm gives jobs'), bad: true, tool: t, show: show(s.b.find((b) => b.type === 'pier')) });
     }
-    const short = s.b.filter((b) => BUILDINGS[b.type].jobs && b.open && b.workers < BUILDINGS[b.type].jobs)
+    const short = s.b.filter((b) => BUILDINGS[b.type].jobs && b.open && !b.wip && b.workers < BUILDINGS[b.type].jobs)
       .sort((a, b) => (BUILDINGS[b.type].jobs - b.workers) - (BUILDINGS[a.type].jobs - a.workers) || a.id - b.id);
     for (const b of short.slice(0, 6)) rows.push({ text: BUILDINGS[b.type].name + ' · ' + b.workers + '/' + BUILDINGS[b.type].jobs + ' workers', bad: b.workers === 0, show: show(b) });
     if (short.length > 6) rows.push({ text: '… and ' + plural(short.length - 6, 'more workplace', 'more workplaces') + ' short of workers', show: show(short[6]) });
@@ -8202,6 +9585,123 @@ function stopsCheck() {
     toastShow('The ' + name.toLowerCase() + ' stopped: ' + why + '.', { id: b.id, important: true });
   }
   said.init = true;
+}
+
+// ---- src/ui/transport_ui.js
+// M5 (12 Oct 2026, N11): the Transport tab's tools, the Traffic layer (a switch on the tab: the roads tint green, amber,
+// red by how many carts pass; a legend says what the colours mean), and the transport lines on the cards.
+// Sim rules: src/sim/transport.js; DESIGN.md §21.
+
+// The Transport tab's own tools (the road, paved road, clear forest and remove tools stay as they were; the airfield
+// is a building in the same tab). price: what the bar compares with her money.
+const TR_TOOLS = {
+  avenue: { name: 'Avenue', icon: 'avenue', stage: TR.avenueStage, cost: '$' + TR.avenueCost * 2 + '/step', price: TR.avenueCost * 2, long: 'Avenues' },
+  tram: { name: 'Tram line', icon: 'tram', stage: TR.tramStage, cost: '$' + TR.tramCost + '/tile', price: TR.tramCost, long: 'Tram lines' },
+  rail: { name: 'Railway', icon: 'rail', stage: TR.railStage, cost: '$' + TR.railCost + '/tile', price: TR.railCost, long: 'The cane railway' },
+  traffic: { name: 'Traffic', icon: 'traffic', stage: 0, cost: 'layer', long: 'The Traffic layer' },
+};
+
+// What each tool is for, in one line (the ghost's label while she draws, and the legend).
+const TR_PURPOSE = {
+  avenue: 'Avenue: two paved carriageways with palms; carries twice a paved road',
+  tram: 'Tram line: along roads; homes near a stop reach markets, services and work farther along the line',
+  rail: 'Cane railway: fields within ' + TR.railNear + ' tiles load onto it (no road needed); the train takes the crop to the works on the line',
+};
+
+Object.assign(ICONS, {
+  avenue: 'M3 22 L7 2 H10 L9 22 Z M15 22 L14 2 H17 L21 22 Z M11.2 4 H12.8 V8 H11.2 Z M11.2 11 H12.8 V15 H11.2 Z M11.2 18 H12.8 V22 H11.2 Z',
+  tram: 'M11 1.5 H13 V4 H17 C18.7 4 20 5.3 20 7 V17 C20 18.4 19 19.5 17.6 19.9 L19 22 H16.6 L15.4 20 H8.6 L7.4 22 H5 L6.4 19.9 C5 19.5 4 18.4 4 17 V7 C4 5.3 5.3 4 7 4 H11 Z M6.5 7 V12 H17.5 V7 Z M7.5 15 A1.3 1.3 0 1 0 7.51 15 Z M16.5 15 A1.3 1.3 0 1 0 16.51 15 Z',
+  rail: 'M6 2 H8 V22 H6 Z M16 2 H18 V22 H16 Z M3 4.5 H21 V6.5 H3 Z M3 9.5 H21 V11.5 H3 Z M3 14.5 H21 V16.5 H3 Z M3 19.5 H21 V21 H3 Z',
+  traffic: 'M8 2 H16 C17.1 2 18 2.9 18 4 V20 C18 21.1 17.1 22 16 22 H8 C6.9 22 6 21.1 6 20 V4 C6 2.9 6.9 2 8 2 Z M12 4.2 A2.3 2.3 0 1 0 12.01 4.2 Z M12 9.7 A2.3 2.3 0 1 0 12.01 9.7 Z M12 15.2 A2.3 2.3 0 1 0 12.01 15.2 Z',
+  plane: 'M11 2 H13 C13.6 2 14 3 14 4 V9 L22 13 V15.5 L14 13 V18 L16.5 20 V22 L12 20.8 L7.5 22 V20 L10 18 V13 L2 15.5 V13 L10 9 V4 C10 3 10.4 2 11 2 Z',
+});
+
+// The Traffic layer: on with its switch, and while a road, avenue or tram tool is armed.
+function trafficOn() { return APP.ui.layer === 'traffic' || (APP.ui.tool === 'road' || APP.ui.tool === 'tram'); }
+
+function trafficToggle(on) {
+  APP.ui.layer = (on === undefined ? APP.ui.layer !== 'traffic' : on) ? 'traffic' : '';
+  barMark();
+  trafficLegend();
+}
+
+// The legend (top centre, under the pill): what the colours mean and the counts, one line.
+function trafficLegend() {
+  let el = $('trlegend');
+  if (!el) { el = document.createElement('div'); el.id = 'trlegend'; document.body.appendChild(el); el.addEventListener('click', () => trafficToggle(false)); }
+  const on = trafficOn();
+  el.classList.toggle('show', on);
+  if (!on) return;
+  const pill = $('pill'), pb = pill && pill.getBoundingClientRect().bottom;
+  el.style.top = Math.round((pb > 0 ? pb : 110) + 8) + 'px';
+  const n = trafficCounts(APP.state), key = n.free + '|' + n.busy + '|' + n.jam;
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  el.innerHTML = '<b>Traffic</b><span class="g"><span class="k free"></span>free ' + n.free + '</span><span class="g"><span class="k busy"></span>busy ' + n.busy + '</span><span class="g"><span class="k jam"></span>jammed ' + n.jam + '</span>' +
+    (APP.ui.layer === 'traffic' ? '<i aria-label="Close">' + iconSvg('close') + '</i>' : '') + '<small>carts a month a tile before they slow down: dirt ' + TR.cap[1] + ', paved ' + TR.cap[2] + ', avenue ' + TR.cap[3] + '</small>';
+}
+
+{
+  const _hudUpdate = hudUpdate;
+  hudUpdate = function (...a) { const r = _hudUpdate.apply(this, a); if (APP.state) trafficLegend(); return r; };
+}
+
+// ---------- cards ----------
+// A producer's road trip (N11: "a long or jammed route shows on the producer's card"), a field on the railway, workers
+// by tram, and the airfield's visitors.
+function trCardHtml(s, b) {
+  const def = BUILDINGS[b.type];
+  let h = '';
+  if (def.kind === 'producer') {
+    const t = producerTrip(s, b);
+    if (t && (t.jam >= 1.5 || (t.tiles > 14 && !t.paved))) {
+      const where = t.worst >= 0 && t.worstLevel > TR.busy ? placeName(s, t.worst) : '';
+      const k = Math.round(t.ratio * 10) / 10;
+      const fix = t.jam >= 1.5 ? (s.stage >= PAVED_STAGE ? (s.road[t.worst] >= 2 ? 'an avenue there, or a second road' : 'pave it, or lay a second road') : 'lay a second road beside it') : (s.stage >= PAVED_STAGE ? 'pave its road (twice as fast)' : 'build a taker nearer');
+      h += '<p class="note trip">' + esc('Its carts take ' + k + '× longer than they could' + (t.jam >= 1.5 && where ? ': ' + where + ' is jammed' : ': ' + t.tiles + ' tiles each way' + (t.paved ? '' : ' on dirt')) + '. Fix: ' + fix + '.') +
+        ' <button class="link" id="cardTraffic">Traffic</button>' + (s.stage >= PAVED_STAGE ? ' <button class="link" id="cardPave">Paved road</button>' : '') + '</p>';
+    }
+    if ((s.rail || []).length && railField(def) && railLines(s).lines.some((L) => L.fields.includes(b.id)))
+      h += '<p class="note good">' + esc(railTakes(s, b) ? 'On the railway: the train takes its ' + GOODS[def.makes].name.toLowerCase() + ' to the works on the line (' + Math.round(b.lastRail || 0) + ' last month). No road needed.' : 'Next to the railway, but nothing on the line takes ' + GOODS[def.makes].name.toLowerCase() + ': run the track to a works that does.') + '</p>';
+  }
+  if (def.jobs && b.type !== 'airfield') {
+    const p = jobPeople(s, b);
+    if (p.tram > 0) h += '<p class="note good">' + esc(p.tram + ' people reach its jobs by tram (' + p.near + ' live within ' + TR.walkToWork + ' tiles).') + '</p>';
+    else if (Math.ceil(p.near / 2) < def.jobs && b.workers < def.jobs) h += '<p class="note">' + esc('Only ' + p.near + ' people live within ' + TR.walkToWork + ' tiles: workers do not walk farther. Build homes near it' + (s.stage >= TR.tramStage ? ', or a tram line from the town with a stop by it.' : '.')) + '</p>';
+  }
+  if (b.type === 'airfield') {
+    const v = airVisitors(s);
+    h += '<div class="line"><span>Visitors a month</span><span>' + v + ' · they spend ' + money$(v * TR.visitSpend) + ' in the town</span></div>';
+    h += '<p class="note good">' + esc('Flying boats from Key West and Havana land here (Aeromarine flew that route from 1920, Pan American from 1927). More people and happier homes bring more visitors; the airfield adds +' + TR.airHappy + ' happiness.') + '</p>';
+  }
+  return h;
+}
+
+{
+  const _cardHtml = cardHtml;
+  cardHtml = function (s, b) {
+    const html = _cardHtml(s, b), add = trCardHtml(s, b);
+    if (!add) return html;
+    // near the top (under the month's number), where she looks first; else before the buttons
+    const at = html.indexOf('<div class="line"><span>Workers</span>');
+    if (at >= 0) return html.slice(0, at) + add + html.slice(at);
+    const btn = cardButtons(s, b);
+    return html.endsWith(btn) ? html.slice(0, html.length - btn.length) + add + btn : html + add;
+  };
+  const _bStatus = bStatus;
+  bStatus = function (s, b) {
+    if (b.type === 'airfield' && b.open && b.workers > 0) return { text: 'Open: ' + airVisitors(s) + ' visitors a month.', good: true };
+    return _bStatus(s, b);
+  };
+  const _cardRender = cardRender;
+  cardRender = function () {
+    const key = APP.cardKey, r = _cardRender();
+    if (APP.cardKey === key) return r;
+    const id = APP.ui.sel, t = $('cardTraffic'), p = $('cardPave');
+    if (t) t.addEventListener('click', () => { trafficToggle(true); cardClose(); });
+    if (p) p.addEventListener('click', () => { const b = bById(APP.state, id), tr = b && producerTrip(APP.state, b); toolSet('paved'); if (tr && tr.worst >= 0) cameraFlyTo(tr.worst % MAP_W + 0.5, ((tr.worst / MAP_W) | 0) + 0.5); });
+    return r;
+  };
 }
 
 // ---- src/ui/space.js
@@ -8432,7 +9932,9 @@ function strokeTo(x, y) {
   if (x === ax && y === ay) ui.strokeAxis = '';
   else if (!ui.strokeAxis) ui.strokeAxis = Math.abs(x - ax) >= Math.abs(y - ay) ? 'x' : 'y';
   ui.strokeBlock = null;
-  const why0 = s.road[a] ? '' : canRoad(s, ax, ay);
+  // M5: the tram runs on roads, the railway over open land (and across roads); the road tools as before
+  const tileWhy = (x, y) => (APP.ui.tool === 'tram' ? tramWhy(s, x, y) : APP.ui.tool === 'rail' ? (railAt(s, tileIdx(x, y)) ? '' : railWhy(s, x, y)) : s.road[tileIdx(x, y)] ? '' : canRoad(s, x, y));
+  const why0 = tileWhy(ax, ay);
   if (why0) { ui.stroke = []; ui.strokeBlock = { i: a, why: roadBlockWhy(s, ax, ay, why0) }; return; }
   const tiles = [a];
   let cx = ax, cy = ay;
@@ -8441,7 +9943,7 @@ function strokeTo(x, y) {
     while ((axis === 'x' ? cx : cy) !== target) {
       if (axis === 'x') cx += Math.sign(target - cx); else cy += Math.sign(target - cy);
       if (!inMap(cx, cy)) { ui.stroke = tiles; return; }
-      const why = s.road[tileIdx(cx, cy)] ? '' : canRoad(s, cx, cy);
+      const why = tileWhy(cx, cy);
       if (why) { ui.stroke = tiles; ui.strokeBlock = { i: tileIdx(cx, cy), why: roadBlockWhy(s, cx, cy, why) }; return; }
       tiles.push(tileIdx(cx, cy));
     }
@@ -8546,7 +10048,7 @@ function inputInit(canvas) {
       return;
     }
     gesture = { kind: 'press', x0: p.x, y0: p.y, grab: screenToTile(APP.R, APP.view, p.x, p.y), moved: false };
-    if (APP.ui.tool === 'road') {
+    if (APP.ui.tool === 'road' || APP.ui.tool === 'tram' || APP.ui.tool === 'rail') {
       const t = tileAt(p.x, p.y);
       if (inMap(t.x, t.y)) { APP.ui.strokeA = tileIdx(t.x, t.y); APP.ui.strokeAxis = ''; strokeTo(t.x, t.y); gesture.kind = 'road'; }
     } else if ((BUILDINGS[APP.ui.tool] || APP.ui.tool === 'clear') && e.pointerType !== 'mouse') {
@@ -8607,7 +10109,7 @@ function inputInit(canvas) {
     if (gesture.kind === 'road') {
       const st = APP.ui.stroke, blk = APP.ui.strokeBlock;
       if (st && st.length) {
-        const r = placeRoad(APP.state, st);
+        const r = APP.ui.tool === 'tram' ? placeTram(APP.state, st) : APP.ui.tool === 'rail' ? placeRail(APP.state, st) : placeRoad(APP.state, st);
         if (r.built) { floaterAdd((st[st.length - 1] % MAP_W) + 0.5, ((st[st.length - 1] / MAP_W) | 0) + 0.5, '−$' + r.cost, '#c0392b'); guideIntro(APP.state); guideRender(); audioCue('road'); }
         if (r.why) toastShow(r.why + (r.built ? ' (built ' + r.built + ' tiles)' : ''));
         else if (blk && r.built) toastShow('The road stops there: ' + blk.why.charAt(0).toLowerCase() + blk.why.slice(1) + '.');
@@ -9963,7 +11465,7 @@ function todoNow(s) {
   }
   for (const n of needs.filter((x) => x !== 'food').slice(0, 2)) out.push(needRow(n));
   if (!s.jobless) {
-    const empty = s.b.filter((b) => BUILDINGS[b.type].jobs && b.open && b.workers === 0);
+    const empty = s.b.filter((b) => BUILDINGS[b.type].jobs && b.open && !b.wip && b.workers === 0);
     if (empty.length) out.push({ key: 'noworkers', n: empty.length, label: empty.length === 1 ? 'the ' + BUILDINGS[empty[0].type].name.toLowerCase() + ' has no workers' : 'workplaces have no workers',
       why: 'half of the people work: more homes bring workers', tool: 'casita', show: todoShowOf(empty[0]),
       loop: empty.length === 1 ? 'the ' + BUILDINGS[empty[0].type].name.toLowerCase() + ' has no workers' : empty.length + ' workplaces have no workers' });
@@ -10232,7 +11734,7 @@ function todoBtns(r, kind) {
 }
 
 function todoGoalHtml(r) {
-  const num = r.flag ? (r.ok ? 'done' : 'not yet') : r.money ? money$(r.have) + ' of ' + money$(r.want) : r.have + ' / ' + r.want;
+  const num = r.flag ? (r.ok ? 'done' : 'not yet') : r.money ? money$(r.have) + ' of ' + money$(r.want) : r.pct ? r.have + ' %' : r.have + ' / ' + r.want;
   return '<div class="row goal' + (r.ok ? ' ok' : '') + (r.pop ? ' pop' : '') + '" data-k="g:' + r.key + '"><span class="ck" aria-hidden="true">' + todoCheck() + '</span><div class="t"><span class="l">' + esc(r.label) + '</span> <span class="num">' + esc(num) + '</span>' +
     (r.flag ? '' : todoBar(r)) + (r.why ? '<small>' + esc(r.why) + '</small>' : '') + '</div>' + (r.ok ? '' : todoBtns(r, 'g')) + '</div>';
 }
@@ -10400,6 +11902,90 @@ function greetClose(go) {
   APP.greetMap = null;
   speedSet(APP.greetSpeed || 1);
   if (go && APP.greetGo) showPlace(APP.greetGo);
+}
+
+// ---- src/ui/money.js
+// M4 (12 Oct 2026, Tomáš's N11 "she misses where what earns: layers and simple information on profitability", N17):
+// the Money layer (💰 in the top-right controls: each building's monthly number on the map, homes one tag per street
+// block, drawn by iso.js when APP.ui.money), "Where the money comes from" (a tap on the money in the top bar: rent,
+// exports by good, costs by kind, the best and worst workplaces, each with Show), and the grand project's bar on the
+// to-do list. Wraps hudInit, hudUpdate and todoGoal.
+
+{
+  const _init = hudInit;
+  hudInit = function () {
+    const r = _init.apply(this, arguments);
+    const log = $('bLog');
+    if (log && !$('bMoney')) {
+      const b = document.createElement('button');
+      b.id = 'bMoney'; b.setAttribute('aria-label', 'Money layer'); b.innerHTML = iconSvg('coin');
+      log.parentNode.insertBefore(b, log);
+      b.addEventListener('click', () => moneyLayer(!APP.ui.money));
+    }
+    const m = $('sMoney');
+    if (m) { m.setAttribute('role', 'button'); m.setAttribute('aria-label', 'Where the money comes from'); m.addEventListener('click', () => moneyOpen()); }
+    return r;
+  };
+}
+
+// The layer on or off: the button lights, a small legend says what the tags are.
+function moneyLayer(on) {
+  APP.ui.money = !!on;
+  const b = $('bMoney');
+  if (b) b.classList.toggle('on', APP.ui.money);
+  let lg = $('moneyLegend');
+  if (!lg) { lg = document.createElement('div'); lg.id = 'moneyLegend'; document.body.appendChild(lg); }
+  lg.innerHTML = '<b>Money layer</b> each workplace’s last payday line · homes: the rent of each street block · <span class="y">green earns</span> · <span class="n">red costs</span> <button id="moneyLegendX" aria-label="Close">' + iconSvg('close') + '</button>';
+  lg.classList.toggle('show', APP.ui.money);
+  const x = $('moneyLegendX');
+  if (x) x.onclick = () => moneyLayer(false);
+}
+
+function moneyShow(id) {
+  const b = bById(APP.state, id);
+  if (!b) return;
+  sheetClose();
+  cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id);
+}
+
+// "Where the money comes from": last month in a few lines, each with Show (the biggest contributor).
+function moneyOpen() {
+  const s = APP.state, m = moneySources(s);
+  if (!m) { sheetOpen('<h2>Where the money comes from</h2><p class="sub">The first payday is at the end of the month: homes pay rent, workplaces pay wages.</p>'); return; }
+  const line = (o) => '<div class="mline"><span>' + esc(o.label) + '</span><b class="' + (o.n < 0 ? 'n' : 'y') + '">' + esc(fmtSigned(o.n)) + '</b>' + (o.ids && o.ids.length ? '<button class="mshow" data-id="' + o.ids[0] + '">Show</button>' : '<i></i>') + '</div>';
+  const bl = (l) => { const b = bById(s, l.id); return b ? line({ label: BUILDINGS[b.type].name, n: l.n, ids: [b.id] }) : ''; };
+  const per = s.history.slice(-3), avg = per.length ? per.reduce((a, x) => a + x.result, 0) / per.length : m.result;
+  const months = avg > 0 ? s.money / avg : 0;
+  const pn = projectNext(s);
+  const dest = pn ? 'Saving for: the ' + BUILDINGS[pn].name.toLowerCase() + ' (' + money$(BUILDINGS[pn].cost) + '): ' + PROJECT_FX[BUILDINGS[pn].gives].text + '.' : '';
+  sheetOpen('<h2>Where the money comes from</h2><p class="sub">' + esc(dateLabel(m.month) + ': payday ' + fmtSigned(m.result) + '. You hold ' + money$(s.money) + (months > 0 ? ' — about ' + (months < 10 ? months.toFixed(1) : Math.round(months)) + ' months of paydays.' : '.')) + '</p>' +
+    (dest ? '<p class="note good">' + esc(dest) + '</p>' : '') +
+    '<h4>Comes in</h4>' + m.income.map(line).join('') +
+    '<h4>Goes out</h4>' + m.costs.map(line).join('') +
+    (m.best.length ? '<h4>Earns the most</h4>' + m.best.map(bl).join('') : '') +
+    (m.worst.length ? '<h4>Costs the most</h4>' + m.worst.map(bl).join('') : '') +
+    '<p class="sub" style="margin-top:10px">💰 on the map shows every building’s number. A workplace that costs money may still be worth it: its goods feed the homes, and homes pay the rent.</p>' +
+    '<div class="btns"><button id="moneyLayerGo">' + (APP.ui.money ? 'Hide the Money layer' : 'Show the Money layer') + '</button></div>');
+  $('sheet').querySelectorAll('.mshow').forEach((b) => b.addEventListener('click', () => moneyShow(+b.dataset.id)));
+  $('moneyLayerGo').addEventListener('click', () => { moneyLayer(!APP.ui.money); sheetClose(); });
+}
+
+// The to-do list's "This evening": the stage's grand project (savings bar, then the build's bar).
+{
+  const _goal = todoGoal;
+  todoGoal = function (s) {
+    const d = _goal.apply(this, arguments);
+    try {
+      const t = PROJECTS.find((k) => BUILDINGS[k].stage <= s.stage && (!countType(s, k) || s.b.some((b) => b.type === k && b.wip)));
+      if (t && d && d.rows) {
+        const def = BUILDINGS[t], b = s.b.find((o) => o.type === t);
+        if (b) d.rows.push({ key: 'project', label: 'Grand project: the ' + def.name.toLowerCase(), have: Math.round(100 * projectDone(b)), want: 100, ok: false, pct: true,
+          why: Math.ceil(b.wip / TUNE.ticksPerMonth) + ' of ' + def.project + ' months to go · then ' + PROJECT_FX[def.gives].text, show: todoShowOf(b), loop: 'The ' + def.name.toLowerCase() + ' is ' + Math.round(100 * projectDone(b)) + ' % built' });
+        else d.rows.push(todoMoneyRow(s, 'project', 'Grand project: the ' + def.name.toLowerCase(), def.cost, false, { tool: t, where: def.project + ' months to build; ' + PROJECT_FX[def.gives].text }));
+      }
+    } catch (e) { /* the list must open whatever the island */ }
+    return d;
+  };
 }
 
 // ---- src/ui/main.js
