@@ -129,6 +129,12 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18), 0 8px 18px rgba(30, 20, 10, 0.2);
   max-width: min(520px, calc(100% - 20px)); text-align: center; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 8; }
 #toast.show { opacity: 1; }
+/* View rotation: two round paper buttons on the map (placed by rotPlace) */
+#rotbtns { position: fixed; z-index: 4; display: flex; gap: 6px; top: 80px; right: 10px; }
+#rotbtns button { width: 50px; height: 50px; border-radius: 50%; background: var(--paper); border: 2px solid var(--ink); display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px rgba(58, 42, 31, 0.16), 0 3px 0 rgba(58, 42, 31, 0.30), 0 6px 14px rgba(30, 20, 10, 0.16); }
+#rotbtns button .ic { width: 26px; height: 26px; fill: #7a604b; stroke: var(--ink); stroke-width: 0.9px; paint-order: stroke; stroke-linejoin: round; }
+#rotbtns button:active { background: var(--paper2); transform: translateY(1px); }
 /* Block 4: "✓ Done" beside the build bar while a tool is armed (placed by donePlace) */
 #done { position: fixed; z-index: 5; display: none; min-height: 56px; min-width: 104px; padding: 0 18px; border-radius: 14px; align-items: center; justify-content: center;
   gap: 6px; background: var(--teal); color: #fff7ea; font-weight: 800; font-size: 17px; border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink), 0 8px 18px rgba(30, 20, 10, 0.2); }
@@ -297,7 +303,7 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
 }
 
 /* The title screen (block 5): the island behind, one paper card in front; also where the home-screen app opens. */
-body.titled #top, body.titled #pill, body.titled #lower, body.titled #bar, body.titled #done, body.titled #toast, body.titled #card,
+body.titled #rotbtns, body.titled #top, body.titled #pill, body.titled #lower, body.titled #bar, body.titled #done, body.titled #toast, body.titled #card,
 body.titled #yearcard, body.titled #pop { display: none !important; }
 #title { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
   padding: calc(16px + var(--st)) calc(16px + var(--sr)) calc(16px + var(--sb)) calc(16px + var(--sl));
@@ -565,6 +571,7 @@ body.titled #todo, body.titled #greet { display: none !important; }
 <div id="toast"></div>
 <div id="bar" class="panel"></div>
 <button id="done" aria-label="Done: stop building">✓ Done</button>
+<div id="rotbtns" role="group" aria-label="Turn the island"></div>
 <div id="card" class="panel"></div>
 <div id="pop" class="panel"></div>
 <div id="glance" class="panel" role="dialog" aria-label="Overview"></div>
@@ -4660,10 +4667,37 @@ const ISO = (() => {
   let MEAS = null;
   function measCtx() { if (!MEAS) MEAS = canvasNew(4, 4).getContext('2d'); return MEAS; }
 
+  // ---------- view rotation (docs/ROTATION.md): world (x, y) -> view (u, v) ----------
+  // ROTM[r] = [a, b, c, d, e, f]: u = a x + b y + e, v = c x + d y + f. Turn r + 1 turns the island 90° clockwise on
+  // screen. The projection below works in view coordinates; everything placed in the world goes through this one map.
+  const ROTM = [[1, 0, 0, 1, 0, 0], [0, -1, 1, 0, MAP_H, 0], [-1, 0, 0, -1, MAP_W, MAP_H], [0, 1, -1, 0, 0, MAP_W]];
+  function rotPt(r, x, y) { const m = ROTM[r]; return [m[0] * x + m[1] * y + m[4], m[2] * x + m[3] * y + m[5]]; }
+  function unrotPt(r, u, v) { const m = ROTM[r], du = u - m[4], dv = v - m[5]; return [m[0] * du + m[2] * dv, m[1] * du + m[3] * dv]; }
+  function rotDir(r, dx, dy) { const m = ROTM[r]; return [m[0] * dx + m[1] * dy, m[2] * dx + m[3] * dy]; }
+  function unrotDir(r, du, dv) { const m = ROTM[r]; return [m[0] * du + m[2] * dv, m[1] * du + m[3] * dv]; }
+  // the view box [u0, v0, u1, v1] of a world box (a footprint: w and h swap on odd turns)
+  function vbox(r, x0, y0, x1, y1) { const a = rotPt(r, x0, y0), b = rotPt(r, x1, y1); return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])]; }
+  function wbox(r, u0, v0, u1, v1) { const a = unrotPt(r, u0, v0), b = unrotPt(r, u1, v1); return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])]; }
+  // The view's map size (u, v) for a turn: the map is square today, but odd turns swap the sides.
+  function viewW(r) { return r & 1 ? MAP_H : MAP_W; }
+  function viewH(r) { return r & 1 ? MAP_W : MAP_H; }
+  // setTransform on g for drawing in world tile coordinates: the iso projection (z, origin ox / oy in CSS px) after
+  // the turn r, in device px (d).
+  function worldXf(g, d, z, ox0, oy0, r) {
+    const m = ROTM[r];
+    g.setTransform(d * (m[0] - m[2]) * z, d * (m[0] + m[2]) * z / 2, d * (m[1] - m[3]) * z, d * (m[1] + m[3]) * z / 2, d * ((m[4] - m[5]) * z + ox0), d * ((m[4] + m[5]) * z / 2 + oy0));
+  }
+
   // ---------- the pen: projection used by every painter ----------
-  let ctx = null, ox = 0, oy = 0, hw = 32, hh = 16, zs = 30, S = 1, LW = 1, DP = 1;
-  function pen(c, x0, y0, h, dpr) { ctx = c; ox = x0; oy = y0; hw = h; hh = h / 2; zs = h * ZS; S = h / 44; LW = Math.max(0.6, 1.1 * S); DP = dpr; }
-  function P(x, y, z) { return [ox + (x - y) * hw, oy + (x + y) * hh - (z || 0) * zs]; }
+  // P takes world coordinates in the frame (the pen's turn PR applies) and local view coordinates in a sprite (no turn);
+  // PV takes view coordinates in the frame.
+  let ctx = null, ox = 0, oy = 0, hw = 32, hh = 16, zs = 30, S = 1, LW = 1, DP = 1, PR = null;
+  function pen(c, x0, y0, h, dpr, r) { ctx = c; ox = x0; oy = y0; hw = h; hh = h / 2; zs = h * ZS; S = h / 44; LW = Math.max(0.6, 1.1 * S); DP = dpr; PR = r ? ROTM[r] : null; }
+  function P(x, y, z) {
+    if (PR) { const u = PR[0] * x + PR[1] * y + PR[4]; y = PR[2] * x + PR[3] * y + PR[5]; x = u; }
+    return [ox + (x - y) * hw, oy + (x + y) * hh - (z || 0) * zs];
+  }
+  function PV(u, v, z) { return [ox + (u - v) * hw, oy + (u + v) * hh - (z || 0) * zs]; }
 
   // ---------- primitives (from the sample) ----------
   function hull(pts) {
@@ -5337,25 +5371,43 @@ const ISO = (() => {
       drawBush(0.3, def.h - 0.3, 0.7, '#f0a3c0'); drawBush(def.w - 0.3, def.h - 0.3, 0.7, '#f2c75a');
     }
   }
+  // The 3 x 2 landmarks (opera, water works, power station) painted 2 x 3 on odd turns: every placement swaps x and y
+  // (T), so walls keep their light (the lower-left face lit); the front (doors, portico, sign) moves to the lower-right face.
+  function tpose(T) {
+    return {
+      p: (x, y) => (T ? [y, x] : [x, y]),
+      P: (x, y, z) => (T ? P(y, x, z) : P(x, y, z)),
+      walls: (x, y, w, d, z0, h, col, nh) => (T ? walls(y, x, d, w, z0, h, col, nh) : walls(x, y, w, d, z0, h, col, nh)),
+      front: (wv) => (T ? wv.fr : wv.fl),
+      hip: (x, y, w, d, z, rh, o, col, opt) => (T ? hipRoof(y, x, d, w, z, rh, o, col, opt) : hipRoof(x, y, w, d, z, rh, o, col, opt)),
+      gable: (x, y, w, d, z, rh, o, col, wc, opt) => (T ? gableY(y, x, d, w, z, rh, o, col, wc) : gableX(x, y, w, d, z, rh, o, col, wc, opt)),
+      box: (x, y, w, d, z0, h, col) => (T ? boxAt(y, x, d, w, z0, h, col) : boxAt(x, y, w, d, z0, h, col)),
+      rr: (x0, y0, x1, y1, r) => (T ? rrPts(y0, x0, y1, x1, r) : rrPts(x0, y0, x1, y1, r)),
+      patch: (x0, y0, x1, y1, col, edge) => (T ? groundPatch(y0, x0, y1, x1, col, edge) : groundPatch(x0, y0, x1, y1, col, edge)),
+      shadow: (x0, y0, x1, y1, h) => (T ? boxShadow(y0, x0, y1, x1, h) : boxShadow(x0, y0, x1, y1, h)),
+      // a face along x at y (from x0 to x1), as seen from +y; transposed: along y at x = y, seen from +x, read left to right
+      face: (x0, x1, y, z) => (T ? Fc([y, x1, z], [0, -1]) : Fc([x0, y, z], [1, 0])),
+    };
+  }
   // M4: the grand projects, each a big building that changes the skyline (DESIGN.md §20)
   function paintProject(def) {
-    const W = def.w, D = def.h, g = def.gives;
-    groundPatch(0.04, 0.04, W - 0.04, D - 0.04, g === 'hospital' || g === 'university' ? '#d9cfb6' : '#b9ad8f', ln('#b9ad8f'));
+    const T = def.w < def.h, W = Math.max(def.w, def.h), D = Math.min(def.w, def.h), g = def.gives, Q = tpose(T);
+    Q.patch(0.04, 0.04, W - 0.04, D - 0.04, g === 'hospital' || g === 'university' ? '#d9cfb6' : '#b9ad8f', ln('#b9ad8f'));
     if (g === 'water') {
       // a stone water tower on arches, a basin and a pump house: the island's aqueduct reaches the town here
-      const wv = walls(0.25, 0.3, 1.2, 1.3, 0, 0.9, '#d8c7a6'); wallsOutline(wv); hipRoof(0.25, 0.3, 1.2, 1.3, 0.9, 0.35, 0.06, '#b9553c');
-      for (let k = 0; k < 4; k++) { const x = 1.6 + k * 0.32; boxAt(x, 0.6, 0.12, 0.12, 0, 1.25, '#cdbb98'); }
-      boxAt(1.55, 0.5, 1.35, 0.35, 1.25, 0.14, '#cdbb98');
-      const c = P(2.25, 1.35, 0); ell(c[0], c[1], 0.75 * hw, 0.38 * hw, '#5fa9c4'); ctx.strokeStyle = INK; ctx.lineWidth = LW; ctx.stroke();
+      const wv = Q.walls(0.25, 0.3, 1.2, 1.3, 0, 0.9, '#d8c7a6'); wallsOutline(wv); Q.hip(0.25, 0.3, 1.2, 1.3, 0.9, 0.35, 0.06, '#b9553c');
+      for (let k = 0; k < 4; k++) { const x = 1.6 + k * 0.32; Q.box(x, 0.6, 0.12, 0.12, 0, 1.25, '#cdbb98'); }
+      Q.box(1.55, 0.5, 1.35, 0.35, 1.25, 0.14, '#cdbb98');
+      const c = Q.P(2.25, 1.35, 0); ell(c[0], c[1], 0.75 * hw, 0.38 * hw, '#5fa9c4'); ctx.strokeStyle = INK; ctx.lineWidth = LW; ctx.stroke();
       ell(c[0], c[1] - 0.04 * hw, 0.45 * hw, 0.2 * hw, '#8fd0e3');
-      const tw = walls(2.15, 0.45, 0.6, 0.6, 1.39, 0.7, '#e5d8bd'); wallsOutline(tw); hipRoof(2.15, 0.45, 0.6, 0.6, 2.09, 0.3, 0.04, '#6f8f9a');
+      const tw = Q.walls(2.15, 0.45, 0.6, 0.6, 1.39, 0.7, '#e5d8bd'); wallsOutline(tw); Q.hip(2.15, 0.45, 0.6, 0.6, 2.09, 0.3, 0.04, '#6f8f9a');
     } else if (g === 'power') {
       // a brick power house with two tall chimneys and a coal heap
-      const wv = walls(0.2, 0.25, 2.2, 1.45, 0, 1.15, '#a8573f'); wallsOutline(wv); bands(wv, 2.2, 1.45, 1.15);
-      gableX(0.2, 0.25, 2.2, 1.45, 1.15, 0.45, 0.05, '#5a4a44', '#a8573f');
-      for (let k = 0; k < 6; k++) win(wv.fl, 0.25 + k * 0.33, 0.35, 0.16, 0.45);
-      chimney(2.55, 0.35, 0.28, 2.9, 0); chimney(2.55, 1.0, 0.28, 2.5, 0);
-      const h = P(0.6, 1.85, 0); ell(h[0], h[1], 0.5 * hw, 0.2 * hw, '#2f2a28');
+      const wv = Q.walls(0.2, 0.25, 2.2, 1.45, 0, 1.15, '#a8573f'); wallsOutline(wv); if (T) bands(wv, 1.45, 2.2, 1.15); else bands(wv, 2.2, 1.45, 1.15);
+      Q.gable(0.2, 0.25, 2.2, 1.45, 1.15, 0.45, 0.05, '#5a4a44', '#a8573f');
+      for (let k = 0; k < 6; k++) win(Q.front(wv), 0.25 + k * 0.33, 0.35, 0.16, 0.45);
+      for (const [x, y, hg] of [[2.55, 0.35, 2.9], [2.55, 1.0, 2.5]]) { const q = Q.p(x, y); chimney(q[0], q[1], 0.28, hg, 0); }
+      const h = Q.P(0.6, 1.85, 0); ell(h[0], h[1], 0.5 * hw, 0.2 * hw, '#2f2a28');
     } else if (g === 'hospital') {
       // a long white pavilion hospital with a central block, red roofs and a cross
       const L = walls(0.2, 0.3, 2.6, 0.9, 0, 0.9, '#f6f2ea'); wallsOutline(L); hipRoof(0.2, 0.3, 2.6, 0.9, 0.9, 0.35, 0.06, '#b9553c');
@@ -5649,6 +5701,8 @@ const ISO = (() => {
   function urn(x, y, z, col) { const p = P(x, y, z); ctx.beginPath(); ctx.ellipse(p[0], p[1] - 3 * S, 2.4 * S, 3 * S, 0, 0, TAU); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = ln(col); ctx.lineWidth = 0.7 * S; ctx.stroke(); circ(p[0], p[1] - 6.6 * S, 1.1 * S, col, ln(col), 0.6 * S); }
   // A flat roof inside a parapet: the parapet's top, the roof floor a little lower, the inner faces of the back parapet.
   function flatRoof(x, y, w, d, z, t, rim, floor) {
+    // (the university passed no floor colour: mix() threw and every frame stopped after the ground; 12 Oct, rotation work)
+    floor = floor || dk(rim, 0.12);
     poly([P(x, y, z), P(x + w, y, z), P(x + w, y + d, z), P(x, y + d, z)], rim, ln(rim), 0.8 * S);
     const op = [P(x + t, y + t, z), P(x + w - t, y + t, z), P(x + w - t, y + d - t, z), P(x + t, y + d - t, z)];
     poly(op, floor);
@@ -5929,40 +5983,41 @@ const ISO = (() => {
     bench(1.0, 2.8, true); bench(2.0, 2.8, true);
   }
   function paintOpera(def) {
-    const wall = def.color || '#c05a6b', trim = '#fbf7ee', roof = '#8a5a4a';
-    poly(rrPts(0.06, 1.55, 2.94, 1.96, 0.12).map((p) => P(p[0], p[1])), '#ecdcb6', '#bfa274', 0.8 * S);
-    groundPatch(0.06, 0.06, 2.94, 1.55, '#8fbe62');
-    boxShadow(0.18, 0.16, 2.82, 1.4, 2.0);
+    const wall = def.color || '#c05a6b', trim = '#fbf7ee', roof = '#8a5a4a', T = def.w < def.h, Q = tpose(T);
+    poly(Q.rr(0.06, 1.55, 2.94, 1.96, 0.12).map((p) => P(p[0], p[1])), '#ecdcb6', '#bfa274', 0.8 * S);
+    Q.patch(0.06, 0.06, 2.94, 1.55, '#8fbe62');
+    Q.shadow(0.18, 0.16, 2.82, 1.4, 2.0);
     // the fly tower at the back, the hall, the dome over the auditorium
-    const ft = walls(0.95, 0.16, 1.1, 0.42, 0, 1.75, mix(wall, '#f4e6c8', 0.3));
-    wallsOutline(ft); hipRoof(0.95, 0.16, 1.1, 0.42, 1.75, 0.2, 0.04, roof, { rows: 3, cols: 0 });
+    const ft = Q.walls(0.95, 0.16, 1.1, 0.42, 0, 1.75, mix(wall, '#f4e6c8', 0.3));
+    wallsOutline(ft); Q.hip(0.95, 0.16, 1.1, 0.42, 1.75, 0.2, 0.04, roof, { rows: 3, cols: 0 });
     const x = 0.18, y = 0.5, w = 2.64, d = 0.9, h = 1.2;
-    const wv = walls(x, y, w, d, 0, h, wall);
+    const wv = Q.walls(x, y, w, d, 0, h, wall), front = Q.front(wv);
     for (const f of [wv.fl, wv.fr]) {
-      const L = f === wv.fl ? w : d, c = f === wv.fl ? trim : sh(trim);
+      const L = f === front ? w : d, c = f === wv.fl ? trim : sh(trim);
       poly(fq(f, 0, L, 0, 0.08), dk(f === wv.fl ? wall : wv.cS, 0.25));
       poly(fq(f, 0, L, 0.55, 0.6), c, ln(c), 0.7 * S); poly(fq(f, 0, L, h - 0.1, h), c, ln(c), 0.7 * S);
       const n = Math.round(L / 0.26);
-      for (let i = 0; i < n; i++) { const s2 = (i + 0.5) * L / n; if (f === wv.fl && Math.abs(s2 - L / 2) < 0.62) continue; poly(fq(f, s2 - 0.025, s2 + 0.025, 0.08, h - 0.1), c); win(f, s2 + 0.12, 0.18, 0.08, 0.26, null); poly(farch(f, s2 + 0.12, 0.68, 0.1, 0.32), '#3d5560', ln(c), 0.7 * S); }
+      for (let i = 0; i < n; i++) { const s2 = (i + 0.5) * L / n; if (f === front && Math.abs(s2 - L / 2) < 0.62) continue; poly(fq(f, s2 - 0.025, s2 + 0.025, 0.08, h - 0.1), c); win(f, s2 + 0.12, 0.18, 0.08, 0.26, null); poly(farch(f, s2 + 0.12, 0.68, 0.1, 0.32), '#3d5560', ln(c), 0.7 * S); }
     }
     wallsOutline(wv);
-    flatRoof(x - 0.02, y - 0.02, w + 0.04, d + 0.04, h + 0.06, 0.05, trim, '#b38a7a');
-    drum(1.5, 0.95, h + 0.06, h + 0.3, 0.36, mix(wall, '#f4e6c8', 0.4));
-    const dt = dome(1.5, 0.95, h + 0.3, 0.38, 0.46, '#7fb3a8');
+    { const q = Q.p(x - 0.02, y - 0.02); flatRoof(q[0], q[1], T ? d + 0.04 : w + 0.04, T ? w + 0.04 : d + 0.04, h + 0.06, 0.05, trim, '#b38a7a'); }
+    const dc = Q.p(1.5, 0.95);
+    drum(dc[0], dc[1], h + 0.06, h + 0.3, 0.36, mix(wall, '#f4e6c8', 0.4));
+    const dt = dome(dc[0], dc[1], h + 0.3, 0.38, 0.46, '#7fb3a8');
     circ(dt[0], dt[1] - 2 * S, 2.4 * S, '#e9c46a', INK, 0.8 * S); seg([dt[0], dt[1] - 4 * S], [dt[0], dt[1] - 14 * S], INK, 1.4 * S);
     // the portico: six columns, the name on the frieze, a pediment; steps; lamps and banners
-    const px0 = 0.86, px1 = 2.14, py = y + d, pd = 0.24, pz = 1.12;
-    poly([P(px0 - 0.06, py, 0.06), P(px1 + 0.06, py, 0.06), P(px1 + 0.06, py + pd + 0.12, 0.06), P(px0 - 0.06, py + pd + 0.12, 0.06)], '#e9dcc0', ln('#e9dcc0'), 0.8 * S);
-    poly([P(px0 - 0.06, py + pd + 0.12, 0.06), P(px1 + 0.06, py + pd + 0.12, 0.06), P(px1 + 0.06, py + pd + 0.12, 0), P(px0 - 0.06, py + pd + 0.12, 0)], '#cfc0a2');
-    door(wv.fl, w / 2 - 0.32, 0.14, 0.4, '#7a2a3a', true); door(wv.fl, w / 2, 0.16, 0.44, '#7a2a3a', true); door(wv.fl, w / 2 + 0.32, 0.14, 0.4, '#7a2a3a', true);
-    for (let i = 0; i < 6; i++) column(lerp(px0 + 0.04, px1 - 0.04, i / 5), py + pd - 0.03, 0.06, pz, 0.03, trim);
-    const pf = Fc([px0, py + pd, pz], [1, 0]);
+    const px0 = 0.86, px1 = 2.14, py = y + d, pd = 0.24, pz = 1.12, QP = Q.P;
+    poly([QP(px0 - 0.06, py, 0.06), QP(px1 + 0.06, py, 0.06), QP(px1 + 0.06, py + pd + 0.12, 0.06), QP(px0 - 0.06, py + pd + 0.12, 0.06)], '#e9dcc0', ln('#e9dcc0'), 0.8 * S);
+    poly([QP(px0 - 0.06, py + pd + 0.12, 0.06), QP(px1 + 0.06, py + pd + 0.12, 0.06), QP(px1 + 0.06, py + pd + 0.12, 0), QP(px0 - 0.06, py + pd + 0.12, 0)], '#cfc0a2');
+    door(front, w / 2 - 0.32, 0.14, 0.4, '#7a2a3a', true); door(front, w / 2, 0.16, 0.44, '#7a2a3a', true); door(front, w / 2 + 0.32, 0.14, 0.4, '#7a2a3a', true);
+    for (let i = 0; i < 6; i++) { const q = Q.p(lerp(px0 + 0.04, px1 - 0.04, T ? 1 - i / 5 : i / 5), py + pd - 0.03); column(q[0], q[1], 0.06, pz, 0.03, trim); }
+    const pf = Q.face(px0, px1, py + pd, pz);
     poly(fq(pf, -0.04, px1 - px0 + 0.04, 0, 0.16), trim, INK, 0.9 * S);
     faceText(pf, (px1 - px0) / 2, 0.08, 'OPERA', 11, '#8a3a4a');
-    poly([P(px0 - 0.04, py, pz + 0.16), P(px1 + 0.04, py, pz + 0.16), P(px1 + 0.04, py + pd, pz + 0.16), P(px0 - 0.04, py + pd, pz + 0.16)], '#efe6d4', ln(trim), 0.8 * S);
+    poly([QP(px0 - 0.04, py, pz + 0.16), QP(px1 + 0.04, py, pz + 0.16), QP(px1 + 0.04, py + pd, pz + 0.16), QP(px0 - 0.04, py + pd, pz + 0.16)], '#efe6d4', ln(trim), 0.8 * S);
     poly([fp(pf, -0.06, 0.16), fp(pf, px1 - px0 + 0.06, 0.16), fp(pf, (px1 - px0) / 2, 0.42)], trim, INK, 0.9 * S);
     const lyre = fp(pf, (px1 - px0) / 2, 0.26); circ(lyre[0], lyre[1], 3 * S, '#e9c46a', '#8a6a2a', 0.8 * S);
-    for (const lx of [0.5, 2.5]) { lamp(lx, 1.75, 0.7); const b0 = P(lx, 1.75, 0.6); poly([[b0[0] + 1 * S, b0[1]], [b0[0] + 7 * S, b0[1] + 1 * S], [b0[0] + 7 * S, b0[1] + 12 * S], [b0[0] + 4 * S, b0[1] + 9 * S], [b0[0] + 1 * S, b0[1] + 11 * S]], '#e9c46a', ln('#e9c46a'), 0.7 * S); }
+    for (const lx of [0.5, 2.5]) { const lq = Q.p(lx, 1.75); lamp(lq[0], lq[1], 0.7); const b0 = P(lq[0], lq[1], 0.6); poly([[b0[0] + 1 * S, b0[1]], [b0[0] + 7 * S, b0[1] + 1 * S], [b0[0] + 7 * S, b0[1] + 12 * S], [b0[0] + 4 * S, b0[1] + 9 * S], [b0[0] + 1 * S, b0[1] + 11 * S]], '#e9c46a', ln('#e9c46a'), 0.7 * S); }
   }
   function paintPark(def) {
     const W = def.w, H = def.h;
@@ -6107,7 +6162,8 @@ const ISO = (() => {
     gableX(sx, sy, sw, sd, 0.42, 0.24, 0.06, '#7d6a52', '#a0522d', { rows: 3 });
     obox(w - 0.45, 0.4, 1, 0, 0.42, 0.14, 0, 0.08, '#8a6a45'); const wt = P(w - 0.45, 0.4, 0.08); ell(wt[0], wt[1], 0.18 * hw, 0.05 * hw, '#5b8fb9');
     for (const [hx, hy] of [[0.95, 0.35], [1.12, 0.42]]) lying(hx, hy, 0.09, 'x', 'leaf');
-    const cows = [[0.5, 1.1, 1, 0], [1.3, 0.95, -1, 1], [0.9, 1.65, 1, 2], [1.5, 1.85, -1, 3]];
+    // (painted 3 x 2 on odd turns: the cows keep to the pasture, x and y swapped)
+    const cows = [[0.5, 1.1, 1, 0], [1.3, 0.95, -1, 1], [0.9, 1.65, 1, 2], [1.5, 1.85, -1, 3]].map((c) => (w > d ? [c[1], c[0], c[2], c[3]] : c));
     cows.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]));
     for (const c of cows) paintCow(c[0], c[1], c[2], c[3]);
     const yard = rrPts(0.12, d - 0.42, w - 0.12, d - 0.08, 0.1).map((p) => P(p[0], p[1]));
@@ -6189,27 +6245,33 @@ const ISO = (() => {
   }
 
   // ---------- pier and the schooner ----------
-  function paintPier(def) {
-    const x0 = -0.05, x1 = def.w + 0.4, y0 = 0.28, y1 = 0.72, zt = 0.14, dc = '#c99c66';
+  // The pier runs along world x into the sea (its far end 0.4 tiles past the footprint); r turns it into the view: the
+  // deck, the posts in front and behind, the planks across it, the rope and the lamp keep their world places.
+  function paintPier(def, r) {
+    const W = def.w, Hd = def.h, x0 = -0.05, x1 = W + 0.4, y0 = 0.28, y1 = 0.72, zt = 0.14, dc = '#c99c66';
+    const L = (x, y) => (r === 1 ? [Hd - y, x] : r === 2 ? [W - x, Hd - y] : r === 3 ? [y, W - x] : [x, y]);
+    const Q = (x, y, z) => { const q = L(x, y); return P(q[0], q[1], z); };
     ctx.lineCap = 'butt';
-    const posts = []; for (let x = x0 + 0.2; x < def.w; x += 0.62) posts.push(x);
-    for (const x of posts) seg(P(x, y0 + 0.04, -0.22), P(x, y0 + 0.04, zt), '#5a4030', 2.6 * S);
-    poly([P(x0, y1, zt), P(x1, y1, zt), P(x1, y1, zt - 0.06), P(x0, y1, zt - 0.06)], sh(dc), ln(sh(dc)), 0.8 * S);
-    poly([P(x0, y0, zt), P(x0, y1, zt), P(x0, y1, zt - 0.06), P(x0, y0, zt - 0.06)], dk(dc, 0.12), ln(dc), 0.8 * S);
-    const top = [P(x0, y0, zt), P(x1, y0, zt), P(x1, y1, zt), P(x0, y1, zt)];
+    const posts = []; for (let x = x0 + 0.2; x < W; x += 0.62) posts.push(x);
+    const ra = y0 + 0.04, rb = y1 - 0.04, pa = L(1, ra), pb = L(1, rb), back = pa[0] + pa[1] <= pb[0] + pb[1] ? ra : rb, front = back === ra ? rb : ra;
+    for (const x of posts) seg(Q(x, back, -0.22), Q(x, back, zt), '#5a4030', 2.6 * S);
+    const c0 = L(x0, y0), c1 = L(x1, y1), U0 = Math.min(c0[0], c1[0]), U1 = Math.max(c0[0], c1[0]), V0 = Math.min(c0[1], c1[1]), V1 = Math.max(c0[1], c1[1]);
+    poly([P(U0, V1, zt), P(U1, V1, zt), P(U1, V1, zt - 0.06), P(U0, V1, zt - 0.06)], sh(dc), ln(sh(dc)), 0.8 * S);
+    poly([P(U1, V0, zt), P(U1, V1, zt), P(U1, V1, zt - 0.06), P(U1, V0, zt - 0.06)], dk(sh(dc), 0.12), ln(dc), 0.8 * S);
+    const top = [P(U0, V0, zt), P(U1, V0, zt), P(U1, V1, zt), P(U0, V1, zt)];
     poly(top, dc);
-    ctx.beginPath(); for (let x = x0 + 0.1; x < x1; x += 0.1) { const a = P(x, y0, zt), b = P(x, y1, zt); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+    ctx.beginPath(); for (let x = x0 + 0.1; x < x1; x += 0.1) { const a = Q(x, y0, zt), b = Q(x, y1, zt); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
     ctx.strokeStyle = 'rgba(110,70,40,.45)'; ctx.lineWidth = 0.8 * S; ctx.stroke();
     poly(top, null, ln(dc), 1 * S);
     for (const x of posts) {
-      const b = P(x, y1 - 0.04, -0.22);
+      const b = Q(x, front, -0.22);
       ell(b[0], b[1] + 1 * S, 5 * S, 1.8 * S, 'rgba(235,252,248,.6)');
-      seg(P(x, y1 - 0.04, -0.22), P(x, y1 - 0.04, zt + 0.07), '#5a4030', 2.8 * S);
-      const q = P(x, y1 - 0.04, zt + 0.07); circ(q[0], q[1], 1.4 * S, '#5a4030');
+      seg(Q(x, front, -0.22), Q(x, front, zt + 0.07), '#5a4030', 2.8 * S);
+      const q = Q(x, front, zt + 0.07); circ(q[0], q[1], 1.4 * S, '#5a4030');
     }
     // (the goods for the ship wait at the harbor; the pier keeps only its lamp and a coil of rope)
-    { const c = P(1.9, 0.45, zt); ell(c[0], c[1] - 1 * S, 4.4 * S, 2.2 * S, '#c9a06a'); ctx.beginPath(); ctx.ellipse(c[0], c[1] - 1 * S, 2.6 * S, 1.2 * S, 0, 0, TAU); ctx.strokeStyle = '#8a6a45'; ctx.lineWidth = 0.9 * S; ctx.stroke(); }
-    const lp = P(x0 + 0.1, y0 + 0.1, zt); seg(lp, [lp[0], lp[1] - 26 * S], '#3a2a24', 1.6 * S);
+    { const c = Q(1.9, 0.45, zt); ell(c[0], c[1] - 1 * S, 4.4 * S, 2.2 * S, '#c9a06a'); ctx.beginPath(); ctx.ellipse(c[0], c[1] - 1 * S, 2.6 * S, 1.2 * S, 0, 0, TAU); ctx.strokeStyle = '#8a6a45'; ctx.lineWidth = 0.9 * S; ctx.stroke(); }
+    const lp = Q(x0 + 0.1, y0 + 0.1, zt); seg(lp, [lp[0], lp[1] - 26 * S], '#3a2a24', 1.6 * S);
     poly([[lp[0] - 2.6 * S, lp[1] - 26 * S], [lp[0] + 2.6 * S, lp[1] - 26 * S], [lp[0] + 2 * S, lp[1] - 31 * S], [lp[0] - 2 * S, lp[1] - 31 * S]], '#f6d98a', INK, 0.8 * S);
   }
   // ---------- people and the ox-cart ----------
@@ -6512,17 +6574,21 @@ const ISO = (() => {
   function noisy(f, amp, sc) { const v = f.v, N = f.N; for (let j = 0; j < f.M; j++) for (let i = 0; i < N; i++) v[j * N + i] += (fbm(i / RES * sc, j / RES * sc) - 0.5) * amp; return f; }
   // The light on the hills: one pixel per field cell, lit where the slope faces +y (towards the sun), shaded where
   // it faces +x; drawn smoothed under the world transform.
-  function hillShade(f) {
-    const { N, M, v } = f, c = canvasNew(N, M), g = c.getContext('2d'), id = g.createImageData(N, M);
+  function hillShade(f, r) {
+    const { N, M, v } = f, c = canvasNew(N, M), g = c.getContext('2d'), id = g.createImageData(N, M), m = ROTM[r || 0];
     for (let j = 1; j < M - 1; j++) for (let i = 1; i < N - 1; i++) {
       const hx2 = (v[j * N + i + 1] - v[j * N + i - 1]) * RES, hy2 = (v[(j + 1) * N + i] - v[(j - 1) * N + i]) * RES;
-      const l = clamp((-hy2 + hx2 * 0.8) * 0.9, -1, 1), k = (j * N + i) * 4, mask = clamp(v[j * N + i] * 3, 0, 1);
+      // the slope in view coordinates (the sun stays at the screen's upper left whatever the turn)
+      const gu = m[0] * hx2 + m[1] * hy2, gv = m[2] * hx2 + m[3] * hy2;
+      const l = clamp((-gv + gu * 0.8) * 0.9, -1, 1), k = (j * N + i) * 4, mask = clamp(v[j * N + i] * 3, 0, 1);
       if (l > 0) { id.data[k] = 255; id.data[k + 1] = 250; id.data[k + 2] = 214; id.data[k + 3] = Math.round(l * 120 * mask); }
       else { id.data[k] = 52; id.data[k + 1] = 76; id.data[k + 2] = 46; id.data[k + 3] = Math.round(-l * 110 * mask); }
     }
     g.putImageData(id, 0, 0);
     return c;
   }
+  // The hill light for a turn (0.2 MB each, made when first needed).
+  function hillShadeFor(G, r) { return G.hillShades[r] || (G.hillShades[r] = hillShade(G.hillH, r)); }
   function geoBuild(R, s) {
     const t0 = performance.now();
     const landI = fieldOf(s, (t) => t !== SEA);
@@ -6539,7 +6605,7 @@ const ISO = (() => {
       shallow: [[0.025, 0.14], [0.07, 0.14], [0.15, 0.15], [0.28, 0.16]].map(([lv, a]) => [pathOf(contour(wide, lv)), a]),
       pieces: [],
       hillLv: [0.12, 0.28, 0.44, 0.6, 0.76].map((lv, k) => [pathOf(contour(hillH, lv)), 0.1 + k * 0.05]),
-      hillShade: hillShade(hillH),
+      hillH, hillShades: [hillShade(hillH, 0)],
     };
     // coast pieces with sea-facing normals, for the waves and the foam drawn each frame
     for (const loop of coastLoops) {
@@ -6660,18 +6726,19 @@ const ISO = (() => {
     R.grainC = n;
     return n;
   }
-  function chunkRange(B, ci, cj) {
+  function chunkRange(B, ci, cj, r) {
     const X0 = ci * CHUNK, Y0 = cj * CHUNK;
     let tx0 = 1e9, tx1 = -1e9, ty0 = 1e9, ty1 = -1e9;
-    for (const [X, Y] of [[X0, Y0], [X0 + CHUNK, Y0], [X0, Y0 + CHUNK], [X0 + CHUNK, Y0 + CHUNK]]) { const u = X / B, v = Y / (B / 2), x = (u + v) / 2, y = (v - u) / 2; tx0 = Math.min(tx0, x); tx1 = Math.max(tx1, x); ty0 = Math.min(ty0, y); ty1 = Math.max(ty1, y); }
+    for (const [X, Y] of [[X0, Y0], [X0 + CHUNK, Y0], [X0, Y0 + CHUNK], [X0 + CHUNK, Y0 + CHUNK]]) { const a = X / B, c = Y / (B / 2), w = unrotPt(r || 0, (a + c) / 2, (c - a) / 2), x = w[0], y = w[1]; tx0 = Math.min(tx0, x); tx1 = Math.max(tx1, x); ty0 = Math.min(ty0, y); ty1 = Math.max(ty1, y); }
     return { tx0: Math.floor(tx0) - 2, tx1: Math.ceil(tx1) + 2, ty0: Math.floor(ty0) - 2, ty1: Math.ceil(ty1) + 2 };
   }
   function chunkPaint(R, s, B, ci, cj) {
     const d = R.dpr, c = canvasNew(CHUNK * d, CHUNK * d), g = c.getContext('2d'), G = R.geo;
-    const X0 = ci * CHUNK, Y0 = cj * CHUNK, rg = chunkRange(B, ci, cj), Sb = B / 44;
-    const world = (dz) => g.setTransform(d * B, d * B / 2, -d * B, d * B / 2, -d * X0, -d * Y0 + d * (dz || 0));
+    const X0 = ci * CHUNK, Y0 = cj * CHUNK, rg = chunkRange(B, ci, cj, R.rot || 0), Sb = B / 44;
+    const r = R.rot || 0, M = ROTM[r];
+    const world = (dz) => worldXf(g, d, B, -X0, -Y0 + (dz || 0), r);
     const scr = () => g.setTransform(d, 0, 0, d, -d * X0, -d * Y0);
-    const SX = (x, y) => (x - y) * B, SY = (x, y) => (x + y) * B / 2;
+    const SX = (x, y) => ((M[0] - M[2]) * x + (M[1] - M[3]) * y + M[4] - M[5]) * B, SY = (x, y) => ((M[0] + M[2]) * x + (M[1] + M[3]) * y + M[4] + M[5]) * B / 2;
     const T = (x, y) => (inMap(x, y) ? s.terrain[tileIdx(x, y)] : SEA);
     const tx0 = Math.max(rg.tx0, -PAD), tx1 = Math.min(rg.tx1, MAP_W + PAD), ty0 = Math.max(rg.ty0, -PAD), ty1 = Math.min(rg.ty1, MAP_H + PAD);
     g.lineJoin = 'round'; g.lineCap = 'round';
@@ -6717,7 +6784,7 @@ const ISO = (() => {
     // hills: rounded by light and shade (the sun from the upper left), lighter towards the top, map contours
     world();
     for (const [p, a] of G.hillLv) { g.fillStyle = 'rgba(206,228,140,' + a + ')'; g.fill(p, 'evenodd'); }
-    g.imageSmoothingEnabled = true; g.drawImage(G.hillShade, -PAD, -PAD, MAP_W + 2 * PAD, MAP_H + 2 * PAD);
+    g.imageSmoothingEnabled = true; g.drawImage(hillShadeFor(G, r), -PAD, -PAD, MAP_W + 2 * PAD, MAP_H + 2 * PAD);
     g.lineWidth = 0.03; g.strokeStyle = 'rgba(70,105,50,.32)'; for (const [p] of G.hillLv) g.stroke(p);
     // forest floor
     g.fillStyle = '#5c9150'; g.fill(G.forest, 'evenodd');
@@ -6763,7 +6830,7 @@ const ISO = (() => {
     g.fillStyle = g.createPattern(grainPattern(R), 'repeat'); g.fillRect(0, 0, c.width, c.height);
     g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     R.stats.chunks++; R.frameChunks++;
-    return { c, B, ci, cj, tx0: rg.tx0, tx1: rg.tx1, ty0: rg.ty0, ty1: rg.ty1, used: R.frame, stale: false };
+    return { c, B, r, ci, cj, tx0: rg.tx0, tx1: rg.tx1, ty0: rg.ty0, ty1: rg.ty1, used: R.frame, stale: false };
   }
   // Roads and the stage are the only things the ground depends on: changed tiles mark their chunks stale.
   function groundCheck(R, s) {
@@ -6791,15 +6858,16 @@ const ISO = (() => {
   // Still frames: the ground composed once into a screen-sized canvas and copied 1:1 (block 2's fast path).
   function groundDraw(R, s) {
     const d = R.dpr, C = R.gc, main = R.ctx;
-    if (!R.still) {
-      // a big screen (memBudget): no screen-sized copy of the ground; the chunks are drawn straight onto the screen
+    if (!R.still || R.turn) {
+      // a big screen (memBudget), or the picture of a turn: no screen-sized copy of the ground; the chunks are drawn
+      // straight onto the screen
       main.setTransform(1, 0, 0, 1, 0, 0); main.globalAlpha = 1; main.fillStyle = SEA_C; main.fillRect(0, 0, R.canvas.width, R.canvas.height);
       R.pending = false;
       groundCompose(R, s);
       R.groundDirty = R.pending;
       return;
     }
-    if (C && !R.groundDirty && C.B === R.B && C.dpr === d && C.hw === R.hw && C.w === R.w && C.h === R.h &&
+    if (C && !R.groundDirty && C.B === R.B && C.r === R.rot && C.dpr === d && C.hw === R.hw && C.w === R.w && C.h === R.h &&
       Math.abs(C.ox - R.ox) < 0.01 && Math.abs(C.oy - R.oy) < 0.01) {
       main.setTransform(1, 0, 0, 1, 0, 0); main.drawImage(C.c, 0, 0);
       return;
@@ -6811,20 +6879,20 @@ const ISO = (() => {
     R.ctx = g; R.pending = false;
     groundCompose(R, s);
     R.ctx = saved;
-    R.gc = { c, ox: R.ox, oy: R.oy, hw: R.hw, B: R.B, dpr: d, w: R.w, h: R.h };
+    R.gc = { c, ox: R.ox, oy: R.oy, hw: R.hw, B: R.B, r: R.rot, dpr: d, w: R.w, h: R.h };
     R.groundDirty = R.pending;
     R.stats.groundComposes = (R.stats.groundComposes || 0) + 1;
     main.setTransform(1, 0, 0, 1, 0, 0); main.drawImage(c, 0, 0);
   }
   function groundCompose(R, s) {
-    const g = R.ctx, d = R.dpr, B = R.B, k = R.hw / B, cs = CHUNK * k;
-    const lim = [Math.floor(-(MAP_H + PAD) * B / CHUNK), Math.floor((MAP_W + PAD) * B / CHUNK), Math.floor(-PAD * B / CHUNK), Math.floor((MAP_W + MAP_H + PAD) * B / 2 / CHUNK)];
+    const g = R.ctx, d = R.dpr, B = R.B, k = R.hw / B, cs = CHUNK * k, r = R.rot || 0, VW = viewW(r), VH = viewH(r);
+    const lim = [Math.floor(-(VH + PAD) * B / CHUNK), Math.floor((VW + PAD) * B / CHUNK), Math.floor(-PAD * B / CHUNK), Math.floor((VW + VH + PAD) * B / 2 / CHUNK)];
     const ci0 = Math.max(lim[0], Math.floor(-R.ox / cs)), ci1 = Math.min(lim[1], Math.floor((R.w - R.ox) / cs));
     const cj0 = Math.max(lim[2], Math.floor(-R.oy / cs)), cj1 = Math.min(lim[3], Math.floor((R.h - R.oy) / cs));
     g.setTransform(1, 0, 0, 1, 0, 0);
     const todo = [], have = [];
     for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
-      const key = B + '|' + ci + '|' + cj, ch = R.chunks.get(key);
+      const key = B + '|' + r + '|' + ci + '|' + cj, ch = R.chunks.get(key);
       if (ch && !ch.stale) have.push(ch); else todo.push([key, ci, cj, ch]);
     }
     // stale chunks (a road was drawn) are redrawn now; missing ones (a new zoom) within the frame budget
@@ -6841,7 +6909,7 @@ const ISO = (() => {
     if (missing && R.prevB && R.prevB !== B) {
       const k2 = R.hw / R.prevB, cs2 = CHUNK * k2;
       for (const ch of R.chunks.values()) {
-        if (ch.B !== R.prevB) continue;
+        if (ch.B !== R.prevB || ch.r !== r) continue;
         const L = R.ox + ch.ci * cs2, Tt = R.oy + ch.cj * cs2;
         if (L > R.w || Tt > R.h || L + cs2 < 0 || Tt + cs2 < 0) continue;
         g.drawImage(ch.c, Math.round(L * d), Math.round(Tt * d), Math.round((L + cs2) * d) - Math.round(L * d), Math.round((Tt + cs2) * d) - Math.round(Tt * d));
@@ -6863,29 +6931,59 @@ const ISO = (() => {
   // 1x pixels (OV_PX, ~3 MB), painted once per island and stage; any ground not covered yet is filled from it, scaled:
   // a moment blurry, never blank.
   const OV_PX = 1024 * 768;
-  function overviewGet(R, s) {
+  // The overview is painted once per island and stage (the master, in the turn of that moment: ~0.3 s on a big island);
+  // another turn's overview is the master turned by the iso spin (one drawImage: no hitch at a turn; a little softer,
+  // which a moment's fallback never shows). Kept: the master and the current turn's (and, during a turn, the old one).
+  function affMul(A, B) { return [A[0] * B[0] + A[2] * B[1], A[1] * B[0] + A[3] * B[1], A[0] * B[2] + A[2] * B[3], A[1] * B[2] + A[3] * B[3], A[0] * B[4] + A[2] * B[5] + A[4], A[1] * B[4] + A[3] * B[5] + A[5]]; }
+  function ovFrame(r) {
+    const B = BUCKETS[0], VW = viewW(r), VH = viewH(r);
+    const ci0 = Math.floor(-(VH + PAD) * B / CHUNK), ci1 = Math.floor((VW + PAD) * B / CHUNK);
+    const cj0 = Math.floor(-PAD * B / CHUNK), cj1 = Math.floor((VW + VH + PAD) * B / 2 / CHUNK);
+    return { B, ci0, ci1, cj0, cj1, X0: ci0 * CHUNK, Y0: cj0 * CHUNK, W: (ci1 - ci0 + 1) * CHUNK, H: (cj1 - cj0 + 1) * CHUNK };
+  }
+  function overviewGet(R, s, r) {
+    if (r === undefined) r = R.rot || 0;
     const key = s.seed + '|' + s.stage;
-    if (R.ov && R.ov.key === key) return R.ov;
-    if (R.ov) { canvasFree(R.ov.c); R.ov = null; }
-    const B = BUCKETS[0];
-    const ci0 = Math.floor(-(MAP_H + PAD) * B / CHUNK), ci1 = Math.floor((MAP_W + PAD) * B / CHUNK);
-    const cj0 = Math.floor(-PAD * B / CHUNK), cj1 = Math.floor((MAP_W + MAP_H + PAD) * B / 2 / CHUNK);
-    const c = canvasNew((ci1 - ci0 + 1) * CHUNK, (cj1 - cj0 + 1) * CHUNK), g = c.getContext('2d');
-    const keep = [R.dpr, R.frameChunks, R.stats.chunks];
-    R.dpr = 1;
-    try {
-      for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
-        const ch = chunkPaint(R, s, B, ci, cj);
-        g.drawImage(ch.c, (ci - ci0) * CHUNK, (cj - cj0) * CHUNK);
-        canvasFree(ch.c);
-      }
-    } finally { [R.dpr, R.frameChunks, R.stats.chunks] = keep; }
-    R.ov = { key, c, B, X0: ci0 * CHUNK, Y0: cj0 * CHUNK, W: c.width, H: c.height };
-    return R.ov;
+    if (!R.ovs) R.ovs = {};
+    const have = R.ovs[r];
+    if (have && have.key === key) { if (r === (R.rot || 0)) R.ov = have; return have; }
+    if (have) { if (have !== R.ovM) canvasFree(have.c); delete R.ovs[r]; }
+    if (R.ovM && R.ovM.key !== key) { canvasFree(R.ovM.c); for (const k in R.ovs) if (R.ovs[k] === R.ovM) delete R.ovs[k]; R.ovM = null; }
+    const F = ovFrame(r), c = canvasNew(F.W, F.H), g = c.getContext('2d');
+    const M0 = R.ovM;
+    if (M0) {
+      // the master turned: its pixels -> its screen -> view -> world -> this turn's view -> screen -> pixels
+      const B = F.B, m = ROTM[M0.r], n = ROTM[r];
+      const M = [B, B / 2, -B, B / 2, 0, 0], Mi = [1 / (2 * B), -1 / (2 * B), 1 / B, 1 / B, 0, 0];
+      const unrotO = [m[0], m[1], m[2], m[3], -(m[0] * m[4] + m[2] * m[5]), -(m[1] * m[4] + m[3] * m[5])], rotN = [n[0], n[2], n[1], n[3], n[4], n[5]];
+      let T = [1, 0, 0, 1, M0.X0, M0.Y0];
+      for (const A of [Mi, unrotO, rotN, M, [1, 0, 0, 1, -F.X0, -F.Y0]]) T = affMul(A, T);
+      g.fillStyle = SEA_C; g.fillRect(0, 0, F.W, F.H);
+      g.imageSmoothingEnabled = true; g.setTransform(T[0], T[1], T[2], T[3], T[4], T[5]); g.drawImage(M0.c, 0, 0); g.setTransform(1, 0, 0, 1, 0, 0);
+      R.stats.ovTurned = (R.stats.ovTurned || 0) + 1;
+    } else {
+      const keep = [R.dpr, R.frameChunks, R.stats.chunks, R.rot];
+      R.dpr = 1; R.rot = r;
+      try {
+        for (let cj = F.cj0; cj <= F.cj1; cj++) for (let ci = F.ci0; ci <= F.ci1; ci++) {
+          const ch = chunkPaint(R, s, F.B, ci, cj);
+          g.drawImage(ch.c, (ci - F.ci0) * CHUNK, (cj - F.cj0) * CHUNK);
+          canvasFree(ch.c);
+        }
+      } finally { [R.dpr, R.frameChunks, R.stats.chunks, R.rot] = keep; }
+    }
+    const ov = R.ovs[r] = { key, r, c, B: F.B, X0: F.X0, Y0: F.Y0, W: c.width, H: c.height };
+    if (!M0) R.ovM = ov;
+    if (r === (R.rot || 0)) R.ov = ov;
+    return ov;
+  }
+  // Only the master, the overview of the turn on screen (and the one a turn is still animating from) stay.
+  function overviewTrim(R) {
+    for (const k in R.ovs || {}) { const r = +k, o = R.ovs[k]; if (r !== (R.rot || 0) && !(R.turn && r === R.turn.from)) { if (o !== R.ovM) canvasFree(o.c); delete R.ovs[k]; } }
   }
   // The overview under everything on g (identity transform, device px), at the view R.ox / R.oy / R.hw.
-  function overviewDraw(R, g) {
-    const ov = R.ov;
+  function overviewDraw(R, g, ov) {
+    ov = ov || R.ov;
     if (!ov) return;
     const k = R.hw / ov.B, d = R.dpr;
     g.drawImage(ov.c, (R.ox + ov.X0 * k) * d, (R.oy + ov.Y0 * k) * d, ov.W * k * d, ov.H * k * d);
@@ -6894,7 +6992,8 @@ const ISO = (() => {
   // Over the cap: chunks of other zoom levels go first, then the least recently drawn.
   function chunkEvict(R) {
     if (R.chunks.size <= R.chunkCap) return;
-    const list = [...R.chunks.entries()].sort((a, b) => ((a[1].B === R.B) - (b[1].B === R.B)) || (a[1].used - b[1].used));
+    const cur = (c) => (c.B === R.B && c.r === (R.rot || 0) ? 1 : 0);
+    const list = [...R.chunks.entries()].sort((a, b) => (cur(a[1]) - cur(b[1])) || (a[1].used - b[1].used));
     for (let i = 0; i < list.length - R.chunkCap; i++) { canvasFree(list[i][1].c); R.chunks.delete(list[i][0]); }
   }
 
@@ -6948,8 +7047,14 @@ const ISO = (() => {
     if (!m) { m = new Map(); R.spr.set(base, m); }
     let sp = m.get(R.B);
     if (sp && sp.low && R.sprPx < R.sprCap * 0.6 && performance.now() - R.frameStart < R.budget) { canvasFree(sp.c); R.sprPx -= sp.px; m.delete(R.B); sp = null; }
+    if (!sp && !m.size && ALT && ALT.c.width > 1 && performance.now() - R.frameStart >= R.budget) {
+      // a turn gave this building a new look: its last sprite stands in until the paint budget of a frame allows it
+      R.pending = true; R.stats.altSprites = (R.stats.altSprites || 0) + 1; ALT.used = R.frame;
+      return ALT;
+    }
     if (!sp) {
       if (!m.size || performance.now() - R.frameStart < R.budget) {
+        const tc0 = performance.now();
         const d = R.dpr, px = (B) => { const q = sprDims(B, foot, H); return Math.ceil(q.W * d) * Math.ceil(q.H * d); };
         sprRoom(R, px(R.B) / 3);
         // a trimmed sprite keeps about a third of the painted canvas (measured on a late town): px / 3 for the check
@@ -6959,14 +7064,17 @@ const ISO = (() => {
         let c = canvasNew(q.W * d, q.H * d);
         const g = c.getContext('2d');
         g.setTransform(d, 0, 0, d, 0, 0); g.lineCap = 'round'; g.lineJoin = 'round';
-        const saved = [ctx, ox, oy, hw, DP];
+        const saved = [ctx, ox, oy, hw, DP, PR], tp = performance.now();
         pen(g, q.L, q.T, B, d);
         paint();
-        pen(saved[0], saved[1], saved[2], saved[3], saved[4]);
+        { const k = base.slice(0, base.indexOf('|') + 1 || base.length), pm = R.stats.paintMs || (R.stats.paintMs = {}); pm[k] = (pm[k] || 0) + performance.now() - tp; }
+        pen(saved[0], saved[1], saved[2], saved[3], saved[4]); PR = saved[5];
         const cut = sprTrim(c);
         c = cut.c;
         sp = { c, ax: q.L - cut.x / d, ay: q.T - cut.y / d, w: c.width / d, h: c.height / d, B, px: c.width * c.height, used: R.frame, low: B !== R.B };
         m.set(R.B, sp); R.sprPx += sp.px; R.stats.sprites++;
+        R.stats.sprMs = (R.stats.sprMs || 0) + performance.now() - tc0; R.stats.sprN = (R.stats.sprN || 0) + 1;
+        { const nb = R.stats.newBy || (R.stats.newBy = {}), k = base.slice(0, base.indexOf('|')); nb[k] = (nb[k] || 0) + 1; }
         if (sp.low) R.stats.lowSprites = (R.stats.lowSprites || 0) + 1;
       } else {
         for (const s2 of m.values()) if (!sp || Math.abs(Math.log(s2.B / R.B)) < Math.abs(Math.log(sp.B / R.B))) sp = s2;
@@ -7142,7 +7250,7 @@ const ISO = (() => {
   const DECO_H = { garden: [0.75, 0.3], palms: [2.4, 0.5], fountain: [1.0, 0.45], statue: [1.45, 0.95], bandstand: [1.75, 1.15] };
 
   // ---------- the map explains space (block 4): valid spots, reach, the road pieces to join ----------
-  function tileXf(R) { const d = R.dpr, z = R.hw; R.ctx.setTransform(d * z, d * z / 2, -d * z, d * z / 2, d * R.ox, d * R.oy); }
+  function tileXf(R) { worldXf(R.ctx, R.dpr, R.hw, R.ox, R.oy, R.rot || 0); }
   // Tiles where test(i) holds, as one path of horizontal runs (tile units).
   function runsPath(test) {
     const p = new Path2D();
@@ -7258,7 +7366,27 @@ const ISO = (() => {
     }
     return null;
   }
-  function homeFace(s, b) { return isRoad(s, b.x, b.y + 1) ? 'y' : isRoad(s, b.x + 1, b.y) ? 'x' : isRoad(s, b.x - 1, b.y) ? 'y' : 'x'; }
+  // The door's face in view: toward a road at view +v ('y', the lower-left face) or +u ('x', lower right); a road behind
+  // (view -u) puts it on the +v face, none on the +u face (the rule of turn 0, applied in view coordinates).
+  function homeFace(s, b, r) {
+    const dv = unrotDir(r || 0, 0, 1), du = unrotDir(r || 0, 1, 0);
+    return isRoad(s, b.x + dv[0], b.y + dv[1]) ? 'y' : isRoad(s, b.x + du[0], b.y + du[1]) ? 'x' : isRoad(s, b.x - du[0], b.y - du[1]) ? 'y' : 'x';
+  }
+  // A home's look in a turn: a gable keeps its ridge along the same world axis (gx and gy swap on odd turns).
+  function homeLookR(v, r) { const lk = homeLook(v); if (r & 1) lk.roofType = lk.roofType === 'gx' ? 'gy' : lk.roofType === 'gy' ? 'gx' : lk.roofType; return lk; }
+  // The building as painted in a turn: on odd turns a w x h footprint is painted as h x w (cached copies of the def).
+  const VDEF = new Map();
+  function viewDef(def, r) {
+    if (!(r & 1) || def.w === def.h) return def;
+    let v = VDEF.get(def);
+    if (!v) { v = Object.assign({}, def, { w: def.h, h: def.w }); VDEF.set(def, v); }
+    return v;
+  }
+  // The sea side of a building in view (a world [dx, dy] turned), or null.
+  function seaView(s, b, r) { const q = seaSide(s, b); if (!q) return null; const v = rotDir(r || 0, q[0], q[1]); return [v[0] || 0, v[1] || 0]; }
+  // A building's view box [u0, v0, u1, v1] in the renderer's turn, and a point of its painted (view-local) layout in world.
+  function bVBox(R, b) { return vbox(R.rot || 0, b.x, b.y, b.x + b.w, b.y + b.h); }
+  function localWorld(R, b, lx, ly) { const q = bVBox(R, b); return unrotPt(R.rot || 0, q[0] + lx, q[1] + ly); }
   function bHeight(b) {
     const def = BUILDINGS[b.type], art = bArt(def);
     if (def.deco && DECO_H[def.deco]) return DECO_H[def.deco][0];
@@ -7289,33 +7417,44 @@ const ISO = (() => {
     if (art === 'civic') return 1.3;
     return 1.3;
   }
+  // A square building's last sprite (another turn's look) may stand in for one frame budget at a time (sprite(): ALT).
+  let ALT = null;
   function bSprite(R, s, b) {
-    const def = BUILDINGS[b.type], art = bArt(def), H = bHeight(b) + 0.35;
+    const def = BUILDINGS[b.type];
+    ALT = b.id && def.w === def.h && R.lastSpr ? R.lastSpr.get(b.id) || null : null;
+    let sp;
+    try { sp = bSpriteOf(R, s, b); } finally { ALT = null; }
+    if (b.id && sp) (R.lastSpr || (R.lastSpr = new Map())).set(b.id, sp);
+    return sp;
+  }
+  function bSpriteOf(R, s, b) {
+    const def = BUILDINGS[b.type], art = bArt(def), H = bHeight(b) + 0.35, r = R.rot || 0, vd = viewDef(def, r), foot = [vd.w, vd.h];
+    // sprite keys name what is painted (face, roof, footprint, sea side): a look shared by two turns is one sprite
     if (art === 'home') {
-      const v = Math.floor(h2(b.x * 7 + 3, b.y * 13 + 5) * 4096), face = homeFace(s, b), empty = !b.res, lv = b.level || 1;
-      return sprite(R, 'home|' + lv + '|' + v + '|' + face + '|' + (empty ? 1 : 0), [1, 1], H, () => paintHome(lv, homeLook(v), face, empty));
+      const v = Math.floor(h2(b.x * 7 + 3, b.y * 13 + 5) * 4096), face = homeFace(s, b, r), empty = !b.res, lv = b.level || 1, lk = homeLookR(v, r);
+      return sprite(R, 'home|' + lv + '|' + v + '|' + face + '|' + (empty ? 1 : 0) + '|' + lk.roofType, [1, 1], H, () => paintHome(lv, lk, face, empty));
     }
-    if (def.deco) return sprite(R, 'deco|' + def.deco, [def.w, def.h], H, () => paintDeco(def));
-    if (art === 'field' && (def.makes === 'beans' || def.makes === 'cattle')) return sprite(R, 'field|' + b.type, [def.w, def.h], H, () => (def.makes === 'beans' ? paintFinca : paintRanch)(def));
+    if (def.deco) return sprite(R, 'deco|' + def.deco, foot, H, () => paintDeco(vd));
+    if (art === 'field' && (def.makes === 'beans' || def.makes === 'cattle')) return sprite(R, 'field|' + b.type + '|' + vd.w + 'x' + vd.h, foot, H, () => (def.makes === 'beans' ? paintFinca : paintRanch)(vd));
     if (art === 'field') {
       const crop = def.makes === 'cane' ? 'cane' : def.makes === 'fruit' ? 'fruit' : def.makes === 'tobacco' ? 'tobacco' : 'other';
       const col = def.color || (GOODS[def.makes] ? GOODS[def.makes].color : '#7cb04c');
-      return sprite(R, 'field|' + b.type + '|' + def.w + 'x' + def.h, [def.w, def.h], H, () => paintField(def.w, def.h, crop, col));
+      return sprite(R, 'field|' + b.type + '|' + vd.w + 'x' + vd.h, foot, H, () => paintField(vd.w, vd.h, crop, col));
     }
-    if (art === 'workshop') return sprite(R, 'ws|' + b.type, [def.w, def.h], H, () => workshopPaint(def));
-    if (art === 'civic') { const sea = def.gives === 'light' ? seaSide(s, b) : null; return sprite(R, 'civic|' + b.type + '|' + (sea ? sea.join(',') : '-'), [def.w, def.h], H, () => paintCivic(def, sea)); }
-    if (art === 'harbor' && def.ships > 1) { const sea = seaSide(s, b); return sprite(R, 'quay|' + b.type + '|' + (sea ? sea.join(',') : '-'), [def.w, def.h], H, () => paintQuay(def, sea)); }
-    if (art === 'market') return sprite(R, 'market|' + def.w, [def.w, def.h], H, () => paintMarket(def));
-    if (art === 'harbor') return sprite(R, 'harbor|' + b.type, [def.w, def.h], H, () => paintHarbor(def));
-    if (art === 'hut') { const sea = seaSide(s, b); return sprite(R, 'hut|' + b.type + '|' + (sea ? sea.join(',') : '-'), [def.w, def.h], H, () => paintHut(def, sea)); }
-    if (art === 'residence') { const lv = Math.min(6, b.level || 0); return sprite(R, 'res|' + lv, [def.w, def.h], H, () => paintResidence(lv)); }
-    if (art === 'pier') return sprite(R, 'pier|' + def.w, [def.w, def.h, 0.2, 0], H, () => paintPier(def));
-    if (art === 'airfield') { const sea = seaSide(s, b); return sprite(R, 'airfield|' + (sea ? sea.join(',') : '-'), [def.w, def.h], H, () => paintAirfield(def, sea)); }
-    return sprite(R, 'box|' + b.type, [def.w, def.h], H, () => boxAt(0.15, 0.15, def.w - 0.3, def.h - 0.3, 0, 0.6, '#d9c7a4'));
+    if (art === 'workshop') return sprite(R, 'ws|' + b.type + '|' + vd.w + 'x' + vd.h, foot, H, () => workshopPaint(vd));
+    if (art === 'civic') { const sea = def.gives === 'light' ? seaView(s, b, r) : null; return sprite(R, 'civic|' + b.type + '|' + (sea ? sea.join(',') : '-') + '|' + vd.w + 'x' + vd.h, foot, H, () => paintCivic(vd, sea)); }
+    if (art === 'harbor' && def.ships > 1) { const sea = seaView(s, b, r); return sprite(R, 'quay|' + b.type + '|' + (sea ? sea.join(',') : '-'), foot, H, () => paintQuay(vd, sea)); }
+    if (art === 'market') return sprite(R, 'market|' + def.w, foot, H, () => paintMarket(vd));
+    if (art === 'harbor') return sprite(R, 'harbor|' + b.type, foot, H, () => paintHarbor(vd));
+    if (art === 'hut') { const sea = seaView(s, b, r); return sprite(R, 'hut|' + b.type + '|' + (sea ? sea.join(',') : '-'), foot, H, () => paintHut(vd, sea)); }
+    if (art === 'residence') { const lv = Math.min(6, b.level || 0); return sprite(R, 'res|' + lv, foot, H, () => paintResidence(lv)); }
+    if (art === 'pier') return sprite(R, 'pier|' + def.w + '|' + r, [vd.w, vd.h, 0.45, 0.45], H, () => paintPier(def, r));
+    if (art === 'airfield') { const sea = seaView(s, b, r); return sprite(R, 'airfield|' + (sea ? sea.join(',') : '-'), foot, H, () => paintAirfield(vd, sea)); }
+    return sprite(R, 'box|' + b.type + '|' + vd.w + 'x' + vd.h, foot, H, () => boxAt(0.15, 0.15, vd.w - 0.3, vd.h - 0.3, 0, 0.6, '#d9c7a4'));
   }
   // Where a building keeps its piles (local tile coordinates of each pile's centre).
-  function pileSpots(s, b) {
-    const def = BUILDINGS[b.type], art = bArt(def), out = [];
+  function pileSpots(s, b, r) {
+    const def0 = BUILDINGS[b.type], art = bArt(def0), def = viewDef(def0, r || 0), out = [];
     if (def.kind === 'producer') {
       const inG = def.uses ? Object.keys(def.uses)[0] : null;
       if (art === 'workshop' && def.w >= 2) { if (inG) out.push([inG, Math.floor(b.inp[inG] || 0), 0.5, def.h - 0.3]); out.push([def.makes, b.yard, def.w - 0.55, def.h - 0.28]); }
@@ -7338,7 +7477,7 @@ const ISO = (() => {
 
   // ---------- static objects: buildings, the ship, forest, palms, trees; sorted back to front ----------
   function objectsBuild(R, s) {
-    const list = [], occ = occMap(s);
+    const list = [], occ = occMap(s), r = R.rot || 0, VW = viewW(r), VH = viewH(r);
     for (const b of s.b) list.push({ k: 'b', b, x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h, h: bHeight(b) });
     const pier = s.b.find((b) => b.type === 'pier');
     const nearPier = (x, y) => pier && x >= pier.x - 1 && x <= pier.x + pier.w + 1 && y >= pier.y - 1 && y <= pier.y + 2;
@@ -7351,17 +7490,22 @@ const ISO = (() => {
       else if ((t === GRASS || t === HILL) && r < 0.035) list.push({ k: r < 0.018 ? 'tree' : 'bush', v: Math.floor(r * 1000), x0: x, y0: y, x1: x + 1, y1: y + 1, h: r < 0.018 ? 1.1 : 0.4 });
     }
     for (const m of medians(s)) if ((m.x + m.y) % 2 === 0) list.push({ k: 'palm', v: (m.x * 7 + m.y * 13) % 100, x0: m.cx - 0.45, y0: m.cy - 0.5, x1: m.cx + 0.45, y1: m.cy + 0.5, h: 2.2 });
-    for (const o of list) { o.X0 = o.x0 - o.y1 - 0.4; o.X1 = o.x1 - o.y0 + 0.4 + (o.k === 'b' ? o.h * 0.6 : 0.3); o.Y0 = (o.x0 + o.y0) / 2 - o.h * ZS - 0.4; o.Y1 = (o.x1 + o.y1) / 2 + 0.4; }
+    // depth is decided in view coordinates (u, v): the same sort for every turn
+    for (const o of list) {
+      const q = vbox(r, o.x0, o.y0, o.x1, o.y1); o.u0 = q[0]; o.v0 = q[1]; o.u1 = q[2]; o.v1 = q[3];
+      o.X0 = o.u0 - o.v1 - 0.4; o.X1 = o.u1 - o.v0 + 0.4 + (o.k === 'b' ? o.h * 0.6 : 0.3); o.Y0 = (o.u0 + o.v0) / 2 - o.h * ZS - 0.4; o.Y1 = (o.u1 + o.v1) / 2 + 0.4;
+    }
     const order = topo(list);
-    const grid = new Int32Array(MAP_W * MAP_H).fill(-1);
-    order.forEach((o, k) => { o.i = k; for (let y = Math.max(0, Math.floor(o.y0)); y < Math.min(MAP_H, Math.ceil(o.y1)); y++) for (let x = Math.max(0, Math.floor(o.x0)); x < Math.min(MAP_W, Math.ceil(o.x1)); x++) grid[tileIdx(x, y)] = k; });
-    R.order = order; R.grid = grid;
+    const grid = new Int32Array(VW * VH).fill(-1);
+    order.forEach((o, k) => { o.i = k; for (let v = Math.max(0, Math.floor(o.v0)); v < Math.min(VH, Math.ceil(o.v1)); v++) for (let u = Math.max(0, Math.floor(o.u0)); u < Math.min(VW, Math.ceil(o.u1)); u++) grid[v * VW + u] = k; });
+    R.order = order; R.grid = grid; R.gridW = VW; R.gridH = VH; R.orderRot = r;
     R.orderIdx = new Map(); for (const o of order) if (o.k === 'b') R.orderIdx.set(o.b.id, o.i);
   }
+  // A is drawn before B (view boxes u0 v0 u1 v1)
   function before(A, B) {
-    if (A.x1 <= B.x0 + 1e-6) return true; if (B.x1 <= A.x0 + 1e-6) return false;
-    if (A.y1 <= B.y0 + 1e-6) return true; if (B.y1 <= A.y0 + 1e-6) return false;
-    return (A.x0 + A.x1 + A.y0 + A.y1) < (B.x0 + B.x1 + B.y0 + B.y1);
+    if (A.u1 <= B.u0 + 1e-6) return true; if (B.u1 <= A.u0 + 1e-6) return false;
+    if (A.v1 <= B.v0 + 1e-6) return true; if (B.v1 <= A.v0 + 1e-6) return false;
+    return (A.u0 + A.u1 + A.v0 + A.v1) < (B.u0 + B.u1 + B.v0 + B.v1);
   }
   function topo(list) {
     const n = list.length, idx = list.map((_, i) => i).sort((a, b) => list[a].X0 - list[b].X0), adj = Array.from({ length: n }, () => []);
@@ -7374,7 +7518,7 @@ const ISO = (() => {
         if (before(A, B)) adj[idx[c]].push(idx[a]); else adj[idx[a]].push(idx[c]);
       }
     }
-    const out = [], mark = new Uint8Array(n), seq = list.map((_, i) => i).sort((a, b) => (list[a].x0 + list[a].y0) - (list[b].x0 + list[b].y0));
+    const out = [], mark = new Uint8Array(n), seq = list.map((_, i) => i).sort((a, b) => (list[a].u0 + list[a].v0) - (list[b].u0 + list[b].v0));
     for (const k0 of seq) {
       if (mark[k0]) continue;
       const stack = [[k0, 0]]; mark[k0] = 1;
@@ -7504,7 +7648,8 @@ const ISO = (() => {
           const drop = Math.floor(prev[g] || 0) - Math.floor(cur[b.id][g] || 0); if (drop <= 0) return;
           val += drop * (typeof exportPrice === 'function' ? exportPrice(s, g) : GOODS[g].price);
           const SL = harborSlots(def), slot = SL[Math.min(gi, SL.length - 2)];
-          for (let i = 0; i < Math.min(4, drop); i++) (R.flying || (R.flying = [])).push({ good: g, x0: b.x + slot[0], y0: b.y + slot[1], to: b.id, t0: now + (n++) * 130 / k, dur: 900 / k });
+          const w0 = localWorld(R, b, slot[0], slot[1]);
+          for (let i = 0; i < Math.min(4, drop); i++) (R.flying || (R.flying = [])).push({ good: g, x0: w0[0], y0: w0[1], to: b.id, t0: now + (n++) * 130 / k, dur: 900 / k });
         });
         // M3: each harbor has its own ship (the goods fly to it); its departure slip rises over the harbor (hsUpdate)
       }
@@ -7630,7 +7775,8 @@ const ISO = (() => {
   }
   function shipDraw(R, q, t) {
     // the heading between two of the four painted ones: the nearer one solid, the other fading in over it
-    const f = ((q.hd / (Math.PI / 2)) % 4 + 4) % 4, i0 = Math.floor(f) % 4, i1 = (i0 + 1) % 4, w = f - Math.floor(f);
+    // the heading in view: a world heading turned by the view's quarter turns
+    const f = (((q.hd + (R.rot || 0) * Math.PI / 2) / (Math.PI / 2)) % 4 + 4) % 4, i0 = Math.floor(f) % 4, i1 = (i0 + 1) % 4, w = f - Math.floor(f);
     const base = w < 0.5 ? i0 : i1, other = w < 0.5 ? i1 : i0, wo = w < 0.5 ? w : 1 - w;
     const p = P(q.x, q.y, 0), bob = Math.sin(t * 1.1 + q.x) * 1.2 * R.hw / 44;
     if (q.moored && q.kind === 'schooner') {
@@ -7892,9 +8038,11 @@ const ISO = (() => {
   // Each airfield's plane: lands along its strip from the sea side, rolls, waits, takes off again (a 26 s cycle).
   function planesDraw(R, s, now) {
     const t = now / 1000;
+    const r = R.rot || 0;
     for (const b of s.b) {
       if (b.type !== 'airfield' || !b.open) continue;
-      const y = b.y + 1.55, x0 = b.x + 0.3, x1 = b.x + b.w - 0.3, u = (t + b.id * 3.7) % 26;
+      // the strip is painted along view u (whatever the turn): the plane flies in the painted layout's coordinates
+      const vb = bVBox(R, b), y = 1.55, x0 = 0.3, x1 = vb[2] - vb[0] - 0.3, u = (t + b.id * 3.7) % 26;
       let x, z, fx = 1;
       if (u < 6) { const e = u / 6; x = lerp(x0 - 9, x0 + 0.3, e); z = 3.2 * Math.pow(1 - e, 1.6); }
       else if (u < 9) { const e = (u - 6) / 3; x = lerp(x0 + 0.3, x1 - 0.3, 1 - (1 - e) * (1 - e)); z = 0; }
@@ -7902,10 +8050,10 @@ const ISO = (() => {
       else if (u < 18) { const e = (u - 15) / 3; x = lerp(x1 - 0.3, x0 + 0.3, e * e); z = 0; fx = -1; }
       else if (u < 23) { const e = (u - 18) / 5; x = lerp(x0 + 0.3, x0 - 10, e); z = 3.6 * e * e; fx = -1; }
       else continue;
-      const p = P(x, y, z);
+      const wp = unrotPt(r, vb[0] + x, vb[1] + y), wf = unrotDir(r, fx, 0), p = PV(vb[0] + x, vb[1] + y, z);
       if (p[0] < -60 || p[0] > R.w + 60 || p[1] < -80 || p[1] > R.h + 60) continue;
-      pen(R.ctx, R.ox, R.oy, R.hw, R.dpr);
-      paintPlane(x, y, z, fx, 0);
+      pen(R.ctx, R.ox, R.oy, R.hw, R.dpr, R.rot);
+      paintPlane(wp[0], wp[1], z, wf[0], wf[1]);
     }
   }
   // While she draws a tram line or a railway: the tiles, the blocked one, the price and what it is for.
@@ -7922,33 +8070,34 @@ const ISO = (() => {
   }
 
   // ---------- frame ----------
-  function viewOrigin(R, view) { const w = R.w || R.canvas.clientWidth, h = R.h || R.canvas.clientHeight; return { ox: w / 2 - (view.cx - view.cy) * view.z, oy: h / 2 - (view.cx + view.cy) * view.z / 2, hw: view.z }; }
-  function toScreen(R, view, tx, ty) { const o = viewOrigin(R, view); return { x: o.ox + (tx - ty) * o.hw, y: o.oy + (tx + ty) * o.hw / 2 }; }
-  function toTile(R, view, sx, sy) { const o = viewOrigin(R, view); const u = (sx - o.ox) / o.hw, v = (sy - o.oy) / (o.hw / 2); return { x: (u + v) / 2, y: (v - u) / 2 }; }
-  function pick(R, view, s, sx, sy) {
-    const o = viewOrigin(R, view); let best = null, bestK = -1;
-    const Q = (x, y, z) => [o.ox + (x - y) * o.hw, o.oy + (x + y) * o.hw / 2 - z * o.hw * ZS];
-    for (const b of s.b) {
-      const H = pickHeight(b), x0 = b.x, y0 = b.y, x1 = b.x + b.w, y1 = b.y + b.h;
-      const hl = hull([Q(x0, y0, 0), Q(x1, y0, 0), Q(x1, y1, 0), Q(x0, y1, 0), Q(x0, y0, H), Q(x1, y0, H), Q(x1, y1, H), Q(x0, y1, H)]);
-      if (!inPoly([sx, sy], hl)) continue;
-      const k = R.orderIdx && R.orderIdx.has(b.id) ? R.orderIdx.get(b.id) : b.x + b.y;
-      if (k > bestK) { bestK = k; best = b; }
-    }
-    return best;
+  // The turn a view is drawn or picked in: view.rot (the player's choice), else the renderer's.
+  function rotOf(R, view) { return view && view.rot !== undefined ? (view.rot & 3) : (R.rot || 0); }
+  function viewOrigin(R, view, rr) {
+    const w = R.w || R.canvas.clientWidth, h = R.h || R.canvas.clientHeight, r = rr !== undefined ? rr : rotOf(R, view), c = rotPt(r, view.cx, view.cy);
+    return { ox: w / 2 - (c[0] - c[1]) * view.z, oy: h / 2 - (c[0] + c[1]) * view.z / 2, hw: view.z, r };
   }
-  // Every building drawn under that point, front first (a second tap on the same spot picks the next one).
-  function pickAll(R, view, s, sx, sy) {
+  function toScreen(R, view, tx, ty) { const o = viewOrigin(R, view), p = rotPt(o.r, tx, ty); return { x: o.ox + (p[0] - p[1]) * o.hw, y: o.oy + (p[0] + p[1]) * o.hw / 2 }; }
+  function toTile(R, view, sx, sy) {
+    const o = viewOrigin(R, view), a = (sx - o.ox) / o.hw, b = (sy - o.oy) / (o.hw / 2), w = unrotPt(o.r, (a + b) / 2, (b - a) / 2);
+    return { x: w[0], y: w[1] };
+  }
+  // The buildings drawn under a screen point: the hull of each footprint's view box up to its pick height (roofs stand
+  // over the tiles behind), frontmost (latest drawn) first.
+  function pickList(R, view, s, sx, sy) {
     const o = viewOrigin(R, view), out = [];
-    const Q = (x, y, z) => [o.ox + (x - y) * o.hw, o.oy + (x + y) * o.hw / 2 - z * o.hw * ZS];
+    const Q = (u, v, z) => [o.ox + (u - v) * o.hw, o.oy + (u + v) * o.hw / 2 - z * o.hw * ZS];
+    const same = o.r === (R.rot || 0) && !R.turn;
     for (const b of s.b) {
-      const H = pickHeight(b), x0 = b.x, y0 = b.y, x1 = b.x + b.w, y1 = b.y + b.h;
-      const hl = hull([Q(x0, y0, 0), Q(x1, y0, 0), Q(x1, y1, 0), Q(x0, y1, 0), Q(x0, y0, H), Q(x1, y0, H), Q(x1, y1, H), Q(x0, y1, H)]);
+      const H = pickHeight(b), q = vbox(o.r, b.x, b.y, b.x + b.w, b.y + b.h), u0 = q[0], v0 = q[1], u1 = q[2], v1 = q[3];
+      const hl = hull([Q(u0, v0, 0), Q(u1, v0, 0), Q(u1, v1, 0), Q(u0, v1, 0), Q(u0, v0, H), Q(u1, v0, H), Q(u1, v1, H), Q(u0, v1, H)]);
       if (!inPoly([sx, sy], hl)) continue;
-      out.push({ b, k: R.orderIdx && R.orderIdx.has(b.id) ? R.orderIdx.get(b.id) : b.x + b.y });
+      out.push({ b, k: same && R.orderIdx && R.orderIdx.has(b.id) ? R.orderIdx.get(b.id) : u0 + v0 + (u1 - u0 + v1 - v0) / 2 });
     }
-    return out.sort((a, b) => b.k - a.k).map((q) => q.b);
+    return out.sort((a, b) => b.k - a.k);
   }
+  function pick(R, view, s, sx, sy) { const l = pickList(R, view, s, sx, sy); return l.length ? l[0].b : null; }
+  // Every building drawn under that point, front first (a second tap on the same spot picks the next one).
+  function pickAll(R, view, s, sx, sy) { return pickList(R, view, s, sx, sy).map((q) => q.b); }
   function resize(R) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2), w = R.canvas.clientWidth, h = R.canvas.clientHeight;
     if (w === R.w && h === R.h && dpr === R.dpr) return;
@@ -7976,7 +8125,7 @@ const ISO = (() => {
       for (let gm = GM_MAX; gm >= 100; gm -= 20) {
         const sc = (R.w + 2 * gm) * (R.h + 2 * gm) * d * d;
         const need = (Math.ceil((R.w + 2 * gm) / CHUNK) + 1) * (Math.ceil((R.h + 2 * gm) / CHUNK) + 1);
-        const chunkCap = Math.max(24, Math.min(64, need + 8)), spr = total - scr - (still ? scr : 0) - sc - UI_CAP - OV_PX - chunkCap * chunkPx;
+        const chunkCap = Math.max(24, Math.min(64, need + 8)), spr = total - scr - (still ? scr : 0) - sc - UI_CAP - 2 * OV_PX - chunkCap * chunkPx;
         b = { still, gm, sc, need, chunkCap, sprCap: Math.max(6e6, spr) };
         if (sc <= CANVAS_MAX && spr >= SPR_GOOD) break;
       }
@@ -7984,14 +8133,14 @@ const ISO = (() => {
     }
     if (R.still && !b.still && R.gc) { canvasFree(R.gc.c); R.gc = null; }
     R.still = b.still; R.gm = b.gm; R.chunkCap = b.chunkCap; R.sprCap = b.sprCap; R.chunkNeed = b.need;
-    R.memPlan = { screen: scr, still: b.still ? scr : 0, gesture: b.sc, chunks: b.chunkCap * chunkPx, sprites: b.sprCap, ui: UI_CAP, overview: OV_PX };
+    R.memPlan = { screen: scr, still: b.still ? scr : 0, gesture: b.sc, chunks: b.chunkCap * chunkPx, sprites: b.sprCap, ui: UI_CAP, overview: 2 * OV_PX };
   }
   // What the canvases hold now, in MB (4 bytes a px), and the plan's worst case.
   function mem(R) {
     const mb = (px) => Math.round(px * 4 / 1e5) / 10;
     let ch = 0; for (const c of R.chunks.values()) ch += c.c.width * c.c.height;
     const now = { screen: R.canvas.width * R.canvas.height, still: R.gc ? R.gc.c.width * R.gc.c.height : 0, gesture: R.sc ? R.sc.c.width * R.sc.c.height : 0,
-      chunks: ch, sprites: R.sprPx, ui: R.uiPx, overview: R.ov ? R.ov.W * R.ov.H : 0, other: (R.geo && R.geo.hillShade ? R.geo.hillShade.width * R.geo.hillShade.height : 0) + 128 * 128 };
+      chunks: ch, sprites: R.sprPx, ui: R.uiPx, overview: Object.values(R.ovs || {}).reduce((n, o) => n + (o === R.ovM ? 0 : o.W * o.H), 0) + (R.ovM ? R.ovM.W * R.ovM.H : 0), turn: R.turnPx || 0, other: (R.geo ? R.geo.hillShades.reduce((n, c) => n + (c ? c.width * c.height : 0), 0) : 0) + 128 * 128 };
     const out = { dpr: R.dpr, still: R.still, gm: R.gm, lowSprites: R.stats.lowSprites || 0, chunkCap: R.chunkCap, chunkNeed: R.chunkNeed, chunkCount: R.chunks.size, uiCount: R.ui.size, sprCap: Math.round(R.sprCap / 1e5) / 10, now: {}, plan: {} };
     let t = 0, tp = 0;
     for (const k in now) { out.now[k] = mb(now[k]); t += now[k]; }
@@ -8010,10 +8159,11 @@ const ISO = (() => {
     for (const ch of R.chunks.values()) canvasFree(ch.c); R.chunks.clear();
     for (const m of R.spr.values()) for (const sp of m.values()) canvasFree(sp.c); R.spr.clear(); R.sprPx = 0;
     for (const sp of R.ui.values()) canvasFree(sp.c); R.ui.clear(); R.uiPx = 0;
-    if (R.ov) { canvasFree(R.ov.c); R.ov = null; }
+    for (const k in R.ovs || {}) if (R.ovs[k] !== R.ovM) canvasFree(R.ovs[k].c); if (R.ovM) canvasFree(R.ovM.c); R.ovs = {}; R.ov = null; R.ovM = null; R.turn = null;
+    R.lastSpr = null;
     R.geo = null; R.ship = null; R.shipMoney = []; R.hs = null; R.slips = []; R.depSeen = null; R.objKey = ''; R.groundStage = -1; R.roadVer = -1; R.roadSnap = null; R.order = []; R.bubbles = [];
   }
-  function trim(R) { for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; } R.groundDirty = true; }
+  function trim(R) { if (R.turn) { R.rot = R.turn.to; turnEnd(R); } for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; } R.groundDirty = true; }
   function bucketFor(R, z) {
     for (const b of BUCKETS) if (Math.abs(b - z) < 1e-3) return b;
     if (R.B && z <= R.B * 1.02 && z >= R.B / 1.3) return R.B;
@@ -8035,12 +8185,13 @@ const ISO = (() => {
   function onScreen(R, X0, Y0, X1, Y1) { const hwv = R.hw; return R.ox + X1 * hwv > -20 && R.ox + X0 * hwv < R.w + 20 && R.oy + Y1 * hwv > -20 && R.oy + Y0 * hwv < R.h + 20; }
   function wavesDraw(R, t) {
     const g = R.ctx, d = R.dpr, z = R.hw;
-    g.setTransform(d * z, d * z / 2, -d * z, d * z / 2, d * R.ox, d * R.oy);
+    worldXf(g, d, z, R.ox, R.oy, R.rot || 0);
     g.lineCap = 'round'; g.lineJoin = 'round';
     const sw = 0.05 + 0.14 * (0.5 + 0.5 * Math.sin(t * 1.05));
     const line = (pts, ns, off, w, col, a) => { g.beginPath(); for (let i = 0; i < pts.length; i++) { const x = pts[i][0] + ns[i][0] * off, y = pts[i][1] + ns[i][1] * off; if (i) g.lineTo(x, y); else g.moveTo(x, y); } g.globalAlpha = a; g.lineWidth = w; g.strokeStyle = col; g.stroke(); };
     for (const pc of R.geo.pieces) {
-      if (!onScreen(R, pc.x0 - pc.y1, (pc.x0 + pc.y0) / 2, pc.x1 - pc.y0, (pc.x1 + pc.y1) / 2)) continue;
+      const vb = vbox(R.rot || 0, pc.x0, pc.y0, pc.x1, pc.y1);
+      if (!onScreen(R, vb[0] - vb[3], (vb[0] + vb[1]) / 2, vb[2] - vb[1], (vb[2] + vb[3]) / 2)) continue;
       for (let k = 0; k < 3; k++) {
         const ph = (t * 0.085 + k / 3) % 1, dd = 0.3 + (1 - ph) * 1.4, a = Math.pow(Math.sin(ph * Math.PI), 1.5) * 0.5;
         g.setLineDash([0.9 + k * 0.2, 1.5 + k * 0.3]); g.lineDashOffset = k * 0.9 + t * 0.04 - pc.len0;
@@ -8079,7 +8230,7 @@ const ISO = (() => {
   function gridDraw(R) {
     const U = R.unlocked; if (!U) return;
     const g = R.ctx, d = R.dpr, z = R.hw;
-    g.setTransform(d * z, d * z / 2, -d * z, d * z / 2, d * R.ox, d * R.oy);
+    worldXf(g, d, z, R.ox, R.oy, R.rot || 0);
     g.save(); g.clip(R.geo.coast, 'evenodd'); g.beginPath();
     for (let x = U.x0; x <= U.x1; x++) { g.moveTo(x, U.y0); g.lineTo(x, U.y1); }
     for (let y = U.y0; y <= U.y1; y++) { g.moveTo(U.x0, y); g.lineTo(U.x1, y); }
@@ -8122,7 +8273,7 @@ const ISO = (() => {
       const at = c.path[Math.min(c.path.length - 1, Math.floor(c.pos))];
       const pos = Math.min(c.path.length - 1.001, c.pos + cartStep(s, at) * f);
       const [x, y, dx, dy] = pathAt(c.path, pos), h = head8(dx, dy);
-      out.push({ k: 'cart', x: x - dy * 0.14, y: y + dx * 0.14, fx: h[0], fy: h[1], good: c.st === 'go' ? c.good : '', n: c.st === 'go' ? c.n : 0, fr, bob: Math.abs(Math.sin(now / 160 + c.id)) });
+      out.push({ k: 'cart', id: c.id, x: x - dy * 0.14, y: y + dx * 0.14, fx: h[0], fy: h[1], good: c.st === 'go' ? c.good : '', n: c.st === 'go' ? c.n : 0, fr, bob: Math.abs(Math.sin(now / 160 + c.id)) });
     }
     const m = shipMoor(s), sh = R.ship, docked = sh && (sh.st === 'load' || sh.st === 'moored');
     if (s.walk) for (const w of s.walk) {
@@ -8147,18 +8298,22 @@ const ISO = (() => {
     tentSpots(s).forEach(([tx, ty], k) => out.push({ k: 'tent', x: tx, y: ty, v: (tx * 7 + ty * 3 + k) % 4, box: [tx + 0.1, ty + 0.1, tx + 0.9, ty + 0.9] }));
     shipItems(R, s, out);
     trItems(R, s, out, now);
-    // slot each moving thing right after the last static object it stands in front of
+    // slot each moving thing right after the last static object it stands in front of (in view coordinates)
+    const r = R.rot || 0, VW = R.gridW || MAP_W, VH = R.gridH || MAP_H;
     for (const q of out) {
       let mx = -1;
-      const B0 = q.box ? { x0: q.box[0], y0: q.box[1], x1: q.box[2], y1: q.box[3] } : { x0: q.x - 0.05, y0: q.y - 0.05, x1: q.x + 0.05, y1: q.y + 0.05 };
-      for (let y = Math.floor(B0.y0) - 3; y <= Math.floor(B0.y1) + 1; y++) for (let x = Math.floor(B0.x0) - 3; x <= Math.floor(B0.x1) + 1; x++) {
-        if (!inMap(x, y)) continue;
-        const k = R.grid[tileIdx(x, y)];
+      const w = q.box || [q.x - 0.05, q.y - 0.05, q.x + 0.05, q.y + 0.05], vb = vbox(r, w[0], w[1], w[2], w[3]);
+      const B0 = { u0: vb[0], v0: vb[1], u1: vb[2], v1: vb[3] };
+      for (let v = Math.floor(B0.v0) - 3; v <= Math.floor(B0.v1) + 1; v++) for (let u = Math.floor(B0.u0) - 3; u <= Math.floor(B0.u1) + 1; u++) {
+        if (u < 0 || v < 0 || u >= VW || v >= VH) continue;
+        const k = R.grid[v * VW + u];
         if (k > mx && before(R.order[k], B0)) mx = k;
       }
-      q.after = mx;
+      q.after = mx; q.dk = B0.u0 + B0.v0 + B0.u1 + B0.v1;
+      // the painted heading of carts, trams and trains is a view direction
+      if (q.fx !== undefined && r) { const f = rotDir(r, q.fx, q.fy); q.fx = Math.round(f[0] * 1e4) / 1e4 || 0; q.fy = Math.round(f[1] * 1e4) / 1e4 || 0; }
     }
-    out.sort((a, b) => a.after - b.after || (a.x + a.y) - (b.x + b.y));
+    out.sort((a, b) => a.after - b.after || a.dk - b.dk);
     return out;
   }
   function dynDraw(R, s, q, now, t) {
@@ -8173,7 +8328,15 @@ const ISO = (() => {
     if (q.k === 'wagon') return sprite(R, 'wagon|' + q.fx + ',' + q.fy + '|' + q.load, [0.01, 0.01, 0.8, 0.5], 1.0, () => paintWagon(q.fx, q.fy, q.load));
     if (q.k === 'stop') return sprite(R, 'stop', [0.01, 0.01, 0.3, 0.2], 1.0, paintStop);
     if (q.k === 'tent') return sprite(R, 'tent|' + q.v, [1, 1], 0.8, () => paintTent(q.v));
-    if (q.k === 'cart') return sprite(R, 'cart|' + q.fx.toFixed(2) + ',' + q.fy.toFixed(2) + '|' + q.good + '|' + Math.min(3, q.n) + '|' + q.fr, [0.01, 0.01, 0.9, 0.5], 1.2, () => paintCart(q.fx, q.fy, q.good, q.n, q.fr));
+    if (q.k === 'cart') {
+      // a turn gives every cart a new heading: its last sprite stands in while the frame's paint budget is spent
+      const key = 'c' + q.id;
+      ALT = R.lastSpr ? R.lastSpr.get(key) || null : null;
+      let sp;
+      try { sp = sprite(R, 'cart|' + q.fx.toFixed(2) + ',' + q.fy.toFixed(2) + '|' + q.good + '|' + Math.min(3, q.n) + '|' + q.fr, [0.01, 0.01, 0.9, 0.5], 1.2, () => paintCart(q.fx, q.fy, q.good, q.n, q.fr)); } finally { ALT = null; }
+      (R.lastSpr || (R.lastSpr = new Map())).set(key, sp);
+      return sp;
+    }
     return sprite(R, 'walk|' + (q.v % 12) + '|' + (q.leaving ? 1 : 0) + '|' + q.fr, [0.01, 0.01, 0.3, 0.2], 0.55, () => paintPerson(0, 0, q.v, q.fr, q.leaving));
   }
   function bubbleOf(s, b, z) {
@@ -8195,6 +8358,26 @@ const ISO = (() => {
     if (art === 'civic') return def.gives === 'church' ? 2.4 : 1.4;
     return bHeight(b) * 0.85;
   }
+  // X-ray (docs/ROTATION.md): with a card open or a building being placed, the static objects in front of it that cover
+  // it on screen are drawn see-through. The target is the selected object or the ghost's view box.
+  const XRAY_A = 0.3;
+  function xrayTarget(R, s, ui) {
+    const gh = ui.ghost;
+    if (gh && gh.type && BUILDINGS[gh.type]) {
+      const def = BUILDINGS[gh.type], q = vbox(R.rot || 0, gh.x, gh.y, gh.x + def.w, gh.y + def.h);
+      return { u0: q[0], v0: q[1], u1: q[2], v1: q[3], h: bHeight({ type: gh.type, level: 1 }), i: -1 };
+    }
+    if (ui.sel && R.orderIdx && R.orderIdx.has(ui.sel)) return R.order[R.orderIdx.get(ui.sel)] || null;
+    return null;
+  }
+  function xrayAlpha(R, T, ob) {
+    if (ob === T || (T.i >= 0 && ob.i <= T.i) || !before(T, ob)) return 1;
+    // screen boxes in tile units (x: u - v, y: (u + v) / 2 minus the height)
+    if (ob.u1 - ob.v0 <= T.u0 - T.v1 || ob.u0 - ob.v1 >= T.u1 - T.v0) return 1;
+    if ((ob.u0 + ob.v0) / 2 - (ob.h || 0) * ZS >= (T.u1 + T.v1) / 2 || (ob.u1 + ob.v1) / 2 <= (T.u0 + T.v0) / 2 - (T.h || 0) * ZS) return 1;
+    R.stats.xray = (R.stats.xray || 0) + 1; if (R.stats.xrayIds) R.stats.xrayIds.push(ob.k === 'b' ? ob.b.id : ob.k);
+    return XRAY_A;
+  }
   // The scene under the marks: waves, the build grid, boats, buildings with their piles, carts and people in depth
   // order, chimney smoke. Drawn on R.ctx with the origin R.ox / R.oy (the screen, or the gesture snapshot).
   function sceneDraw(R, s, ui, now, t, mark) {
@@ -8204,34 +8387,35 @@ const ISO = (() => {
     spaceGround(R, s, ui, t);
     trafficGround(R, s, t);
     g.setTransform(d, 0, 0, d, 0, 0); g.lineCap = 'round'; g.lineJoin = 'round';
-    pen(g, R.ox, R.oy, R.hw, d);
+    pen(g, R.ox, R.oy, R.hw, d, R.rot);
     sailboatsDraw(R, t);
     const dyn = dynCollect(R, s, now); mark('dyn');
     let di = 0;
     const drawDyn = (upto) => { while (di < dyn.length && dyn[di].after <= upto) { const q = dyn[di++]; dynDraw(R, s, q, now, t); } };
     drawDyn(-1);
-    const smoke = [];
+    const smoke = [], xray = xrayTarget(R, s, ui);
     for (const ob of R.order) {
       if (onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1)) {
-        const p = P(ob.x0, ob.y0, 0);
+        const p = PV(ob.u0, ob.v0, 0), xa = xray ? xrayAlpha(R, xray, ob) : 1;
         if (ob.k === 'b') {
-          const b = ob.b, def = BUILDINGS[b.type];
-          sprDraw(R, bSprite(R, s, b), p[0], p[1], b.open === false ? 0.6 : undefined);
-          if (b.build) sprDraw(R, sprite(R, 'scaf|' + (b.level || 1), [1, 1], 2.4, () => paintScaffold(b.level || 1)), p[0], p[1]);
-          if (b.wip) sprDraw(R, sprite(R, 'pscaf|' + b.w + 'x' + b.h, [b.w, b.h], 2.8, () => paintProjectScaffold(b.w, b.h)), p[0], p[1]);
-          for (const [good, n, lx, ly] of pileSpots(s, b)) { const q = P(b.x + lx, b.y + ly, 0); sprDraw(R, pileSprite(R, good, Math.min(12, n)), q[0], q[1]); }
-          if (smokeOf(def) && b.open && b.workers > 0 && !b.blocked) smoke.push(b);
-        } else sprDraw(R, objSprite(R, s, ob, now), p[0], p[1]);
+          const b = ob.b, def = BUILDINGS[b.type], vw = ob.u1 - ob.u0, vh = ob.v1 - ob.v0;
+          const a0 = (b.open === false ? 0.6 : 1) * xa;
+          sprDraw(R, bSprite(R, s, b), p[0], p[1], a0 < 1 ? a0 : undefined);
+          if (b.build) sprDraw(R, sprite(R, 'scaf|' + (b.level || 1), [1, 1], 2.4, () => paintScaffold(b.level || 1)), p[0], p[1], xa < 1 ? xa : undefined);
+          if (b.wip) sprDraw(R, sprite(R, 'pscaf|' + vw + 'x' + vh, [vw, vh], 2.8, () => paintProjectScaffold(vw, vh)), p[0], p[1], xa < 1 ? xa : undefined);
+          for (const [good, n, lx, ly] of pileSpots(s, b, R.rot)) { const q = PV(ob.u0 + lx, ob.v0 + ly, 0); sprDraw(R, pileSprite(R, good, Math.min(12, n)), q[0], q[1], xa < 1 ? xa : undefined); }
+          if (smokeOf(def) && b.open && b.workers > 0 && !b.blocked) smoke.push(ob);
+        } else sprDraw(R, objSprite(R, s, ob, now), p[0], p[1], xa < 1 ? xa : undefined);
       }
       drawDyn(ob.i);
     }
     drawDyn(1e9); mark('objects');
-    for (const b of smoke) smokeDraw(R, b, t);
+    for (const ob of smoke) smokeDraw(R, ob, t);
     dustDraw(R, s, t);
     for (const q of dyn) if (q.k === 'loco') puffDraw(R, q, t);
   }
-  function smokeDraw(R, b, t) {
-    const g = R.ctx, def = BUILDINGS[b.type], c = chimneyTop(def), base = P(b.x + c[0], b.y + c[1], c[2] + 0.02), sc = R.hw / 44, k = c[3] || 1;
+  function smokeDraw(R, ob, t) {
+    const b = ob.b, g = R.ctx, def = viewDef(BUILDINGS[b.type], R.rot || 0), c = chimneyTop(def), base = PV(ob.u0 + c[0], ob.v0 + c[1], c[2] + 0.02), sc = R.hw / 44, k = c[3] || 1;
     for (let i = 0; i < 7; i++) {
       const life = 5, age = ((t + i * life / 7 + b.id * 0.37) % life) / life;
       const x = base[0] + age * 34 * sc + Math.sin(age * 5 + i) * 2.5 * sc, y = base[1] - age * 56 * sc, r = (3 + age * 10) * sc * k, a = (1 - age) * 0.7 * Math.min(1, age * 6);
@@ -8244,7 +8428,7 @@ const ISO = (() => {
   // the screen. When the view rests the ground is composed sharp again and the scene drawn live.
   function snapDraw(R, s, ui, now, t, mark) {
     const d = R.dpr, C = R.sc, main = R.ctx;
-    if (C && !R.groundDirty && C.B === R.B && C.dpr === d && C.objKey === R.objKey && C.uiKey === snapUiKey(ui)) {
+    if (C && !R.groundDirty && C.B === R.B && C.r === R.rot && C.dpr === d && C.objKey === R.objKey && C.uiKey === snapUiKey(ui)) {
       const k = R.hw / C.hw, L = R.ox - (C.ox + C.gm) * k, Tp = R.oy - (C.oy + C.gm) * k;
       const covers = L <= 0.5 && Tp <= 0.5 && L + C.W * k >= R.w - 0.5 && Tp + C.H * k >= R.h - 0.5;
       // while the fingers move fast past the picture's edge, it is drawn again at most every 300 ms (sea meanwhile)
@@ -8270,26 +8454,123 @@ const ISO = (() => {
     groundCompose(R, s); mark('ground');
     sceneDraw(R, s, ui, now, t, mark);
     [R.ctx, R.ox, R.oy, R.w, R.h] = saved;
-    pen(main, R.ox, R.oy, R.hw, d);
-    R.sc = { c, t: now, ox: R.ox, oy: R.oy, hw: R.hw, B: R.B, dpr: d, W, H, w: R.w, h: R.h, gm: GM, objKey: R.objKey, uiKey: snapUiKey(ui) };
+    pen(main, R.ox, R.oy, R.hw, d, R.rot);
+    R.sc = { c, t: now, ox: R.ox, oy: R.oy, hw: R.hw, B: R.B, r: R.rot, dpr: d, W, H, w: R.w, h: R.h, gm: GM, objKey: R.objKey, uiKey: snapUiKey(ui) };
     R.groundDirty = R.pending;
     R.stats.snaps = (R.stats.snaps || 0) + 1;
     main.setTransform(1, 0, 0, 1, 0, 0); main.drawImage(c, -GM * d, -GM * d);
   }
-  function snapUiKey(ui) { return (ui.tool && ui.tool !== 'look' ? 'grid' : '') + '|' + (ui.space ? ui.space.key : '') + '|' + (trLayerOn() ? 'tr' : ''); }
+  function snapUiKey(ui) { return (ui.tool && ui.tool !== 'look' ? 'grid' : '') + '|' + (ui.space ? ui.space.key : '') + '|' + (trLayerOn() ? 'tr' : '') + '|' + (ui.sel || '') + '|' + (ui.ghost && ui.ghost.type ? ui.ghost.type + ui.ghost.x + ',' + ui.ghost.y : ''); }
+  // ---------- the turn (docs/ROTATION.md): four 90° steps, each animated in TURN_MS ----------
+  const TURN_MS = 450;
+  // The iso spin about the screen centre (device px): the ground plane turns by th as the island does (M Rot M^-1).
+  function spinXf(g, R, th) {
+    const c = Math.cos(th), sn = Math.sin(th), cx = R.canvas.width / 2, cy = R.canvas.height / 2;
+    g.setTransform(c, 0.5 * sn, -2 * sn, c, cx - (c * cx - 2 * sn * cy), cy - (0.5 * sn * cx + c * cy));
+  }
+  function turnBegin(R, view, to) {
+    const from = R.rot || 0, dir = ((to - from) & 3) === 3 ? -1 : 1;
+    // the still ground and the gesture picture belong to the old turn: they go first (memory for A and B)
+    for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; }
+    // the two pictures fit in what the still ground and the gesture picture had (the plan); if not, at half size
+    const W = R.canvas.width, H = R.canvas.height, room = R.memPlan ? R.memPlan.still + R.memPlan.gesture : 2 * W * H, k = 2 * W * H <= room ? 1 : 0.5;
+    const A = canvasNew(W * k, H * k);
+    A.getContext('2d').drawImage(R.canvas, 0, 0, A.width, A.height);
+    // the sprites on screen now stand in for their new looks until those are painted: kept from eviction during the turn
+    const keep = [];
+    for (const ob of R.order) if (ob.k === 'b' && onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1)) { const sp = R.lastSpr && R.lastSpr.get(ob.b.id); if (sp) keep.push(sp); }
+    for (const [k, sp] of R.lastSpr || []) if (typeof k === 'string') keep.push(sp);
+    R.turn = { from, to: (from + dir) & 3, dir, t0: performance.now(), A, B: null, keep, k, W, H };
+    R.turnPx = A.width * A.height;
+    R.stats.turns = (R.stats.turns || 0) + 1;
+  }
+  function turnEnd(R) {
+    const T = R.turn;
+    if (!T) return;
+    canvasFree(T.A); if (T.B) canvasFree(T.B);
+    R.turn = null; R.turnPx = 0; R.groundDirty = true;
+    overviewTrim(R);
+    // forget stand-ins whose canvas is gone (carts come and go)
+    for (const [k, sp] of R.lastSpr || []) if (sp.c.width <= 1) R.lastSpr.delete(k);
+  }
+  // Idle time of a turn frame paints the new turn's chunks and sprites (so the picture at the midpoint is sharp).
+  function turnWarm(R, s, view, to, until) {
+    const keep = [R.rot, R.ox, R.oy], o = viewOrigin(R, view, to);
+    R.rot = to; R.ox = o.ox; R.oy = o.oy;
+    try {
+      const B = R.B, k = R.hw / B, cs = CHUNK * k;
+      for (let cj = Math.floor(-R.oy / cs); cj <= Math.floor((R.h - R.oy) / cs) && performance.now() < until; cj++) {
+        for (let ci = Math.floor(-R.ox / cs); ci <= Math.floor((R.w - R.ox) / cs) && performance.now() < until; ci++) {
+          const key = B + '|' + to + '|' + ci + '|' + cj;
+          if (R.chunks.has(key)) continue;
+          R.chunks.set(key, chunkPaint(R, s, B, ci, cj));
+        }
+      }
+      chunkEvict(R);
+      for (const b of s.b) {
+        if (performance.now() >= until) break;
+        const q = vbox(to, b.x, b.y, b.x + b.w, b.y + b.h);
+        if (!onScreen(R, q[0] - q[3] - 0.4, (q[0] + q[1]) / 2 - 3, q[2] - q[1] + 1.5, (q[2] + q[3]) / 2 + 0.4)) continue;
+        bSprite(R, s, b);
+      }
+    } finally { [R.rot, R.ox, R.oy] = keep; }
+  }
+  // A frame of the turn. Its first frame draws the new turn once (picture B; missing sprites are stood in for, missing
+  // chunks show the overview) and the animation starts after it: A (the old picture) turns from 0 to 45°, B on from
+  // -45° to 0, cross-fading between 38 % and 62 %; what neither covers shows the overview, turned alike. The frames in
+  // between only blit, and their idle time paints the new turn's looks (so few remain to paint after the turn).
+  function turnDraw(R, s, view, ui) {
+    const T = R.turn, g = R.ctx;
+    T.f0 = performance.now();
+    if (!T.B) {
+      const tm = performance.now(), sm0 = R.stats.sprMs || 0, sn0 = R.stats.sprN || 0; R.stats.raw = {};
+      R.rot = T.to; R.objKey = '';
+      drawFrame(R, s, view, ui);
+      R.stats.midParts = Object.assign({ total: +(performance.now() - tm).toFixed(1), sprMs: +((R.stats.sprMs || 0) - sm0).toFixed(1), sprN: (R.stats.sprN || 0) - sn0 }, R.stats.raw);
+      T.B = canvasNew(T.W * T.k, T.H * T.k);
+      T.B.getContext('2d').drawImage(R.canvas, 0, 0, T.B.width, T.B.height);
+      R.turnPx += T.B.width * T.B.height;
+      T.t0 = performance.now();
+    }
+    // (R.turnU: tests hold the turn at a phase to look at it)
+    const now = performance.now(), u = R.turnU !== undefined ? R.turnU : clamp((now - T.t0) / (R.turnMs || TURN_MS), 0, 1), e = u * u * (3 - 2 * u);
+    const aB = clamp((e - 0.38) / 0.24, 0, 1), th = T.dir * e * Math.PI / 2;
+    if (u < 0.85 && u > 0) { R.frame++; R.frameStart = now; R.frameChunks = 0; turnWarm(R, s, view, T.to, now + 8); }
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.fillStyle = SEA_C; g.fillRect(0, 0, R.canvas.width, R.canvas.height);
+    // the ground under both pictures: the overview of the turn shown (old before the midpoint, new after)
+    // one overview under both (the new turn's, turned with B: the same ground as A's)
+    if (R.ov) { spinXf(g, R, th - T.dir * Math.PI / 2); overviewDraw(R, g, R.ov); }
+    if (aB < 1) { spinXf(g, R, th); g.drawImage(T.A, 0, 0, T.W, T.H); }
+    if (aB > 0) { spinXf(g, R, th - T.dir * Math.PI / 2); g.globalAlpha = aB; g.drawImage(T.B, 0, 0, T.W, T.H); g.globalAlpha = 1; }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const ms = performance.now() - T.f0;
+    (R.stats.turnHist || (R.stats.turnHist = [])).push(ms); if (R.stats.turnHist.length > 240) R.stats.turnHist.shift();
+    if (u >= 1) turnEnd(R);
+  }
   function draw(R, s, view, ui) {
+    resize(R);
+    const want = rotOf(R, view);
+    if (R.rot === undefined || R.rot === null) R.rot = want;
+    if (R.turn && (R.turn.W !== R.canvas.width || R.turn.H !== R.canvas.height)) { R.rot = R.turn.to; turnEnd(R); }
+    if (!R.turn && want !== R.rot && R.geo) turnBegin(R, view, want);
+    if (R.turn) { turnDraw(R, s, view, ui); return; }
+    R.rot = want;
+    drawFrame(R, s, view, ui);
+  }
+  function drawFrame(R, s, view, ui) {
     const t0 = performance.now();
     resize(R);
     R.frame++; R.frameStart = t0; R.frameChunks = 0; R.pending = false;
     const now = ui.now || t0, t = now / 1000;
     zoomSettle(R, view, t0);
     R.hw = view.z;
-    const o = viewOrigin(R, view);
+    const o = viewOrigin(R, view, R.rot || 0);
+
     // moving: a finger is down, the zoom is easing to its level, or the view moved in the last 150 ms
     const gest = typeof APP !== 'undefined' && !!APP.gesturing, onLevel = BUCKETS.some((b) => Math.abs(b - view.z) < 1e-3);
     if (o.ox !== R.ox || o.oy !== R.oy || view.z !== R.zLast) R.movedT = t0;
     R.zLast = view.z;
-    const moving = gest || !onLevel || t0 - (R.movedT || 0) < 150;
+    const moving = !R.turn && (gest || !onLevel || t0 - (R.movedT || 0) < 150);
     R.ox = o.ox; R.oy = o.oy;
     // during a gesture the zoom level (sprites and ground) is kept and scaled, unless the scale drifts too far
     const nb = bucketFor(R, view.z), ratio = R.B ? view.z / R.B : 1;
@@ -8300,17 +8581,17 @@ const ISO = (() => {
     shipUpdate(R, s, now);
     const g = R.ctx, d = R.dpr;
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-    const mark = (k) => { const n = performance.now(); R.stats.parts[k] = (R.stats.parts[k] || 0) * 0.9 + (n - R.lastMark) * 0.1; R.lastMark = n; };
+    const mark = (k) => { const n = performance.now(); R.stats.parts[k] = (R.stats.parts[k] || 0) * 0.9 + (n - R.lastMark) * 0.1; (R.stats.raw || (R.stats.raw = {}))[k] = +(n - R.lastMark).toFixed(1); R.lastMark = n; };
     R.lastMark = performance.now();
     // the static objects (rebuilt when buildings, roads or levels change), with carts and people slotted in
     let lv = 0; for (const b of s.b) lv += (b.level || 0) * 7 + (b.res ? 1 : 0);
-    const key = s.ver + '|' + s.stage + '|' + lv + '|' + s.b.length;
+    const key = s.ver + '|' + s.stage + '|' + lv + '|' + s.b.length + '|' + (R.rot || 0);
     if (key !== R.objKey) { objectsBuild(R, s); R.objKey = key; }
     mark('build');
     if (moving) snapDraw(R, s, ui, now, t, mark);
     else { groundDraw(R, s); mark('ground'); sceneDraw(R, s, ui, now, t, mark); }
     g.setTransform(d, 0, 0, d, 0, 0); g.lineCap = 'round'; g.lineJoin = 'round';
-    pen(g, R.ox, R.oy, R.hw, d);
+    pen(g, R.ox, R.oy, R.hw, d, R.rot);
     shipOverlay(R, s, now, t);
     planesDraw(R, s, now);
     // marks above buildings: what a home lacks, workers short, a full yard
@@ -8322,7 +8603,8 @@ const ISO = (() => {
       if (b.open === false) { const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) * 0.6); uiDraw(R, labelSprite(R, 'Closed', true), p[0], p[1]); }
       // M4: a strike: workers outside the gate with placards, and the word over the roof
       if (b.strike) {
-        for (let k = 0; k < 5; k++) { const fx = b.x + 0.2 + k * (b.w - 0.3) / 5, fy = b.y + b.h + 0.35 + (k % 2) * 0.25; paintPerson(fx, fy, k + b.id, Math.floor(t * 2 + k) % 2, false); const q = P(fx, fy, 0); seg([q[0] + 3 * S, q[1] - 10 * S], [q[0] + 3 * S, q[1] - 24 * S], '#6b4a2e', 1.2 * S); poly([[q[0] - 3 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 22 * S], [q[0] - 3 * S, q[1] - 22 * S]], '#fbf3df', INK, 0.8 * S); }
+        const vb = bVBox(R, b);
+        for (let k = 0; k < 5; k++) { const wq = localWorld(R, b, 0.2 + k * (vb[2] - vb[0] - 0.3) / 5, vb[3] - vb[1] + 0.35 + (k % 2) * 0.25), fx = wq[0], fy = wq[1]; paintPerson(fx, fy, k + b.id, Math.floor(t * 2 + k) % 2, false); const q = P(fx, fy, 0); seg([q[0] + 3 * S, q[1] - 10 * S], [q[0] + 3 * S, q[1] - 24 * S], '#6b4a2e', 1.2 * S); poly([[q[0] - 3 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 22 * S], [q[0] - 3 * S, q[1] - 22 * S]], '#fbf3df', INK, 0.8 * S); }
         const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) + 0.5); uiDraw(R, labelSprite(R, 'On strike', false), p[0], p[1] - 6);
       }
       if (b.wip && !ui.money) { const p = P(b.x + b.w / 2, b.y + b.h / 2, 2.9); uiDraw(R, labelSprite(R, 'Being built · ' + Math.round(100 * projectDone(b)) + ' %', true), p[0], p[1]); }
@@ -8382,7 +8664,7 @@ const ISO = (() => {
       const plan = roadPlan(s, ui.stroke), bad = new Set(plan.bad.map((b) => b.i)), set = new Set(plan.kind === 3 ? avenueWiden(ui.stroke) : ui.stroke);
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
       for (const i of set) { const x = i % MAP_W, y = (i / MAP_W) | 0; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-      g.setTransform(d * z, d * z / 2, -d * z, d * z / 2, d * R.ox, d * R.oy);
+      worldXf(g, d, z, R.ox, R.oy, R.rot || 0);
       const rg = roadGeom((x, y) => inMap(x, y) && set.has(tileIdx(x, y)) && !bad.has(tileIdx(x, y)), x0, y0, x1, y1);
       g.lineDashOffset = -t * 0.25;
       roadsStroke(g, rg, true);
@@ -8431,7 +8713,7 @@ const ISO = (() => {
     diamond(R, gh.x, gh.y, gh.x + def.w, gh.y + def.h, null, gh.why ? '#a33a28' : '#2e7a3e', 2.2, [7, 4]);
     if (!gh.why) {
       const fake = { id: 0, type: gh.type, x: gh.x, y: gh.y, w: def.w, h: def.h, level: def.kind === 'residence' ? 0 : 1, res: 1, open: true, stock: {}, inp: {}, yard: 0 };
-      const p = P(gh.x, gh.y, 0);
+      const q = vbox(R.rot || 0, gh.x, gh.y, gh.x + def.w, gh.y + def.h), p = PV(q[0], q[1], 0);
       sprDraw(R, bSprite(R, s, fake), p[0], p[1], 0.7 + 0.12 * Math.sin(t * 4));
     }
     const n = bForecast(s, gh.type), sp = ui.space && ui.space.reach;
@@ -8505,7 +8787,7 @@ function renderReset(R) { if (R.kind !== 'flat') ISO.reset(R); }
 // Small DOM helpers and the one app object the UI shares.
 
 const APP = {
-  state: null, R: null, view: { cx: 20, cy: 30, z: 40 }, speed: 1, acc: 0, last: 0,
+  state: null, R: null, view: { cx: 20, cy: 30, z: 40, rot: 0 }, speed: 1, acc: 0, last: 0,
   ui: { tool: 'look', ghost: null, stroke: null, sel: 0, floaters: [], now: 0 },
   toasts: [], toastUntil: 0, receiptUntil: 0, modal: null, hudKey: '',
 };
@@ -9192,13 +9474,11 @@ function cardOpen(id) {
 function cardReveal(id) {
   const s = APP.state, b = bById(s, id), card = $('card').getBoundingClientRect();
   if (!b || !card.width) return;
-  const p = tileToScreen(APP.R, APP.view, b.x + b.w / 2, b.y + b.h / 2), z = APP.view.z, W = window.innerWidth;
+  const p = tileToScreen(APP.R, APP.view, b.x + b.w / 2, b.y + b.h / 2), W = window.innerWidth;
   if (W <= 900) {
     const top = ($('pill').getBoundingClientRect().bottom || 120) + 20, target = (top + card.top) / 2;
-    if (p.y > card.top - 30 || p.y < top) { const k = (p.y - target) / z; APP.view.cx += k; APP.view.cy += k; viewClamp(); }
-  } else if (p.x > card.left - 30) {
-    const k = (p.x - card.left / 2) / (2 * z); APP.view.cx += k; APP.view.cy -= k; viewClamp();
-  }
+    if (p.y > card.top - 30 || p.y < top) viewNudge(0, p.y - target);
+  } else if (p.x > card.left - 30) viewNudge(p.x - card.left / 2, 0);
 }
 
 function cardClose() { APP.ui.sel = 0; APP.ui.roadShow = 0; APP.ui.confirm = null; APP.ui.downSeen = null; $('card').classList.remove('show'); document.body.classList.remove('carded'); }
@@ -9368,7 +9648,7 @@ function cameraFlyTo(x, y, zoom, id) {
   const z1 = zoom || flyZoom();
   // the tile goes to the middle of the free part of the screen (not under the card, the bars or Rosa)
   const aim = flyAim(), w = window.innerWidth, h = window.innerHeight;
-  const end = { cx: x, cy: y, z: z1 };
+  const end = { cx: x, cy: y, z: z1, rot: v.rot };
   const t = screenToTile(APP.R, end, w - aim.x, h - aim.y);
   APP.fly = { x0: v.cx, y0: v.cy, z0: v.z, x1: t.x, y1: t.y, z1, t0: performance.now(), tx: x, ty: y };
 }
@@ -9894,7 +10174,7 @@ function spaceUpdate() {
 // road tool drew a road), two fingers always pan and pinch. With a building tool a finger shows the ghost where it
 // would go (snapped to the nearest spot that fits); a tap builds there. "✓ Done" (or Esc, or a right-click) disarms.
 
-const ZOOM_MIN = 14, ZOOM_MAX = 72, TAP_MOVE = 10;
+const ZOOM_MIN = 14, ZOOM_MAX = 72, TAP_MOVE = 10, TWIST_TURN = 35 * Math.PI / 180;
 
 function viewClamp() {
   const v = APP.view;
@@ -10044,7 +10324,7 @@ function inputInit(canvas) {
       // A second finger: cancel any stroke and start a pinch.
       APP.ui.stroke = null; APP.ui.strokeBlock = null;
       const [a, b] = [...ptrs.values()];
-      gesture = { kind: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), z0: APP.view.z, mid: screenToTile(APP.R, APP.view, (a.x + b.x) / 2, (a.y + b.y) / 2) };
+      gesture = { kind: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), z0: APP.view.z, mid: screenToTile(APP.R, APP.view, (a.x + b.x) / 2, (a.y + b.y) / 2), a0: Math.atan2(b.y - a.y, b.x - a.x), turned: false };
       return;
     }
     gesture = { kind: 'press', x0: p.x, y0: p.y, grab: screenToTile(APP.R, APP.view, p.x, p.y), moved: false };
@@ -10070,6 +10350,14 @@ function inputInit(canvas) {
       const [a, b] = [...ptrs.values()];
       APP.view.z = gesture.z0 * Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, gesture.d0);
       viewClamp();
+      // a twist past TWIST_TURN turns the island once per gesture (the way the fingers turn); the pinch goes on from
+      // the new turn's point between the fingers, so the view does not jump
+      const da = (Math.atan2(b.y - a.y, b.x - a.x) - gesture.a0 + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+      if (!gesture.turned && Math.abs(da) > TWIST_TURN && viewRotate(da > 0 ? 1 : -1)) {
+        gesture.turned = true;
+        gesture.mid = screenToTile(APP.R, APP.view, (a.x + b.x) / 2, (a.y + b.y) / 2);
+        return;
+      }
       // Keep the point between the fingers under the fingers.
       const m = screenToTile(APP.R, APP.view, (a.x + b.x) / 2, (a.y + b.y) / 2);
       APP.view.cx += gesture.mid.x - m.x; APP.view.cy += gesture.mid.y - m.y;
@@ -10159,6 +10447,74 @@ function inputInit(canvas) {
     if (e.key === 'Escape') { if ($('sheet').classList.contains('show')) sheetClose(); else { toolSet('look'); cardClose(); } }
     if (e.key === ' ') { speedSet(APP.speed ? 0 : 1); e.preventDefault(); }
   });
+}
+
+// ---- src/ui/rotate.js
+// View rotation (docs/ROTATION.md): the island turns in 90° steps, animated by the renderer. Two round buttons on the
+// map (⟲ left, ⟳ right; placed by rotPlace clear of the top bar, the pill and the card), Q / E on a keyboard, and a
+// two-finger twist on the iPad (input.js). The turn is a view preference like the centre and the zoom: not saved.
+
+// One step: dir +1 turns the island clockwise on screen (⟳), -1 counter-clockwise (⟲).
+function viewRotate(dir) {
+  if (!APP.R || APP.R.kind === 'flat' || APP.titleOn) return false;
+  APP.view.rot = (((APP.view.rot || 0) + (dir > 0 ? 1 : -1)) % 4 + 4) % 4;
+  APP.fly = null;
+  return true;
+}
+
+// Moves the view so the screen point (centre + dx, centre + dy) comes to the centre (any turn, any renderer).
+function viewNudge(dx, dy) {
+  const w = window.innerWidth, h = window.innerHeight;
+  const a = screenToTile(APP.R, APP.view, w / 2, h / 2), b = screenToTile(APP.R, APP.view, w / 2 + dx, h / 2 + dy);
+  APP.view.cx += b.x - a.x; APP.view.cy += b.y - a.y;
+  viewClamp();
+}
+
+const ROT_ICON = {
+  l: '<svg viewBox="0 0 24 24" class="ic"><path d="M12 4.5a7.5 7.5 0 1 1-7.2 9.6l2.2-.6A5.2 5.2 0 1 0 12 6.8h-.6l2 2-1.6 1.6L7 5.6 11.8.8l1.6 1.6-2 2h.6z"/></svg>',
+  r: '<svg viewBox="0 0 24 24" class="ic"><path d="M12 4.5a7.5 7.5 0 1 0 7.2 9.6l-2.2-.6A5.2 5.2 0 1 1 12 6.8h.6l-2 2 1.6 1.6L17 5.6 12.2.8l-1.6 1.6 2 2H12z"/></svg>',
+};
+
+function rotInit() {
+  const el = $('rotbtns');
+  if (!el) return;
+  if (APP.R && APP.R.kind === 'flat') { el.style.display = 'none'; return; }
+  el.innerHTML = '<button id="rotL" aria-label="Turn the island left">' + ROT_ICON.l + '</button><button id="rotR" aria-label="Turn the island right">' + ROT_ICON.r + '</button>';
+  $('rotL').addEventListener('click', () => viewRotate(-1));
+  $('rotR').addEventListener('click', () => viewRotate(1));
+  window.addEventListener('keydown', (e) => {
+    if (APP.titleOn || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target && e.target.tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA') return;
+    if (e.key === 'q' || e.key === 'Q') { if (viewRotate(-1)) e.preventDefault(); }
+    else if (e.key === 'e' || e.key === 'E') { if (viewRotate(1)) e.preventDefault(); }
+  });
+  rotPlace();
+}
+
+// The buttons sit at the right edge under the top bar (and under the pill when it reaches that far); with the card open
+// on the right (landscape) they move to the card's left. Called every frame: it only writes when something moved.
+function rotPlace() {
+  const el = $('rotbtns');
+  if (!el || el.style.display === 'none') return;
+  const ins = safeInsets(), gap = 10, W = window.innerWidth, bw = el.offsetWidth || 106, bh = el.offsetHeight || 50;
+  const vis = (id) => { const e = $(id); if (!e) return null; const st = getComputedStyle(e); if (st.display === 'none' || st.visibility === 'hidden') return null; const r = e.getBoundingClientRect(); return r.width && r.height ? r : null; };
+  let right = W - gap - ins.r, top = gap + ins.t;
+  const tb = vis('top'); if (tb) top = Math.max(top, tb.bottom + gap);
+  const hit = (r) => r && r.left < right + gap && r.right > right - bw - gap && r.top < top + bh + gap && r.bottom > top - gap;
+  // below the pill or a legend under it, left of the card: moved until nothing is in the way (a few steps at most)
+  const pill = vis('pill'), card = $('card').classList.contains('show') ? vis('card') : null;
+  const legends = [...document.querySelectorAll('#trlegend, #moneyLegend')].map((e) => { const r = e.getBoundingClientRect(); return r.width && r.height ? r : null; }).filter(Boolean);
+  for (let k = 0; k < 6; k++) {
+    let moved = false;
+    for (const r of [pill].concat(legends)) if (hit(r)) { top = r.bottom + gap; moved = true; }
+    if (hit(card)) { right = card.left - gap; moved = true; }
+    if (!moved) break;
+  }
+  const key = Math.round(right) + ',' + Math.round(top);
+  if (key === APP.rotKey) return;
+  APP.rotKey = key;
+  el.style.right = 'auto'; el.style.left = Math.round(right - bw) + 'px'; el.style.top = Math.round(top) + 'px';
 }
 
 // ---- src/ui/ios.js
@@ -10268,8 +10624,8 @@ function titleView() {
     APP.view.cx = x / homes.length; APP.view.cy = y / homes.length;
   }
   // the island's part in the open: landscape, right of the card (+18 % of the width); portrait, above it (-20 % of the height)
-  const w = window.innerWidth, h = window.innerHeight, z = APP.view.z;
-  if (w >= h) { const k = 0.09 * w / z; APP.view.cx -= k; APP.view.cy += k; } else { const k = 0.2 * h / z; APP.view.cx += k; APP.view.cy += k; }
+  const w = window.innerWidth, h = window.innerHeight;
+  if (w >= h) viewNudge(-0.18 * w, 0); else viewNudge(0, 0.2 * h);
   viewClamp();
 }
 
@@ -12122,6 +12478,7 @@ function frameRun(now) {
   toastTick(now);
   receiptTick(now);
   APP.ui.floaters = APP.ui.floaters.filter((f) => now - f.t0 < 1700);
+  rotPlace();
   renderDraw(APP.R, s, APP.view, APP.ui);
 }
 
@@ -12140,6 +12497,7 @@ function boot() {
   speedSet(1);
   viewHome();
   inputInit($('map'));
+  rotInit();
   guideRender();
   window.addEventListener('pagehide', () => { gameSave(); });
   window.addEventListener('pageshow', () => { if (!document.hidden) loopStart(); });
