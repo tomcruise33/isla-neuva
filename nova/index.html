@@ -127,7 +127,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #toast { position: fixed; left: calc(50% + (var(--sl) - var(--sr)) / 2); transform: translateX(-50%); bottom: calc(var(--bar-h) + 2 * var(--gap) + 128px + var(--sb));
   background: rgba(58, 42, 31, 0.94); color: #fbf3df; border-radius: 12px; padding: 9px 16px; font-weight: 600; font-size: 14px;
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18), 0 8px 18px rgba(30, 20, 10, 0.2);
-  max-width: min(520px, calc(100% - 20px)); text-align: center; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 6; }
+  max-width: min(520px, calc(100% - 20px)); text-align: center; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 8; }
 #toast.show { opacity: 1; }
 /* Block 4: "✓ Done" beside the build bar while a tool is armed (placed by donePlace) */
 #done { position: fixed; z-index: 5; display: none; min-height: 56px; min-width: 104px; padding: 0 18px; border-radius: 14px; align-items: center; justify-content: center;
@@ -162,6 +162,18 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
 #card .line { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-top: 2px dotted rgba(58, 42, 31, 0.22); font-size: 14px; }
 #card .note { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--coral-soft); color: #7e2e1c; font-size: 14px; border: 1.5px solid rgba(58, 42, 31, 0.25); }
 #card .note.good { background: #e3efcf; color: #2a5a2c; }
+/* M3: the month's ledger on a workplace card, the harbor's hold, the verdict */
+#card table.ledger { width: 100%; border-collapse: collapse; margin: 4px 0 2px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+#card table.ledger th { text-align: left; font-weight: 600; padding: 4px 6px 4px 0; border-top: 2px dotted rgba(58, 42, 31, 0.22); }
+#card table.ledger td { text-align: right; padding: 4px 0 4px 8px; border-top: 2px dotted rgba(58, 42, 31, 0.22); white-space: nowrap; }
+#card table.ledger td.h { font-size: 11.5px; color: var(--ink2); text-transform: uppercase; letter-spacing: .04em; border-top: 0; }
+#card table.ledger tr:first-child th { border-top: 0; }
+#card table.ledger tr.sum th, #card table.ledger tr.sum td { border-top: 2px solid rgba(58, 42, 31, 0.45); font-weight: 800; }
+#card .verdict { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: #f3ead2; font-size: 14px; font-weight: 600; border: 1.5px solid rgba(58, 42, 31, 0.25); }
+#card .hold { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 2px dotted rgba(58, 42, 31, 0.22); font-size: 14px; }
+#card .hold .bar { flex: 0 0 84px; height: 12px; border-radius: 6px; background: #e9dfc6; border: 1.5px solid rgba(58, 42, 31, 0.45); overflow: hidden; }
+#card .hold .bar i { display: block; height: 100%; background: #c98b3c; }
+#card .line.dep span:first-child { font-style: italic; }
 #card .btns { display: flex; gap: 8px; margin-top: 12px; }
 #card .btns button { flex: 1; min-height: 44px; border-radius: 11px; font-weight: 800; background: var(--paper2); box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
 #card .btns .danger { background: var(--coral-soft); color: var(--red); }
@@ -378,6 +390,119 @@ body.titled #nowplay { display: none !important; }
 #toast .tx .ic { width: 16px; height: 16px; fill: #fbf3df; }
 #toast.imp { box-shadow: inset 0 0 0 2px var(--coral), 0 3px 0 rgba(0, 0, 0, 0.18), 0 8px 18px rgba(30, 20, 10, 0.2); }
 body.titled #glance { display: none !important; }
+/* M6 (12 Oct): the to-do list (✓ in the stats, #todo: Now / This evening / My notes), "+ Pin" on cards and on Rosa's
+   line, the greeting on Continue (#greet), the chronicle's ❦ in the log. Built by todo.js. */
+.stat.todo .ic { fill: var(--teal); } .stat.todo.hot .ic { fill: var(--coral); }
+.stat.todo .badge.tb { display: none; }
+.stat.todo.tick { animation: tdHop 0.5s ease-out; }
+@keyframes tdHop { 0% { transform: none; } 35% { transform: translateY(-4px) scale(1.08); } 100% { transform: none; } }
+#todo { position: fixed; z-index: 7; display: none; padding: 8px 12px 10px 14px; left: calc(50% + (var(--sl) - var(--sr)) / 2); transform: translateX(-50%);
+  top: calc(var(--gap) + 106px + var(--st)); width: min(520px, calc(100% - 20px - var(--sl) - var(--sr))); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#todo.show { display: block; }
+#todo > .h { display: block; font: italic 700 21px/1.2 var(--serif); padding: 6px 44px 0 0; }
+#todo .x { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
+#todo .x .ic { width: 16px; fill: var(--ink2); }
+#todo h5 { margin: 12px 0 2px; font: 800 12px/1.2 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink2); }
+#todo .row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 2px dotted rgba(58, 42, 31, 0.2); min-height: 54px; }
+#todo .row .t { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; }
+#todo .row .t small { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink2); margin-top: 1px; }
+#todo .row .n { flex: none; min-width: 36px; height: 36px; padding: 0 6px; border-radius: 18px; background: var(--paper2); box-shadow: inset 0 0 0 1.5px var(--ink);
+  display: flex; align-items: center; justify-content: center; font: 800 14px var(--sans); font-variant-numeric: tabular-nums; }
+#todo .row.bad .n { background: var(--coral); color: #fff7ea; } #todo .row.bad .t { color: #8a3a22; }
+#todo .row.good .n { background: #f2c14e; }
+#todo .bs { flex: none; display: flex; gap: 6px; }
+#todo .bs button, #todo .add button { min-height: 44px; min-width: 56px; padding: 0 12px; border-radius: 11px; font-weight: 800; font-size: 14px; }
+#todo .bs .show { background: var(--paper2); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
+#todo .bs .fix, #todo .add .fix { background: var(--teal); color: #fff7ea; box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
+#todo .bs .up { background: #f2c14e; color: var(--ink); }
+#todo .bs .up.poor { background: var(--paper2); color: var(--red); }
+#todo .bs .del { min-width: 44px; width: 44px; padding: 0; display: flex; align-items: center; justify-content: center; }
+#todo .bs .del .ic { width: 15px; height: 15px; fill: var(--ink2); }
+#todo .part { display: flex; align-items: center; gap: 10px; font: italic 700 16px/1.2 var(--serif); padding: 2px 0 6px; }
+#todo .part span { flex: none; max-width: 60%; }
+#todo .part .bar { flex: 1; margin: 0; height: 10px; }
+#todo .part b { font: 800 13px var(--sans); font-variant-numeric: tabular-nums; }
+#todo .bar { display: block; position: relative; height: 8px; border-radius: 5px; margin: 5px 0 2px; overflow: hidden; background: rgba(58, 42, 31, 0.1); box-shadow: inset 0 0 0 1px rgba(58, 42, 31, 0.28); }
+#todo .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--teal); border-radius: 5px 0 0 5px; transition: width 0.6s ease-out; }
+#todo .bar .soon { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(-45deg, rgba(46, 154, 145, 0.45) 0 4px, rgba(46, 154, 145, 0.18) 4px 8px); }
+#todo .goal .num { font-weight: 700; color: var(--ink2); font-variant-numeric: tabular-nums; }
+#todo .goal .ck, #todo .now .ck { flex: none; width: 28px; height: 28px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(58, 42, 31, 0.4); display: flex; align-items: center; justify-content: center; }
+#todo .now .ck { width: 36px; height: 36px; }
+#todo svg.cks path { fill: none; stroke: #fff7ea; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; }
+#todo .cks { width: 18px; height: 18px; }
+#todo .goal.ok .ck { background: var(--green); box-shadow: inset 0 0 0 2px var(--ink); }
+#todo .goal.ok .ck path, #todo .done .cks path { stroke-dashoffset: 0; }
+#todo .goal.ok .t { color: var(--green); }
+#todo .goal.ok .bar .fill { background: var(--green); }
+#todo .goal.pop { animation: tdPop 1s ease-out; }
+#todo .goal.pop .ck path, #todo .done .cks path { animation: tdDraw 0.45s ease-out both; }
+@keyframes tdDraw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@keyframes tdPop { 0% { background: rgba(47, 122, 69, 0.28); } 100% { background: transparent; } }
+#todo .row.done { animation: tdGone 1.3s ease-in both; }
+#todo .row.done .n, #todo .row.done .ck { background: var(--green); color: #fff7ea; box-shadow: inset 0 0 0 2px var(--ink); }
+#todo .row.done .t { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--ink2); }
+@keyframes tdGone { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }
+#todo .note .tick { flex: none; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+#todo .note .tick::before { content: ''; position: absolute; width: 28px; height: 28px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--ink); background: #fffaf0; }
+#todo .note .tick { position: relative; }
+#todo .note .tick .cks { position: relative; }
+#todo .note .tick .cks path { stroke: var(--ink); }
+#todo .note.done .tick::before { background: var(--green); }
+#todo .note.done .tick .cks path { stroke: #fff7ea; }
+#todo .note .l { overflow-wrap: anywhere; }
+#todo .pinic { width: 13px; height: 13px; fill: var(--coral); vertical-align: -2px; margin-right: 2px; }
+#todo .empty { margin: 4px 0; font-size: 13.5px; color: var(--ink2); }
+#todo .add { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 2px dotted rgba(58, 42, 31, 0.2); }
+#todo .add .ic { width: 20px; height: 20px; fill: var(--ink2); }
+#todo .add input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 11px; border: 2px solid var(--ink); background: #fffaf0; color: var(--ink);
+  font: 600 16px var(--sans); -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; outline: none; }
+#todo .add input:focus { box-shadow: 0 0 0 3px rgba(46, 154, 145, 0.35); }
+#card .cpin { position: absolute; top: 6px; right: 52px; min-height: 44px; padding: 0 12px 0 8px; border-radius: 11px; display: inline-flex; align-items: center; gap: 4px;
+  font-weight: 800; font-size: 13.5px; background: var(--paper2); box-shadow: inset 0 0 0 1.5px var(--ink); z-index: 1; }
+#card .cpin .ic { width: 18px; height: 18px; fill: var(--coral); }
+#card .cpin.on { background: #e3efcf; color: #2a5a2c; } #card .cpin.on .ic { fill: var(--green); }
+#card .cpin ~ h3 { padding-right: 132px; min-height: 44px; }
+#guide .gpin { flex: none; width: 40px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 11px; }
+#guide .gpin .ic { width: 20px; height: 20px; fill: var(--ink2); }
+#guide .gpin.on .ic { fill: var(--coral); }
+#greet { position: fixed; z-index: 16; display: none; left: calc(50% + (var(--sl) - var(--sr)) / 2); top: 50%; transform: translate(-50%, -50%);
+  width: min(460px, calc(100% - 32px - var(--sl) - var(--sr))); max-height: calc(100% - 32px - var(--st) - var(--sb)); overflow-y: auto; padding: 18px 20px 16px; }
+#greet.show { display: block; animation: guideIn 0.6s ease-out; }
+#greet .kick { font: 800 12px/1.2 var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink2); }
+#greet h2 { margin: 4px 0 0; font: italic 700 30px/1.1 var(--serif); }
+#greet .when { font: italic 600 18px/1.3 var(--serif); color: var(--ink2); }
+#greet .last { margin: 12px 0 4px; font-weight: 700; font-size: 14.5px; }
+#greet ul { margin: 0; padding-left: 20px; font-size: 15px; }
+#greet li { padding: 1px 0; }
+#greet .loop { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 8px 8px 8px 12px; border-radius: 12px; background: #fbe7b0; box-shadow: inset 0 0 0 1.5px var(--ink); }
+#greet .loop span { flex: 1; font-weight: 700; font-size: 15px; }
+#greet .loop .show { flex: none; min-height: 44px; min-width: 64px; padding: 0 14px; border-radius: 11px; font-weight: 800; background: var(--paper); box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
+#greet .nts { margin: 10px 0 0; font-size: 13.5px; color: var(--ink2); }
+#greet .pinic { width: 14px; height: 14px; fill: var(--coral); vertical-align: -2px; margin-right: 4px; }
+#greet .btns { display: flex; justify-content: flex-end; margin-top: 14px; }
+#greet .go { min-height: 48px; padding: 0 24px; border-radius: 12px; background: var(--teal); color: #fff7ea; font-weight: 800; font-size: 16px; box-shadow: inset 0 0 0 2px var(--ink), 0 3px 0 var(--ink); }
+.log p.chron span { font-style: italic; font-family: var(--serif); font-size: 15px; }
+.log .orn { color: var(--coral); margin-right: 6px; font-style: normal; }
+body.titled #todo, body.titled #greet { display: none !important; }
+@media (max-width: 600px) {
+  #todo { top: calc(var(--gap) + 128px + var(--st)); width: calc(100% - 16px - var(--sl) - var(--sr)); padding: 6px 8px 8px 10px; }
+  #todo .row { flex-wrap: wrap; }
+  #todo .row .t { flex: 1 1 150px; }
+  #todo .row .bs { margin-left: auto; }
+  #todo .part span { max-width: 55%; }
+  /* M1's phone sizes for the glance numbers (its later desktop rules won over them): tighter, so the ✓ fits too */
+  .stats .stat.glance { padding: 4px 5px 4px 4px; gap: 3px; min-width: 44px; justify-content: center; }
+  .stats .stat .badge { right: -7px; top: -7px; min-width: 17px; height: 17px; padding: 0 3px; font-size: 10.5px; line-height: 17px; }
+  .stats .stat.todo > span.tn { display: none; }
+  /* Rosa on a phone: her words take the whole first row, the pin, Show, her button and ✕ the second (with a fourth
+     button the text column was one word wide) */
+  #guide { flex-wrap: wrap; row-gap: 6px; }
+  #guide p { flex: 1 1 calc(100% - 64px); }
+  #guide .gpin { margin-left: auto; }
+  .stat.todo .badge.tb:not([hidden]) { display: block; background: var(--teal); }
+  .stat.todo.hot .badge.tb { background: var(--red); }
+  #greet h2 { font-size: 26px; }
+}
 #safe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 </style>
@@ -446,7 +571,12 @@ const TUNE = {
   inputCap: 8,
   marketCap: 24,          // per good on the shelves (block 3: was 8; a market serving 40 homes ran dry between carts)
   harborCap: 40,
-  shipBuys: 6,            // the monthly ship buys up to 6 of each good (the steamship 12, twice a month)
+  shipBuys: 6,            // (before M3: the ship bought up to 6 of each good; now its hold, below)
+  // M3 (N4, N7): each harbor's ship carries up to `hold` loads a call, any mix of goods (taken in turn, one of each good
+  // until the hold is full; what does not fit waits for the next ship). The harbor's own share of the cargo's value is
+  // harborShare (the dockers' and the agent's cut); the rest goes to the buildings that made the goods (DESIGN.md §19).
+  shipHold: 40,
+  harborShare: 0.1,
   // Reach (block 4, the playtest): straight-line tiles in any direction from the building's edge (what the eye sees on
   // the map, drawn as a square around it when it is selected or placed), plus a road joining the home to it. Before:
   // 10 and 12 road tiles, which a home two tiles away across a block could exceed.
@@ -495,25 +625,37 @@ const TUNE = {
 const GOODS = {
   fish:    { name: 'Fish',    food: true, price: 25,  color: '#5b8fb9' },
   fruit:   { name: 'Fruit',   food: true, price: 20,  color: '#f29c38' },
-  cane:    { name: 'Cane',    price: 0,   color: '#8dbb4a' },
+  cane:    { name: 'Cane',    price: 0,   inner: 25, color: '#8dbb4a' },
   rum:     { name: 'Rum',     price: 150, color: '#9a5a2c' },
   flour:   { name: 'Flour',   price: 0,   cost: 50, color: '#efe6d2' },
   bread:   { name: 'Bread',   price: 0,   color: '#d9a35b' },
-  tobacco: { name: 'Tobacco', price: 0,   color: '#b38b3c' },
+  tobacco: { name: 'Tobacco', price: 0,   inner: 30, color: '#b38b3c' },
   cigars:  { name: 'Cigars',  price: 170, color: '#6e4426' },
-  logs:    { name: 'Logs',    price: 0,   color: '#8a6a45' },
+  logs:    { name: 'Logs',    price: 0,   inner: 20, color: '#8a6a45' },
   planks:  { name: 'Planks',  price: 120, color: '#c99a5e' },
-  beans:   { name: 'Coffee beans', price: 0, color: '#7a3b2e' },
+  beans:   { name: 'Coffee beans', price: 0, inner: 35, color: '#7a3b2e' },
   coffee:  { name: 'Coffee',  price: 190, color: '#4a2c20' },
-  cattle:  { name: 'Cattle',  price: 0,   color: '#a0785a' },
+  cattle:  { name: 'Cattle',  price: 0,   inner: 30, color: '#a0785a' },
   meat:    { name: 'Meat',    price: 0,   color: '#b5473a' },
   tins:    { name: 'Tins',    price: 160, color: '#9aa7b0' },
+  sugar:   { name: 'Sugar',   price: 120, color: '#efe9da' },
 };
+// M3 (N7): `inner` is the fair price a workshop pays the field or camp that delivers its input (cane $25: two make a
+// $150 barrel of rum); fish a cannery takes is paid at its ship price. Money only moves between two buildings of the
+// island, so the month's result is unchanged; it shows on each card who earns what (DESIGN.md §19).
+function innerPrice(g) { return GOODS[g].inner || GOODS[g].price || 0; }
+// The units the cards count in ("24 of 30 barrels").
+const GOOD_UNIT = { rum: 'barrels', cigars: 'boxes', coffee: 'sacks', tins: 'crates', planks: 'planks', sugar: 'sacks', fish: 'baskets', fruit: 'baskets' };
 // Goods the ship can buy; each can be set to "export" or "keep" at the desk.
-const EXPORTABLE = ['rum', 'cigars', 'coffee', 'tins', 'planks', 'fish', 'fruit'];
-const EXPORT_DEFAULT = { rum: true, cigars: true, coffee: true, tins: true, planks: true, fish: false, fruit: false };
+const EXPORTABLE = ['rum', 'cigars', 'coffee', 'tins', 'planks', 'sugar', 'fish', 'fruit'];
+const EXPORT_DEFAULT = { rum: true, cigars: true, coffee: true, tins: true, planks: true, sugar: true, fish: false, fruit: false };
 
 // kind: home | producer | market | service | harbor | deco | fixed
+// M3 (N15, "everything has only 4 workers"): work comes in sizes. Fields 4-8 workers, small workshops 3-6, works
+// (distillery, sawmill, roastery) 10-20, factories (cigars, cannery, the sugar central) 25-60. Output is scaled to the
+// workers (a worker makes about what one made before), and so are price and upkeep: a bigger works costs more, pays
+// more wages and earns more. Havana's cigar factories were the island's biggest workshops, with hundreds of rollers
+// and a reader (Stubbs, *Tobacco on the Periphery*, 1985); the game keeps the order of size, not the headcount.
 // deco (block 3): decorations. No workers, no monthly number, no road needed; homes within `reach` tiles (straight
 // line, any direction) have "a decoration nearby" (happiness; Townhouses and Mansions need one). `deco` names what it
 // is for the renderer (garden | palms | fountain | statue | bandstand); until the renderer draws them they use the
@@ -523,35 +665,40 @@ const EXPORT_DEFAULT = { rum: true, cigars: true, coffee: true, tins: true, plan
 // group: the build bar tab (roads | homes | food | industry | services | harbor).
 const BUILDINGS = {
   casita:     { name: 'Home', kind: 'home', w: 1, h: 1, cost: 800, stage: 0, icon: 'home', art: 'home', color: '#e8d2a6', group: 'homes' },
-  fishing:    { name: 'Fishing hut', kind: 'producer', w: 1, h: 1, cost: 1500, jobs: 3, stage: 0, makes: 'fish', rate: 8, site: 'beach', food: true, icon: 'fish', art: 'hut', color: '#5b8fb9', group: 'food' },
-  grove:      { name: 'Fruit grove', kind: 'producer', w: 2, h: 2, cost: 1000, jobs: 3, stage: 0, makes: 'fruit', rate: 12, food: true, icon: 'fruit', art: 'field', color: '#4e9a45', group: 'food' },
-  market:     { name: 'Market', kind: 'market', w: 2, h: 2, cost: 2000, jobs: 2, stage: 0, food: true, icon: 'market', art: 'market', color: '#efe4c8', group: 'food' },
-  cane:       { name: 'Cane field', kind: 'producer', w: 2, h: 3, cost: 1200, jobs: 3, stage: 1, makes: 'cane', rate: 6, icon: 'cane', art: 'field', color: '#6fb84a', group: 'industry' },
-  distillery: { name: 'Rum distillery', short: 'Distillery', kind: 'producer', w: 2, h: 2, cost: 4000, jobs: 4, stage: 1, makes: 'rum', rate: 3, uses: { cane: 2 }, icon: 'barrel', art: 'workshop', color: '#a0522d', group: 'industry' },
-  bakery:     { name: 'Bakery', kind: 'producer', w: 1, h: 1, cost: 2500, jobs: 2, stage: 1, makes: 'bread', rate: 8, uses: { flour: 0.5 }, icon: 'bread', art: 'workshop', color: '#d9a35b', group: 'food' },
-  chapel:     { name: 'Chapel', kind: 'service', w: 2, h: 2, cost: 3000, jobs: 1, stage: 1, gives: 'church', icon: 'chapel', art: 'civic', color: '#f3ead8', group: 'services' },
-  harbor:     { name: 'Harbor', kind: 'harbor', w: 2, h: 2, cost: 3500, jobs: 2, stage: 1, site: 'coast', icon: 'anchor', art: 'harbor', color: '#8a6a4a', group: 'harbor' },
-  school:     { name: 'School', kind: 'service', w: 2, h: 2, cost: 12000, jobs: 3, stage: 2, gives: 'school', icon: 'school', art: 'civic', color: '#c9733d', group: 'services' },
-  clinic:     { name: 'Clinic', kind: 'service', w: 2, h: 2, cost: 12000, jobs: 3, stage: 2, gives: 'clinic', icon: 'clinic', art: 'civic', color: '#f6f2ea', group: 'services' },
-  tobacco:    { name: 'Tobacco field', short: 'Tobacco', kind: 'producer', w: 2, h: 3, cost: 1500, jobs: 3, stage: 2, makes: 'tobacco', rate: 6, icon: 'leaf', art: 'field', color: '#8aa83e', group: 'industry' },
-  cigars:     { name: 'Cigar workshop', short: 'Cigars', kind: 'producer', w: 2, h: 2, cost: 4500, jobs: 4, stage: 2, makes: 'cigars', rate: 3, uses: { tobacco: 2 }, icon: 'cigar', art: 'workshop', color: '#7b5a3c', group: 'industry' },
-  lumber:     { name: 'Lumber camp', short: 'Lumber', kind: 'producer', w: 1, h: 1, cost: 1500, jobs: 3, stage: 2, makes: 'logs', rate: 6, site: 'forest', icon: 'tree', art: 'hut', color: '#6b8a3e', group: 'industry' },
-  sawmill:    { name: 'Sawmill', kind: 'producer', w: 2, h: 2, cost: 3500, jobs: 3, stage: 2, makes: 'planks', rate: 3, uses: { logs: 2 }, icon: 'saw', art: 'workshop', color: '#b07d4a', group: 'industry' },
+  fishing:    { name: 'Fishing hut', kind: 'producer', w: 1, h: 1, cost: 1500, jobs: 4, stage: 0, makes: 'fish', rate: 10, site: 'beach', food: true, icon: 'fish', art: 'hut', color: '#5b8fb9', group: 'food' },
+  grove:      { name: 'Fruit grove', kind: 'producer', w: 2, h: 2, cost: 1200, jobs: 5, stage: 0, makes: 'fruit', rate: 20, food: true, icon: 'fruit', art: 'field', color: '#4e9a45', group: 'food' },
+  market:     { name: 'Market', kind: 'market', w: 2, h: 2, cost: 2000, jobs: 3, stage: 0, food: true, icon: 'market', art: 'market', color: '#efe4c8', group: 'food' },
+  cane:       { name: 'Cane field', kind: 'producer', w: 2, h: 3, cost: 1500, jobs: 6, stage: 1, makes: 'cane', rate: 12, icon: 'cane', art: 'field', color: '#6fb84a', group: 'industry' },
+  distillery: { name: 'Rum distillery', short: 'Distillery', kind: 'producer', w: 2, h: 2, cost: 5000, jobs: 12, stage: 1, makes: 'rum', rate: 8, uses: { cane: 2 }, icon: 'barrel', art: 'workshop', color: '#a0522d', group: 'industry' },
+  bakery:     { name: 'Bakery', kind: 'producer', w: 1, h: 1, cost: 2500, jobs: 3, stage: 1, makes: 'bread', rate: 12, uses: { flour: 0.5 }, icon: 'bread', art: 'workshop', color: '#d9a35b', group: 'food' },
+  chapel:     { name: 'Chapel', kind: 'service', w: 2, h: 2, cost: 3000, jobs: 2, stage: 1, gives: 'church', icon: 'chapel', art: 'civic', color: '#f3ead8', group: 'services' },
+  harbor:     { name: 'Harbor', kind: 'harbor', w: 2, h: 2, cost: 3500, jobs: 4, stage: 1, site: 'coast', icon: 'anchor', art: 'harbor', color: '#8a6a4a', group: 'harbor' },
+  school:     { name: 'School', kind: 'service', w: 2, h: 2, cost: 12000, jobs: 6, stage: 2, gives: 'school', icon: 'school', art: 'civic', color: '#c9733d', group: 'services' },
+  clinic:     { name: 'Clinic', kind: 'service', w: 2, h: 2, cost: 12000, jobs: 6, stage: 2, gives: 'clinic', icon: 'clinic', art: 'civic', color: '#f6f2ea', group: 'services' },
+  tobacco:    { name: 'Tobacco field', short: 'Tobacco', kind: 'producer', w: 2, h: 3, cost: 1800, jobs: 6, stage: 2, makes: 'tobacco', rate: 12, icon: 'leaf', art: 'field', color: '#8aa83e', group: 'industry' },
+  cigars:     { name: 'Cigar factory', short: 'Cigars', kind: 'producer', w: 2, h: 2, cost: 9000, jobs: 25, stage: 2, makes: 'cigars', rate: 15, uses: { tobacco: 2 }, icon: 'cigar', art: 'workshop', color: '#7b5a3c', group: 'industry' },
+  lumber:     { name: 'Lumber camp', short: 'Lumber', kind: 'producer', w: 1, h: 1, cost: 1500, jobs: 4, stage: 2, makes: 'logs', rate: 8, site: 'forest', icon: 'tree', art: 'hut', color: '#6b8a3e', group: 'industry' },
+  sawmill:    { name: 'Sawmill', kind: 'producer', w: 2, h: 2, cost: 5000, jobs: 12, stage: 2, makes: 'planks', rate: 10, uses: { logs: 2 }, icon: 'saw', art: 'workshop', color: '#b07d4a', group: 'industry' },
   // City
-  finca:      { name: 'Coffee finca', short: 'Coffee finca', kind: 'producer', w: 2, h: 3, cost: 6000, jobs: 3, stage: 3, makes: 'beans', rate: 6, icon: 'bean', art: 'field', color: '#3f6b35', group: 'industry' },
-  roastery:   { name: 'Coffee roastery', short: 'Roastery', kind: 'producer', w: 2, h: 2, cost: 15000, jobs: 3, stage: 3, makes: 'coffee', rate: 3, uses: { beans: 2 }, icon: 'cup', art: 'workshop', color: '#6d4c3d', group: 'industry' },
-  ranch:      { name: 'Cattle ranch', short: 'Ranch', kind: 'producer', w: 2, h: 3, cost: 6000, jobs: 3, stage: 3, makes: 'cattle', rate: 4, icon: 'cow', art: 'field', color: '#9bb56a', group: 'food' },
-  butcher:    { name: 'Butcher', kind: 'producer', w: 1, h: 1, cost: 10000, jobs: 2, stage: 3, makes: 'meat', rate: 4, uses: { cattle: 1 }, icon: 'meat', art: 'workshop', color: '#b5473a', group: 'food' },
+  finca:      { name: 'Coffee finca', short: 'Coffee finca', kind: 'producer', w: 2, h: 3, cost: 6000, jobs: 8, stage: 3, makes: 'beans', rate: 16, icon: 'bean', art: 'field', color: '#3f6b35', group: 'industry' },
+  roastery:   { name: 'Coffee roastery', short: 'Roastery', kind: 'producer', w: 2, h: 2, cost: 15000, jobs: 16, stage: 3, makes: 'coffee', rate: 14, uses: { beans: 2 }, icon: 'cup', art: 'workshop', color: '#6d4c3d', group: 'industry' },
+  ranch:      { name: 'Cattle ranch', short: 'Ranch', kind: 'producer', w: 2, h: 3, cost: 7000, jobs: 5, stage: 3, makes: 'cattle', rate: 7, icon: 'cow', art: 'field', color: '#9bb56a', group: 'food' },
+  butcher:    { name: 'Butcher', kind: 'producer', w: 1, h: 1, cost: 10000, jobs: 4, stage: 3, makes: 'meat', rate: 8, uses: { cattle: 1 }, icon: 'meat', art: 'workshop', color: '#b5473a', group: 'food' },
+  // M3 (N15): the big employer of the City. After 1898 Cuba's sugar was ground less and less in the old *ingenios* and
+  // more in steam-powered *centrales*, each fed by the cane of many farms and employing far more people than any
+  // workshop (Moreno Fraginals, *El ingenio*, 1978; Ayala, *American Sugar Kingdom*, 1999); raw sugar was the island's
+  // first export. Here: 50 workers grind 40 cane into 40 sacks a month (a cane field feeds 12 of it).
+  central:    { name: 'Sugar central', short: 'Sugar central', kind: 'producer', w: 2, h: 2, cost: 24000, jobs: 50, stage: 3, makes: 'sugar', rate: 40, uses: { cane: 1 }, icon: 'barrel', art: 'workshop', color: '#d8cdb4', group: 'industry' },
   // M2 (N8): a park, the lighthouse and the decorations need no road: nothing is carried to them and nobody needs to
   // drive up (the park's gardener and the lighthouse keeper walk). Their reach is straight-line tiles (DESIGN.md §18).
-  park:       { name: 'Park', kind: 'service', w: 2, h: 2, cost: 14000, jobs: 1, stage: 3, gives: 'park', noRoad: true, icon: 'park', art: 'civic', color: '#7cc36b', group: 'services' },
+  park:       { name: 'Park', kind: 'service', w: 2, h: 2, cost: 14000, jobs: 2, stage: 3, gives: 'park', noRoad: true, icon: 'park', art: 'civic', color: '#7cc36b', group: 'services' },
   // Port city
-  quay:       { name: 'Steamship quay', short: 'Steamship', kind: 'harbor', w: 2, h: 2, cost: 45000, jobs: 4, stage: 4, site: 'coast', ships: 2, cap: 120, buys: 12, icon: 'ship', art: 'harbor', color: '#5a6b78', group: 'harbor' },
-  cannery:    { name: 'Cannery', kind: 'producer', w: 2, h: 2, cost: 18000, jobs: 4, stage: 4, makes: 'tins', rate: 4, uses: { fish: 1 }, icon: 'tin', art: 'workshop', color: '#7d8f9b', group: 'industry' },
-  lighthouse: { name: 'Lighthouse', kind: 'service', w: 1, h: 1, cost: 14000, jobs: 1, stage: 4, site: 'coast', gives: 'light', noRoad: true, icon: 'light', art: 'civic', color: '#f4f1e8', group: 'harbor' },
+  quay:       { name: 'Steamship quay', short: 'Steamship', kind: 'harbor', w: 2, h: 2, cost: 45000, jobs: 12, stage: 4, site: 'coast', ships: 2, cap: 120, buys: 12, hold: 100, icon: 'ship', art: 'harbor', color: '#5a6b78', group: 'harbor' },
+  cannery:    { name: 'Cannery', kind: 'producer', w: 2, h: 2, cost: 24000, jobs: 30, stage: 4, makes: 'tins', rate: 24, uses: { fish: 1 }, icon: 'tin', art: 'workshop', color: '#7d8f9b', group: 'industry' },
+  lighthouse: { name: 'Lighthouse', kind: 'service', w: 1, h: 1, cost: 14000, jobs: 2, stage: 4, site: 'coast', gives: 'light', noRoad: true, icon: 'light', art: 'civic', color: '#f4f1e8', group: 'harbor' },
   // Capital
-  cathedral:  { name: 'Cathedral', kind: 'service', w: 3, h: 3, cost: 60000, jobs: 3, stage: 5, gives: 'church', reach: 15, icon: 'chapel', art: 'civic', color: '#eadfca', group: 'services' },
-  opera:      { name: 'Opera house', short: 'Opera', kind: 'service', w: 3, h: 2, cost: 80000, jobs: 4, stage: 5, gives: 'opera', reach: 12, icon: 'opera', art: 'civic', color: '#c05a6b', group: 'services' },
+  cathedral:  { name: 'Cathedral', kind: 'service', w: 3, h: 3, cost: 60000, jobs: 8, stage: 5, gives: 'church', reach: 15, icon: 'chapel', art: 'civic', color: '#eadfca', group: 'services' },
+  opera:      { name: 'Opera house', short: 'Opera', kind: 'service', w: 3, h: 2, cost: 80000, jobs: 12, stage: 5, gives: 'opera', reach: 12, icon: 'opera', art: 'civic', color: '#c05a6b', group: 'services' },
   // Decorations (block 3): cheap to dear, each a little farther reaching.
   garden:     { name: 'Flower garden', short: 'Garden', kind: 'deco', deco: 'garden', w: 1, h: 1, cost: 600, stage: 0, reach: 3, icon: 'flower', art: 'field', color: '#e0789a', group: 'homes' },
   palms:      { name: 'Palm row', short: 'Palms', kind: 'deco', deco: 'palms', w: 1, h: 1, cost: 1500, stage: 1, reach: 4, icon: 'palm', art: 'field', color: '#3f8f4a', group: 'homes' },
@@ -563,7 +710,7 @@ const BUILDINGS = {
 };
 // The build bar order (within each group).
 const BUILD_ORDER = ['casita', 'fishing', 'grove', 'market', 'cane', 'distillery', 'bakery', 'chapel', 'harbor',
-  'school', 'clinic', 'tobacco', 'cigars', 'lumber', 'sawmill', 'finca', 'roastery', 'ranch', 'butcher', 'park',
+  'school', 'clinic', 'tobacco', 'cigars', 'lumber', 'sawmill', 'finca', 'roastery', 'central', 'ranch', 'butcher', 'park',
   'quay', 'cannery', 'lighthouse', 'cathedral', 'opera', 'garden', 'palms', 'fountain', 'statue', 'bandstand'];
 const DECOS = BUILD_ORDER.filter((t) => BUILDINGS[t].kind === 'deco');
 
@@ -1289,16 +1436,23 @@ function jobsAssign(state) {
 
 function outputMult(state) { return LEVERS.wages[state.lev.wages].output; }
 
+// M3: a bigger works has a bigger yard, a bigger store for its input and bigger carts (a wagon for the sugar central):
+// the scale is its monthly flow in tens (at least 1), so a 45-sack central does not stop with a 6-sack yard.
+function flowScale(n) { return Math.max(1, Math.round(n / 10)); }
+function yardCapOf(def) { return TUNE.yardCap * flowScale(def.rate || 0); }
+function inputCapOf(def) { let f = 0; for (const g in def.uses || {}) f = Math.max(f, def.uses[g] * def.rate); return TUNE.inputCap * flowScale(f); }
+function cartLoadOf(def) { return def && def.kind === 'producer' ? TUNE.cartLoad * flowScale(def.rate || 0) : TUNE.cartLoad; }
+
 function prodTick(state, b) {
   const def = BUILDINGS[b.type];
   b.blocked = '';
   if (!b.open) { b.blocked = 'closed'; return; }
   if (!b.workers) { b.blocked = 'workers'; return; }
-  if (b.yard >= TUNE.yardCap) { b.blocked = 'yard'; return; }
+  if (b.yard >= yardCapOf(def)) { b.blocked = 'yard'; return; }
   if (def.uses) for (const g in def.uses) if ((b.inp[g] || 0) < def.uses[g] - 1e-9) { b.blocked = 'input'; return; }
   b.prog += def.rate * (b.workers / def.jobs) * outputMult(state) / TUNE.ticksPerMonth;
   if (b.prog >= 1) {
-    b.prog -= 1; b.yard += 1; b.made += 1;
+    b.prog -= 1; b.yard += 1; b.made += 1; b.mMade = (b.mMade || 0) + 1;
     if (def.uses) for (const g in def.uses) b.inp[g] = Math.max(0, (b.inp[g] || 0) - def.uses[g]);
   }
 }
@@ -1345,7 +1499,7 @@ function marketWants(state, m, g) {
 function roomFor(state, d, g) {
   const def = BUILDINGS[d.type];
   if (!d.open) return 0;
-  if (def.kind === 'producer' && def.uses && def.uses[g] !== undefined) return TUNE.inputCap - (d.inp[g] || 0) - (d.incoming[g] || 0);
+  if (def.kind === 'producer' && def.uses && def.uses[g] !== undefined) return inputCapOf(def) - (d.inp[g] || 0) - (d.incoming[g] || 0);
   if (def.kind === 'market' && d.workers > 0 && marketWants(state, d, g)) return TUNE.marketCap - (d.stock[g] || 0) - (d.incoming[g] || 0);
   if (def.kind === 'harbor' && d.workers > 0 && state.exp[g]) return (def.cap || TUNE.harborCap) - (d.stock[g] || 0) - (d.incoming[g] || 0);
   return 0;
@@ -1364,7 +1518,7 @@ function consumerFind(state, src, g) {
     const cls = kind === 'market' ? 0 : kind === 'harbor' ? 2 : 1;
     const road = roadDist(state, src, d).d;
     if (!isFinite(road)) continue;
-    const part = room < TUNE.cartLoad ? 1 : 0;
+    const part = room < cartLoadOf(BUILDINGS[src.type]) ? 1 : 0;
     // Block 6 (playtest 2): a market with emptier shelves counts as nearer (a full shelf as 24 tiles farther), so a
     // market serving 69 homes is not left empty while every cart goes to a fuller one next door.
     const fill = kind !== 'market' ? 0 : GOODS[g].food ? marketFood(d) / (2 * TUNE.marketCap) : (d.stock[g] || 0) / TUNE.marketCap;
@@ -1377,16 +1531,17 @@ function consumerFind(state, src, g) {
 // Why a producer's goods do not leave: 'none' (nothing takes them), 'unreached' (no road to a taker), 'full'.
 function takerState(state, b) {
   const g = BUILDINGS[b.type].makes;
-  let exists = false, reached = false;
+  let exists = false, reached = false, harbor = false;
   for (const d of state.b) {
     if (d === b) continue;
     const def = BUILDINGS[d.type];
     const could = (def.uses && def.uses[g] !== undefined) || (def.kind === 'market' && NEED_GOODS.includes(goodNeed(g))) || (def.kind === 'harbor' && state.exp[g]);
     if (!could) continue;
     exists = true;
-    if (isFinite(roadDist(state, b, d).d)) reached = true;
+    if (isFinite(roadDist(state, b, d).d)) { reached = true; if (def.kind === 'harbor' && d.open && d.workers > 0 && roomFor(state, d, g) < 1) harbor = true; }
   }
-  return !exists ? 'none' : !reached ? 'unreached' : 'full';
+  // M3 (N4): the good is exported and a harbor it reaches is full: the ships are the limit, not what the island uses
+  return !exists ? 'none' : !reached ? 'unreached' : harbor ? 'ships' : 'full';
 }
 
 function cartSource(state, b) {
@@ -1400,7 +1555,7 @@ function cartSource(state, b) {
 // fruit and its card still said "enough for 48 people" (the markets' food shelves stood empty all month at City).
 // The card shows the carts ("carts 2 / 4 on the road").
 function cartsMore(state, b) {
-  if (!b.open || b.yard < TUNE.cartLoad) return;
+  if (!b.open || b.yard < cartLoadOf(BUILDINGS[b.type])) return;
   const mine = state.carts.filter((c) => c.home === b.id);
   if (mine.length >= TUNE.cartsMax || mine.some((c) => c.st === 'idle')) return;
   state.carts.push({ id: state.nextId++, home: b.id, st: 'idle', good: '', n: 0, dest: 0, path: null, pos: 0 });
@@ -1420,7 +1575,7 @@ function cartDispatch(state, c, b) {
   if (!best) return;
   const path = roadPath(state, b, best.d);
   if (!path) return;
-  const n = Math.min(TUNE.cartLoad, have, best.room);
+  const n = Math.min(cartLoadOf(BUILDINGS[b.type]), have, best.room);
   if (BUILDINGS[b.type].kind === 'harbor') b.flour -= n; else b.yard -= n;
   best.d.incoming[g] = (best.d.incoming[g] || 0) + n;
   Object.assign(c, { st: 'go', good: g, n, dest: best.d.id, path, pos: 0, ver: state.ver });
@@ -1447,6 +1602,7 @@ function cartDeliver(state, c) {
   d.incoming[c.good] = Math.max(0, (d.incoming[c.good] || 0) - c.n);
   if (BUILDINGS[d.type].kind === 'producer') d.inp[c.good] = (d.inp[c.good] || 0) + c.n;
   else d.stock[c.good] = (d.stock[c.good] || 0) + c.n;
+  deliverBook(state, bById(state, c.home), d, c.good, c.n);
   simEvent(state, { kind: 'drop', id: d.id, good: c.good, n: c.n });
 }
 
@@ -1538,24 +1694,117 @@ function exportPrice(state, g) { return Math.round(GOODS[g].price * (lighthouseO
 // The steamship quay: two ships a month (one at mid-month, one at the month's end).
 function quayOn(state) { return state.b.some((b) => BUILDINGS[b.type].ships > 1 && b.open && b.workers > 0); }
 
-// The monthly ship buys what waits at the harbor and is set to export (mid: only the steamship's mid-month call).
-// The money is paid on payday with the rest.
+// ---------- M3: who earns what (N7) ----------
+// Every delivery is booked: a workshop pays the field or camp that brought its input the fair inner price (innerPrice);
+// a market gets goods for the homes (no money: the homes pay rent); a harbor notes whose goods wait on its quay
+// (b.cons: good -> { maker id: units }) so the ship's money goes back to the makers. Monthly counters on the building
+// (b.mMade, b.mShip, b.mExp, b.mMkt, b.mShop, b.mSale, b.mBuy, b.mBuyN, b.mHarb) are read at payday and kept as b.last.
+function deliverBook(state, src, d, g, n) {
+  if (!src || !d || !n) return;
+  const kd = BUILDINGS[d.type].kind;
+  if (kd === 'producer') {
+    const v = n * innerPrice(g);
+    if (BUILDINGS[src.type].kind === 'producer') { src.mSale = (src.mSale || 0) + v; src.mShop = (src.mShop || 0) + n; d.mBuy = (d.mBuy || 0) + v; }
+    d.mBuyN = (d.mBuyN || 0) + n;
+  } else if (kd === 'market') src.mMkt = (src.mMkt || 0) + n;
+  else if (kd === 'harbor') {
+    if (!d.cons) d.cons = {};
+    const c = d.cons[g] || (d.cons[g] = {});
+    c[src.id] = (c[src.id] || 0) + n;
+    src.mHarb = (src.mHarb || 0) + n;
+  }
+}
+
+// n units of g leave harbor hb for v dollars: the harbor keeps TUNE.harborShare, the rest goes to the makers whose goods
+// they were, in proportion to what each brought (goods with no record, from before M3, stay with the harbor).
+function shipCredit(state, hb, g, n, v) {
+  const c = (hb.cons && hb.cons[g]) || {}, ids = Object.keys(c);
+  const total = ids.reduce((a, id) => a + c[id], 0), rest = v * (1 - TUNE.harborShare);
+  let paid = 0;
+  for (const id of ids) {
+    const k = total > n ? n * c[id] / total : c[id];
+    c[id] -= k;
+    if (c[id] < 1e-6) delete c[id];
+    const p = bById(state, +id);
+    if (!p) continue;
+    const m = Math.floor(rest * k / n);
+    p.mExp = (p.mExp || 0) + m; p.mShip = (p.mShip || 0) + k;
+    paid += m;
+  }
+  hb.mFee = (hb.mFee || 0) + v - paid;
+}
+
+// A harbor's ship: its hold a call (the steamship's 60, twice a month; a harbor's schooner 30).
+function shipHold(def) { return def.hold || TUNE.shipHold; }
+
+// Ship names (by harbor, so each harbor keeps its own ship): schooners for the harbors, steamers for the quay.
+const SHIP_NAMES = ['Esperanza', 'Paloma', 'Santa Clara', 'Golondrina', 'Caridad', 'Estrella', 'Fortuna', 'Mariposa', 'Aurora', 'Lucero'];
+const STEAM_NAMES = ['Reina del Caribe', 'Ciudad de Cádiz', 'Antilla', 'Habana'];
+function shipName(state, hb) {
+  const steam = BUILDINGS[hb.type].ships > 1, list = steam ? STEAM_NAMES : SHIP_NAMES;
+  const k = state.b.filter((o) => (BUILDINGS[o.type].ships > 1) === steam && BUILDINGS[o.type].kind === 'harbor' && o.id < hb.id).length;
+  return list[k % list.length];
+}
+
+// What waits at a harbor for its ship (exported goods only), { g: n } and the total.
+function harborWaiting(state, hb) {
+  const out = {}; let n = 0;
+  for (const g in hb.stock || {}) { const k = Math.floor(hb.stock[g] + 1e-9); if (k >= 1 && state.exp[g]) { out[g] = k; n += k; } }
+  return { goods: out, n };
+}
+
+// The ships buy what waits at the harbors and is set to export (mid: only the steamship's mid-month call). Each ship
+// takes up to its hold, one of each good in turn (so no good is left behind while another fills the hold); what does
+// not fit waits for the next ship (b.full, b.left: Rosa's "ships are full"). The money is paid on payday with the rest.
+// M3: each call is kept on the harbor (b.deps, the last three) and sent as a 'sail' event (the departure slip).
 function shipSail(state, mid) {
   for (const hb of state.b) {
     const def = BUILDINGS[hb.type];
     if (def.kind !== 'harbor' || !hb.open) continue;
     if (mid && !(def.ships > 1 && hb.workers > 0)) continue;
-    for (const g in hb.stock) {
-      // Each ship buys up to a set number of each good (the harbor's ship 6, the steamship 12); the rest waits.
-      const n = Math.min(Math.floor(hb.stock[g] + 1e-9), def.buys || TUNE.shipBuys);
-      if (!n || !state.exp[g]) continue;
+    const wait = harborWaiting(state, hb), goods = Object.keys(wait.goods).sort(), take = {};
+    let room = shipHold(def), more = true;
+    while (room > 0 && more) {
+      more = false;
+      for (const g of goods) if (room > 0 && (take[g] || 0) < wait.goods[g]) { take[g] = (take[g] || 0) + 1; room--; more = true; }
+    }
+    let money = 0, units = 0;
+    for (const g in take) {
+      const n = take[g], v = n * exportPrice(state, g);
       hb.stock[g] -= n;
-      hb.sold += n * exportPrice(state, g);
+      hb.sold += v; money += v; units += n;
       hb.soldUnits[g] = (hb.soldUnits[g] || 0) + n;
       state.exported[g] = (state.exported[g] || 0) + n;
       state.monthExported[g] = (state.monthExported[g] || 0) + n;
+      if (!state.monthExpV) state.monthExpV = {};
+      state.monthExpV[g] = (state.monthExpV[g] || 0) + v;
+      shipCredit(state, hb, g, n, v);
     }
+    const left = harborWaiting(state, hb);
+    hb.full = room === 0 && left.n > 0;
+    hb.left = hb.full ? left.goods : {};
+    if (!units) continue;
+    const dep = { m: state.month, mid: !!mid, ship: shipName(state, hb), cargo: take, money, n: units, hold: shipHold(def), left: hb.full ? left.n : 0 };
+    hb.deps = [dep].concat(hb.deps || []).slice(0, 3);
+    simEvent(state, Object.assign({ kind: 'sail', id: hb.id }, dep));
   }
+}
+
+// M3 (N4): the ships are the limit when a harbor's last ship left goods behind, or a maker's yard is full because the
+// harbors it reaches are full. Returns null or { g, n (units of g waiting: harbors and yards), harbors, quayOpen }.
+function shipsFull(state) {
+  const by = {};
+  for (const hb of state.b) if (BUILDINGS[hb.type].kind === 'harbor' && hb.full) for (const g in hb.left || {}) by[g] = (by[g] || 0) + hb.left[g];
+  for (const b of state.b) {
+    if (b.blocked !== 'yard' || !BUILDINGS[b.type].makes || takerState(state, b) !== 'ships') continue;
+    const g = BUILDINGS[b.type].makes;
+    by[g] = (by[g] || 0) + Math.floor(b.yard);
+  }
+  let g = null;
+  for (const k in by) if (!g || by[k] > by[g]) g = k;
+  if (!g) return null;
+  const harbors = state.b.filter((o) => BUILDINGS[o.type].kind === 'harbor');
+  return { g, n: by[g], all: by, harbors: harbors.length, quayOpen: BUILDINGS.quay.stage <= state.stage && !harbors.some((o) => o.type === 'quay') };
 }
 
 // ---- src/sim/people.js
@@ -1956,21 +2205,25 @@ function walkersTick(state) {
 // ---- src/sim/payday.js
 // Payday: every building has one number a month; the month's result is their sum.
 
-// { n, rent, wages, upkeep, exports, imports } for one building at this moment of the month.
+// { n, rent, wages, upkeep, exports, imports, sales, buys } for one building at this moment of the month.
+// M3 (N7): a maker's number includes the ship's money for its goods (exports: what the ships paid for them, less the
+// harbor's share) and what workshops paid it for its deliveries (sales); a workshop pays for its input (buys). A
+// harbor keeps its share of the cargo (TUNE.harborShare). The month's result is still the sum of all the numbers.
 function bNumber(state, b) {
   const def = BUILDINGS[b.type];
-  const out = { n: 0, rent: 0, wages: 0, upkeep: 0, exports: 0, imports: 0 };
+  const out = { n: 0, rent: 0, wages: 0, upkeep: 0, exports: 0, imports: 0, sales: 0, buys: 0 };
   if (def.kind === 'home') {
     const lv = LEVELS[b.level];
     out.rent = Math.round(lv.rent * LEVERS.rent[state.lev.rent].mult * b.res / lv.people * (operaNear(state, b) ? 1 + TUNE.operaRent : 1));
   } else if (def.jobs) {
     out.wages = Math.round(b.workers * wageNow(state) * LEVERS.wages[state.lev.wages].mult);
     out.upkeep = Math.round(upkeepOf(def) * (b.open ? 1 : TUNE.closedUpkeep));
-    if (def.kind === 'harbor') out.exports = b.sold;
+    out.exports = def.kind === 'harbor' ? (b.mFee || 0) : (b.mExp || 0);
+    out.sales = b.mSale || 0; out.buys = b.mBuy || 0;
     // block 6: the flour a bakery buys from the ship is on the bakery's own number (harbors no longer carry it)
     out.imports = b.bought || 0;
   }
-  out.n = out.rent + out.exports - out.wages - out.upkeep - out.imports;
+  out.n = out.rent + out.exports + out.sales - out.wages - out.upkeep - out.imports - out.buys;
   return out;
 }
 
@@ -1985,7 +2238,81 @@ function bForecast(state, type) {
   const def = BUILDINGS[type];
   if (def.kind === 'home') return Math.round(LEVELS[1].rent * LEVERS.rent[state.lev.rent].mult);
   if (!def.jobs) return 0;
-  return -(Math.round(def.jobs * wageNow(state) * LEVERS.wages[state.lev.wages].mult) + Math.round(upkeepOf(def)));
+  return bEarns(state, def) - (Math.round(def.jobs * wageNow(state) * LEVERS.wages[state.lev.wages].mult) + Math.round(upkeepOf(def)));
+}
+
+// M3: what a maker earns a month at full staff when all it makes is sold (the ship, less the harbor's share; or a
+// workshop at the inner price), less what its input costs. Goods for the markets earn nothing here: homes pay rent.
+function bEarns(state, def) {
+  if (def.kind !== 'producer') return 0;
+  const g = def.makes, ship = EXPORTABLE.includes(g) && state.exp[g] && GOODS[g].price > 0;
+  let v = def.rate * (ship ? exportPrice(state, g) * (1 - TUNE.harborShare) : GOODS[g].inner || 0);
+  for (const u in def.uses || {}) v -= def.uses[u] * def.rate * (u === 'flour' ? GOODS.flour.cost : innerPrice(u));
+  return Math.round(v);
+}
+
+// What shutting a building saves a month: its wages and half its upkeep.
+function closeSaves(state, b) {
+  const def = BUILDINGS[b.type];
+  return bNumber(state, b).wages + Math.round(upkeepOf(def) * (1 - TUNE.closedUpkeep));
+}
+
+// M3: the month's story of one building, kept at payday as b.last (the card's "Last month: made 30 cigars · 24
+// shipped (+$2,400) · 6 to the market · wages and upkeep −$1,100 · result +$1,300").
+const MONTH_KEYS = ['mMade', 'mShip', 'mExp', 'mMkt', 'mShop', 'mSale', 'mBuy', 'mBuyN', 'mHarb', 'mFee'];
+function monthKeep(state, b, x) {
+  const def = BUILDINGS[b.type];
+  if (!def.jobs) return;
+  b.last = { m: state.month, n: x.n, wages: x.wages, upkeep: x.upkeep, imports: x.imports, exports: x.exports, sales: x.sales, buys: x.buys,
+    made: b.mMade || 0, ship: b.mShip || 0, mkt: b.mMkt || 0, shop: b.mShop || 0, buyN: b.mBuyN || 0, harb: b.mHarb || 0, sold: b.sold || 0 };
+  for (const k of MONTH_KEYS) if (b[k] !== undefined) b[k] = 0;
+}
+
+// M3 (N7, "it shows minus, but how much was exported?"): one building's month as the card shows it, this month so far
+// and last month: made · exported (units, and what the ship paid it) · to workshops (and what they paid) · to the
+// markets · waiting at a harbor · wages, upkeep, input and flour · the result (= its payday line).
+function bLedger(state, b) {
+  const def = BUILDINGS[b.type], x = bNumber(state, b), g = def.makes;
+  let wait = 0;
+  if (g) for (const hb of state.b) { const c = hb.cons && hb.cons[g]; if (c && c[b.id]) wait += c[b.id]; }
+  const now = { made: b.mMade || 0, ship: b.mShip || 0, exp: x.exports, shop: b.mShop || 0, sale: x.sales, mkt: b.mMkt || 0,
+    buyN: b.mBuyN || 0, buy: x.buys, wages: x.wages, upkeep: x.upkeep, imports: x.imports, n: x.n };
+  const L = b.last;
+  const last = L ? { made: L.made, ship: L.ship, exp: L.exports, shop: L.shop, sale: L.sales, mkt: L.mkt, buyN: L.buyN, buy: L.buys,
+    wages: L.wages, upkeep: L.upkeep, imports: L.imports, n: L.n } : null;
+  return { now, last, wait: Math.floor(wait + 1e-9), verdict: ledgerVerdict(state, b, last || now) };
+}
+
+// The plain verdict: what the building does for the island (not its own number): a maker whose goods the ship takes
+// "earns the island +$X a month through the ship" (the ship's whole price, less its own wages, upkeep and flour; its
+// input is paid to the island's own fields, so it stays on the island).
+function ledgerVerdict(state, b, m) {
+  const def = BUILDINGS[b.type], g = def.makes, gn = g ? GOODS[g].name.toLowerCase() : '';
+  const cost = m.wages + m.upkeep + m.imports;
+  if (def.kind === 'harbor') return '';
+  if (m.ship > 0) {
+    const gross = Math.round(m.exp / (1 - TUNE.harborShare)), net = gross - cost;
+    return net >= 0 ? 'Earns the island ' + signed$(net) + ' a month through the ship: it paid ' + money$(gross) + ' for ' + Math.round(m.ship) + ' ' + gn + '; wages and upkeep ' + money$(cost) + '.'
+      : 'The ship paid ' + money$(gross) + ' for ' + Math.round(m.ship) + ' ' + gn + '; wages and upkeep cost ' + money$(cost) + ': the island pays ' + money$(-net) + ' a month for ' + def.jobs + ' jobs.';
+  }
+  if (m.shop > 0) {
+    const to = BUILD_ORDER.filter((t) => BUILDINGS[t].uses && BUILDINGS[t].uses[g] !== undefined).map((t) => BUILDINGS[t].name.toLowerCase());
+    return 'Sells its ' + gn + ' to the ' + listAnd(to) + ': ' + signed$(m.sale) + '. What they make goes to the ship and the markets.';
+  }
+  if (m.mkt > 0) return goodNeed(g) === 'food' ? 'Feeds the homes through the markets (' + Math.round(m.mkt) + ' ' + gn + '): the homes pay the rent.' : 'Its ' + gn + ' goes to the markets (' + Math.round(m.mkt) + '): homes that have it grow and pay more rent.';
+  if (m.made > 0) return 'Made ' + Math.round(m.made) + ' ' + gn + '; none has left the yard yet.';
+  return '';
+}
+
+function signed$(n) { return (n > 0 ? '+' : n < 0 ? '−' : '') + '$' + Math.abs(Math.round(n)).toLocaleString('en-US'); }
+
+// A harbor's month for its card: the next ship and its hold, what waits beyond it, the last departures.
+function harborLedger(state, b) {
+  const def = BUILDINGS[b.type], hold = shipHold(def), w = harborWaiting(state, b), x = bNumber(state, b);
+  const last = b.deps && b.deps[0];
+  return { hold, ships: def.ships || 1, wait: w.goods, waitN: w.n, aboard: Math.min(hold, w.n), beyond: Math.max(0, w.n - hold), deps: b.deps || [],
+    name: shipName(state, b), fee: x.exports, lastFee: b.last ? b.last.exports : 0, sentLast: b.lastSold || 0,
+    verdict: b.lastSold ? 'Sent ' + money$(b.lastSold) + ' of the island’s goods to sea last month. The dockers keep ' + Math.round(TUNE.harborShare * 100) + ' % (' + money$(b.last ? b.last.exports : 0) + '); the rest is on the makers’ cards.' : '' };
 }
 
 // Upkeep a month at full use: a share of the building's cost, a larger share for the big ones (block 6, TUNE.bigUpkeep).
@@ -1999,14 +2326,16 @@ function paydayRun(state) {
   for (const b of state.b) {
     const x = bNumber(state, b);
     if (BUILDINGS[b.type].kind === 'fixed') continue;
-    r.rent += x.rent; r.exports += x.exports; r.wagesUpkeep += x.wages + x.upkeep; r.imports += x.imports;
+    r.rent += x.rent; r.exports += x.exports + x.sales - x.buys; r.wagesUpkeep += x.wages + x.upkeep; r.imports += x.imports;
     r.result += x.n;
     r.lines.push({ id: b.id, n: x.n });
     if (x.n) simEvent(state, { kind: 'money', id: b.id, n: x.n });
+    monthKeep(state, b, x);
     if (b.sold !== undefined) { b.lastSold = b.sold; b.sold = 0; b.soldUnits = {}; }
     if (b.bought !== undefined) { b.lastBought = b.bought; b.bought = 0; }
   }
   r.soldUnits = Object.assign({}, state.monthExported);
+  r.soldValue = Object.assign({}, state.monthExpV || {});
   state.money += r.result;
   state.lastReceipt = r;
   state.history.push({ m: state.month, money: state.money, pop: popCount(state), result: r.result, happy: state.happy, stage: state.stage });
@@ -2017,11 +2346,16 @@ function paydayRun(state) {
 
 // The month in at most eight lines, for the receipt.
 function receiptLines(state, r) {
-  const lines = [['Rent from homes', r.rent], ['Exports (the ship)', r.exports], ['Wages and upkeep', -r.wagesUpkeep]];
+  const lines = [['Rent from homes', r.rent], ['Exports (the ship)', r.exports]];
+  // M3 (N4): what the ships took, by good ("  24 rum", +$3,600), largest first
+  const sv = r.soldValue || {}, gs = Object.keys(sv).filter((g) => sv[g] > 0).sort((a, b) => sv[b] - sv[a]);
+  for (const g of gs.slice(0, 4)) lines.push(['  ' + (r.soldUnits[g] || 0) + ' ' + GOODS[g].name.toLowerCase(), sv[g]]);
+  if (gs.length > 4) lines.push(['  ' + (gs.length - 4) + ' more goods', gs.slice(4).reduce((a, g) => a + sv[g], 0)]);
+  lines.push(['Wages and upkeep', -r.wagesUpkeep]);
   if (r.imports) lines.push(['Imports (flour)', -r.imports]);
-  const top = r.lines.filter((l) => l.n < 0).sort((a, b) => a.n - b.n).slice(0, 3);
+  const top = r.lines.filter((l) => l.n < 0).sort((a, b) => a.n - b.n).slice(0, 2);
   for (const l of top) { const b = bById(state, l.id); if (b) lines.push(['  ' + BUILDINGS[b.type].name, l.n]); }
-  return lines.slice(0, 7);
+  return lines.slice(0, 10);
 }
 
 // ---- src/sim/stages.js
@@ -2166,6 +2500,8 @@ function yardText(s, b) {
   const why = takerState(s, b);
   if (why === 'none') return 'The ' + name + '’s yard is full: nobody takes the ' + g + '. Build ' + GOOD_TAKER[def.makes] + ' on its road.';
   if (why === 'unreached') return 'The ' + name + ' has no road to ' + GOOD_TAKER[def.makes] + '. Join its road to theirs (Show marks both).';
+  // M3 (N4): exported, and only the ships are full: never "makes more than the island uses"
+  if (why === 'ships') return shipsText(s, def.makes);
   const cart = longCart(s, b);
   if (cart) {
     // M1 (N16: "it says 72 tiles but offers no solution"): the fix by name, the button arms it beside the building
@@ -2174,10 +2510,31 @@ function yardText(s, b) {
       (BUILDINGS[t].kind === 'harbor' ? 'a harbor on the coast near the ' + name : 'a ' + BUILDINGS[t].name.toLowerCase() + ' near the ' + name) +
       (s.stage >= PAVED_STAGE ? ', or pave its road (carts go twice as fast)' : '') + '; Show marks its road.';
   }
-  const cost = -bNumber(s, b).n;
+  const cost = closeSaves(s, b);
   const exp = EXPORTABLE.includes(def.makes) && !s.exp[def.makes] && countHarbors(s) ? ', or export ' + g + ' at the desk' : '';
   if (foodBuilding(b)) return 'The ' + name + ' makes more ' + g + ' than the island eats: its yard is full. More homes will eat it' + exp + '.';
   return 'The ' + name + ' makes more ' + g + ' than the island uses: its yard is full. Close it to save $' + cost + ' a month' + exp + '.';
+}
+
+// M3 (N4): "Ships are full: 18 cigars wait. Build a second harbor or the steamship quay." (g: the good to name, else
+// the one with most waiting).
+function shipsText(s, g, wait) {
+  const f = shipsFull(s) || { all: {}, harbors: countHarbors(s), quayOpen: BUILDINGS.quay.stage <= s.stage && !s.b.some((o) => o.type === 'quay') };
+  g = g || f.g || 'rum';
+  const n = wait || (f.all && f.all[g]) || 0, unit = n === 1 ? GOODS[g].name.toLowerCase().replace(/s$/, '') : GOODS[g].name.toLowerCase();
+  const more = f.harbors <= 1 ? 'a second harbor' : 'another harbor';
+  return 'Ships are full: ' + (n ? n + ' ' + unit + ' wait' : GOODS[g].name.toLowerCase() + ' waits') + ' at the harbor. Build ' + more + (f.quayOpen ? ' or the steamship quay (' + shipHold(BUILDINGS.quay) + ' a ship, twice a month)' : '') + '.';
+}
+
+// M3 (N15): the biggest employer she can build now (a producer of her stage with the most jobs), with what feeds it.
+function bigEmployer(s) {
+  let t = '';
+  for (const k of BUILD_ORDER) { const d = BUILDINGS[k]; if (d.kind === 'producer' && d.stage <= s.stage && (!t || d.jobs > BUILDINGS[t].jobs)) t = k; }
+  if (!t) return null;
+  const d = BUILDINGS[t], u = d.uses && Object.keys(d.uses)[0], src = u && u !== 'flour' ? makerOf(u) : '';
+  const feed = src ? Math.ceil(d.uses[u] * d.rate / BUILDINGS[src].rate) : 0;
+  return { t, jobs: d.jobs, src, feed, srcJobs: src ? feed * BUILDINGS[src].jobs : 0,
+    text: 'a ' + d.name.toLowerCase() + ' employs ' + d.jobs + (src ? ' (and ' + plural(feed, BUILDINGS[src].name.toLowerCase(), BUILDINGS[src].name.toLowerCase() + 's') + ' to feed it, ' + feed * BUILDINGS[src].jobs + ' more)' : '') };
 }
 
 // The cart of a producer on a long road (more than 14 tiles), or null.
@@ -2464,6 +2821,13 @@ const GUIDE_PROBLEMS = [
     const next = STAGES[s.stage + 1];
     return { text: next.name + ' needs ' + k.want + ' ' + LEVELS[k.level].name + 's (' + k.have + ' now): ' + k.text.replace(/^[A-Za-z]+: /, '') + (k.fix ? ' · ' + k.fix.text : '') + '.', btn: toolLabel(k.tool), act: { tool: k.tool, at: k.at } };
   } },
+  { key: 'ships', check(s) {
+    // M3 (N4): goods wait because the ships are full: a second harbor (or the steamship quay) takes them
+    const f = shipsFull(s);
+    if (!f) return null;
+    const hb = s.b.find((o) => BUILDINGS[o.type].kind === 'harbor' && o.full) || s.b.find((o) => BUILDINGS[o.type].kind === 'harbor');
+    return { text: shipsText(s), btn: toolLabel('harbor'), act: hb ? { tool: 'harbor', at: [hb.x, hb.y], select: hb.id } : { tool: 'harbor' } };
+  } },
   { key: 'yard', check(s) {
     // A food building that simply makes more than the homes eat comes last, and its button builds a home (block 5).
     // M1 (N10/N16): a long road is said before a surplus, and every case arms its own fix (never Home for "a market closer")
@@ -2489,10 +2853,11 @@ const GUIDE_PROBLEMS = [
   } },
   { key: 'jobs', check(s) {
     if (!s.workforce || s.jobless / s.workforce <= 0.2) return null;
-    const t = ['grove', 'cane', 'tobacco', 'finca', 'finca', 'finca'][s.stage];
-    // Only goods she can make now (block 4: in Settlement she named rum, cigars and coffee, all locked).
-    const sell = EXPORTABLE.filter((g) => GOODS[g].price >= 100 && makerOf(g) && BUILDINGS[makerOf(g)].stage <= s.stage && BUILDINGS.harbor.stage <= s.stage).map((g) => GOODS[g].name.toLowerCase());
-    return { text: plural(s.jobless, 'person has', 'people have') + ' no work. ' + (sell.length ? 'Build a farm or a workshop: the ship buys ' + listAnd(sell) + '.' : 'Build a farm: more food lets more homes fill.'), btn: toolLabel(t), act: { tool: t } };
+    // M3 (N15): the fix by name: the biggest employer she can build now, and what feeds it
+    const big = bigEmployer(s);
+    if (!big || s.stage === 0) return { text: plural(s.jobless, 'person has', 'people have') + ' no work. Build a farm: more food lets more homes fill.', btn: toolLabel('grove'), act: { tool: 'grove' } };
+    const t = big.src && !s.b.some((o) => o.type === big.src) ? big.src : big.t;
+    return { text: plural(s.jobless, 'person has', 'people have') + ' no work. The biggest employer you can build: ' + big.text + '.' + (t === big.src ? ' Its ' + BUILDINGS[t].name.toLowerCase() + 's first.' : ''), btn: toolLabel(t), act: { tool: t } };
   } },
   { key: 'beds', check(s) {
     if (s.waiting || freeBeds(s) > 0 || s.happy < TUNE.happyArrive || countType(s, 'casita') < 3) return null;
@@ -2615,6 +2980,7 @@ function loadGame(obj) {
   if (s.mv < 3) saveMigrate2(s);
   if (s.mv < 4) saveMigrate3(s);
   if (s.mv < 5) saveMigrate4(s);
+  if (s.mv < 6) saveMigrate5(s);
   s.ev = [];
   s.walk = [];
   return s;
@@ -2674,6 +3040,13 @@ function saveMigrate4(s) {
   s.mv = 5;
 }
 
+// M2 saves -> M3 (12 Oct 2026): the ship's money now goes to the makers (b.cons: whose goods wait at a harbor); goods
+// already on a quay have no record and stay the harbor's when sold; what a harbor sold this month so far is its own.
+function saveMigrate5(s) {
+  for (const b of s.b) if (BUILDINGS[b.type] && BUILDINGS[b.type].kind === 'harbor') { b.cons = b.cons || {}; b.mFee = b.sold || 0; b.deps = b.deps || []; }
+  s.mv = 6;
+}
+
 // A detached copy for previews: no events, no walkers.
 function simClone(state) {
   const s = loadGame(saveGame(state));
@@ -2695,7 +3068,7 @@ function newGame(seed) {
     happy: 50, workforce: 0, jobs: 0, jobless: 0, exported: {}, monthExported: {}, monthImports: {},
     lastReceipt: null, history: [], log: [], stageMonth: { 0: 0 }, stats: { levelUps: 0 },
     guide: { step: 0, msg: null, cnt: {}, seen: {}, snooze: {} }, lastMoves: { came: 0, left: 0 },
-    walk: [], ev: [], palace: 0, res: 0, mv: 5, downs: {}, downNeed: {}, waitQ: [], waiting: 0,
+    walk: [], ev: [], palace: 0, res: 0, mv: 6, downs: {}, downNeed: {}, waitQ: [], waiting: 0,
   };
   for (const i of map.stub) state.road[i] = 1;
   state.b.push(newBuilding(state, 'pier', map.pier.x, map.pier.y));
@@ -2746,7 +3119,7 @@ function monthEnd(state) {
   shipSail(state);
   jobsAssign(state);
   paydayRun(state);
-  state.monthExported = {};
+  state.monthExported = {}; state.monthExpV = {};
   state.happy = happyCalc(state).value;
   peopleMonth(state);
   jobsAssign(state);
@@ -6035,16 +6408,16 @@ const ISO = (() => {
           const drop = Math.floor(prev[g] || 0) - Math.floor(cur[b.id][g] || 0); if (drop <= 0) return;
           val += drop * (typeof exportPrice === 'function' ? exportPrice(s, g) : GOODS[g].price);
           const SL = harborSlots(def), slot = SL[Math.min(gi, SL.length - 2)];
-          for (let i = 0; i < Math.min(4, drop); i++) (R.flying || (R.flying = [])).push({ good: g, x0: b.x + slot[0], y0: b.y + slot[1], to: steam ? b.id : 0, t0: now + (n++) * 130 / k, dur: 900 / k });
+          for (let i = 0; i < Math.min(4, drop); i++) (R.flying || (R.flying = [])).push({ good: g, x0: b.x + slot[0], y0: b.y + slot[1], to: b.id, t0: now + (n++) * 130 / k, dur: 900 / k });
         });
-        if (steam && val) (R.shipMoney || (R.shipMoney = [])).push({ id: b.id, text: '+$' + val.toLocaleString('en-US'), t0: now + 600 / k });
-        else money += val;
+        // M3: each harbor has its own ship (the goods fly to it); its departure slip rises over the harbor (hsUpdate)
       }
       if (paid) {
         if (sh.st === 'away' || sh.st === 'arrive') { sh.x = m.x; sh.y = m.y; sh.hd = 0; sh.a = 1; }
         sh.st = 'load'; sh.t0 = now; sh.money = money; sh.month = s.month;
       }
     }
+    hsUpdate(R, s, now, mf, k, paid, mid);
     R.hbPrev = cur; R.monthSeen = s.month; R.mtSeen = s.mt;
     const ease = (u) => u * u * (3 - 2 * u), age = (now - sh.t0) * k;
     const onBoard = (s.walk || []).some((w) => w.arriving && w.pos < 0);
@@ -6070,6 +6443,74 @@ const ISO = (() => {
     if (R.flying) R.flying = R.flying.filter((f) => now - f.t0 < f.dur);
     if (R.shipMoney) R.shipMoney = R.shipMoney.filter((f) => now - f.t0 < 2600);
   }
+  // M3 (N4: "another harbor with a boat that doesn't move"): every open, staffed harbor has its own ship. It sails in
+  // before its call (the schooner before the month's end, the steamship also before mid-month), lies at the harbor's
+  // sea side, takes the goods when the sim's ship sails (shipSail: b.deps) and leaves; the departure slip ("The
+  // Esperanza sails · 24 rum, 12 cigars · +$4,800") rises over the harbor. Drawn only, never part of the rules.
+  function hsBerth(s, b) {
+    const p = steamPos(s, b), hd = p.h ? (b.id % 2 ? Math.PI / 2 : -Math.PI / 2) : (b.id % 2 ? 0 : Math.PI);
+    return { x: p.x, y: p.y, hd, dx: Math.cos(hd), dy: Math.sin(hd) };
+  }
+  function hsWindow(def, mf) { return (mf >= 0.6 && mf < 0.9) || (def.ships > 1 && mf >= 0.12 && mf < 0.45); }
+  function hsUpdate(R, s, now, mf, k, paid, mid) {
+    if (!R.hs) R.hs = {};
+    if (!R.depSeen) R.depSeen = {};
+    const seen = {};
+    for (const b of s.b) {
+      const def = BUILDINGS[b.type]; if (def.kind !== 'harbor') continue;
+      seen[b.id] = 1;
+      const on = steamOn(s, b), d0 = b.deps && b.deps[0], key = d0 ? d0.m + (d0.mid ? 'm' : '') + ':' + d0.n : '';
+      let h = R.hs[b.id];
+      if (!h) { h = R.hs[b.id] = { st: on && hsWindow(def, mf) ? 'moored' : 'away', t0: now, a: 1 }; R.depSeen[b.id] = key; }
+      if (key !== R.depSeen[b.id]) {
+        R.depSeen[b.id] = key;
+        if (d0 && d0.n) (R.slips || (R.slips = [])).push({ id: b.id, dep: d0, t0: now + 500 / k });
+      }
+      // a call: the ship that lies (or comes) here loads and leaves
+      if ((paid || (mid && def.ships > 1)) && (h.st === 'moored' || h.st === 'arrive')) { h.st = 'load'; h.t0 = now; }
+      const age = (now - h.t0) * k;
+      if (h.st === 'load' && age > 1600) { h.st = 'leave'; h.t0 = now; }
+      else if (h.st === 'leave' && age > 4200) { h.st = 'away'; h.t0 = now; }
+      if (h.st === 'away' && on && hsWindow(def, mf) && age > 300) { h.st = 'arrive'; h.t0 = now; }
+      if (h.st === 'arrive' && (now - h.t0) * k > 3800) h.st = 'moored';
+      if (!on && (h.st === 'moored' || h.st === 'arrive')) { h.st = 'leave'; h.t0 = now; }
+    }
+    for (const id in R.hs) if (!seen[id]) delete R.hs[id];
+    if (R.slips) R.slips = R.slips.filter((f) => now - f.t0 < 5200);
+  }
+  // Where a harbor's ship is now ({ x, y, hd, a } or null when away).
+  function hsPos(R, s, b, now) {
+    const h = R.hs && R.hs[b.id]; if (!h || h.st === 'away') return null;
+    const B = hsBerth(s, b), k = speedK(), age = (now - h.t0) * k;
+    if (h.st === 'arrive') { const u = clamp(age / 3800, 0, 1), e = 1 - (1 - u) * (1 - u); return { x: B.x - B.dx * 14 * (1 - e), y: B.y - B.dy * 14 * (1 - e), hd: B.hd, a: Math.min(1, u / 0.3) }; }
+    if (h.st === 'leave') { const u = clamp(age / 4200, 0, 1); return { x: B.x + B.dx * 17 * u * u, y: B.y + B.dy * 17 * u * u, hd: B.hd, a: u < 0.65 ? 1 : 1 - (u - 0.65) / 0.35 }; }
+    return { x: B.x, y: B.y, hd: B.hd, a: 1 };
+  }
+  // The departure slip: a paper note with the ship's name, its cargo and what it paid.
+  function slipSprite(R, d) {
+    const cargo = Object.keys(d.cargo).sort((a, b) => d.cargo[b] - d.cargo[a]).map((g) => d.cargo[g] + ' ' + GOODS[g].name.toLowerCase()).join(', ');
+    const l1 = 'The ' + d.ship + ' sails', l3 = '+$' + d.money.toLocaleString('en-US');
+    const key = 'slip|' + l1 + '|' + cargo + '|' + l3 + '|' + R.dpr;
+    let sp = uiGet(R, key);
+    if (sp) return sp;
+    const dd = R.dpr, f1 = 'italic 700 15px Georgia, serif', f2 = '600 13px ' + SANS, f3 = '800 17px ' + SANS, meas = measCtx();
+    meas.font = f1; const w1 = meas.measureText(l1).width; meas.font = f2; const w2 = meas.measureText(cargo).width; meas.font = f3; const w3 = meas.measureText(l3).width + 22;
+    const W = Math.ceil(Math.max(w1, w2, w3) + 24), H = 70;
+    const c = canvasNew(W * dd, (H + 8) * dd), g = c.getContext('2d'); g.setTransform(dd, 0, 0, dd, 0, 0);
+    g.fillStyle = 'rgba(37,28,56,.18)'; g.beginPath(); g.roundRect ? g.roundRect(3, 5, W - 4, H, 9) : g.rect(3, 5, W - 4, H); g.fill();
+    g.fillStyle = '#fbf3df'; g.strokeStyle = INK; g.lineWidth = 1.4; g.beginPath(); g.roundRect ? g.roundRect(1, 1, W - 4, H, 9) : g.rect(1, 1, W - 4, H); g.fill(); g.stroke();
+    g.fillStyle = '#c98b3c'; g.fillRect(9, 23, W - 20, 1.2);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = f1; g.fillStyle = '#2f5f7f'; g.fillText(l1, W / 2 - 1, 13);
+    g.font = f2; g.fillStyle = INK; g.fillText(cargo, W / 2 - 1, 35);
+    const x3 = W / 2 - 1 - w3 / 2;
+    g.beginPath(); g.arc(x3 + 7, 56, 7, 0, TAU); g.fillStyle = '#f0c04a'; g.fill(); g.strokeStyle = INK; g.lineWidth = 1.2; g.stroke();
+    g.fillStyle = INK; g.font = '800 9px Georgia, serif'; g.fillText('$', x3 + 7, 56.5);
+    g.font = f3; g.textAlign = 'left'; g.fillStyle = '#2e8b3e'; g.fillText(l3, x3 + 19, 56);
+    sp = { c, ax: W / 2, ay: H + 8, w: W, h: H + 8 };
+    uiPut(R, key, sp);
+    return sp;
+  }
   // The steamship lies along the quay's sea side while the quay is open and staffed.
   function steamOn(s, b) { return b.open && b.workers > 0; }
   function steamPos(s, b) {
@@ -6083,10 +6524,12 @@ const ISO = (() => {
       const along = Math.abs(Math.cos(sh.hd)) > 0.7;
       out.push({ k: 'ship', kind: 'schooner', x: sh.x, y: sh.y, hd: sh.hd, a: sh.a, moored: sh.st === 'moored' || sh.st === 'load', box: along ? [sh.x - 1.8, sh.y - 0.2, sh.x + 1.8, sh.y + 0.45] : [sh.x - 0.45, sh.y - 1.8, sh.x + 0.45, sh.y + 1.8] });
     }
+    const now = performance.now();
     for (const b of s.b) {
-      if (!(BUILDINGS[b.type].ships > 1) || !steamOn(s, b)) continue;
-      const p = steamPos(s, b), hd = p.h ? Math.PI / 2 : 0;
-      out.push({ k: 'ship', kind: 'steam', x: p.x, y: p.y, hd: p.h ? (b.id % 2 ? Math.PI / 2 : -Math.PI / 2) : (b.id % 2 ? 0 : Math.PI), a: 1, b, box: p.h ? [p.x - 0.45, p.y - 1.8, p.x + 0.45, p.y + 1.8] : [p.x - 1.8, p.y - 0.45, p.x + 1.8, p.y + 0.45], hd0: hd });
+      if (BUILDINGS[b.type].kind !== 'harbor') continue;
+      const p = hsPos(R, s, b, now); if (!p) continue;
+      const along = Math.abs(Math.cos(p.hd)) > 0.7;
+      out.push({ k: 'ship', kind: BUILDINGS[b.type].ships > 1 ? 'steam' : 'schooner', x: p.x, y: p.y, hd: p.hd, a: p.a, b, box: along ? [p.x - 1.8, p.y - 0.45, p.x + 1.8, p.y + 0.45] : [p.x - 0.45, p.y - 1.8, p.x + 0.45, p.y + 1.8] });
     }
   }
   function shipDraw(R, q, t) {
@@ -6118,7 +6561,7 @@ const ISO = (() => {
     for (const f of R.flying || []) {
       const u = (now - f.t0) / f.dur; if (u < 0 || u > 1) continue;
       let tx, ty;
-      if (f.to) { const b = bById(s, f.to); if (!b) continue; const p = steamPos(s, b); tx = p.x; ty = p.y; } else if (sh) { tx = sh.x - 0.2; ty = sh.y; } else continue;
+      if (f.to) { const b = bById(s, f.to); if (!b) continue; const p = hsPos(R, s, b, now) || steamPos(s, b); tx = p.x; ty = p.y; } else if (sh) { tx = sh.x - 0.2; ty = sh.y; } else continue;
       const e = u * u * (3 - 2 * u), x = lerp(f.x0, tx, e), y = lerp(f.y0, ty, e), z = 0.2 + Math.sin(u * Math.PI) * (1.2 + Math.hypot(tx - f.x0, ty - f.y0) * 0.12) + 0.3 * e;
       const g0 = P(x, y, 0); ell(g0[0], g0[1], 5 * R.hw / 44, 2 * R.hw / 44, 'rgba(37,28,56,.18)');
       const q = P(x, y, z); sprDraw(R, pileSprite(R, f.good, 1), q[0], q[1]);
@@ -6126,6 +6569,11 @@ const ISO = (() => {
     if (sh && sh.floatT && sh.money > 0) {
       const age = (now - sh.floatT) / 3200;
       if (age >= 0 && age <= 1) { const p = P(sh.x, sh.y, 3.6); uiDraw(R, floaterSprite(R, '+$' + sh.money.toLocaleString('en-US') + ' exports', '#2e8b3e', true), p[0], p[1] - age * 30, age < 0.8 ? 1 : (1 - age) / 0.2); }
+    }
+    for (const f of R.slips || []) {
+      const age = (now - f.t0) / 5200, b = bById(s, f.id); if (age < 0 || age > 1 || !b) continue;
+      const p = P(b.x + b.w / 2, b.y + b.h / 2, 2.2);
+      uiDraw(R, slipSprite(R, f.dep), p[0], p[1] - 10 - age * 34, age < 0.08 ? age / 0.08 : age < 0.8 ? 1 : (1 - age) / 0.2);
     }
     for (const f of R.shipMoney || []) {
       const age = (now - f.t0) / 2600, b = bById(s, f.id); if (age < 0 || age > 1 || !b) continue;
@@ -6224,7 +6672,7 @@ const ISO = (() => {
     for (const m of R.spr.values()) for (const sp of m.values()) canvasFree(sp.c); R.spr.clear(); R.sprPx = 0;
     for (const sp of R.ui.values()) canvasFree(sp.c); R.ui.clear(); R.uiPx = 0;
     if (R.ov) { canvasFree(R.ov.c); R.ov = null; }
-    R.geo = null; R.ship = null; R.shipMoney = []; R.objKey = ''; R.groundStage = -1; R.roadVer = -1; R.roadSnap = null; R.order = []; R.bubbles = [];
+    R.geo = null; R.ship = null; R.shipMoney = []; R.hs = null; R.slips = []; R.depSeen = null; R.objKey = ''; R.groundStage = -1; R.roadVer = -1; R.roadSnap = null; R.order = []; R.bubbles = [];
   }
   function trim(R) { for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; } R.groundDirty = true; }
   function bucketFor(R, z) {
@@ -7134,7 +7582,7 @@ function bStatus(s, b) {
   if (def.kind === 'service' && !serviceHomes(s, b.id).length) return { text: 'No homes in reach: within ' + bReach(def) + ' tiles in a straight line' + (needsRoad(def) ? ' and joined to it by road.' : ' (no road needed).') };
   if (def.gives === 'park') return { text: 'Homes within ' + bReach(def) + ' tiles in a straight line have a park. No road needed: nothing is carried here.', good: true };
   if (def.gives === 'opera') return { text: 'Homes within ' + bReach(def) + ' tiles pay ' + Math.round(TUNE.operaRent * 100) + ' % more rent.', good: true };
-  if (b.type === 'quay') return { text: 'Two ships a month, each buying up to ' + def.buys + ' of a good; twice the settlers. The landmark of the ' + STAGES[STAGES.length - 1].name + '.', good: true };
+  if (b.type === 'quay') return { text: 'Two ships a month, each carrying up to ' + shipHold(def) + ' loads; twice the settlers. The landmark of the ' + STAGES[STAGES.length - 1].name + '.', good: true };
   if (b.type === 'cathedral') return { text: 'A church for homes within ' + bReach(def) + ' tiles, and +' + TUNE.cathedralHappy + ' happiness for the island.', good: true };
   return { text: 'Working.', good: true };
 }
@@ -7205,13 +7653,19 @@ function cardHtml(s, b) {
     if (x.upkeep) parts.push('upkeep $' + x.upkeep);
     if (x.exports) parts.push('ship +$' + x.exports);
     if (x.imports) parts.push('flour −$' + x.imports);
-    h += '<div class="num ' + (x.n < 0 ? 'neg' : 'pos') + '">' + fmtSigned(x.n) + ' a month</div><div class="why">' + esc(parts.join(' · ') || 'no costs') + '</div>';
-    if (def.jobs) h += '<div class="line"><span>Workers</span><span>' + b.workers + ' / ' + def.jobs + '</span></div>';
+    // M3 (N7): a workplace with a month behind it shows last month's result (the payday's line); the month so far is
+    // in the ledger (before, the number was this month so far: wages already paid, the ship's money not yet in)
+    if (b.last && (def.kind === 'producer' || def.kind === 'harbor')) h += '<div class="num ' + (b.last.n < 0 ? 'neg' : 'pos') + '">' + fmtSigned(b.last.n) + ' last month</div><div class="why">' + esc('its payday line in ' + MONTHS[b.last.m % 12] + ' · this month so far ' + fmtSigned(x.n)) + '</div>';
+    else h += '<div class="num ' + (x.n < 0 ? 'neg' : 'pos') + '">' + fmtSigned(x.n) + ' a month</div><div class="why">' + esc(parts.join(' · ') || 'no costs') + '</div>';
+    if (def.jobs) h += '<div class="line"><span>Workers</span><span>' + b.workers + ' / ' + def.jobs + (b.workers < def.jobs && b.open ? ' · works at ' + Math.round(100 * b.workers / def.jobs) + ' %' : '') + '</span></div>';
+    // M3 (N7, N4): the month as a small ledger (this month so far, last month) and a plain verdict
+    if (def.kind === 'producer') h += ledgerHtml(s, b);
+    if (def.kind === 'harbor') h += harborHtml(s, b);
     if (def.kind === 'producer') {
       const uses = def.uses ? ' from ' + Object.keys(def.uses).map((g) => def.uses[g] * def.rate + ' ' + GOODS[g].name.toLowerCase()).join(', ') : '';
       h += '<div class="line"><span>Makes a month</span><span>' + def.rate + ' ' + esc(GOODS[def.makes].name.toLowerCase()) + esc(uses) + '</span></div>';
-      h += '<div class="line"><span>Yard</span><span>' + Math.floor(b.yard) + ' / ' + TUNE.yardCap + ' ' + esc(GOODS[def.makes].name.toLowerCase()) + '</span></div>';
-      if (def.uses) for (const g in def.uses) h += '<div class="line"><span>' + esc(GOODS[g].name) + ' in stock</span><span>' + Math.floor(b.inp[g] || 0) + ' / ' + TUNE.inputCap + '</span></div>';
+      h += '<div class="line"><span>Yard</span><span>' + Math.floor(b.yard) + ' / ' + yardCapOf(def) + ' ' + esc(GOODS[def.makes].name.toLowerCase()) + '</span></div>';
+      if (def.uses) for (const g in def.uses) h += '<div class="line"><span>' + esc(GOODS[g].name) + ' in stock</span><span>' + Math.floor(b.inp[g] || 0) + ' / ' + (g === 'flour' ? TUNE.inputCap : inputCapOf(def)) + '</span></div>';
       if (def.uses && def.uses.flour) h += '<div class="line"><span>Flour</span><span>' + esc(flourShip(s) ? 'by ship, straight to the bakery: ' + money$(b.lastBought || 0) + ' last month' : 'none: the ship brings it while a harbor is open') + '</span></div>';
       h += '<div class="line"><span>Goes to</span><span>' + esc(GOOD_TAKER[def.makes]) + '</span></div>';
       // block 6: a producer sends more carts (up to TUNE.cartsMax) when loads wait and all its carts are out
@@ -7227,17 +7681,56 @@ function cardHtml(s, b) {
         (marketFood(b) < 1 ? (shelf.length ? ' · ' : '') + '<span class="n">No food on the shelves</span>' : '') + '</span></div>';
     }
     if (def.kind === 'service' && def.gives !== 'light') h += '<div class="line"><span>Homes in reach (' + bReach(def) + ' tiles)</span><span>' + serviceHomes(s, b.id).length + '</span></div>';
-    if (def.kind === 'harbor') {
-      const wait = Object.keys(b.stock).filter((g) => b.stock[g] >= 1);
-      h += '<div class="line"><span>For the ship</span><span>' + (wait.length ? wait.map((g) => Math.floor(b.stock[g]) + ' ' + GOODS[g].name.toLowerCase() + ' (' + money$(Math.floor(b.stock[g]) * exportPrice(s, g)) + ')').join(' · ') : 'nothing yet') + '</span></div>';
-      h += '<div class="line"><span>The ship buys</span><span>up to ' + (def.buys || TUNE.shipBuys) + ' of each good' + (def.ships > 1 ? ', twice a month' : ' a month') + (lighthouseOn(s) ? ' · +' + Math.round(TUNE.lighthouseBonus * 100) + ' %: lighthouse' : '') + '</span></div>';
-      h += '<div class="line"><span>Last month</span><span>sold ' + fmtMoney(b.lastSold || 0) + '</span></div>';
-      if (countType(s, 'bakery')) h += '<div class="line"><span>Flour</span><span>the ship takes it straight to every bakery (on each bakery\'s number)</span></div>';
-    }
+    if (def.kind === 'harbor' && countType(s, 'bakery')) h += '<div class="line"><span>Flour</span><span>the ship takes it straight to every bakery (on each bakery\'s number)</span></div>';
     const st = bStatus(s, b);
     h += '<p class="note' + (st.good ? ' good' : '') + '">' + esc(st.text) + (cutOff(s, b) ? ' <button class="link" id="cardRoads">Show roads</button>' : '') + '</p>';
   }
   return h + cardButtons(s, b);
+}
+
+// M3 (N7): "made · exported (+$) · to the workshops · to the markets · costs · result", this month and last, then
+// the verdict in one line. Numbers are bLedger's (the payday's own: the last column is last month's payday line).
+function ledgerHtml(s, b) {
+  const def = BUILDINGS[b.type], L = bLedger(s, b), g = def.makes, u = GOOD_UNIT[g] || GOODS[g].name.toLowerCase();
+  const cols = L.last ? [L.now, L.last] : [L.now];
+  const row = (label, f, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + esc(label) + '</th>' + cols.map((m) => '<td>' + f(m) + '</td>').join('') + '</tr>';
+  const units = (n) => Math.round(n) ? String(Math.round(n)) : '–';
+  const cash = (n) => n ? '<span class="' + (n < 0 ? 'n' : 'y') + '">' + fmtSigned(n) + '</span>' : '–';
+  const both = (k, v) => (m) => Math.round(m[k]) ? Math.round(m[k]) + ' · ' + cash(m[v]) : '–';
+  const any = (k) => cols.some((m) => Math.round(m[k]));
+  let t = '<table class="ledger"><tr><th></th><td class="h">This month</td>' + (L.last ? '<td class="h">' + esc(MONTHS[b.last.m % 12].slice(0, 3)) + '</td>' : '') + '</tr>';
+  t += row('Made (' + u + ')', (m) => units(m.made));
+  if (EXPORTABLE.includes(g) && GOODS[g].price) t += row('Exported · the ship paid', both('ship', 'exp'));
+  if (any('shop') || (GOODS[g].inner && !GOODS[g].price)) t += row('To the workshops · paid', both('shop', 'sale'));
+  if (any('mkt') || def.food) t += row('To the markets', (m) => units(m.mkt));
+  if (def.uses) for (const k in def.uses) t += row(k === 'flour' ? 'Flour (by ship)' : GOODS[k].name + ' bought', (m) => cash(-(k === 'flour' ? m.imports : m.buy)));
+  t += row('Wages · upkeep', (m) => cash(-(m.wages + m.upkeep)));
+  t += row('Result', (m) => cash(m.n), 'sum');
+  t += '</table>';
+  if (L.wait) t += '<div class="line"><span>Waiting at the harbor</span><span>' + L.wait + ' ' + esc(u) + ' (paid when a ship takes them)</span></div>';
+  if (L.verdict) t += '<p class="verdict">' + esc(L.verdict) + '</p>';
+  return t;
+}
+
+// M3 (N4): the harbor's card: its ship and hold, what waits (and what does not fit), the last departures.
+function harborHtml(s, b) {
+  const H = harborLedger(s, b), def = BUILDINGS[b.type];
+  const goods = Object.keys(H.wait).map((g) => H.wait[g] + ' ' + GOODS[g].name.toLowerCase()).join(' · ');
+  const when = def.ships > 1 ? 'mid-month and at the month’s end' : 'at the month’s end';
+  let t = '<div class="line"><span>Its ship, the <i>' + esc(H.name) + '</i></span><span>' + H.hold + ' loads a call, ' + when + (lighthouseOn(s) ? ' · +' + Math.round(TUNE.lighthouseBonus * 100) + ' %: lighthouse' : '') + '</span></div>';
+  const pct = Math.min(100, Math.round(100 * H.aboard / H.hold));
+  t += '<div class="hold"><div class="bar"><i style="width:' + pct + '%"></i></div><span>Next ship: <b>' + H.aboard + ' / ' + H.hold + '</b> loads waiting' + (H.beyond ? ' · <span class="n">' + H.beyond + ' more wait for the one after</span>' : '') + '</span></div>';
+  t += '<div class="line"><span>On the quay</span><span>' + (goods ? esc(goods) : 'nothing yet') + '</span></div>';
+  for (const d of H.deps.slice(0, 3)) {
+    const cargo = Object.keys(d.cargo).map((g) => d.cargo[g] + ' ' + GOODS[g].name.toLowerCase()).join(', ');
+    t += '<div class="line dep"><span>' + esc(MONTHS[d.m % 12].slice(0, 3) + (d.mid ? ' (mid)' : '') + ' · ' + d.ship) + '</span><span>' + esc(cargo) + ' · <b class="y">' + fmtSigned(d.money) + '</b>' + (d.left ? ' · <span class="n">' + d.left + ' left behind</span>' : '') + '</span></div>';
+  }
+  if (H.beyond || b.full) {
+    const g = Object.keys(H.wait).sort((a, c) => H.wait[c] - H.wait[a])[0];
+    t += '<p class="note">' + esc(H.beyond ? shipsText(s, g, H.beyond).replace(/^Ships are full: (\d+) (.+?) wait at the harbor\./, 'The next ship is full: $1 loads wait for the one after.') : shipsText(s, g)) + '</p>';
+  }
+  if (H.verdict) t += '<p class="verdict">' + esc(H.verdict) + '</p>';
+  return t;
 }
 
 // M2: a ready home's card: Upgrade · $X (her act; cost by level), a warning when the island makes too little of what the
@@ -7624,8 +8117,9 @@ function glanceRows(kind) {
   if (kind === 'work') {
     const title = 'Work · ' + d.workers + ' of ' + d.jobs + ' jobs filled';
     if (d.jobless) {
-      const t = ['grove', 'cane', 'tobacco', 'finca', 'finca', 'finca'][s.stage] || 'grove';
-      rows.push({ text: plural(d.jobless, 'person has', 'people have') + ' no work: a farm or a workshop gives jobs', bad: true, tool: t, show: show(s.b.find((b) => b.type === 'pier')) });
+      // M3 (N15): the biggest employer she can build now names the fix (and its fields, when none feed it yet)
+      const big = s.stage > 0 && bigEmployer(s), t = big ? (big.src && !s.b.some((o) => o.type === big.src) ? big.src : big.t) : 'grove';
+      rows.push({ text: plural(d.jobless, 'person has', 'people have') + ' no work: ' + (big ? big.text : 'a farm gives jobs'), bad: true, tool: t, show: show(s.b.find((b) => b.type === 'pier')) });
     }
     const short = s.b.filter((b) => BUILDINGS[b.type].jobs && b.open && b.workers < BUILDINGS[b.type].jobs)
       .sort((a, b) => (BUILDINGS[b.type].jobs - b.workers) - (BUILDINGS[a.type].jobs - a.workers) || a.id - b.id);
@@ -9175,6 +9669,737 @@ function placeTap(sx, sy) {
 // What the place sounds did (the console and the tests).
 function placeState() {
   return { buf: Object.keys(PLACE.buf), failed: Object.keys(PLACE.failed), log: PLACE.log.slice(), played: PLACE.played, cur: PLACE.cur ? PLACE.cur.kind : '' };
+}
+
+// ---- src/ui/todo.js
+// M6 (12 Oct 2026, Tomáš's notes N13 "she misses to-do lists, not only the layers list" and N18 "the game loses its
+// meaning later: how to let a person play long hours and days"): the to-do list, the greeting when she comes back, the
+// island's chronicle.
+// Why (PSYCHOLOGY.md §3): goals at three distances (Kivetz, Urminsky & Zheng 2006), progress already started (Nunes &
+// Drèze 2006), the pull of an unfinished, visible task (Ovsiankina; Ghibellini & Meier 2025), a reason to come back
+// (§3.7). Not done on purpose: streaks, timers, anything that nags when she leaves.
+// - ✓ in the top bar (beside the glance numbers): the open things; a tap opens one paper panel with three sections:
+//   Now (at most five open problems, the most useful first, each with Show and the button that arms its fix),
+//   This evening (the next stage's conditions with bars already filled by what she has, the landmark's savings bar,
+//   homes ready to upgrade with "Upgrade all · $X"), My notes (her pins: "+ Pin" on a building's card or on Rosa's line
+//   keeps the place; a short free note too; a tick, ✕ to delete; saved with the island).
+// - What gets done ticks off: a check draws, a line goes through, a soft sound (the sounds bus, when there is one).
+// - Continue on the title screen: a paper greeting with the island's date, what changed during her last session
+//   (people, money, stage) and the one open loop that matters most, with Show. Leaving says nothing.
+// - The chronicle: big moments (a stage, a landmark, the first home of each level, 100 / 500 / 1,000 people) are kept
+//   in state.chron and shown in the log (📜) with ❦; an old island gets its stages and people from its records.
+// State (all saved with the island, never read by the sim): state.todo (her notes), state.chron, state.chronSeen,
+// state.sess (where her last session began: month, people, money, stage). Reads the island through the same functions as
+// Rosa (guide.js) and the glance lists (glance.js), so the three never disagree.
+
+const TODO_NOW_MAX = 5, TODO_NOTE_MAX = 12, TODO_TEXT_MAX = 80, TODO_FREE_MAX = 60, CHRON_MAX = 120, CHRON_PEOPLE = [100, 500, 1000];
+
+if (typeof ICONS !== 'undefined') Object.assign(ICONS, {
+  todo: 'M5 4 H9 V6.6 H15 V4 H19 V22 H5 Z M9.6 2 H14.4 V5.9 H9.6 Z M7.6 12.6 L9 11.2 L10.6 12.8 L15 8.4 L16.4 9.8 L10.6 15.6 Z M7.6 18 H16.4 V19.6 H7.6 Z',
+  pin: 'M12 2 C8.1 2 5 5.1 5 9 C5 14 12 22 12 22 C12 22 19 14 19 9 C19 5.1 15.9 2 12 2 Z M12 6.4 A2.6 2.6 0 1 0 12.01 6.4 Z',
+  pen: 'M3.5 20.5 L4.6 15.6 L15.2 5 L19 8.8 L8.4 19.4 Z M16.4 3.8 L18 2.2 L21.8 6 L20.2 7.6 Z',
+});
+
+// ---------- state in the save ----------
+function todoMigrate(s) {
+  if (!s) return s;
+  if (!Array.isArray(s.todo)) s.todo = [];
+  s.todo = s.todo.filter((n) => n && typeof n.text === 'string' && n.text.trim()).slice(0, TODO_NOTE_MAX);
+  if (!Array.isArray(s.chron)) s.chron = [];
+  return s;
+}
+{ const _load = loadGame; loadGame = function (obj) { return todoMigrate(_load.apply(this, arguments)); }; }
+{ const _new = newGame; newGame = function (seed) { return todoMigrate(_new.apply(this, arguments)); }; }
+
+function todoNotes(s) { if (!Array.isArray(s.todo)) s.todo = []; return s.todo; }
+
+// ---------- the chronicle ----------
+const CHRON_STAGE = ['', 'Isla Nueva became a village.', 'Isla Nueva became a town.', 'Isla Nueva became a city.', 'Isla Nueva became a port city.', 'Isla Nueva became the capital.'];
+
+function chronAdd(s, k, text, at, m) {
+  if (!Array.isArray(s.chron)) s.chron = [];
+  const line = { m: m === undefined ? s.month : m, text, k };
+  if (at) line.at = at;
+  s.chron.push(line);
+  s.chron.sort((a, b) => a.m - b.m);
+  if (s.chron.length > CHRON_MAX) s.chron.shift();
+  return line;
+}
+
+function chronNow(s) {
+  let lv = 1;
+  for (const b of s.b) if (b.type === 'casita' && b.res > 0 && b.level > lv) lv = b.level;
+  const pop = popCount(s);
+  let mile = 0;
+  for (const p of CHRON_PEOPLE) if (pop >= p) mile = p;
+  return { stage: s.stage, res: s.res || 0, palace: s.palace ? 1 : 0, quay: countType(s, 'quay') > 0 ? 1 : 0, lv, pop: mile };
+}
+
+// The first look at an island (a new one, or a save from before M6): what it already reached is not announced; an old
+// island gets its stages (state.stageMonth) and its people (state.history) written in at the month they happened.
+function chronSeed(s) {
+  const now = chronNow(s);
+  if (!s.chron.length) {
+    for (let i = 1; i <= s.stage; i++) if (s.stageMonth && s.stageMonth[i] !== undefined) chronAdd(s, 'stage' + i, CHRON_STAGE[i], null, s.stageMonth[i]);
+    for (const p of CHRON_PEOPLE) {
+      const h = (s.history || []).find((x) => x.pop >= p);
+      if (h && p <= now.pop) chronAdd(s, 'pop' + p, p.toLocaleString('en-US') + ' people live on Isla Nueva.', null, h.m);
+    }
+  }
+  s.chronSeen = now;
+}
+
+// Every frame (cheap: once per tick): a new big moment is written once, with a notice for the ones nothing else announces.
+function chronCheck(s) {
+  if (!s || APP.titleOn) return;
+  if (!s.chronSeen) { chronSeed(s); return; }
+  const key = s.tick + '|' + s.ver;
+  if (APP.chronTick === key) return;
+  APP.chronTick = key;
+  const seen = s.chronSeen, now = chronNow(s);
+  const res = s.b.find((b) => b.type === 'residence'), resAt = res ? [res.x + res.w / 2, res.y + res.h / 2] : null;
+  for (let i = seen.stage + 1; i <= now.stage; i++) chronAdd(s, 'stage' + i, CHRON_STAGE[i] || STAGES[i].name + '.', resAt);
+  for (let r = seen.res + 1; r <= now.res; r++) if (RESIDENCE[r]) chronAdd(s, 'res' + r, 'The ' + RESIDENCE[r].name + ' was built on the hill.', resAt);
+  if (now.quay && !seen.quay) {
+    const q = s.b.find((b) => b.type === 'quay'), at = q ? [q.x + q.w / 2, q.y + q.h / 2] : null;
+    chronAdd(s, 'quay', 'The steamship quay opened: two ships a month.', at);
+    toastShow('❦ For the chronicle: the steamship quay opened.', { logged: true, id: q ? q.id : 0 });
+  }
+  if (now.palace && !seen.palace) { chronAdd(s, 'palace', "The Governor's palace was built: the island is complete.", resAt); toastShow("❦ For the chronicle: the Governor's palace stands.", { logged: true, id: res ? res.id : 0 }); }
+  for (let L = seen.lv + 1; L <= now.lv; L++) {
+    const h = s.b.find((b) => b.type === 'casita' && b.level === L && b.res > 0);
+    if (LEVELS[L]) chronAdd(s, 'lv' + L, 'The first ' + LEVELS[L].name + ' on the island.', h ? [h.x + 0.5, h.y + 0.5] : null);
+  }
+  if (now.pop > seen.pop) for (const p of CHRON_PEOPLE) if (p > seen.pop && p <= now.pop) {
+    chronAdd(s, 'pop' + p, p.toLocaleString('en-US') + ' people live on Isla Nueva.');
+    toastShow('❦ For the chronicle: ' + p.toLocaleString('en-US') + ' people live on Isla Nueva.', { logged: true });
+  }
+  // a home that steps down or people who leave do not take a moment back (seen keeps the highest)
+  s.chronSeen = { stage: Math.max(seen.stage, now.stage), res: Math.max(seen.res, now.res), palace: seen.palace || now.palace, quay: seen.quay || now.quay, lv: Math.max(seen.lv, now.lv), pop: Math.max(seen.pop, now.pop) };
+}
+
+// The log (📜) shows the chronicle among the messages, each with ❦ (cards.js's logOpen reads state.log: it is given the
+// two lists merged for the moment it draws).
+{ const _logOpen = logOpen; logOpen = function () {
+  const s = APP.state, keep = s.log, chron = Array.isArray(s.chron) ? s.chron : [];
+  const merged = keep.concat(chron.map((c) => Object.assign({ chron: 1 }, c)));
+  merged.sort((a, b) => a.m - b.m);
+  s.log = merged;
+  try { _logOpen.apply(this, arguments); } finally { s.log = keep; }
+  const list = merged.slice().reverse();
+  document.querySelectorAll('#sheet .log > p').forEach((p, i) => {
+    if (!list[i] || !list[i].chron) return;
+    p.classList.add('chron');
+    const sp = p.querySelector('span');
+    if (sp) sp.insertAdjacentHTML('afterbegin', '<b class="orn" aria-hidden="true">❦</b>');
+  });
+  if (chron.length) { const h = $('sheet').querySelector('h2'); if (h) h.insertAdjacentHTML('afterend', '<p class="sub">❦ marks the island\'s chronicle: its big moments.</p>'); }
+}; }
+
+// ---------- the list's data ----------
+function todoShowOf(b) { return b ? { id: b.id } : null; }
+
+// The month's result, as the last three paydays averaged (for "two or three paydays").
+function todoPerPayday(s) {
+  const h = (s.history || []).slice(-3);
+  if (!h.length) return s.lastReceipt ? s.lastReceipt.result : 0;
+  return h.reduce((a, x) => a + (x.result || 0), 0) / h.length;
+}
+
+const TODO_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+// "the next payday" / "two or three paydays" / "about 14 paydays"; '' when the treasury is not growing.
+function todoPaydays(s, short) {
+  if (short <= 0) return '';
+  const per = todoPerPayday(s);
+  if (per <= 0) return '';
+  const n = short / per;
+  if (n <= 1) return 'the next payday';
+  const lo = Math.floor(n), hi = Math.ceil(n);
+  if (hi > 10) return 'about ' + Math.round(n) + ' paydays';
+  return lo === hi ? TODO_WORDS[lo] + ' paydays' : (lo <= 1 ? 'one or two paydays' : TODO_WORDS[lo] + ' or ' + TODO_WORDS[hi] + ' paydays');
+}
+
+// A money row (the landmark, the palace): the savings bar fills with the treasury; "$X to go · about N paydays".
+function todoMoneyRow(s, key, label, cost, ok, extra) {
+  const have = ok ? cost : Math.max(0, Math.min(s.money, cost)), short = cost - have, pd = todoPaydays(s, short);
+  const why = ok ? '' : s.money >= cost ? 'the money is there' + (extra.where ? ': ' + extra.where : '') : money$(short) + ' to go' + (pd ? ' · ' + pd : '');
+  return Object.assign({ key, label, have, want: cost, money: true, ok, why, loop: label + ': ' + money$(have) + ' of ' + money$(cost) + (ok ? '' : s.money >= cost ? ' — the money is there' : pd ? ' — ' + pd : '') }, extra);
+}
+
+// This evening: the next stage's conditions with bars (have / want), already filled by what she has (endowed
+// progress); `soon` is a paler part (homes ready to move up or under scaffolding towards the level the goal counts).
+// Then the homes ready to upgrade with "Upgrade all · $X".
+function todoGoal(s) {
+  const sc = stageConds(s), next = sc.next, rows = [];
+  const res = s.b.find((b) => b.type === 'residence');
+  if (!next) rows.push({ key: 'done', label: "The Governor's palace stands", ok: true, have: 1, want: 1, flag: true });
+  else if (next.goal) rows.push(todoMoneyRow(s, 'palace', "Governor's palace", TUNE.palaceCost, false, { show: todoShowOf(res), where: "buy it on the residence's card" }));
+  else {
+    const pop = popCount(s);
+    if (next.people) {
+      const why = s.waiting ? s.waiting + ' wait at the pier: build homes' : s.happy < TUNE.happyArrive ? 'settlers come at ' + TUNE.happyArrive + '% happiness (now ' + s.happy + '%)' :
+        freeBeds(s) <= 0 ? 'every home is full: build homes' : 'the next boat brings up to ' + shipSettlers(s);
+      rows.push({ key: 'people', label: 'People', have: pop, want: next.people, ok: pop >= next.people, tool: pop >= next.people ? '' : 'casita', why: pop >= next.people ? '' : why,
+        loop: next.name + ': ' + pop + ' of ' + next.people + ' people' });
+    }
+    if (next.allFed) {
+      const homes = homesOccupied(s), hungry = homes.filter((h) => (h.miss || []).includes('food')), ok = allHomesFed(s);
+      let fix = null;
+      if (!ok && hungry.length) { try { fix = needCause(s, 'food', hungry); } catch (e) { fix = null; } }
+      rows.push({ key: 'fed', label: 'Homes with food', have: homes.length - hungry.length, want: Math.max(1, homes.length), ok, tool: fix && fix.tool, at: fix && fix.at,
+        why: ok ? '' : homes.length ? (fix ? fix.text : '') : 'build homes first', show: hungry.length ? todoShowOf(homeOf(hungry)) : null,
+        loop: next.name + ': ' + plural(hungry.length, 'home has', 'homes have') + ' no food' });
+    }
+    let k = null;
+    try { k = goalBlocker(s); } catch (e) { k = null; }
+    for (const [key, L] of [['houses', 2], ['villas', 3], ['townhouses', 4], ['mansions', 5]]) {
+      if (!next[key]) continue;
+      const have = homesAtLevel(s, L), want = next[key], ok = have >= want;
+      const soon = s.b.filter((h) => h.type === 'casita' && h.level === L - 1 && (h.build || (h.ready && LEVELS[L].stage <= s.stage))).length;
+      const row = { key, label: LEVELS[L].name + 's', have, want, soon: ok ? 0 : soon, ok, loop: next.name + ': ' + Math.min(have, want) + ' of ' + want + ' ' + LEVELS[L].name + 's' };
+      if (!ok && k && k.level === L) {
+        row.why = k.text.replace(/^[A-Za-z]+: /, '') + (k.fix ? ' · ' + k.fix.text : '');
+        if (k.ready && k.select) row.show = { id: k.select };
+        else { row.tool = k.tool || ''; row.at = k.at; }
+      } else if (!ok && soon) row.why = plural(soon, 'more is', 'more are') + ' ready or being built';
+      rows.push(row);
+    }
+    if (next.rum) {
+      const ok = (s.exported.rum || 0) > 0;
+      let why = '', tool = '', desk = false;
+      if (!ok) {
+        if (!countType(s, 'distillery')) { why = 'cane field → rum distillery → harbor: build a rum distillery'; tool = 'distillery'; }
+        else if (!countHarbors(s)) { why = 'the ship buys rum at a harbor: build one on the coast'; tool = 'harbor'; }
+        else if (!s.exp.rum) { why = 'rum is kept on the island: switch it to export at the desk'; desk = true; }
+        else why = 'the next ship takes the rum from the harbor';
+      }
+      rows.push({ key: 'rum', label: 'Rum exported', have: ok ? 1 : 0, want: 1, ok, flag: true, why, tool, desk, loop: next.name + ' still needs rum sold to the ship' });
+    }
+    const lm = next.landmark;
+    if (lm && lm.res) {
+      const R = RESIDENCE[lm.res];
+      rows.push(todoMoneyRow(s, 'landmark', 'The ' + R.name, R.cost, (s.res || 0) >= lm.res, { show: todoShowOf(res), btn: 'Residence', where: "buy it on the residence's card" }));
+    }
+    if (lm && lm.b) {
+      const def = BUILDINGS[lm.b], ok = countType(s, lm.b) > 0;
+      rows.push(todoMoneyRow(s, 'landmark', 'A ' + def.name.toLowerCase(), def.cost, ok, { tool: ok ? '' : lm.b, where: 'build it' }));
+    }
+    for (const r of rows) if (r.ok) { delete r.tool; delete r.show; delete r.desk; }
+  }
+  // the share already done (each condition counts the same; a home-level one counts what stands)
+  const part = rows.length ? rows.reduce((a, r) => a + (r.ok ? 1 : Math.min(1, r.have / Math.max(1, r.want))), 0) / rows.length : 1;
+  const ready = homesReady(s);
+  let up = null;
+  if (ready.length) {
+    const mid = homeOf(ready) || ready[0], info = upgradeAllInfo(s, mid), can = affordCount(s, info.list);
+    up = { key: 'ready', n: ready.length, label: ready.length === 1 ? 'home is ready to upgrade' : 'homes are ready to upgrade', upAll: info.cost, poor: can < 1, from: mid.id,
+      why: can < info.n ? 'you have ' + money$(Math.max(0, s.money)) + ': ' + (can ? plural(can, 'the nearest one', 'the nearest ' + can) + ' now' : 'not enough for one yet') : 'more people, more rent',
+      show: todoShowOf(mid), loop: plural(ready.length, 'home is', 'homes are') + ' ready to upgrade' };
+  }
+  const title = !next ? 'The island is complete' : next.goal ? "The Governor's palace" : STAGES[s.stage].name + ' → ' + next.name;
+  return { title, rows, part, up, next };
+}
+
+// Now: the open problems, the most useful first (the same checks as Rosa's lines and the glance lists).
+function todoNow(s) {
+  const out = [];
+  if (s.money < 0) {
+    let c = null;
+    try { c = biggestCost(s, 'closable'); } catch (e) { c = null; }
+    out.push({ key: 'red', bad: true, n: money$(s.money), label: 'in the red', why: 'raise the rent at the desk' + (c ? ', or shut the ' + BUILDINGS[c.b.type].name.toLowerCase() + ' (' + money$(c.n) + ' a month)' : ''),
+      desk: true, show: c ? todoShowOf(c.b) : null, loop: 'The treasury is in the red: ' + money$(s.money) });
+  }
+  if (s.waiting) {
+    const oldest = s.waitQ && s.waitQ[0], left = oldest ? Math.max(1, TUNE.waitLeaveMonths - (s.month - oldest.m)) : TUNE.waitLeaveMonths, at = waitAt(s);
+    out.push({ key: 'wait', bad: true, soon: left <= 1, n: s.waiting, label: s.waiting === 1 ? 'settler waits at the pier' : 'settlers wait at the pier',
+      why: 'no free home · ' + (left <= 1 ? 'some sail away at the end of this month' : 'they sail away after ' + TUNE.waitLeaveMonths + ' months'),
+      tool: 'casita', at, show: at ? { at } : null, loop: plural(s.waiting, 'settler waits', 'settlers wait') + ' at the pier for a home' + (left <= 1 ? ' — some sail this month' : '') });
+  }
+  // homes lacking something, by need (food first: hungry homes step down soonest)
+  const by = {};
+  for (const h of homesOccupied(s)) for (const n of h.miss || []) (by[n] = by[n] || []).push(h);
+  const needs = Object.keys(by).sort((a, b) => (b === 'food') - (a === 'food') || by[b].length - by[a].length);
+  const needRow = (n) => {
+    const list = by[n], at = homesAt(list);
+    let fix = null;
+    try { fix = needCause(s, n, list); } catch (e) { fix = null; }
+    const near = n === 'market' ? '' : marketNear(s, at);
+    return { key: 'need:' + n, bad: n === 'food', n: list.length, label: (list.length === 1 ? 'home lacks ' : 'homes lack ') + NEED_NAMES[n] + (near ? ' · ' + near : ''), why: fix && fix.text,
+      tool: fix && fix.tool, at: fix && fix.at, show: todoShowOf(homeOf(list)), loop: plural(list.length, 'home lacks', 'homes lack') + ' ' + NEED_NAMES[n] };
+  };
+  if (needs[0] === 'food') out.push(needRow('food'));
+  if (s.jobless > 0) {
+    const t = ['grove', 'cane', 'tobacco', 'finca', 'finca', 'finca'][s.stage] || 'grove';
+    out.push({ key: 'jobless', n: s.jobless, label: s.jobless === 1 ? 'person has no work' : 'people have no work', why: 'a farm or a workshop gives jobs', tool: t,
+      loop: plural(s.jobless, 'person has', 'people have') + ' no work' });
+  }
+  const still = s.b.filter((o) => o.blocked === 'input' && o.workers > 0 && o.open && s.month - o.built > 1);
+  if (still.length) {
+    const b = still[0], name = BUILDINGS[b.type].name.toLowerCase();
+    let w = null;
+    try { w = inputWhy(s, b); } catch (e) { w = null; }
+    if (w) out.push({ key: 'input', n: still.length, label: still.length === 1 ? 'the ' + name + ' has no ' + GOODS[w.g].name.toLowerCase() : 'workshops stand still · the ' + name + ' has no ' + GOODS[w.g].name.toLowerCase(),
+      why: w.text, tool: w.act && w.act.tool, at: w.act && w.act.at, show: todoShowOf(b), loop: 'the ' + name + ' has no ' + GOODS[w.g].name.toLowerCase() });
+  }
+  const hb = todoHarborFull(s);
+  if (hb) out.push(hb);
+  const full = s.b.filter((o) => o.blocked === 'yard' && o.open);
+  if (full.length) {
+    const yard = GUIDE_PROBLEMS.find((p) => p.key === 'yard');
+    let m = null;
+    try { m = yard && yard.check(s); } catch (e) { m = null; }
+    const b = (m && m.act && m.act.select && bById(s, m.act.select)) || full[0], def = BUILDINGS[b.type], g = GOODS[def.makes] ? GOODS[def.makes].name.toLowerCase() : 'goods';
+    let why = '';
+    try { why = takerState(s, b); } catch (e) { why = ''; }
+    const cause = why === 'none' ? 'nobody takes the ' + g : why === 'unreached' ? 'no road to ' + (GOOD_TAKER[def.makes] || 'a taker') : longCart(s, b) ? 'its cart takes a long road' : 'it makes more ' + g + ' than the island takes';
+    out.push({ key: 'yard', n: full.length, label: full.length === 1 ? 'the ' + def.name.toLowerCase() + '’s yard is full' : 'yards are full · the ' + def.name.toLowerCase() + ' first', why: cause,
+      tool: m && m.act && m.act.tool, at: m && m.act && m.act.at, show: todoShowOf(b), loop: 'the ' + def.name.toLowerCase() + '’s yard is full' });
+  }
+  const cut = s.b.filter((b) => { const d = BUILDINGS[b.type]; return d.kind !== 'home' && b.type !== 'pier' && b.type !== 'residence' && needsRoad(d) && !bEntrances(s, b).length; });
+  if (cut.length) {
+    const b = cut[0], name = BUILDINGS[b.type].name.toLowerCase();
+    out.push({ key: 'road', n: cut.length, label: cut.length === 1 ? 'the ' + name + ' has no road' : 'buildings have no road · the ' + name + ' first', why: 'carts and workers come only by road',
+      tool: 'road', at: [b.x, b.y], show: todoShowOf(b), loop: 'the ' + name + ' has no road' });
+  }
+  for (const n of needs.filter((x) => x !== 'food').slice(0, 2)) out.push(needRow(n));
+  if (!s.jobless) {
+    const empty = s.b.filter((b) => BUILDINGS[b.type].jobs && b.open && b.workers === 0);
+    if (empty.length) out.push({ key: 'noworkers', n: empty.length, label: empty.length === 1 ? 'the ' + BUILDINGS[empty[0].type].name.toLowerCase() + ' has no workers' : 'workplaces have no workers',
+      why: 'half of the people work: more homes bring workers', tool: 'casita', show: todoShowOf(empty[0]),
+      loop: empty.length === 1 ? 'the ' + BUILDINGS[empty[0].type].name.toLowerCase() + ' has no workers' : empty.length + ' workplaces have no workers' });
+  }
+  return out;
+}
+
+// A full harbor: an exported good fills its yard faster than the ship buys (the ship buys a set number of each good a
+// month). Reads the harbor's own capacity and purchase when it has them (M3 may give each harbor its own).
+function todoHarborFull(s) {
+  try {
+    for (const b of s.b) {
+      const def = BUILDINGS[b.type];
+      if (def.kind !== 'harbor' || !b.open || !b.workers || !b.stock) continue;
+      const cap = def.cap || TUNE.harborCap;
+      const g = EXPORTABLE.find((x) => s.exp[x] && (b.stock[x] || 0) >= cap - 0.5);
+      if (!g) continue;
+      const quay = BUILDINGS.quay && BUILDINGS.quay.stage <= s.stage && !countType(s, 'quay');
+      return { key: 'harbor', n: Math.round(b.stock[g]), label: 'the ' + def.name.toLowerCase() + ' is full of ' + GOODS[g].name.toLowerCase(),
+        why: 'its ship buys ' + (def.buys || TUNE.shipBuys) + ' of each good a call: ' + (quay ? 'the steamship quay buys more' : 'a second harbor sells more'), tool: quay ? 'quay' : 'harbor',
+        show: todoShowOf(b), loop: 'the ' + def.name.toLowerCase() + ' is full of ' + GOODS[g].name.toLowerCase() };
+    }
+  } catch (e) { return null; }
+  return null;
+}
+
+function todoData(s) {
+  const goal = todoGoal(s), now = todoNow(s), notes = todoNotes(s);
+  const shown = now.slice(0, TODO_NOW_MAX);
+  return { goal, now, shown, notes, count: shown.length + notes.length, hot: shown.some((r) => r.bad) };
+}
+
+function todoNoteShow(s, n) {
+  const b = n.bid && bById(s, n.bid);
+  if (b) return { id: b.id };
+  return n.at ? { at: [Math.floor(n.at[0]), Math.floor(n.at[1])] } : null;
+}
+
+// ---------- notes (pins) ----------
+// Her note: the text, the building (bid) or the place (at) it was pinned on, the month; saved at once.
+function todoPin(text, b, at) {
+  const s = APP.state, notes = todoNotes(s);
+  text = String(text || '').replace(/\s+/g, ' ').trim();
+  if (text.length > TODO_TEXT_MAX) text = text.slice(0, TODO_TEXT_MAX - 1).replace(/\s+\S*$/, '') + '…';
+  if (!text) return null;
+  if (notes.length >= TODO_NOTE_MAX) { toastShow('My notes hold ' + TODO_NOTE_MAX + ': tick one off first.'); return null; }
+  const id = notes.reduce((a, n) => Math.max(a, n.id || 0), 0) + 1;
+  const n = { id, text, m: s.month };
+  if (b) { n.bid = b.id; n.at = [b.x + b.w / 2, b.y + b.h / 2]; } else if (at) n.at = [at[0], at[1]];
+  notes.push(n);
+  todoSfx('tap');
+  gameSave();
+  todoRefresh(s, true);
+  return n;
+}
+
+function todoUnpin(id) {
+  const s = APP.state;
+  s.todo = todoNotes(s).filter((x) => x.id !== id);
+  gameSave();
+  todoRefresh(s, true);
+}
+
+function todoPinnedB(s, b) { return b ? todoNotes(s).find((n) => n.bid === b.id) : null; }
+
+// A building's pin: its name and, when something is wrong, what (the card's own line).
+function todoPinText(s, b) {
+  const def = BUILDINGS[b.type];
+  let name = def.kind === 'home' ? LEVELS[b.level || 1].name : b.type === 'residence' ? (s.palace ? "Governor's palace" : RESIDENCE[s.res || 0].name) : def.name;
+  let st = null;
+  try { st = def.kind === 'fixed' ? null : bStatus(s, b); } catch (e) { st = null; }
+  if (def.kind === 'home') { const m = (b.miss || [])[0]; if (m) return name + ': lacks ' + NEED_NAMES[m]; if (b.ready) return name + ': ready to upgrade'; }
+  return st && !st.good ? name + ': ' + st.text.replace(/\.$/, '') : name;
+}
+
+// "+ Pin" on every building's card (beside ✕): pins it, or takes the pin away again.
+{ const _ch = cardHtml; cardHtml = function (s, b) {
+  const h = _ch.apply(this, arguments), p = todoPinnedB(s, b);
+  return '<button class="cpin' + (p ? ' on' : '') + '" id="cardPin" aria-pressed="' + (p ? 'true' : 'false') + '">' + iconSvg('pin') + '<span>' + (p ? 'Pinned' : '+ Pin') + '</span></button>' + h;
+}; }
+
+function todoCardPin() {
+  const s = APP.state, b = APP.ui.sel && bById(s, APP.ui.sel);
+  if (!b) return;
+  const p = todoPinnedB(s, b);
+  if (p) { todoUnpin(p.id); toastShow('Unpinned from My notes.', { logged: true }); }
+  else if (todoPin(todoPinText(s, b), b)) { toastShow('Pinned to My notes (✓ in the top bar).', { logged: true }); todoBump(); }
+  APP.cardKey = '';
+  cardRender();
+}
+
+// "+ Pin" on Rosa's line: her words with their place.
+function todoGuidePin() {
+  const m = guideMsg();
+  if (!m) return;
+  const s = APP.state, same = todoNotes(s).find((n) => n.text === todoClip(m.text));
+  if (same) { todoUnpin(same.id); toastShow('Unpinned from My notes.', { logged: true }); todoGuideSync(); return; }
+  const a = m.act || {}, at = placeOf(s, a);
+  let b = (a.select || a.id) ? bById(s, a.select || a.id) : null;
+  if (!b && at) b = s.b.find((o) => o.type !== 'pier' && at[0] >= o.x && at[0] < o.x + o.w && at[1] >= o.y && at[1] < o.y + o.h) || null;
+  if (todoPin(m.text, b, b ? null : at)) { toastShow('Rosa\'s line is in My notes (✓ in the top bar).', { logged: true }); todoBump(); }
+  todoGuideSync();
+}
+
+function todoClip(t) { t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > TODO_TEXT_MAX ? t.slice(0, TODO_TEXT_MAX - 1).replace(/\s+\S*$/, '') + '…' : t; }
+
+function todoGuideSync() {
+  const el = $('guidePin'), m = guideMsg();
+  if (!el) return;
+  const on = !!(m && todoNotes(APP.state).some((n) => n.text === todoClip(m.text)));
+  el.classList.toggle('on', on);
+  el.setAttribute('aria-label', on ? 'Pinned: tap to unpin' : 'Pin this to my notes');
+}
+
+{ const _gr = guideRender; guideRender = function () { const r = _gr.apply(this, arguments); todoGuideSync(); return r; }; }
+
+// ---------- the sounds (guarded: the page works without a sounds bus) ----------
+function todoSfx(name) {
+  try { return typeof sfxPlay === 'function' && sfxPlay(name); } catch (e) { return false; }
+}
+
+function todoDing() {
+  const now = performance.now();
+  if (now - (APP.todoDingT || 0) < 400) return;
+  APP.todoDingT = now;
+  if (!todoSfx('levelup')) todoSfx('tap');
+}
+
+// the ✓ in the top bar gives a small hop when something lands in, or leaves, the list
+function todoBump() { const b = $('sTodo'); if (!b) return; b.classList.remove('tick'); void b.offsetWidth; b.classList.add('tick'); }
+
+// ---------- the button and the panel ----------
+function todoInit() {
+  if (APP.todoInited || !$('sNeed')) return;
+  APP.todoInited = true;
+  const btn = document.createElement('button');
+  btn.id = 'sTodo'; btn.className = 'stat todo glance'; btn.dataset.g = 'todo';
+  btn.innerHTML = '<span class="gi">' + iconSvg('todo') + '<i class="badge tb" hidden></i></span><span class="tn">0</span>';
+  $('sNeed').insertAdjacentElement('afterend', btn);
+  btn.addEventListener('click', () => { if ($('todo').classList.contains('show')) todoClose(); else todoOpen(); });
+  const el = document.createElement('div');
+  el.id = 'todo'; el.className = 'panel'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'To do');
+  el.innerHTML = '<button class="x" id="todoX" aria-label="Close">' + iconSvg('close') + '</button><b class="h">To do</b>' +
+    '<h5>Now</h5><div id="tdNow"></div>' +
+    '<h5 id="tdGoalH">This evening</h5><div id="tdPart"></div><div id="tdGoal"></div>' +
+    '<h5>My notes</h5><div id="tdNotes"></div>' +
+    '<div class="add">' + iconSvg('pen') + '<input id="tdIn" type="text" maxlength="' + TODO_FREE_MAX + '" placeholder="A short note…" autocomplete="off" enterkeyhint="done" aria-label="A short note">' +
+    '<button id="tdAdd" class="fix">Add</button></div>';
+  document.body.appendChild(el);
+  const g = document.createElement('div');
+  g.id = 'greet'; g.className = 'panel'; g.setAttribute('role', 'dialog'); g.setAttribute('aria-label', 'Welcome back');
+  document.body.appendChild(g);
+  $('todoX').addEventListener('click', todoClose);
+  const inp = $('tdIn');
+  // typing: the game's keys (space pauses, Escape) and the page's no-select guard stay out of the box
+  for (const ev of ['keydown', 'keyup', 'keypress', 'selectstart']) inp.addEventListener(ev, (e) => { e.stopPropagation(); if (ev === 'keydown' && e.key === 'Enter') { e.preventDefault(); todoAdd(); } });
+  $('tdAdd').addEventListener('click', todoAdd);
+  el.addEventListener('click', todoClick);
+  g.addEventListener('click', (e) => { const t = e.target.closest && e.target.closest('button'); if (t && t.id === 'greetShow') greetClose(true); else if (t && t.id === 'greetOk') greetClose(false); });
+  // "+ Pin" on the building card (the card redraws itself: one listener on the card) and on Rosa's line
+  $('card').addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#cardPin')) todoCardPin(); });
+  const gp = document.createElement('button');
+  gp.id = 'guidePin'; gp.className = 'gpin'; gp.innerHTML = iconSvg('pin');
+  $('guideShow').insertAdjacentElement('beforebegin', gp);
+  gp.addEventListener('click', todoGuidePin);
+  todoGuideSync();
+}
+
+{ const _hi = hudInit; hudInit = function () { const r = _hi.apply(this, arguments); todoInit(); return r; }; }
+
+function todoOpen() {
+  const s = APP.state;
+  glanceClose();
+  $('pop').classList.remove('show');
+  // on a narrow screen a card would sit under the list: it closes
+  if (window.innerWidth <= 900) cardClose();
+  APP.todoPrev = null; APP.todoGone = []; APP.todoHtml = '';
+  $('todo').classList.add('show');
+  $('sTodo').classList.add('on');
+  document.body.classList.add('todoing');
+  todoRefresh(s, true);
+  $('todo').scrollTop = 0;
+}
+
+function todoClose() {
+  const el = $('todo');
+  if (!el) return;
+  el.classList.remove('show');
+  $('sTodo').classList.remove('on');
+  document.body.classList.remove('todoing');
+  const inp = $('tdIn');
+  if (inp && document.activeElement === inp) inp.blur();
+}
+
+// A short note of her own (no place), from the box at the bottom.
+function todoAdd() {
+  const inp = $('tdIn'), text = String(inp.value || '').replace(/\s+/g, ' ').trim().slice(0, TODO_FREE_MAX);
+  if (!text) { inp.focus(); return; }
+  if (todoPin(text, null, null)) inp.value = '';
+}
+
+// A tick: the note is done (a check draws, a line goes through, a soft sound) and leaves the list.
+function todoTick(id) {
+  const s = APP.state, notes = todoNotes(s), n = notes.find((x) => x.id === id);
+  if (!n) return;
+  APP.todoGone.push({ key: 'note:' + id, note: n, at: notes.indexOf(n), t0: performance.now() });
+  s.todo = notes.filter((x) => x !== n);
+  todoDing();
+  todoBump();
+  gameSave();
+  todoRefresh(s, true);
+}
+
+function todoClick(e) {
+  const t = e.target.closest && e.target.closest('button');
+  if (!t || !$('todo').contains(t)) return;
+  const s = APP.state, d = APP.todoData;
+  if (t.dataset.tick) { todoTick(+t.dataset.tick); return; }
+  if (t.dataset.del) { todoUnpin(+t.dataset.del); return; }
+  if (t.dataset.note) {
+    const n = todoNotes(s).find((x) => x.id === +t.dataset.note), a = n && todoNoteShow(s, n);
+    if (a) { todoClose(); showPlace(a); }
+    return;
+  }
+  const item = t.dataset.item ? todoItem(d, t.dataset.item) : null;
+  if (!item) return;
+  const act = t.dataset.act;
+  if (act === 'show' && item.show) { todoClose(); showPlace(item.show); return; }
+  if (act === 'desk') { todoClose(); deskOpen(); return; }
+  if (act === 'all') {
+    const from = bById(s, item.from), r = upgradeAll(s, from);
+    toastShow(r.done ? plural(r.done, 'home is', 'homes are') + ' being upgraded: ' + money$(r.spent) + (r.left ? '. ' + r.left + ' wait for money.' : '.') : 'Not enough money (' + money$(upgradeCost((from || {}).level || 1)) + ').');
+    if (r.done) { try { audioCue('place'); } catch (er) { /* no sound */ } }
+    todoRefresh(s, true);
+    return;
+  }
+  if (act === 'tool' && item.tool) {
+    todoClose();
+    const p = item.at ? [item.at[0] + 0.5, item.at[1] + 0.5] : item.show ? placeOf(s, item.show) : null;
+    cardClose();
+    if (p) cameraFlyTo(p[0], p[1]);
+    toolSet(item.tool);
+  }
+}
+
+function todoItem(d, key) {
+  if (!d) return null;
+  if (key === 'u:ready') return d.goal.up;
+  return d.goal.rows.find((r) => 'g:' + r.key === key) || d.now.find((r) => 'n:' + r.key === key) || null;
+}
+
+function todoBar(r) {
+  const k = (x) => Math.max(0, Math.min(100, Math.round(100 * x)));
+  const have = k(r.have / Math.max(1, r.want)), soon = r.soon ? Math.min(100 - have, k(r.soon / r.want)) : 0;
+  return '<i class="bar"><i class="fill" style="width:' + have + '%"></i>' + (soon ? '<i class="soon" style="left:' + have + '%;width:' + soon + '%"></i>' : '') + '</i>';
+}
+
+function todoBtns(r, kind) {
+  const key = kind + ':' + r.key;
+  let h = '';
+  if (r.upAll) h += '<button class="fix up' + (r.poor ? ' poor' : '') + '" data-item="' + key + '" data-act="all">' + esc('Upgrade all · ' + money$(r.upAll)) + '</button>';
+  else if (r.desk) h += '<button class="fix" data-item="' + key + '" data-act="desk">Desk</button>';
+  else if (r.tool) h += '<button class="fix" data-item="' + key + '" data-act="tool">' + esc(toolLabel(r.tool)) + '</button>';
+  if (r.show) h += '<button class="show" data-item="' + key + '" data-act="show">' + esc(r.btn && !r.tool && !r.desk && !r.upAll ? r.btn : 'Show') + '</button>';
+  return h ? '<span class="bs">' + h + '</span>' : '';
+}
+
+function todoGoalHtml(r) {
+  const num = r.flag ? (r.ok ? 'done' : 'not yet') : r.money ? money$(r.have) + ' of ' + money$(r.want) : r.have + ' / ' + r.want;
+  return '<div class="row goal' + (r.ok ? ' ok' : '') + (r.pop ? ' pop' : '') + '" data-k="g:' + r.key + '"><span class="ck" aria-hidden="true">' + todoCheck() + '</span><div class="t"><span class="l">' + esc(r.label) + '</span> <span class="num">' + esc(num) + '</span>' +
+    (r.flag ? '' : todoBar(r)) + (r.why ? '<small>' + esc(r.why) + '</small>' : '') + '</div>' + (r.ok ? '' : todoBtns(r, 'g')) + '</div>';
+}
+
+function todoUpHtml(r) {
+  return '<div class="row now good" data-k="u:ready"><span class="n">' + r.n + '</span><div class="t">' + esc(r.label) + (r.why ? '<small>' + esc(r.why) + '</small>' : '') + '</div>' + todoBtns(r, 'u') + '</div>';
+}
+
+function todoNowHtml(r, done) {
+  return '<div class="row now' + (done ? ' done' : '') + (r.bad ? ' bad' : '') + '" data-k="n:' + r.key + '"><span class="n">' + (done ? '<span class="ck">' + todoCheck() + '</span>' : esc(String(r.n))) + '</span><div class="t">' + esc(r.label) +
+    (r.why && !done ? '<small>' + esc(r.why) + '</small>' : '') + '</div>' + (done ? '' : todoBtns(r, 'n')) + '</div>';
+}
+
+function todoCheck() { return '<svg class="cks" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 L10 17.5 L19.5 7"/></svg>'; }
+
+function todoNoteHtml(s, n, done) {
+  const b = n.bid && bById(s, n.bid), where = b ? (BUILDINGS[b.type].kind === 'home' ? LEVELS[b.level || 1].name : BUILDINGS[b.type].name) : n.at ? 'a place' : '';
+  return '<div class="row note' + (done ? ' done' : '') + '" data-k="note:' + n.id + '"><button class="tick" data-tick="' + n.id + '" aria-label="Done: ' + esc(n.text) + '">' + todoCheck() + '</button><div class="t"><span class="l">' + esc(n.text) + '</span>' +
+    '<small>' + (where ? iconSvg('pin', 'ic pinic') + esc(where) + ' · ' : '') + esc(dateLabel(n.m || 0)) + '</small></div>' +
+    (done ? '' : '<span class="bs">' + ((b || n.at) ? '<button class="show" data-note="' + n.id + '">Show</button>' : '') + '<button class="del" data-del="' + n.id + '" aria-label="Delete the note">' + iconSvg('close') + '</button></span>') + '</div>';
+}
+
+// Every half second while the panel is open (at once after a tap); every 2 s for the number in the top bar.
+function todoRefresh(s, force) {
+  if (!$('sTodo')) return;
+  const now = performance.now(), open = $('todo').classList.contains('show');
+  if (!force && APP.todoT && now - APP.todoT < (open ? 500 : 2000)) return;
+  APP.todoT = now;
+  const d = todoData(s);
+  APP.todoData = d;
+  const btn = $('sTodo');
+  btn.querySelector('.tn').textContent = d.count > 99 ? '99+' : d.count;
+  // a phone has no room for the number beside the icon: it is a small badge there (teal; red when something is urgent)
+  const tb = btn.querySelector('.tb');
+  tb.textContent = d.count > 99 ? '99+' : d.count;
+  tb.hidden = !d.count;
+  btn.classList.toggle('hot', d.hot);
+  btn.setAttribute('aria-label', 'To do: ' + d.count + (d.count === 1 ? ' open thing' : ' open things'));
+  if (!open) { APP.todoPrev = null; return; }
+  // what was on the list a moment ago and is gone now (not merely pushed below the five): done, it ticks off
+  const keys = new Set(d.now.map((r) => r.key)), prev = APP.todoPrev;
+  if (prev) for (const k in prev.now) if (!keys.has(k)) { APP.todoGone.push({ key: 'n:' + k, item: prev.now[k], t0: now }); todoDing(); }
+  const okNow = {};
+  for (const r of d.goal.rows) { okNow[r.key] = r.ok; if (prev && r.ok && prev.ok[r.key] === false) { r.pop = true; todoDing(); } }
+  APP.todoPrev = { now: Object.fromEntries(d.shown.map((r) => [r.key, r])), ok: okNow };
+  APP.todoGone = (APP.todoGone || []).filter((g) => now - g.t0 < 1300);
+  if (APP.todoGone.length) { clearTimeout(APP.todoGoneTimer); APP.todoGoneTimer = setTimeout(() => todoRefresh(APP.state, true), 1320); }
+  const goneNow = APP.todoGone.filter((g) => g.item), goneNotes = APP.todoGone.filter((g) => g.note);
+  const goal = d.goal.rows.map(todoGoalHtml).join('') + (d.goal.up ? todoUpHtml(d.goal.up) : '');
+  const pc = Math.round(100 * d.goal.part);
+  const part = d.goal.next && !d.goal.next.goal ? '<div class="part"><span>' + esc(d.goal.title) + '</span><i class="bar"><i class="fill" style="width:' + pc + '%"></i></i><b>' + pc + ' %</b></div>' :
+    '<div class="part"><span>' + esc(d.goal.title) + '</span></div>';
+  const nowHtml = goneNow.map((g) => todoNowHtml(g.item, true)).join('') + d.shown.map((r) => todoNowHtml(r, false)).join('') ||
+    '<p class="empty">Nothing urgent: the island runs well. Build towards this evening\'s goal.</p>';
+  const nrows = d.notes.map((n) => todoNoteHtml(s, n, false));
+  for (const g of goneNotes.slice().sort((a, b) => a.at - b.at)) nrows.splice(Math.min(g.at, nrows.length), 0, todoNoteHtml(s, g.note, true));
+  const notes = nrows.join('') ||
+    '<p class="empty">Your own reminders. “+ Pin” on a building\'s card or on Rosa\'s line keeps its place here; or write a short one below.</p>';
+  const html = part + '|' + goal + '|' + nowHtml + '|' + notes;
+  if (html === APP.todoHtml) { todoPanelPlace(); return; }
+  APP.todoHtml = html;
+  $('tdPart').innerHTML = part;
+  $('tdGoal').innerHTML = goal;
+  $('tdNow').innerHTML = nowHtml;
+  $('tdNotes').innerHTML = notes;
+  todoPanelPlace();
+}
+
+// The panel sits under the top bar and the stage pill (like the glance lists) and ends above the build bar.
+function todoPanelPlace() {
+  const el = $('todo');
+  if (!el.classList.contains('show')) return;
+  const tb = $('top').getBoundingClientRect(), pl = $('pill').getBoundingClientRect(), bar = $('bar').getBoundingClientRect();
+  const top = Math.round(Math.max(tb.bottom, pl.height && pl.top < window.innerHeight / 3 ? pl.bottom : 0) + 8);
+  const bottom = (bar.height ? bar.top : window.innerHeight) - 8;
+  el.style.top = top + 'px';
+  el.style.maxHeight = Math.max(200, bottom - top) + 'px';
+}
+
+function todoFrame() {
+  const s = APP.state;
+  if (!s || !$('sTodo')) return;
+  chronCheck(s);
+  // a session begins where the island opens to play (Continue, a new island, ?play): its start is kept for the greeting
+  if (!APP.titleOn && !APP.sessOn) { APP.sessOn = true; s.sess = sessSnap(s); }
+  todoRefresh(s, false);
+}
+
+// The frame's HUD step also runs the list (hud.js's hudUpdate, wrapped); the glance lists and the list take turns.
+{ const _hud = hudUpdate; hudUpdate = function () { const r = _hud.apply(this, arguments); todoFrame(); return r; }; }
+{ const _gl = glanceOpen; glanceOpen = function () { if ($('todo') && $('todo').classList.contains('show')) todoClose(); return _gl.apply(this, arguments); }; }
+// on a narrow screen a building's card sits where the list is: opening one closes the list
+{ const _co = cardOpen; cardOpen = function (id) { if (window.innerWidth <= 900 && $('todo') && $('todo').classList.contains('show')) todoClose(); return _co.apply(this, arguments); }; }
+
+// ---------- coming back ----------
+function sessSnap(s) { return { m: s.month, pop: popCount(s), money: Math.round(s.money), stage: s.stage, res: s.res || 0, at: Date.now() }; }
+
+// What changed during her last session (from its start, kept in the save, to where she left).
+function greetChanges(s) {
+  const a = s.sess, out = [];
+  if (!a || typeof a.m !== 'number' || a.m >= s.month) return out;
+  const pop = popCount(s), dp = pop - (a.pop || 0);
+  out.push(dp ? (dp > 0 ? '+' : '−') + Math.abs(dp).toLocaleString('en-US') + ' people (now ' + pop.toLocaleString('en-US') + ')' : 'still ' + plural(pop, 'person', 'people'));
+  out.push('money ' + money$(a.money || 0) + ' → ' + money$(s.money));
+  for (let i = (a.stage || 0) + 1; i <= s.stage; i++) out.push('Isla Nueva became a' + (/^[AEIOU]/.test(STAGES[i].name) ? 'n ' : ' ') + STAGES[i].name);
+  for (let r = (a.res || 0) + 1; r <= (s.res || 0); r++) if (RESIDENCE[r] && r > 0) out.push('the ' + RESIDENCE[r].name + ' was built');
+  return out;
+}
+
+// The one open loop that matters most: a red treasury, settlers about to sail, the landmark's savings, the stage's
+// condition nearest done, her own first note.
+function greetLoop(s) {
+  const d = todoData(s), place = (r) => r.show || (r.at ? { at: r.at } : null);
+  const red = d.now.find((r) => r.key === 'red');
+  if (red) return { text: red.loop, show: place(red) };
+  const wait = d.now.find((r) => r.key === 'wait' && r.soon);
+  if (wait) return { text: wait.loop, show: place(wait) };
+  const open = d.goal.rows.filter((r) => !r.ok);
+  const lm = open.find((r) => r.money);
+  if (lm) return { text: lm.loop, show: place(lm) };
+  const near = open.filter((r) => r.loop).sort((a, b) => b.have / Math.max(1, b.want) - a.have / Math.max(1, a.want))[0];
+  if (near) return { text: near.loop + (near.why ? ' — ' + near.why : ''), show: place(near) };
+  const n = d.notes[0];
+  if (n) return { text: 'Your note: “' + n.text + '”', show: todoNoteShow(s, n) };
+  if (d.goal.up) return { text: d.goal.up.loop, show: d.goal.up.show };
+  return null;
+}
+
+// Continue on the title screen: once per visit, a paper greeting (the clock waits under it).
+{ const _tc = titleClose; titleClose = function () {
+  const had = APP.titleHasSave, s = APP.state;
+  const r = _tc.apply(this, arguments);
+  if (had && !APP.greeted) greetOpen();
+  // her new session starts here (after the greeting has read the last one)
+  if (s === APP.state) { APP.state.sess = sessSnap(APP.state); APP.sessOn = true; }
+  return r;
+}; }
+
+function greetOpen() {
+  const s = APP.state, el = $('greet');
+  if (!s || !el) return;
+  APP.greeted = true;
+  const ch = greetChanges(s), loop = greetLoop(s), notes = todoNotes(s);
+  APP.greetGo = loop && loop.show;
+  APP.greetSpeed = APP.speed || 1;
+  speedSet(0);
+  const span = s.sess && s.sess.m < s.month ? ' (' + dateLabel(s.sess.m) + ' → ' + dateLabel(s.month) + ')' : '';
+  el.innerHTML = '<div class="kick">' + esc(STAGES[s.stage].name + ' · ' + plural(popCount(s), 'person', 'people')) + '</div>' +
+    '<h2>Welcome back</h2><div class="when">' + esc(dateLabel(s.month)) + '</div>' +
+    (ch.length ? '<p class="last">Last time' + esc(span) + ':</p><ul>' + ch.map((l) => '<li>' + esc(l) + '</li>').join('') + '</ul>' : '<p class="last">The island waited where you left it.</p>') +
+    (loop ? '<div class="loop"><span>' + esc(loop.text) + '</span>' + (APP.greetGo ? '<button id="greetShow" class="show">Show</button>' : '') + '</div>' : '') +
+    (notes.length ? '<p class="nts">' + iconSvg('pin', 'ic pinic') + esc(plural(notes.length, 'note', 'notes') + ' in your list (✓ at the top)') + '</p>' : '') +
+    '<div class="btns"><button id="greetOk" class="go">Continue</button></div>';
+  el.classList.add('show');
+  // a finger on the map closes it too (one tap)
+  APP.greetMap = () => greetClose(false);
+  $('map').addEventListener('pointerdown', APP.greetMap, { capture: true, once: true });
+}
+
+function greetClose(go) {
+  const el = $('greet');
+  if (!el || !el.classList.contains('show')) return;
+  el.classList.remove('show');
+  if (APP.greetMap) $('map').removeEventListener('pointerdown', APP.greetMap, { capture: true });
+  APP.greetMap = null;
+  speedSet(APP.greetSpeed || 1);
+  if (go && APP.greetGo) showPlace(APP.greetGo);
 }
 
 // ---- src/ui/main.js
