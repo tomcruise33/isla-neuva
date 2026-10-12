@@ -160,6 +160,12 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
 #card { position: fixed; z-index: 7; display: none; padding: 14px 16px; width: 310px; right: calc(var(--gap) + var(--sr));
   top: calc(var(--gap) + 112px + var(--st)); max-height: calc(100% - 232px - var(--st) - var(--sb)); overflow-y: auto; }
 #card.show { display: block; }
+/* Q1: numbers that change while a panel is open keep their width; the card's buttons sit at its foot (the card only
+   grows while it stays open: cardHold), so Remove does not move under her finger */
+#card, #glance, #todo, #top .stats, #receipt, #toast { font-variant-numeric: tabular-nums; }
+#card.show { display: flex; flex-direction: column; }
+#card.show > * { flex: none; }
+#card .foot { margin: auto -16px -14px; padding: 8px 16px 14px; position: sticky; bottom: -14px; background: var(--paper); border-top: 1px solid rgba(58, 42, 31, 0.14); border-radius: 0 0 14px 14px; z-index: 1; }
 #card h3 { margin: 0 0 2px; font: italic 700 20px var(--serif); display: flex; align-items: center; gap: 8px; padding-right: 36px; }
 #card h3 .ic { fill: var(--coral); stroke: var(--ink); stroke-width: 1.2px; paint-order: stroke; }
 #card .x { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
@@ -413,7 +419,8 @@ body.titled #nowplay { display: none !important; }
 .log p span { flex: 1; }
 .log .lshow { flex: none; min-height: 40px; padding: 0 12px; border-radius: 10px; background: var(--paper2); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--ink); }
 /* M1 notices (N5/N9): one at a time, ✕ on each, Show when about a place; important ones have a coral edge and stay */
-#toast { pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 16px; text-align: left; visibility: hidden; }
+#toast { pointer-events: auto; display: flex; align-items: center; gap: 6px; padding: 2px 2px 2px 12px; text-align: left; visibility: hidden; font-size: 13px; line-height: 1.3; }
+/* Q1: notices sit at the edge, top left under the top bar (placed by toastPlace), never in the middle of the map */
 #toast.show { visibility: visible; }
 #toast .tt { flex: 1; padding: 6px 0; }
 #toast .tshow { flex: none; min-height: 40px; padding: 0 12px; border-radius: 10px; background: #fbf3df; color: var(--ink); font-weight: 800; font-size: 14px; }
@@ -691,7 +698,7 @@ const GOODS = {
   flour:   { name: 'Flour',   price: 0,   cost: 50, color: '#efe6d2' },
   bread:   { name: 'Bread',   price: 0,   color: '#d9a35b' },
   tobacco: { name: 'Tobacco', price: 0,   inner: 30, color: '#b38b3c' },
-  cigars:  { name: 'Cigars',  price: 170, color: '#6e4426' },
+  cigars:  { name: 'Cigars',  price: 210, color: '#6e4426' },
   logs:    { name: 'Logs',    price: 0,   inner: 20, color: '#8a6a45' },
   planks:  { name: 'Planks',  price: 120, color: '#c99a5e' },
   beans:   { name: 'Coffee beans', price: 0, inner: 35, color: '#7a3b2e' },
@@ -699,13 +706,19 @@ const GOODS = {
   cattle:  { name: 'Cattle',  price: 0,   inner: 30, color: '#a0785a' },
   meat:    { name: 'Meat',    price: 0,   color: '#b5473a' },
   tins:    { name: 'Tins',    price: 160, color: '#9aa7b0' },
-  sugar:   { name: 'Sugar',   price: 120, color: '#efe9da' },
+  sugar:   { name: 'Sugar',   price: 150, color: '#efe9da' },
 };
 // M3 (N7): `inner` is the fair price a workshop pays the field or camp that delivers its input (cane $25: two make a
 // $150 barrel of rum); fish a cannery takes is paid at its ship price. Money only moves between two buildings of the
 // island, so the month's result is unchanged; it shows on each card who earns what (DESIGN.md §19).
 function innerPrice(g) { return GOODS[g].inner || GOODS[g].price || 0; }
 // The units the cards count in ("24 of 30 barrels").
+// Q1 (her evening: "cane fields better than heavy industry?"): the works that turn a crop into an export earn clearly
+// more per worker than the field that feeds them, as on the island, where the money was in the centrales and the cigar
+// factories, not in the cane and tobacco (Moreno Fraginals, *El ingenio*, 1978; Stubbs, 1985). Rum stays 150 (the Town's
+// economy; 185 left the scripted player stuck at City), cigars 170 -> 210, sugar 120 -> 150: at full work a worker adds
+// about $30-40 a month in the cigar factory and the central against $6-15 in the cane or tobacco field (the card shows
+// both, `cardWorth`).
 const GOOD_UNIT = { rum: 'barrels', cigars: 'boxes', coffee: 'sacks', tins: 'crates', planks: 'planks', sugar: 'sacks', fish: 'baskets', fruit: 'baskets' };
 // Goods the ship can buy; each can be set to "export" or "keep" at the desk.
 const EXPORTABLE = ['rum', 'cigars', 'coffee', 'tins', 'planks', 'sugar', 'fish', 'fruit'];
@@ -1702,7 +1715,8 @@ function roomFor(state, d, g) {
   return 0;
 }
 
-// The island first: markets (so homes eat before the cannery takes fish), then workshops; the ship takes the rest.
+// The island first: markets and the workshops that turn a food into goods (Q1: the cannery, by distance), then the
+// other workshops; the ship takes the rest.
 // Within each: where a full cart load fits, then the nearest by road (block 3: before, only the nearest, so a harbor's
 // carts took one sack at a time to the bakery next door and the bakeries across town never got flour).
 function consumerFind(state, src, g) {
@@ -1712,13 +1726,18 @@ function consumerFind(state, src, g) {
     const room = Math.floor(roomFor(state, d, g) + 1e-9);
     if (room < 1) continue;
     const kind = BUILDINGS[d.type].kind;
-    const cls = kind === 'market' ? 0 : kind === 'harbor' ? 2 : 1;
+    // Q1 (her evening: "one cannery and about 30 fishing huts and it still says there are not enough fishing huts"):
+    // markets came first for every basket of fish, so a cannery in a town with markets got almost none. A workshop that
+    // turns a food into goods (the cannery) now stands beside the markets: each hut's carts go to the nearer taker
+    // (emptier stores count as nearer), so the huts near the cannery feed it and the others feed the town.
+    const shop = kind === 'producer' && GOODS[g].food;
+    const cls = kind === 'market' || shop ? 0 : kind === 'harbor' ? 2 : 1;
     const road = roadDist(state, src, d).d;
     if (!isFinite(road)) continue;
     const part = room < cartLoadOf(BUILDINGS[src.type]) ? 1 : 0;
     // Block 6 (playtest 2): a market with emptier shelves counts as nearer (a full shelf as 24 tiles farther), so a
     // market serving 69 homes is not left empty while every cart goes to a fuller one next door.
-    const fill = kind !== 'market' ? 0 : GOODS[g].food ? marketFood(d) / (2 * TUNE.marketCap) : (d.stock[g] || 0) / TUNE.marketCap;
+    const fill = shop ? ((d.inp[g] || 0) + (d.incoming[g] || 0)) / inputCapOf(BUILDINGS[d.type]) : kind !== 'market' ? 0 : GOODS[g].food ? marketFood(d) / (2 * TUNE.marketCap) : (d.stock[g] || 0) / TUNE.marketCap;
     const dist = road + TUNE.shelfPull * fill;
     if (!best || cls < best.cls || (cls === best.cls && (part < best.part || (part === best.part && dist < best.dist)))) best = { d, room, cls, dist, part };
   }
@@ -2826,10 +2845,41 @@ function inputWhy(s, b) {
   const src = makerOf(g), have = s.b.filter((o) => o.type === src);
   if (!have.length) return { g, text: 'build ' + inputSource(g) + ' on its road', btn: toolLabel(src), act: { tool: src, at: [b.x, b.y] } };
   if (!have.some((o) => isFinite(roadDist(s, o, b).d))) return { g, text: 'the ' + name(src) + ' has no road to it. Join their roads', btn: 'Show', act: { select: b.id, roads: true } };
-  const shops = s.b.filter((o) => o.type === b.type && o.open).length;
-  if (goodSupply(s, g) < shops * def.uses[g] * def.rate * 0.95) return { g, text: plural(have.length, name(src), name(src) + 's').replace(/^\d+ /, (m) => m) + ' make ' + goodSupply(s, g) + ' a month and ' + plural(shops, name(b.type), name(b.type) + 's') + ' use ' + shops * def.uses[g] * def.rate + '. Build another ' + name(src), btn: toolLabel(src), act: { tool: src, at: [b.x, b.y] } };
-  if (g === 'fish') return { g, text: 'the markets get the fish first. Build more fishing huts', btn: toolLabel('fishing'), act: { tool: 'fishing' } };
-  return { g, text: 'its ' + GOODS[g].name.toLowerCase() + ' is on the way (carts from the ' + name(src) + ')', btn: 'Show', act: { select: b.id } };
+  // Q1: count every workshop that uses the good (a cane field feeds the distillery and the sugar central), what reached
+  // this one last month, and where each maker's carts go first (the nearest taker: for fish a market may be nearer)
+  const f = inputFlow(s, b, g), gn = GOODS[g].name.toLowerCase(), users = f.users.length;
+  const got = f.got !== null ? ': ' + f.got + ' of the ' + f.need + ' it uses came in last month' : '';
+  if (f.supply < f.use * 0.95) return { g, text: plural(have.length, name(src), name(src) + 's') + ' make ' + f.supply + ' ' + gn + ' a month and ' + (users === 1 ? 'the ' + name(b.type) : users + ' workshops') + ' use ' + f.use + got + '. Build another ' + name(src) + ' near it', btn: toolLabel(src), act: { tool: src, at: [b.x, b.y] } };
+  const short = f.got === null || f.got < f.need * 0.9;
+  if (short && f.mine < f.need * 0.95 && f.nearRate >= f.need * 0.95) return { g, text: plural(f.near, name(src), name(src) + 's') + ' near it could bring ' + f.nearRate + ' ' + gn + ' a month but lack workers' + got + ': more homes bring more hands', btn: toolLabel('casita'), act: { tool: 'casita', at: [b.x, b.y] } };
+  if (short && f.mine < f.need * 0.95) {
+    const away = f.toMarket + f.toShops, where = f.toMarket >= f.toShops ? 'a market' : 'another workshop';
+    return { g, text: plural(have.length, name(src), name(src) + 's') + ' make ' + f.supply + ' ' + gn + ' a month, but ' + (away ? where + ' is nearer than this ' + name(b.type) + ' to ' + (away === have.length ? (away === 1 ? 'it' : 'all ' + away) : away + ' of them') + ', so ' + (away === 1 ? 'its' : 'their') + ' carts go there first' : 'few of them reach it') + (f.got !== null ? '; ' + f.got + ' of the ' + f.need + ' it uses came in last month' : '') + '. Build ' + (GOODS[g].food ? 'a ' : 'another ') + name(src) + ' beside it (its ' + gn + ' comes here first)', btn: toolLabel(src), act: { tool: src, at: [b.x, b.y] } };
+  }
+  return { g, text: 'its ' + gn + ' is on the way (carts from ' + plural(f.near || have.length, name(src), name(src) + 's') + ')' + got + (worstJam(s) ? '; the roads are busy: an avenue or a second road helps' : ''), btn: 'Show', act: { select: b.id } };
+}
+
+// Q1: where a raw good goes. For workshop b using g: every maker of g with a road to b, the taker its carts go to first
+// (as consumerFind: markets and the cannery by distance for fish, else the nearest workshop), the share that is b's.
+// { users, use (all workshops a month), need (b a month), supply, near (makers whose first taker is b), mine (their
+// output), toMarket, toShops (makers that go elsewhere first), got (what came in last month, or null) }.
+function inputFlow(s, b, g) {
+  const def = BUILDINGS[b.type], food = GOODS[g].food;
+  const users = s.b.filter((o) => o.open && BUILDINGS[o.type].uses && BUILDINGS[o.type].uses[g] !== undefined);
+  const use = users.reduce((a, o) => a + BUILDINGS[o.type].uses[g] * BUILDINGS[o.type].rate, 0);
+  const takers = users.concat(food ? s.b.filter((o) => BUILDINGS[o.type].kind === 'market' && o.open) : []);
+  let near = 0, mine = 0, toMarket = 0, toShops = 0, supply = 0, nearRate = 0;
+  for (const m of s.b) {
+    const md = BUILDINGS[m.type];
+    if (md.makes !== g || !m.open) continue;
+    supply += md.rate;
+    if (!isFinite(roadDist(s, m, b).d)) continue;
+    let best = null, bd = Infinity;
+    for (const t of takers) { const d = roadDist(s, m, t).d; if (d < bd) { bd = d; best = t; } }
+    if (best === b) { near++; nearRate += md.rate; mine += md.rate * (m.workers || 0) / md.jobs; } else if (best && BUILDINGS[best.type].kind === 'market') toMarket++; else toShops++;
+  }
+  const got = b.last && typeof b.last.buyN === 'number' ? b.last.buyN : null;
+  return { users, use: Math.round(use), need: Math.round(def.uses[g] * def.rate), supply: Math.round(supply), near, nearRate: Math.round(nearRate), mine: Math.round(mine), toMarket, toShops, got };
 }
 
 function countHarbors(s) { return s.b.filter((b) => BUILDINGS[b.type].kind === 'harbor').length; }
@@ -2864,6 +2914,10 @@ function needCause(s, need, homes) {
     if (raw === 'flour' && !countHarbors(s)) return { text: 'a bakery needs flour: the ship brings it to a harbor', tool: 'harbor' };
     if (raw === 'flour' && !flourShip(s)) return { text: 'the bakeries get no flour while every harbor is shut down: open a harbor on its card', tool: 'harbor' };
     if (!countType(s, maker)) return { text: 'build ' + (raw && raw !== 'flour' ? inputSource(raw) + ' and a ' + name(maker) : 'a ' + name(maker)), tool: raw && raw !== 'flour' ? makerOf(raw) : maker, at };
+    // Q1 ("a home asking for a bakery has two next to it"): makers right by these homes: say why their goods do not
+    // reach them (no market reaches the homes, no input, no workers, shut, or their carts take it to other markets)
+    const nearMk = s.b.filter((o) => o.type === maker && homes.some((h) => footDist(o, h) <= 4));
+    if (nearMk.length) { const c = nearCause(s, need, maker, nearMk, homes, at); if (c) return c; }
     const starved = s.b.find((b) => b.type === maker && b.open && b.blocked === 'input');
     if (raw && raw !== 'flour' && starved) {
       const rs = goodSupply(s, raw), use = goodMakers(s, need).length * def.uses[raw] * def.rate;
@@ -2887,6 +2941,29 @@ function needCause(s, need, homes) {
 }
 
 // "8 homes lack bread · build a bakery": the cause of a need many homes miss, and its one fix (a tool to build).
+// Q1: why the makers next to these homes (list) do not feed them, in her words, or null when they do (then the island's
+// supply and the market's share decide, as before).
+function nearCause(s, need, maker, list, homes, at) {
+  const name = BUILDINGS[maker].name.toLowerCase(), many = list.length > 1, gn = GOODS[need].name.toLowerCase();
+  const pl = (n) => (n.endsWith('y') ? n.slice(0, -1) + 'ies' : n + 's');
+  const the = (many ? 'the ' + list.length + ' ' + pl(name) : 'the ' + name) + ' next door';
+  const has = many ? 'have' : 'has', are = many ? 'are' : 'is';
+  const reach = homeReach(s), noMarket = homes.every((h) => !(reach[h.id] && reach[h.id].markets.length));
+  if (noMarket) return { text: the + ' make' + (many ? '' : 's') + ' ' + gn + ', but no market reaches these homes: homes get ' + gn + ' only from a market within ' + bReach(BUILDINGS.market) + ' tiles of them. Build a market near them', tool: 'market', at };
+  const all = (f) => list.every(f);
+  if (all((o) => !o.open)) return { text: the + ' ' + are + ' shut down: open ' + (many ? 'them on their cards' : 'it on its card'), select: list[0].id, at };
+  if (all((o) => o.open && !o.workers)) return { text: the + ' ' + has + ' no workers (every hand works elsewhere): more homes bring more hands', tool: 'casita', at };
+  if (all((o) => o.blocked === 'input')) {
+    const w = inputWhy(s, list[0]), rawg = Object.keys(BUILDINGS[maker].uses)[0];
+    if (w) return { text: the + ' ' + has + ' no ' + GOODS[rawg].name.toLowerCase() + ': ' + w.text, tool: w.act && w.act.tool, select: w.act && w.act.select, at };
+  }
+  if (all((o) => o.blocked === 'yard')) return { text: the + ' cannot sell ' + (many ? 'their' : 'its') + ' ' + gn + ' (' + (many ? 'their yards are' : 'its yard is') + ' full): no market on ' + (many ? 'their' : 'its') + ' road wants it. A market on the same road as ' + (many ? 'them' : 'it') + ' and these homes', tool: 'market', at };
+  // they make it, but it goes elsewhere: the homes' markets get little of it
+  const mk = homes.map((h) => (reach[h.id] || { markets: [] }).markets).reduce((a, m) => a.concat(m), []).map((id) => bById(s, id)).filter(Boolean);
+  if (mk.length && mk.every((m) => (m.stock[need] || 0) < 1)) return { text: the + ' send' + (many ? '' : 's') + ' ' + gn + ' to the markets nearest to ' + (many ? 'them' : 'it') + ' first; the market of these homes gets little and its shelf is empty: a market beside the ' + (many ? pl(name) : name) + ' serves these homes', tool: 'market', at };
+  return null;
+}
+
 function needFix(s, need) { return needCause(s, need); }
 
 // The step that makes room for a building when it has no spot by a road (wayFor in place.js), in her words.
@@ -2998,7 +3075,7 @@ function downsSay(s) {
   const fix = needCause(s, best, homes);
   const what = NEED_GOODS.includes(best) ? 'no ' + NEED_NAMES[best] + ' in their market' : 'no ' + NEED_NAMES[best].replace(/^an? /, '') + (SERVICE_NEEDS.includes(best) || best === 'market' ? ' in reach' : '');
   return { key: 'down', text: plural(homes.length, 'home', 'homes') + ' stepped down: ' + what + ' · ' + fix.text + '. The ↓ marks show where for a month.',
-    btn: toolLabel(fix.tool), act: { tool: fix.tool, at: fix.at || homesAt(homes) } };
+    btn: toolLabel(fix.tool), act: { tool: fix.tool, at: fix.at || homesAt(homes), select: fix.select } };
 }
 
 // M2: where the waiting families are (the view goes there with the Home tool armed; the lit tiles are free spots).
@@ -7871,6 +7948,73 @@ const ISO = (() => {
   function monthFrac(s) { return (s.mt + frac()) / TUNE.ticksPerMonth; }
   function harborStocks(s) { const o = {}; for (const b of s.b) if (BUILDINGS[b.type].kind === 'harbor') o[b.id] = Object.assign({}, b.stock); return o; }
   function speedK() { return typeof APP !== 'undefined' && APP.speed > 1 ? APP.speed : 1; }
+  // Q1 (her evening: "from the harbor the ship goes straight out and there is land: it looks comical"): a ship sails over
+  // sea tiles only. Its way from a berth to the open sea (past the map's edge) is the shortest over sea (8 directions, no
+  // corner cut past land), pulled straight where the sea allows, computed once per berth; the ship follows it and turns
+  // along it gracefully (its heading is the chord over the next and the last half tile).
+  function seaWay(R, s, x, y) {
+    const key = s.seed + ':' + x.toFixed(2) + ',' + y.toFixed(2);
+    const ways = R.seaWays || (R.seaWays = {});
+    if (ways[key] !== undefined) return ways[key];
+    const W = MAP_W, H = MAP_H, out = (tx, ty) => tx < 0 || ty < 0 || tx >= W || ty >= H;
+    const sea = (tx, ty) => out(tx, ty) || s.terrain[tileIdx(tx, ty)] === SEA;
+    let sx = Math.floor(x), sy = Math.floor(y);
+    if (!sea(sx, sy)) {
+      let best = null;
+      for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (sea(sx + dx, sy + dy) && !out(sx + dx, sy + dy)) { const d = Math.hypot(sx + dx + 0.5 - x, sy + dy + 0.5 - y); if (!best || d < best.d) best = { x: sx + dx, y: sy + dy, d }; }
+      if (!best) return (ways[key] = null);
+      sx = best.x; sy = best.y;
+    }
+    // Dijkstra over sea tiles to the edge (the map's border tiles); a step next to land costs a little more, so the
+    // ship keeps a tile off the shore where it can
+    const N = W * H, dist = new Float32Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1), heap = [];
+    const near = (tx, ty) => { for (let k = 0; k < 8; k++) { const a = DIR8[k]; if (!sea(tx + a[0], ty + a[1])) return 1; } return 0; };
+    const DIR8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    const s0 = tileIdx(sx, sy); dist[s0] = 0; heapPush(heap, 0, s0);
+    let end = -1;
+    while (heap.length) {
+      const [d, i] = heapPop(heap);
+      if (d > dist[i]) continue;
+      const tx = i % W, ty = (i / W) | 0;
+      if (tx === 0 || ty === 0 || tx === W - 1 || ty === H - 1) { end = i; break; }
+      for (const [ax, ay] of DIR8) {
+        const nx = tx + ax, ny = ty + ay;
+        if (out(nx, ny) || !sea(nx, ny)) continue;
+        if (ax && ay && (!sea(tx + ax, ty) || !sea(tx, ty + ay))) continue;
+        const j = tileIdx(nx, ny), nd = d + (ax && ay ? 1.414 : 1) + 0.6 * near(nx, ny);
+        if (nd < dist[j]) { dist[j] = nd; prev[j] = i; heapPush(heap, nd, j); }
+      }
+    }
+    if (end < 0) return (ways[key] = null);
+    const tiles = [];
+    for (let i = end; i >= 0; i = prev[i]) tiles.push(i);
+    tiles.reverse();
+    let pts = [[x, y]].concat(tiles.map((i) => [i % W + 0.5, ((i / W) | 0) + 0.5]));
+    // past the edge: 6 tiles further the way it was going
+    const [ex, ey] = pts[pts.length - 1], ox = ex < 1 ? -1 : ex > W - 1 ? 1 : 0, oy = ey < 1 ? -1 : ey > H - 1 ? 1 : 0;
+    pts.push([ex + 6 * ox, ey + 6 * oy]);
+    // pulled straight: skip points while the straight line stays over sea
+    const clear = (a, b) => { const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) * 4); for (let k = 1; k < n; k++) { const u = k / n; if (!sea(Math.floor(a[0] + (b[0] - a[0]) * u), Math.floor(a[1] + (b[1] - a[1]) * u))) return false; } return true; };
+    const keep = [pts[0]];
+    let a = 0;
+    while (a < pts.length - 1) { let b = pts.length - 1; while (b > a + 1 && !clear(pts[a], pts[b])) b--; keep.push(pts[b]); a = b; }
+    const len = [0];
+    for (let k = 1; k < keep.length; k++) len.push(len[k - 1] + Math.hypot(keep[k][0] - keep[k - 1][0], keep[k][1] - keep[k - 1][1]));
+    return (ways[key] = { pts: keep, len, L: len[len.length - 1] });
+  }
+  function wayPoint(w, d) {
+    d = clamp(d, 0, w.L);
+    let k = 1; while (k < w.len.length - 1 && w.len[k] < d) k++;
+    const a = w.pts[k - 1], b = w.pts[k], seg = Math.max(1e-6, w.len[k] - w.len[k - 1]), u = clamp((d - w.len[k - 1]) / seg, 0, 1);
+    return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+  }
+  // where a ship is d tiles along its way out, and its heading (dir 1: sailing out, -1: coming in)
+  function wayAt(w, d, dir) {
+    const p = wayPoint(w, d), p0 = wayPoint(w, d - 0.6), p1 = wayPoint(w, d + 0.6);
+    const hd = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) + (dir < 0 ? Math.PI : 0);
+    return { x: p[0], y: p[1], hd };
+  }
+  function angLerp(a, b, u) { let d = ((b - a + 3 * Math.PI) % (2 * Math.PI)) - Math.PI; return a + d * u; }
   function shipUpdate(R, s, now) {
     const m = shipMoor(s); if (!m) { R.ship = null; return; }
     const mf = monthFrac(s), k = speedK();
@@ -7911,18 +8055,22 @@ const ISO = (() => {
       sh.x = m.x; sh.y = m.y; sh.hd = 0; sh.a = 1;
       if ((age > 1800 && !onBoard) || mf > 0.4) { sh.st = 'turn'; sh.t0 = now; if (sh.money > 0) sh.floatT = now; }
     } else if (sh.st === 'turn') {
-      const u = clamp(age / 1500, 0, 1), e = ease(u);
-      sh.x = m.x - 0.9 * e; sh.y = m.y + 1.3 * e; sh.hd = Math.PI * e; sh.a = 1;
+      // Q1: turns at the pier toward its way out (over the sea), then follows it
+      const w = seaWay(R, s, m.x, m.y), u = clamp(age / 1500, 0, 1), e = ease(u);
+      const h1 = w ? wayAt(w, 0.6, 1).hd : Math.PI;
+      sh.x = m.x; sh.y = m.y; sh.hd = angLerp(0, h1, e); sh.a = 1;
       if (u >= 1) { sh.st = 'leave'; sh.t0 = now; }
     } else if (sh.st === 'leave') {
-      const u = clamp(age / 4200, 0, 1);
-      sh.x = m.x - 0.9 - 17 * u * u; sh.y = m.y + 1.3; sh.hd = Math.PI; sh.a = u < 0.65 ? 1 : 1 - (u - 0.65) / 0.35;
+      const w = seaWay(R, s, m.x, m.y), dur = w ? Math.max(4200, w.L * 260) : 4200, u = clamp(age / dur, 0, 1);
+      if (w) { const d = w.L * u * u, p = wayAt(w, d, 1); sh.x = p.x; sh.y = p.y; sh.hd = p.hd; sh.a = clamp((w.L - d) / 3, 0, 1); }
+      else { sh.x = m.x - 0.9 - 17 * u * u; sh.y = m.y + 1.3; sh.hd = Math.PI; sh.a = u < 0.65 ? 1 : 1 - (u - 0.65) / 0.35; }
       if (u >= 1) sh.st = 'away';
     }
     if (sh.st === 'away' && mf >= 0.55) sh.st = 'arrive';
     if (sh.st === 'arrive') {
-      const u = clamp((mf - 0.55) / 0.3, 0, 1), e = 1 - (1 - u) * (1 - u);
-      sh.x = m.x - 17 * (1 - e); sh.y = m.y; sh.hd = 0; sh.a = u < 0.3 ? u / 0.3 : 1;
+      const u = clamp((mf - 0.55) / 0.3, 0, 1), e = 1 - (1 - u) * (1 - u), w = seaWay(R, s, m.x, m.y);
+      if (w) { const d = w.L * (1 - e), p = wayAt(w, d, -1); sh.x = p.x; sh.y = p.y; sh.hd = angLerp(p.hd, 0, clamp((1.5 - d) / 1.5, 0, 1)); sh.a = clamp((w.L - d) / 3, 0, 1); }
+      else { sh.x = m.x - 17 * (1 - e); sh.y = m.y; sh.hd = 0; sh.a = u < 0.3 ? u / 0.3 : 1; }
       if (u >= 1) sh.st = 'moored';
     }
     if (sh.st === 'moored') { sh.x = m.x; sh.y = m.y; sh.hd = 0; sh.a = 1; }
@@ -7968,6 +8116,10 @@ const ISO = (() => {
   function hsPos(R, s, b, now) {
     const h = R.hs && R.hs[b.id]; if (!h || h.st === 'away') return null;
     const B = hsBerth(s, b), k = speedK(), age = (now - h.t0) * k;
+    // Q1: in and out along its way over the sea (seaWay), turning to lie along the quay at the end
+    const w = seaWay(R, s, B.x, B.y);
+    if (w && h.st === 'arrive') { const u = clamp(age / 3800, 0, 1), e = 1 - (1 - u) * (1 - u), d = Math.min(w.L, 14) * (1 - e), p = wayAt(w, d, -1); return { x: p.x, y: p.y, hd: angLerp(p.hd, B.hd, clamp((1.5 - d) / 1.5, 0, 1)), a: Math.min(1, u / 0.3) }; }
+    if (w && h.st === 'leave') { const u = clamp(age / 4200, 0, 1), d = Math.min(w.L, 17) * u * u, p = wayAt(w, d, 1); return { x: p.x, y: p.y, hd: angLerp(B.hd, p.hd, clamp(d / 1.5, 0, 1)), a: u < 0.65 ? 1 : 1 - (u - 0.65) / 0.35 }; }
     if (h.st === 'arrive') { const u = clamp(age / 3800, 0, 1), e = 1 - (1 - u) * (1 - u); return { x: B.x - B.dx * 14 * (1 - e), y: B.y - B.dy * 14 * (1 - e), hd: B.hd, a: Math.min(1, u / 0.3) }; }
     if (h.st === 'leave') { const u = clamp(age / 4200, 0, 1); return { x: B.x + B.dx * 17 * u * u, y: B.y + B.dy * 17 * u * u, hd: B.hd, a: u < 0.65 ? 1 : 1 - (u - 0.65) / 0.35 }; }
     return { x: B.x, y: B.y, hd: B.hd, a: 1 };
@@ -9052,6 +9204,50 @@ function storeGet(key) { try { return window.localStorage.getItem(key); } catch 
 function storeSet(key, v) { try { window.localStorage.setItem(key, v); return true; } catch (e) { return false; } }
 function storeDel(key) { try { window.localStorage.removeItem(key); } catch (e) { /* private window */ } }
 
+// Q1 (her evening: "she can't tap Remove: it keeps jerking, the numbers change and the button moves"): a panel whose
+// numbers change while it is open is patched in place (its words and numbers, its classes) when only those changed: the
+// buttons stay the same elements in the same place, and a tap that is under way still lands. Returns false when the
+// layout itself changed (other rows, other buttons): then the caller rebuilds it.
+function domPatch(el, html) {
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  const ok = (a, b) => {
+    if (a.childNodes.length !== b.childNodes.length) return false;
+    for (let i = 0; i < a.childNodes.length; i++) {
+      const x = a.childNodes[i], y = b.childNodes[i];
+      if (x.nodeType !== y.nodeType) return false;
+      if (x.nodeType === 1 && (x.tagName !== y.tagName || (x.id || '') !== (y.id || '') || !ok(x, y))) return false;
+    }
+    return true;
+  };
+  if (!ok(el, t.content)) return false;
+  const put = (a, b) => {
+    for (let i = 0; i < a.childNodes.length; i++) {
+      const x = a.childNodes[i], y = b.childNodes[i];
+      if (x.nodeType === 3) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; continue; }
+      if (x.nodeType !== 1) continue;
+      for (const at of ['class', 'style', 'aria-disabled', 'hidden', 'title']) {
+        const v = y.getAttribute(at);
+        if (v === null) { if (x.hasAttribute(at)) x.removeAttribute(at); } else if (x.getAttribute(at) !== v) x.setAttribute(at, v);
+      }
+      put(x, y);
+    }
+  };
+  put(el, t.content);
+  return true;
+}
+
+// Q1: a finger on a panel (the card, a glance list, the to-do list) holds it still: no rebuild while it is down and for
+// a moment after (the second tap of "Tap again to remove" comes then).
+function uiHeld(id) {
+  return APP.holdId === id && (APP.holdDown || performance.now() < (APP.holdUntil || 0));
+}
+document.addEventListener('pointerdown', (e) => {
+  const p = e.target && e.target.closest && e.target.closest('#card, #glance, #todo');
+  APP.holdId = p ? p.id : ''; APP.holdDown = !!p;
+}, true);
+for (const k of ['pointerup', 'pointercancel']) document.addEventListener(k, () => { if (APP.holdDown) { APP.holdDown = false; APP.holdUntil = performance.now() + 1200; } }, true);
+
 // ---- src/ui/icons_more.js
 // Icons for the stages 4–6 buildings, paved roads and the palace (24 x 24 path data, evenodd), merged into the
 // renderer's ICONS and NEED_ICONS tables so the bar, the cards and the map bubbles find them by name.
@@ -9189,20 +9385,54 @@ function toastBlocked() {
   const open = (id) => { const el = $(id); return !!(el && el.classList.contains('show')); };
   return open('todo') || open('glance') || open('greet') || open('sheet');
 }
+// Q1 (her evening: "she is angry that the same notices also come in the middle of the screen"): notices have one quiet
+// place at the edge, top left under the top bar (never the middle of the map), small, one at a time; they step below the
+// goal pill, the Traffic legend and the turn buttons, and to the right of an open card.
 function toastPlace() {
-  const el = $('toast'), g = $('guide');
-  el.style.bottom = ''; el.style.top = '';
-  // a phone: under the top bar and the goal pill (never over the pill's button)
-  if (window.innerWidth <= 600) {
-    const pl = $('pill').getBoundingClientRect(), tb = $('top').getBoundingClientRect();
-    el.style.bottom = 'auto'; el.style.top = Math.round(Math.max(tb.bottom, pl.height ? pl.bottom : 0) + 8) + 'px';
+  const el = $('toast'), W = window.innerWidth, ins = safeInsets(), gap = 8;
+  const vis = (id) => {
+    const e = $(id);
+    if (!e) return null;
+    const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+    return r.width && r.height && cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0.05 ? r : null;
+  };
+  const tb = $('top').getBoundingClientRect();
+  Object.assign(el.style, { left: (10 + ins.l) + 'px', top: Math.round(tb.bottom + gap) + 'px', bottom: 'auto', right: 'auto', transform: 'none',
+    maxWidth: Math.min(360, W - 20 - ins.l - ins.r) + 'px' });
+  for (let k = 0; k < 5; k++) {
+    const a = el.getBoundingClientRect();
+    let moved = false;
+    for (const id of ['pill', 'trlegend', 'rotbtns', 'card', 'todo', 'glance']) {
+      const r = vis(id);
+      if (!r || a.right <= r.left || a.left >= r.right || a.bottom <= r.top || a.top >= r.bottom) continue;
+      if ((id === 'card' || id === 'rotbtns') && r.left > a.left + 120) el.style.maxWidth = Math.max(160, r.left - gap - a.left) + 'px';
+      else if (id === 'card' && r.right + gap + 220 < W - ins.r) el.style.left = Math.round(r.right + gap) + 'px';
+      else el.style.top = Math.round(r.bottom + gap) + 'px';
+      moved = true;
+      break;
+    }
+    if (!moved) break;
   }
-  if (!g || !g.classList.contains('show')) return;
-  const a = el.getBoundingClientRect(), b = g.getBoundingClientRect();
-  if (a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom) return;
-  // above Rosa when there is room, else below her
-  if (b.top - a.height - 8 > 60) { el.style.top = 'auto'; el.style.bottom = Math.round(window.innerHeight - b.top + 8) + 'px'; }
-  else { el.style.bottom = 'auto'; el.style.top = Math.round(b.bottom + 8) + 'px'; }
+}
+
+// Q1: Rosa's line and a notice never say the same thing: a notice about what her line is about (the same building and
+// a third of the same words, or most of the same words) is not shown (the log keeps it).
+function toastSameAsRosa(n) {
+  const g = $('guide'), m = g && g.classList.contains('show') ? guideMsg() : null;
+  if (!m || !n) return false;
+  const a = m.act || {}, s = APP.state;
+  let same = false;
+  if (n.id) {
+    const at = a.at && bAt(s, a.at[0], a.at[1]);
+    same = a.select === n.id || (!!at && at.id === n.id);
+  }
+  const words = (t) => new Set(String(t).toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter((w) => w.length > 3 && !['that', 'this', 'their', 'with', 'from', 'more', 'comes', 'there'].includes(w)));
+  const nw = words(n.text), mw = words(m.text);
+  if (nw.size < 2) return false;
+  let k = 0;
+  for (const w of nw) if (mw.has(w)) k++;
+  // the same building and a third of the words, or most of the words
+  return k / nw.size >= (same ? 0.34 : 0.6);
 }
 
 function toastMs(text) { return Math.max(5000, Math.min(12000, 3000 + 60 * String(text).length)); }
@@ -9214,6 +9444,7 @@ function toastTick(now) {
     if (cur) { if (cur.important) APP.toasts.unshift(cur); toastClose(); }
     return;
   }
+  if (cur && toastSameAsRosa(cur)) { toastClose(); return; }
   if (cur) toastPlace();
   if (cur) {
     if (APP.toastHold) cur.until = now + cur.left;
@@ -9222,6 +9453,7 @@ function toastTick(now) {
   }
   if (!APP.toasts.length || now < (APP.toastGap || 0)) return;
   const n = APP.toasts.shift();
+  if (toastSameAsRosa(n)) return;
   n.until = now + toastMs(n.text); n.t0 = now;
   APP.toastCur = n;
   const place = n.at || n.id;
@@ -9233,6 +9465,7 @@ function toastTick(now) {
 }
 
 function toastClose() {
+  if ($('toast').classList.contains('show')) uiGone($('toast'));
   APP.toastCur = null; APP.toastHold = false;
   $('toast').classList.remove('show');
   APP.toastGap = performance.now() + 300;
@@ -9271,7 +9504,7 @@ function guideMsg() { return APP.ui.hint || APP.state.guide.msg; }
 
 function guideRender() {
   const m = guideMsg(), el = $('guide');
-  if (!m) { el.classList.remove('show'); APP.guideShown = ''; return; }
+  if (!m) { if (el.classList.contains('show')) uiGone(el); el.classList.remove('show'); APP.guideShown = ''; return; }
   const key = m.text + '|' + (m.btn || 'OK');
   if (key !== APP.guideShown) {
     // A new line: her button ignores taps for a moment, so a finger already on its way never hits the new button
@@ -9328,11 +9561,19 @@ function hintCheck() {
 
 // "✓ Done" sits beside the build bar while a tool is armed (above it when the screen is too narrow).
 function donePlace() {
-  const el = $('done'), bar = $('bar').getBoundingClientRect(), gap = 10, w = el.offsetWidth || 110, ins = safeInsets();
+  const el = $('done'), bar0 = $('bar').getBoundingClientRect(), gap = 10, w = el.offsetWidth || 110, ins = safeInsets();
+  // Q1: Done stays where it is when a tab makes the bar narrower or wider (it jumped under her finger and the tap built
+  // on the map): beside the widest bar seen at this screen size
+  const wk = window.innerWidth + 'x' + window.innerHeight;
+  if (APP.doneWK !== wk) { APP.doneWK = wk; APP.barRmax = 0; }
+  APP.barRmax = Math.max(APP.barRmax || 0, bar0.right);
+  const bar = { right: APP.barRmax, bottom: bar0.bottom, top: bar0.top };
   const beside = window.innerWidth - ins.r - bar.right >= w + 2 * gap;
+  el._was = el.offsetWidth ? el.getBoundingClientRect() : null;
   document.body.classList.toggle('doneup', !beside);
   if (beside) { el.style.left = (bar.right + gap) + 'px'; el.style.right = 'auto'; el.style.bottom = (window.innerHeight - bar.bottom) + 'px'; }
   else { el.style.left = 'auto'; el.style.right = (gap + ins.r) + 'px'; el.style.bottom = (window.innerHeight - bar.top + gap) + 'px'; }
+  if (el._was && el.offsetWidth) { const r = el.getBoundingClientRect(); if (Math.abs(r.left - el._was.left) > 2 || Math.abs(r.top - el._was.top) > 2) uiGone({ getBoundingClientRect: () => el._was }); }
 }
 
 // ---- src/ui/bar.js
@@ -9531,6 +9772,30 @@ function needList(s, h, level) {
   return LEVELS[level].needs.map((n) => '<span class="' + (homeHas(s, h, n) ? 'y">✓ ' : 'n">✗ ') + esc(NEED_NAMES[n]) + '</span>').join(' · ');
 }
 
+// Q1 ("a cane field better than heavy industry?"): what a worker here adds at full work, beside the other step of the
+// chain (the field that feeds a works, or the works that turns a field's crop into an export). Null for others.
+function worthOf(s, type) {
+  const d = BUILDINGS[type], g = d.makes;
+  if (!d.jobs || !g || !GOODS[g]) return null;
+  const price = GOODS[g].price ? exportPrice(s, g) * (1 - TUNE.harborShare) : innerPrice(g);
+  if (!price) return null;
+  let v = d.rate * price;
+  for (const u in d.uses || {}) { if (u === 'flour') return null; v -= d.uses[u] * d.rate * innerPrice(u); }
+  const net = v - d.jobs * wageNow(s) * LEVERS.wages[s.lev.wages].mult - upkeepOf(d);
+  return { net: Math.round(net), per: Math.round(net / d.jobs) };
+}
+function cardWorth(s, type) {
+  const d = BUILDINGS[type], me = worthOf(s, type);
+  if (!me) return '';
+  const raw = d.uses ? Object.keys(d.uses)[0] : '';
+  const other = raw ? makerOf(raw) : BUILD_ORDER.find((t) => BUILDINGS[t].uses && BUILDINGS[t].uses[d.makes] !== undefined && GOODS[BUILDINGS[t].makes].price && BUILDINGS[t].stage <= s.stage + 1);
+  const o = other && worthOf(s, other);
+  const mine = 'At full work: ' + fmtSigned(me.net) + ' a month, ' + fmtSigned(me.per) + ' for each of its ' + d.jobs + ' workers';
+  if (!o) return mine + '.';
+  return mine + (raw ? '; a ' + BUILDINGS[other].name.toLowerCase() + ' that feeds it: ' + fmtSigned(o.per) + ' a worker. The works turns the crop into an export: that is where the money is.' :
+    '; a ' + BUILDINGS[other].name.toLowerCase() + ' that turns its ' + GOODS[d.makes].name.toLowerCase() + ' into an export: ' + fmtSigned(o.per) + ' a worker.');
+}
+
 function cardHtml(s, b) {
   const def = BUILDINGS[b.type], x = bNumber(s, b);
   const head = '<button class="x" id="cardX" aria-label="Close">' + iconSvg('close') + '</button>';
@@ -9615,6 +9880,8 @@ function cardHtml(s, b) {
       if (def.uses) for (const g in def.uses) h += '<div class="line"><span>' + esc(GOODS[g].name) + ' in stock</span><span>' + Math.floor(b.inp[g] || 0) + ' / ' + (g === 'flour' ? TUNE.inputCap : inputCapOf(def)) + '</span></div>';
       if (def.uses && def.uses.flour) h += '<div class="line"><span>Flour</span><span>' + esc(flourShip(s) ? 'by ship, straight to the bakery: ' + money$(b.lastBought || 0) + ' last month' : 'none: the ship brings it while a harbor is open') + '</span></div>';
       h += '<div class="line"><span>Goes to</span><span>' + esc(GOOD_TAKER[def.makes]) + '</span></div>';
+      const wl = cardWorth(s, b.type);
+      if (wl) h += '<p class="note">' + esc(wl) + '</p>';
       // block 6: a producer sends more carts (up to TUNE.cartsMax) when loads wait and all its carts are out
       const ct = cartsOf(s, b);
       h += '<div class="line"><span>Carts</span><span>' + ct.out + ' of ' + ct.n + ' on the road (up to ' + TUNE.cartsMax + ': another one goes when a load waits)</span></div>';
@@ -9733,7 +10000,12 @@ function legendOpen(bub) {
     if (!need || seen.includes(k)) return;
     seen.push(k);
     const n = (warn ? s.lackCount : s.wantCount) || {};
-    const fix = needFix(s, need);
+    // Q1 ("a home asking for a bakery has two next to it"): the tapped home's own cause first (the bakeries next door
+    // have no flour, are shut, or no market reaches it), else the island's
+    const own = bub && bub.id && bById(s, bub.id);
+    let fix = null;
+    if (own && own.type === 'casita') { try { fix = needCause(s, need, [own]); } catch (e) { fix = null; } }
+    if (!fix) fix = needFix(s, need);
     rows.push('<div class="lg"><span class="bub' + (warn ? ' warn' : '') + '">' + iconSvg(NEED_ICONS[need] || 'home') + '</span><span>' +
       esc((warn ? 'Lacks ' : 'To grow: ') + NEED_NAMES[need] + ' · ' + plural(n[need] || 0, 'home', 'homes') + '. ' + fix.text.charAt(0).toUpperCase() + fix.text.slice(1) + '.') + '</span></div>');
   };
@@ -9775,16 +10047,40 @@ function cardReveal(id) {
   } else if (p.x > card.left - 30) viewNudge(p.x - card.left / 2, 0);
 }
 
-function cardClose() { APP.ui.sel = 0; APP.ui.roadShow = 0; APP.ui.confirm = null; APP.ui.downSeen = null; $('card').classList.remove('show'); document.body.classList.remove('carded'); }
+function cardClose() { if ($('card').classList.contains('show')) uiGone($('card')); APP.cardFor = 0; APP.ui.sel = 0; APP.ui.roadShow = 0; APP.ui.confirm = null; APP.ui.downSeen = null; $('card').classList.remove('show'); document.body.classList.remove('carded'); }
+
+// Q1: the card keeps the height it had (grow only, while the same building stays open): the buttons at its foot stay
+// where her finger expects them.
+function cardHold(el) {
+  if (!el.classList.contains('show')) return;
+  const h = el.offsetHeight, m = parseFloat(el.style.minHeight) || 0;
+  if (h > m + 1) el.style.minHeight = h + 'px';
+}
+
+// Q1: the card's buttons (Remove, Shut down, Move ...) go into one foot at its bottom edge, which stays in view while
+// the card scrolls and does not move when a line above it changes.
+function cardFoot(html) {
+  const btns = [];
+  const body = html.replace(/<div class="btns">(?:(?!<div)[\s\S])*?<\/div>/g, (m) => { btns.push(m); return ''; });
+  return btns.length ? body + '<div class="foot">' + btns.join('') + '</div>' : html;
+}
 
 function cardRender() {
   const s = APP.state, b = APP.ui.sel && bById(s, APP.ui.sel);
   if (!b) { cardClose(); return; }
-  const html = cardHtml(s, b);
-  if (html === APP.cardKey) return;
-  APP.cardKey = html;
+  const html = cardFoot(cardHtml(s, b));
+  if (html === APP.cardKey || html === APP.cardText) return;
   const el = $('card');
+  // Q1: the same card with new numbers: patched in place (the buttons stay put); the layout changed: rebuilt, but
+  // never under her finger, and it never gets shorter while it stays open (the buttons do not jump up)
+  if (APP.cardKey && APP.cardFor === b.id && el.classList.contains('show')) {
+    if (uiHeld('card')) return;
+    if (domPatch(el, html)) { APP.cardText = html; cardHold(el); return; }
+  }
+  APP.cardKey = html; APP.cardText = '';
+  if (APP.cardFor !== b.id) { APP.cardFor = b.id; el.style.minHeight = ''; }
   el.innerHTML = html;
+  cardHold(el);
   $('cardX').addEventListener('click', cardClose);
   const op = $('cardOpen');
   const flip = () => { b.open = !b.open; jobsAssign(s); s.ver++; toastShow(BUILDINGS[b.type].name + (b.open ? ' is open again.' : ' is shut down: no wages, half the upkeep.')); cardRender(); };
@@ -9833,6 +10129,7 @@ function sheetOpen(html, onClose) {
 }
 
 function sheetClose() {
+  if ($('sheet').classList.contains('show')) uiGone($('sheet'));
   $('sheet').classList.remove('show');
   $('veil').classList.remove('show');
   const f = APP.sheetClose; APP.sheetClose = null;
@@ -10117,6 +10414,7 @@ function glanceOpen(kind) {
 }
 
 function glanceClose() {
+  if ($('glance').classList.contains('show')) uiGone($('glance'));
   $('glance').classList.remove('show');
   document.querySelectorAll('#top .glance').forEach((b) => b.classList.remove('on'));
 }
@@ -10128,7 +10426,14 @@ function glanceRender() {
     (x.why ? '<small>' + esc(x.why) + '</small>' : '') + '</div>' +
     (x.tool ? '<button class="fix" data-fix="' + i + '">' + esc(toolLabel(x.tool)) + '</button>' : '') +
     (x.show ? '<button class="show" data-show="' + i + '">Show</button>' : '') + '</div>').join('');
-  el.innerHTML = '<button class="x" id="glanceX" aria-label="Close">' + iconSvg('close') + '</button><b>' + esc(r.title) + '</b><div class="rows">' + html + '</div>';
+  const full = '<button class="x" id="glanceX" aria-label="Close">' + iconSvg('close') + '</button><b>' + esc(r.title) + '</b><div class="rows">' + html + '</div>';
+  // Q1: an open list with new numbers is patched in place (its buttons stay put); never rebuilt under her finger
+  if (el.classList.contains('show') && APP.glanceHtmlKind === APP.glanceKind && el.firstChild) {
+    if (uiHeld('glance')) return;
+    if (domPatch(el, full)) return;
+  }
+  APP.glanceHtmlKind = APP.glanceKind;
+  el.innerHTML = full;
   $('glanceX').addEventListener('click', glanceClose);
   el.querySelectorAll('[data-show]').forEach((b) => b.addEventListener('click', () => { const x = APP.glanceList[+b.dataset.show]; glanceClose(); showPlace(x.show); }));
   el.querySelectorAll('[data-fix]').forEach((b) => b.addEventListener('click', () => {
@@ -10205,6 +10510,7 @@ function trafficLegend() {
   let el = $('trlegend');
   if (!el) { el = document.createElement('div'); el.id = 'trlegend'; document.body.appendChild(el); el.addEventListener('click', () => trafficToggle(false)); }
   const on = trafficOn();
+  if (!on && el.classList.contains('show')) uiGone(el);
   el.classList.toggle('show', on);
   if (!on) return;
   const pill = $('pill'), pb = pill && pill.getBoundingClientRect().bottom;
@@ -10604,6 +10910,52 @@ function tapAt(sx, sy) {
   }
 }
 
+// Q1 (12 Oct 2026, her evening): "she tapped Traffic and a market got built". On the iPad a finger is wide: Safari
+// sends the touch (and so the pointer events) to the point under the finger's centre, which can be the map a few pixels
+// beside a button, and then sends the click to the button the finger also covered (WebKit's tap adjustment). The map
+// placed the armed building and the button did its job: both. So an armed tool acts only on a tap that started and
+// ended on the map, not within a finger's width (UI_NEAR) of a control, and with no control touched or gone from under
+// the finger meanwhile (a notice, a list or Done that moved or closed at that moment).
+const UI_NEAR = 22, UI_GONE_MS = 700;
+const UI_SEL = 'button, [role=button], [data-tool], [data-tab], .panel, #bar, #guide, #done, #pill, #trlegend, #toast, #card, #todo, #glance, #sheet, #rotbtns, #receipt';
+
+function uiGone(el) {
+  // a control that just went away: its box stays "near" for a moment (the finger was already on its way)
+  if (!el || !el.getBoundingClientRect) return;
+  const r = el.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const now = performance.now();
+  APP.uiGone = (APP.uiGone || []).filter((g) => now - g.t < UI_GONE_MS);
+  APP.uiGone.push({ l: r.left, t0: r.top, r: r.right, b: r.bottom, t: now });
+}
+
+// The control nearest to a screen point within `rad` px (its box, or one that just went away), or null.
+function uiNearAt(x, y, rad) {
+  const map = $('map'), near = (l, t, r, b) => x >= l - rad && x <= r + rad && y >= t - rad && y <= b + rad;
+  const now = performance.now();
+  for (const g of APP.uiGone || []) if (now - g.t < UI_GONE_MS && near(g.l, g.t0, g.r, g.b)) return 'gone';
+  const top = document.elementFromPoint(x, y);
+  if (top && top !== map && top.closest && top.closest(UI_SEL)) return top.closest(UI_SEL);
+  if (rad <= 0) return null;
+  for (const el of document.querySelectorAll(UI_SEL)) {
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height || !near(r.left, r.top, r.right, r.bottom)) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.pointerEvents === 'none' || +cs.opacity < 0.05) continue;
+    return el;
+  }
+  return null;
+}
+
+// True when a tap with an armed tool must not act on the map (see above). gesture.ui: a control was touched meanwhile.
+function tapBlocked(gesture, p, pointerType) {
+  if (APP.ui.tool === 'look') return false;
+  const rad = pointerType === 'mouse' ? 0 : UI_NEAR;
+  const why = gesture.ui || (APP.uiTouchT || 0) > gesture.t0 ? 'touched' : uiNearAt(gesture.x0, gesture.y0, rad) || uiNearAt(p.x, p.y, rad);
+  if (why) APP.tapBlocks = (APP.tapBlocks || 0) + 1;
+  return !!why;
+}
+
 function inputInit(canvas) {
   const ptrs = new Map();
   let gesture = null;
@@ -10622,7 +10974,7 @@ function inputInit(canvas) {
       gesture = { kind: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), z0: APP.view.z, mid: screenToTile(APP.R, APP.view, (a.x + b.x) / 2, (a.y + b.y) / 2), a0: Math.atan2(b.y - a.y, b.x - a.x), turned: false };
       return;
     }
-    gesture = { kind: 'press', x0: p.x, y0: p.y, grab: screenToTile(APP.R, APP.view, p.x, p.y), moved: false };
+    gesture = { kind: 'press', x0: p.x, y0: p.y, grab: screenToTile(APP.R, APP.view, p.x, p.y), moved: false, t0: performance.now() };
     if (APP.ui.tool === 'road' || APP.ui.tool === 'tram' || APP.ui.tool === 'rail') {
       const t = tileAt(p.x, p.y);
       if (inMap(t.x, t.y)) { APP.ui.strokeA = tileIdx(t.x, t.y); APP.ui.strokeAxis = ''; strokeTo(t.x, t.y); gesture.kind = 'road'; }
@@ -10691,6 +11043,8 @@ function inputInit(canvas) {
     if (gesture.kind === 'pinch') { if (ptrs.size === 0) gesture = null; return; }
     if (gesture.kind === 'road') {
       const st = APP.ui.stroke, blk = APP.ui.strokeBlock;
+      // Q1: a one-tile stroke beside a control is a finger meant for the control
+      if (st && st.length <= 1 && e.type === 'pointerup' && tapBlocked(gesture, p, e.pointerType)) { APP.ui.stroke = null; APP.ui.strokeBlock = null; gesture = null; return; }
       if (st && st.length) {
         const r = APP.ui.tool === 'tram' ? placeTram(APP.state, st) : APP.ui.tool === 'rail' ? placeRail(APP.state, st) : placeRoad(APP.state, st);
         if (r.built) { floaterAdd((st[st.length - 1] % MAP_W) + 0.5, ((st[st.length - 1] / MAP_W) | 0) + 0.5, '−$' + r.cost, '#c0392b'); guideIntro(APP.state); guideRender(); audioCue('road'); }
@@ -10700,9 +11054,9 @@ function inputInit(canvas) {
       if (blk && !(st && st.length > 1)) toastShow(blk.why + '.');
       APP.ui.stroke = null; APP.ui.strokeBlock = null;
     } else if (gesture.kind === 'place' && e.type === 'pointerup') {
-      if (gesture.moved) ghostUpdate(p.x, p.y, true); else tapAt(p.x, p.y);
+      if (gesture.moved) ghostUpdate(p.x, p.y, true); else if (!tapBlocked(gesture, p, e.pointerType)) tapAt(p.x, p.y);
     } else if (gesture.kind === 'press' && e.type === 'pointerup') {
-      tapAt(p.x, p.y);
+      if (!tapBlocked(gesture, p, e.pointerType)) tapAt(p.x, p.y);
     }
     gesture = null;
   };
@@ -10727,6 +11081,11 @@ function inputInit(canvas) {
     window.addEventListener('mousemove', (e) => move({ pointerId: 0, clientX: e.clientX, clientY: e.clientY, pointerType: 'mouse', button: e.button, type: 'pointermove' }));
     window.addEventListener('mouseup', (e) => end({ pointerId: 0, clientX: e.clientX, clientY: e.clientY, pointerType: 'mouse', button: e.button, type: 'pointerup' }));
   }
+  // Q1: a finger on any control (a second finger, or the click Safari sends to the button the finger covered) spoils
+  // the map's tap in progress
+  const uiTouch = (e) => { if (e.target !== canvas && e.target.closest && e.target.closest(UI_SEL)) { APP.uiTouchT = performance.now(); if (gesture) gesture.ui = true; } };
+  document.addEventListener('pointerdown', uiTouch, true);
+  document.addEventListener('touchstart', uiTouch, { capture: true, passive: true });
   canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); toolSet('look'); });
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -12436,6 +12795,7 @@ function todoOpen() {
 function todoClose() {
   const el = $('todo');
   if (!el) return;
+  if (el.classList.contains('show')) uiGone(el);
   el.classList.remove('show');
   $('sTodo').classList.remove('on');
   document.body.classList.remove('todoing');
@@ -12612,11 +12972,10 @@ function todoRefresh(s, force) {
     '<p class="empty">Your own reminders. “+ Pin” on a building\'s card or on Rosa\'s line keeps its place here; or write a short one below.</p>';
   const html = part + '|' + goal + '|' + nowHtml + '|' + notes;
   if (html === APP.todoHtml) { todoPanelPlace(); return; }
+  // Q1: never rebuilt under her finger; rows whose words or numbers changed are patched in place (the buttons stay)
+  if (uiHeld('todo') && !force) { todoPanelPlace(); return; }
   APP.todoHtml = html;
-  $('tdPart').innerHTML = part;
-  $('tdGoal').innerHTML = goal;
-  $('tdNow').innerHTML = nowHtml;
-  $('tdNotes').innerHTML = notes;
+  for (const [id, h] of [['tdPart', part], ['tdGoal', goal], ['tdNow', nowHtml], ['tdNotes', notes]]) if (!domPatch($(id), h)) $(id).innerHTML = h;
   todoPanelPlace();
 }
 
@@ -12831,7 +13190,7 @@ function eventsHandle() {
     if (e.kind === 'money' && !keep.has(e)) continue;
     if (e.kind === 'money' && b) floaterAdd(b.x + b.w / 2, b.y + b.h / 2, fmtSigned(e.n), e.n < 0 ? '#c0392b' : '#2e8b3e', false, b.id);
     else if (e.kind === 'payday') { receiptShow(e.receipt); stopsCheck(); gameSave(); }
-    else if (e.kind === 'levelup' && b) { floaterAdd(b.x + 0.5, b.y + 0.5, LEVELS[e.level].name + '!', '#167a7a', true, b.id); toastShow('A home became a ' + LEVELS[e.level].name.toLowerCase() + ': more people, more rent.', { id: b.id }); }
+    else if (e.kind === 'levelup' && b) { floaterAdd(b.x + 0.5, b.y + 0.5, LEVELS[e.level].name + '!', '#167a7a', true, b.id); if (noticeGate(s, 'up:' + e.level)) toastShow('A home became a ' + LEVELS[e.level].name.toLowerCase() + ': more people, more rent.', { id: b.id }); }
     else if (e.kind === 'leveldown' && b) { floaterAdd(b.x + 0.5, b.y + 0.5, LEVELS[e.level].name + ' again', '#c0392b', true, b.id); downs.push(e); }
     else if (e.kind === 'stage') { stageCardOpen(e.stage); APP.R.terrainKey = ''; }
     else if (e.kind === 'year') yearCardShow(e.year);
@@ -12932,15 +13291,27 @@ function frameRun(now) {
     if (n >= 40) APP.acc = 0;
   }
   eventsHandle();
-  hudUpdate();
+  // Q1 ("sometimes it lags"): the top bar, the goal pill, the glance numbers, the to-do badge and the Traffic legend
+  // were worked out and rewritten every frame the money changed (every frame at 3x); now at most 5 times a second,
+  // and at once when something was built, a month ended or the stage changed
+  const hk = s.ver + '|' + s.month + '|' + s.stage + '|' + APP.ui.tool + '|' + APP.ui.layer;
+  if (hk !== APP.hudFast || now - (APP.hudT || 0) > 200) { APP.hudFast = hk; APP.hudT = now; hudUpdate(); }
   hintCheck();
   flyTick(now);
   spaceUpdate();
-  if (APP.ui.sel && (s.tick % 5 === 0 || !APP.cardKey)) cardRender();
+  // Q1: the open card's numbers at most twice a second (they were redrawn every 5 ticks, 6 times a second at 3x)
+  if (APP.ui.sel && (!APP.cardKey || now - (APP.cardT || 0) > 500)) { APP.cardT = now; cardRender(); }
   toastTick(now);
   receiptTick(now);
   APP.ui.floaters = APP.ui.floaters.filter((f) => now - f.t0 < 1700);
   rotPlace();
+  // Q1 ("sometimes it lags"): the measured top cost on a 1930 town at rest is redrawing every building, cart and person
+  // each frame (12-14 ms of a 16-18 ms frame at 1180 x 820, DPR 2). At rest (no finger on the map, no flight, no turn,
+  // no tool armed) the town is drawn 30 times a second instead of 60: half the work, the same picture; under a finger
+  // and while a tool is armed it is drawn every frame as before.
+  const calm = !APP.gesturing && !APP.fly && !(APP.R && APP.R.turn) && APP.ui.tool === 'look' && !APP.ui.ghost;
+  if (calm && now - (APP.drawT || 0) < 30) return;
+  APP.drawT = now;
   renderDraw(APP.R, s, APP.view, APP.ui);
 }
 
