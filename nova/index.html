@@ -165,6 +165,10 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
 #card .btns { display: flex; gap: 8px; margin-top: 12px; }
 #card .btns button { flex: 1; min-height: 44px; border-radius: 11px; font-weight: 800; background: var(--paper2); box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
 #card .btns .danger { background: var(--coral-soft); color: var(--red); }
+/* M2: Upgrade (a ready home's card): gold like its arrow on the map */
+#card .btns button.up { background: #f2c14e; color: #3a2a1f; }
+#card .btns button.up2 { background: #fbe7b0; color: #3a2a1f; font-size: 14px; }
+#card .btns button.up.poor, #card .btns button.up2.poor { background: var(--paper2); color: var(--red); }
 .y { color: var(--green); font-weight: 700; } .n { color: var(--red); font-weight: 700; }
 
 /* Sheets and cards */
@@ -216,6 +220,14 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
   .ctrl button { min-width: 42px; }
   .tool { width: 72px; }
   body.carded #lower, body.carded #toast { display: none; }
+  /* M1: six numbers no longer fit beside the brand and the clock in portrait: the stats get their own row (as on a phone) */
+  #top { grid-template-columns: 1fr auto; }
+  .brand { grid-column: 1; justify-self: start; }
+  .ctrl { grid-column: 2; grid-row: 1; }
+  .stats { grid-column: 1 / 3; grid-row: 2; justify-self: stretch; justify-content: space-around; }
+  #pill { top: calc(var(--gap) + 124px + var(--st)); }
+  #yearcard, #pop, #glance { top: calc(var(--gap) + 170px + var(--st)); }
+  #nowplay { top: calc(var(--gap) + 124px + var(--st)); }
   #card { left: calc(var(--gap) + var(--sl)); right: calc(var(--gap) + var(--sr)); width: auto; top: auto; bottom: calc(var(--bar-h) + 2 * var(--gap) + var(--sb)); max-height: 46vh; max-height: 46dvh; }
 }
 @media (max-width: 600px) {
@@ -229,7 +241,17 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
   .ctrl button { min-width: 40px; }
   .ctrl .sep { margin: 0 2px; }
   .stats { grid-column: 1 / 3; grid-row: 2; justify-self: stretch; justify-content: space-around; min-height: 48px; }
-  .stat { font-size: 18px; padding: 4px 6px; }
+  .stats { padding: 2px; }
+  .stat { font-size: 15px; padding: 4px 2px; gap: 3px; }
+  .stat .ic { width: 19px; height: 19px; }
+  .stat.glance { padding: 4px 4px 4px 3px; gap: 3px; }
+  .stats #bSnd { padding: 0 2px 0 4px; min-width: 40px; }
+  .stat + .stat { border-left: 0; }
+  .stat .badge { right: -7px; top: -7px; min-width: 17px; height: 17px; font-size: 10.5px; line-height: 17px; }
+  #top .stats .ml { display: none; } #top .stats .ms { display: inline; }
+  .stat.glance > span:last-child { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.02; }
+  .stat.glance small { font-size: 11.5px; }
+  #glance { top: calc(var(--gap) + 128px + var(--st)); max-height: calc(100% - 250px - var(--st) - var(--sb)); }
   #pill { top: calc(var(--gap) + 116px + var(--st)); font-size: 13px; white-space: normal; text-align: center; border-radius: 14px; width: calc(100% - 16px - var(--sl) - var(--sr)); }
   #yearcard, #pop { top: calc(var(--gap) + 156px + var(--st)); }
   .tool { width: 66px; }
@@ -278,6 +300,7 @@ body.titled #title { display: flex; }
 .stats #bSnd { min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0 4px 0 8px; margin-left: 2px;
   border-left: 2px dotted rgba(58, 42, 31, 0.32); }
 .brand em { font-style: inherit; } .brand .ms { display: none; }
+.stats em { font-style: inherit; } .stats .ms { display: none; }
 #sndpop { position: fixed; z-index: 12; display: none; width: 284px; max-width: calc(100% - 16px - var(--sl) - var(--sr)); padding: 10px 14px 8px; }
 #sndpop.show { display: block; }
 #sndpop h4 { margin: 0 0 2px; font: italic 700 19px var(--serif); }
@@ -316,6 +339,45 @@ body.titled #sndpop { display: none; }
 #nowplay .ic { width: 15px; height: 15px; fill: var(--ink2); }
 #nowplay i { overflow: hidden; text-overflow: ellipsis; }
 body.titled #nowplay { display: none !important; }
+/* M1 (12 Oct): the glance. Three numbers in the stats (people / places in homes, workers / jobs, homes lacking
+   something) with a red badge (waiting at the pier, without work); each opens #glance, a short list with Show. */
+.stat.glance { gap: 6px; padding: 6px 11px; }
+.stat.glance small { font-size: 0.72em; color: var(--ink2); font-weight: 700; }
+.stat .gi { position: relative; display: flex; }
+.stat .badge { position: absolute; right: -9px; top: -8px; min-width: 19px; height: 19px; padding: 0 4px; border-radius: 10px; background: var(--red);
+  color: #fff7ea; font: 800 11.5px/19px var(--sans); font-style: normal; text-align: center; box-shadow: 0 0 0 1.5px var(--paper); }
+.stat.work .ic { fill: #c99a5e; } .stat.need .ic { fill: #d6974f; }
+.stat.need.bad { color: var(--red); } .stat.need.bad .ic { fill: #e07a5a; }
+.stat.glance.on { background: var(--coral-soft); box-shadow: inset 0 0 0 2px var(--ink); border-radius: 12px; }
+.stat.glance.on + .stat { border-left-color: transparent; }
+#glance { position: fixed; z-index: 7; display: none; padding: 10px 12px 8px 14px; left: 50%; transform: translateX(-50%);
+  top: calc(var(--gap) + 106px + var(--st)); width: min(470px, calc(100% - 20px - var(--sl) - var(--sr)));
+  max-height: calc(100% - 230px - var(--st) - var(--sb)); overflow-y: auto; overscroll-behavior: contain; }
+#glance.show { display: block; }
+#glance > b { display: block; font: italic 700 19px/1.2 var(--serif); padding: 4px 44px 6px 0; }
+#glance .x { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
+#glance .x .ic { width: 16px; fill: var(--ink2); }
+#glance .row { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-top: 2px dotted rgba(58, 42, 31, 0.2); min-height: 52px; }
+#glance .row .t { flex: 1; font-size: 14.5px; font-weight: 600; }
+#glance .row .t small { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink2); margin-top: 1px; }
+#glance .row.bad .t { color: #8a3a22; } #glance .row.good .t { color: var(--green); }
+#glance .row button, #guide .show, #log-show { flex: none; min-height: 44px; min-width: 60px; padding: 0 12px; border-radius: 11px; font-weight: 800; font-size: 14px; }
+#glance .row .show, #guide .show { background: var(--paper2); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
+#glance .row .fix { background: var(--teal); color: #fff7ea; box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
+#guide .show { min-width: 56px; padding: 0 10px; }
+.log p { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.log p i { flex: 0 0 100%; }
+.log p span { flex: 1; }
+.log .lshow { flex: none; min-height: 40px; padding: 0 12px; border-radius: 10px; background: var(--paper2); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--ink); }
+/* M1 notices (N5/N9): one at a time, ✕ on each, Show when about a place; important ones have a coral edge and stay */
+#toast { pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 16px; text-align: left; visibility: hidden; }
+#toast.show { visibility: visible; }
+#toast .tt { flex: 1; padding: 6px 0; }
+#toast .tshow { flex: none; min-height: 40px; padding: 0 12px; border-radius: 10px; background: #fbf3df; color: var(--ink); font-weight: 800; font-size: 14px; }
+#toast .tx { flex: none; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
+#toast .tx .ic { width: 16px; height: 16px; fill: #fbf3df; }
+#toast.imp { box-shadow: inset 0 0 0 2px var(--coral), 0 3px 0 rgba(0, 0, 0, 0.18), 0 8px 18px rgba(30, 20, 10, 0.2); }
+body.titled #glance { display: none !important; }
 #safe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 </style>
@@ -327,14 +389,16 @@ body.titled #nowplay { display: none !important; }
   <div class="brand panel"><b>Isla Nueva</b><span id="date">January 1902</span></div>
   <div class="stats panel">
     <div class="stat money" id="sMoney"></div>
-    <div class="stat people" id="sPeople"></div>
+    <button class="stat people glance" id="sPeople" data-g="homes" aria-label="Homes: people and places"></button>
+    <button class="stat work glance" id="sWork" data-g="work" aria-label="Work: workers and jobs"></button>
+    <button class="stat need glance" id="sNeed" data-g="needs" aria-label="Homes lacking something"></button>
     <button class="stat happy" id="sHappy" aria-label="Happiness: why"></button>
   </div>
   <div class="ctrl panel" id="ctrl"></div>
 </div>
 <div id="pill"></div>
 <div id="lower">
-  <div id="guide" class="panel"><div class="who">R</div><p id="guideText"></p><button class="act" id="guideAct"></button><button class="x" id="guideX" aria-label="Close"></button></div>
+  <div id="guide" class="panel"><div class="who">R</div><p id="guideText"></p><button class="show" id="guideShow">Show</button><button class="act" id="guideAct"></button><button class="x" id="guideX" aria-label="Close"></button></div>
   <div class="spacer"></div>
   <div id="receipt" class="panel"></div>
 </div>
@@ -343,6 +407,7 @@ body.titled #nowplay { display: none !important; }
 <button id="done" aria-label="Done: stop building">✓ Done</button>
 <div id="card" class="panel"></div>
 <div id="pop" class="panel"></div>
+<div id="glance" class="panel" role="dialog" aria-label="Overview"></div>
 <div id="yearcard" class="panel"></div>
 <div id="veil"></div>
 <div id="sheet" class="panel"></div>
@@ -396,7 +461,19 @@ const TUNE = {
   happyArrive: 50,
   happyLeave: 35,
   leavePct: 0.05,
-  levelUpMonths: [0, 2, 8, 14, 16], // months with everything before a Casita / House / Villa / Townhouse moves up (block 6: 4 / 10 / 12 before)
+  // M2 (12 Oct 2026, "housing is her job"): a home with everything for its next level for these months becomes *ready*
+  // (a gold arrow over it); it moves up only when she pays for the upgrade on its card (block 6: it moved up by itself
+  // after 2 / 8 / 14 / 16 months; Tugba missed building for people, PSYCHOLOGY.md §2).
+  levelUpMonths: [0, 1, 2, 3, 3],
+  // What an upgrade costs (index: the level it leaves: Casita -> House $600, House -> Villa $1,500, Villa -> Townhouse
+  // $2,500, Townhouse -> Mansion $3,500): a street of eight homes takes about three to five paydays at that stage.
+  upgradeCost: [0, 600, 1500, 2500, 3500],
+  upgradeTicks: 25,       // scaffolding for a quarter of a month (5 s at 1x), then the new level stands
+  // Settlers without a roof wait at the pier in tents (state.waiting); a boat's families sail away again after this many
+  // months, and while families wait the boats bring fewer (word gets around): none once waitSlow boats' worth wait.
+  waitLeaveMonths: 3,
+  waitMax: 8,             // the boat brings families for the free beds and at most this many more to wait (2 families)
+  familySize: 4,          // one tent per family of about four
   levelDownMonths: 3,
   flourPerBread: 0.5,
   guideMonths: 2,         // a problem must last this long before the guide speaks
@@ -465,11 +542,13 @@ const BUILDINGS = {
   roastery:   { name: 'Coffee roastery', short: 'Roastery', kind: 'producer', w: 2, h: 2, cost: 15000, jobs: 3, stage: 3, makes: 'coffee', rate: 3, uses: { beans: 2 }, icon: 'cup', art: 'workshop', color: '#6d4c3d', group: 'industry' },
   ranch:      { name: 'Cattle ranch', short: 'Ranch', kind: 'producer', w: 2, h: 3, cost: 6000, jobs: 3, stage: 3, makes: 'cattle', rate: 4, icon: 'cow', art: 'field', color: '#9bb56a', group: 'food' },
   butcher:    { name: 'Butcher', kind: 'producer', w: 1, h: 1, cost: 10000, jobs: 2, stage: 3, makes: 'meat', rate: 4, uses: { cattle: 1 }, icon: 'meat', art: 'workshop', color: '#b5473a', group: 'food' },
-  park:       { name: 'Park', kind: 'service', w: 2, h: 2, cost: 14000, jobs: 1, stage: 3, gives: 'park', icon: 'park', art: 'civic', color: '#7cc36b', group: 'services' },
+  // M2 (N8): a park, the lighthouse and the decorations need no road: nothing is carried to them and nobody needs to
+  // drive up (the park's gardener and the lighthouse keeper walk). Their reach is straight-line tiles (DESIGN.md §18).
+  park:       { name: 'Park', kind: 'service', w: 2, h: 2, cost: 14000, jobs: 1, stage: 3, gives: 'park', noRoad: true, icon: 'park', art: 'civic', color: '#7cc36b', group: 'services' },
   // Port city
   quay:       { name: 'Steamship quay', short: 'Steamship', kind: 'harbor', w: 2, h: 2, cost: 45000, jobs: 4, stage: 4, site: 'coast', ships: 2, cap: 120, buys: 12, icon: 'ship', art: 'harbor', color: '#5a6b78', group: 'harbor' },
   cannery:    { name: 'Cannery', kind: 'producer', w: 2, h: 2, cost: 18000, jobs: 4, stage: 4, makes: 'tins', rate: 4, uses: { fish: 1 }, icon: 'tin', art: 'workshop', color: '#7d8f9b', group: 'industry' },
-  lighthouse: { name: 'Lighthouse', kind: 'service', w: 1, h: 1, cost: 14000, jobs: 1, stage: 4, site: 'coast', gives: 'light', icon: 'light', art: 'civic', color: '#f4f1e8', group: 'harbor' },
+  lighthouse: { name: 'Lighthouse', kind: 'service', w: 1, h: 1, cost: 14000, jobs: 1, stage: 4, site: 'coast', gives: 'light', noRoad: true, icon: 'light', art: 'civic', color: '#f4f1e8', group: 'harbor' },
   // Capital
   cathedral:  { name: 'Cathedral', kind: 'service', w: 3, h: 3, cost: 60000, jobs: 3, stage: 5, gives: 'church', reach: 15, icon: 'chapel', art: 'civic', color: '#eadfca', group: 'services' },
   opera:      { name: 'Opera house', short: 'Opera', kind: 'service', w: 3, h: 2, cost: 80000, jobs: 4, stage: 5, gives: 'opera', reach: 12, icon: 'opera', art: 'civic', color: '#c05a6b', group: 'services' },
@@ -815,7 +894,8 @@ function homeReach(state) {
     const lim = bReach(def);
     for (const h of homes) {
       if (footDist(s, h) > lim) continue;
-      if (!roadJoined(state, s, h)) { reach[h.id].cut.push(s.id); continue; }
+      // M2: a park reaches homes in a straight line like a decoration (no road needed, needsRoad in place.js)
+      if (needsRoad(def) && !roadJoined(state, s, h)) { reach[h.id].cut.push(s.id); continue; }
       if (def.kind === 'market') reach[h.id].markets.push(s.id);
       else (reach[h.id].svc[def.gives] = reach[h.id].svc[def.gives] || []).push(s.id);
     }
@@ -898,22 +978,31 @@ function canPlace(state, type, x, y, opts) {
     if (occ[i] || state.road[i]) return 'Something is in the way';
     if (t === FOREST) return 'Forest in the way';
     if (t === BEACH) beach++;
-    // Decorations may stand on the beach too (palms on the shore, a bandstand on the promenade).
-    if (t === BEACH && def.site !== 'beach' && def.site !== 'coast' && def.kind !== 'deco') return 'Too sandy: build on grass';
+    // Decorations may stand on the beach too (palms on the shore, a bandstand on the promenade); M2: so may a park
+    // (a seaside promenade like Havana's Malecón gardens: it needs no road and nothing is carried to it).
+    if (t === BEACH && def.site !== 'beach' && def.site !== 'coast' && def.kind !== 'deco' && def.gives !== 'park') return 'Too sandy: build on grass';
   }
   if (def.site === 'beach' && (beach < def.w * def.h || !nearTerrain(state, b, SEA))) return 'Must be on the beach by the sea';
   if (def.site === 'coast' && !nearTerrain(state, b, SEA)) return 'Must be on the coast';
   if (def.site === 'forest' && !nearTerrain(state, b, FOREST)) return 'Must be next to forest';
-  // Decorations need no road: they fill any spare tile near homes.
-  if (!(opts && opts.noRoad) && def.kind !== 'deco' && bEntrances(state, b).length === 0) return 'Needs a road next to it';
+  // Decorations, the park and the lighthouse need no road (M2, N8: needsRoad); everything else gets carts or visitors.
+  if (!(opts && opts.noRoad) && needsRoad(def) && bEntrances(state, b).length === 0) return 'Needs a road next to it';
   if (!(opts && opts.free) && state.money < def.cost) return 'Not enough money ($' + def.cost + ')';
   return '';
 }
 
+// Which buildings need a road next to them (M2, Tomáš's N8 "a park doesn't need a road to it, does it?"): those that carts
+// serve or visitors come to: homes (settlers walk in from the pier, a market must be joined by road), producers and
+// workshops (carts), markets (carts bring goods, homes are joined to them), harbors (carts bring exports), the chapel,
+// school, clinic, cathedral and opera (people come every day; their reach needs a road joining the home). Not: the
+// decorations, the park (a garden in the town: its reach is straight-line tiles) and the lighthouse (its keeper lives
+// in it; it only needs the coast). The table is in DESIGN.md §18.
+function needsRoad(def) { return !!def && def.kind !== 'deco' && !def.noRoad && def.kind !== 'fixed'; }
+
 function newBuilding(state, type, x, y) {
   const def = BUILDINGS[type];
   const b = { id: state.nextId++, type, x, y, w: def.w, h: def.h, open: true, workers: 0, built: state.month };
-  if (def.kind === 'home') Object.assign(b, { level: 1, res: 0, pantry: {}, dry: {}, occTicks: 0, miss: [], missNext: [], lacks: [], wants: [], up: 0, down: 0 });
+  if (def.kind === 'home') Object.assign(b, { level: 1, res: 0, pantry: {}, dry: {}, occTicks: 0, miss: [], missNext: [], lacks: [], wants: [], up: 0, down: 0, ready: false, build: 0 });
   if (def.kind === 'producer') Object.assign(b, { yard: 0, inp: {}, incoming: {}, prog: 0, made: 0, blocked: '' });
   if (def.kind === 'market') Object.assign(b, { stock: {}, incoming: {}, served: 0 });
   if (def.kind === 'harbor') Object.assign(b, { stock: {}, incoming: {}, flour: 0, sold: 0, bought: 0, soldUnits: {} });
@@ -1406,6 +1495,13 @@ function marketTick(state, m) {
 }
 
 function homeTick(state, h) {
+  // M2: scaffolding while an upgrade she paid for is built; then the new level stands and the waiting move in
+  if (h.build > 0 && --h.build === 0) {
+    h.level++; h.up = 0; h.down = 0; h.ready = false;
+    state.stats.levelUps++;
+    homeCountsUpdate(state);
+    simEvent(state, { kind: 'levelup', id: h.id, level: h.level });
+  }
   if (!h.res) return;
   h.occTicks++;
   const occ = h.res / LEVELS[h.level].people;
@@ -1503,18 +1599,26 @@ function levelUpMonths(level) { return TUNE.levelUpMonths[level] || 2; }
 
 // Month end for one home: what it lacks (h.miss), what its next level still needs (h.missNext), and whether it
 // moves up or down a level. h.lacks / h.wants are what the map shows above it (see bubblesPick).
+// M2 ("housing is her job"): a home that has had everything for its next level for levelUpMonths becomes *ready*
+// (h.ready: a gold arrow over it on the map); it moves up only when she pays for the upgrade on its card (homeUpgrade).
+// A home being upgraded (h.build: ticks of scaffolding left) is not judged that month.
 function homeMonth(state, h) {
   h.miss = homeMissing(state, h, h.level);
   const next = LEVELS[h.level + 1];
   h.missNext = next && next.stage <= state.stage ? homeMissing(state, h, h.level + 1) : [];
-  if (h.res > 0 && next && next.stage <= state.stage && h.missNext.length === 0) h.up++; else h.up = 0;
+  if (h.build) { h.dry = {}; h.occTicks = 0; return; }
+  if (h.res > 0 && next && next.stage <= state.stage && h.missNext.length === 0) h.up = Math.min(h.up + 1, levelUpMonths(h.level)); else h.up = 0;
   if (h.res > 0 && h.miss.length && h.level > 1) h.down++; else h.down = 0;
-  if (h.up >= levelUpMonths(h.level)) {
-    h.level++; h.up = 0; h.down = 0;
-    state.stats.levelUps++;
-    simEvent(state, { kind: 'levelup', id: h.id, level: h.level });
-  } else if (h.down >= TUNE.levelDownMonths) {
-    h.level--; h.down = 0;
+  const was = !!h.ready;
+  h.ready = h.up >= levelUpMonths(h.level) && !!next;
+  if (h.ready && !was) {
+    state.stats.ready = (state.stats.ready || 0) + 1;
+    if (!state._readyNow) state._readyNow = [];
+    state._readyNow.push(h.id);
+    simEvent(state, { kind: 'ready', id: h.id, level: h.level + 1 });
+  }
+  if (h.down >= TUNE.levelDownMonths) {
+    h.level--; h.down = 0; h.up = 0; h.ready = false;
     const cap = LEVELS[h.level].people;
     if (h.res > cap) { walkersSpawn(state, h, h.res - cap, false); h.res = cap; }
     // Block 6 (playtest 2): a ↓ mark over it for a month, or until what it lacked is back (state.downs: home id ->
@@ -1583,9 +1687,139 @@ function bubblesPick(state) {
   state.wantCount = pick('missNext', 'wants', (h) => (h.miss || []).length > 0);
 }
 
+// ---------- M2: upgrades she pays for ----------
+// What moving up from this level costs (TUNE.upgradeCost: Casita -> House $600 ... Townhouse -> Mansion $3,500).
+function upgradeCost(level) { return TUNE.upgradeCost[level] || 0; }
+
+// '' when this home can be upgraded now, else the reason in a few words.
+function upgradeWhy(state, h) {
+  if (!h || h.type !== 'casita') return 'Not a home';
+  const next = LEVELS[h.level + 1];
+  if (!next) return 'The highest level';
+  if (h.build) return 'Being built';
+  if (next.stage > state.stage) return 'Opens at ' + STAGES[next.stage].name;
+  if (!h.ready) return 'Not ready yet';
+  if (state.money < upgradeCost(h.level)) return 'Not enough money (' + money$(upgradeCost(h.level)) + ')';
+  return '';
+}
+
+// Her tap on Upgrade: the money goes now, scaffolding stands for TUNE.upgradeTicks, then the next level (homeTick).
+// Rent rises only once the new level stands and its new beds fill (rent is per person).
+function homeUpgrade(state, h) {
+  const why = upgradeWhy(state, h);
+  if (why) return { ok: false, why };
+  const cost = upgradeCost(h.level);
+  state.money -= cost;
+  h.build = TUNE.upgradeTicks; h.ready = false; h.up = 0; h.down = 0;
+  state.stats.upgrades = (state.stats.upgrades || 0) + 1;
+  state.stats.upgradeSpent = (state.stats.upgradeSpent || 0) + cost;
+  homeCountsUpdate(state);
+  simEvent(state, { kind: 'upgrade', id: h.id, level: h.level + 1, cost });
+  return { ok: true, cost };
+}
+
+// Whether the island makes enough of what this home eats at its next level (nominal rates, as the producer cards say):
+// null, or { g, sup, dem } for the first good that would fall short once it moves up (the card warns; she decides).
+function upgradeShort(state, h) {
+  const next = LEVELS[h.level + 1];
+  if (!next) return null;
+  for (const g in next.eats) {
+    const now = eatRate(h, g) * h.res / LEVELS[h.level].people, extra = next.eats[g] - now;
+    const sup = goodSupply(state, g), dem = goodDemand(state, g) + extra;
+    if (sup < dem) return { g, sup, dem: Math.ceil(dem) };
+  }
+  return null;
+}
+
+// The ready homes (not being built), nearest to `from` (a home) first.
+function homesReady(state, from) {
+  const out = state.b.filter((b) => b.type === 'casita' && b.ready && !b.build && LEVELS[b.level + 1] && LEVELS[b.level + 1].stage <= state.stage);
+  if (from) out.sort((a, b) => (Math.abs(a.x - from.x) + Math.abs(a.y - from.y)) - (Math.abs(b.x - from.x) + Math.abs(b.y - from.y)) || a.id - b.id);
+  return out;
+}
+
+// "Upgrade all ready homes · $X": { n, cost (of all), done, spent }: as many as the money allows, nearest first.
+function upgradeAllInfo(state, from) {
+  const list = homesReady(state, from);
+  return { list, n: list.length, cost: list.reduce((a, h) => a + upgradeCost(h.level), 0) };
+}
+
+function upgradeAll(state, from) {
+  const { list } = upgradeAllInfo(state, from);
+  let done = 0, spent = 0;
+  for (const h of list) { const r = homeUpgrade(state, h); if (r.ok) { done++; spent += r.cost; } }
+  return { done, spent, left: list.length - done };
+}
+
+// The homes by level, for the lists and the top bar (M1): state.homeCounts = { Casita: n, House: n, ... } (every home
+// built, empty ones too), state.readyCount (ready to upgrade) and state.building (under scaffolding).
+function homeCountsUpdate(state) {
+  const c = {};
+  for (let l = 1; l < LEVELS.length; l++) c[LEVELS[l].name] = 0;
+  let ready = 0, building = 0;
+  for (const b of state.b) {
+    if (b.type !== 'casita') continue;
+    c[LEVELS[b.level].name]++;
+    if (b.build) building++; else if (b.ready) ready++;
+  }
+  state.homeCounts = c; state.readyCount = ready; state.building = building;
+}
+
+// ---------- M2: settlers wait at the pier without a roof ----------
+// state.waitQ: one group per boat, { n: people, m: the month they came }; state.waiting: how many wait (for M1's bar).
+function waitSync(state) { state.waiting = (state.waitQ || []).reduce((a, g) => a + g.n, 0); }
+
+// Waiting settlers move into free beds (the oldest group first) and walk from the tents to their home. Returns how
+// many moved in. Called every few ticks (so a new home fills at once) and at the month's end before the boat.
+function waitHouse(state) {
+  if (!state.waitQ || !state.waitQ.length) return 0;
+  let moved = 0;
+  for (const h of state.b) {
+    if (!state.waitQ.length) break;
+    if (h.type !== 'casita' || h.build) continue;
+    let room = LEVELS[h.level].people - h.res;
+    while (room > 0 && state.waitQ.length) {
+      const g = state.waitQ[0], k = Math.min(room, g.n);
+      if (!h.res) { h.miss = []; h.lacks = []; }
+      h.pantry.food = (h.pantry.food || 0) + LEVELS[h.level].eats.food * k / LEVELS[h.level].people;
+      h.res += k; room -= k; g.n -= k; moved += k;
+      walkersSpawn(state, h, k, true, true);
+      if (g.n <= 0) state.waitQ.shift();
+    }
+  }
+  if (moved) {
+    waitSync(state);
+    state.stats.housed = (state.stats.housed || 0) + moved;
+    simEvent(state, { kind: 'housed', n: moved });
+  }
+  return moved;
+}
+
+// What the next boat brings: shipSettlers, but word gets around: families come for the free beds and at most
+// TUNE.waitMax more to wait at the pier (two families), fewer while families already wait there.
+function boatSettlers(state) {
+  return Math.max(0, Math.min(shipSettlers(state), freeBeds(state) + TUNE.waitMax - (state.waiting || 0)));
+}
+
+// The tiles where the waiting families' tents stand: free land nearest the pier's landward end (one tent a family).
+function tentSpots(state) {
+  const n = Math.min(10, Math.ceil((state.waiting || 0) / TUNE.familySize));
+  const pier = state.b.find((b) => b.type === 'pier');
+  if (!n || !pier) return [];
+  const occ = occMap(state), cx = pier.x + pier.w, cy = pier.y, out = [];
+  for (let y = cy - 6; y <= cy + 6; y++) for (let x = cx - 2; x <= cx + 6; x++) {
+    if (!inMap(x, y)) continue;
+    const i = tileIdx(x, y), t = state.terrain[i];
+    if (occ[i] || state.road[i] || t === SEA || t === FOREST) continue;
+    out.push([x, y, Math.abs(x - cx) + 1.3 * Math.abs(y - cy) + (t === BEACH ? 0 : 0.4)]);
+  }
+  out.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+  return out.slice(0, n).map((p) => [p[0], p[1]]);
+}
+
 function freeBeds(state) {
   let n = 0;
-  for (const h of state.b) if (h.type === 'casita') n += LEVELS[h.level].people - h.res;
+  for (const h of state.b) if (h.type === 'casita' && !h.build) n += LEVELS[h.level].people - h.res;
   return n;
 }
 
@@ -1604,12 +1838,21 @@ function peopleMonth(state) {
   state.lastMoves = { came: 0, left: 0 };
   // While the first market and food building have not stood a full month, settlers come whatever the happiness (they
   // bring their own food) and nobody leaves: the island is still being laid out (block 4, the playtest's first minutes).
+  if (!state.waitQ) state.waitQ = [];
+  state.lastMoves.waiting = 0; state.lastMoves.sailed = 0;
+  // M2: the families who waited longest sail away again (a boat's group after TUNE.waitLeaveMonths without a roof)
+  // the waiting move in first (they came first), then those who waited too long sail away, then the boat
+  waitHouse(state);
+  let sailed = 0;
+  while (state.waitQ.length && state.month - state.waitQ[0].m >= TUNE.waitLeaveMonths) sailed += state.waitQ.shift().n;
+  waitSync(state);
   if (state.happy >= TUNE.happyArrive || !foodStood(state)) {
-    let n = Math.min(freeBeds(state), shipSettlers(state));
-    state.lastMoves.came = n;
+    // M2: the boat brings families whether or not there is room; those without a bed wait at the pier in tents.
+    const boat = boatSettlers(state);
+    let n = boat;
     for (const h of state.b) {
       if (n <= 0) break;
-      if (h.type !== 'casita') continue;
+      if (h.type !== 'casita' || h.build) continue;
       const k = Math.min(n, LEVELS[h.level].people - h.res);
       if (k <= 0) continue;
       // Settlers bring provisions for their first month; an empty home is judged from next month on.
@@ -1618,6 +1861,9 @@ function peopleMonth(state) {
       h.res += k; n -= k;
       walkersSpawn(state, h, k, true);
     }
+    state.lastMoves.came = boat - n;
+    if (n > 0) { state.waitQ.push({ n, m: state.month }); state.lastMoves.waiting = n; }
+    waitSync(state);
   } else if (state.happy < TUNE.happyLeave && pop > 0 && foodStood(state)) {
     let n = Math.max(1, Math.round(TUNE.leavePct * pop));
     state.lastMoves.left = n;
@@ -1629,7 +1875,15 @@ function peopleMonth(state) {
       walkersSpawn(state, h, k, false);
     }
   }
+  if (sailed) {
+    state.lastMoves.sailed = sailed;
+    state.stats.sailed = (state.stats.sailed || 0) + sailed;
+    state._sailedNow = sailed;
+    simLog(state, plural(sailed, 'settler', 'settlers') + ' sailed away again: ' + TUNE.waitLeaveMonths + ' months at the pier without a roof.');
+    simEvent(state, { kind: 'sailed', n: sailed });
+  }
   if (state.lastMoves.came) simLog(state, plural(state.lastMoves.came, 'settler', 'settlers') + ' arrived.');
+  if (state.lastMoves.waiting) simLog(state, plural(state.lastMoves.waiting, 'settler waits', 'settlers wait') + ' at the pier: no free home' + (state.waiting > state.lastMoves.waiting ? ' (' + state.waiting + ' wait in all).' : '.'));
   if (state.lastMoves.left) simLog(state, plural(state.lastMoves.left, 'person', 'people') + ' left the island (happiness ' + state.happy + ').');
 }
 
@@ -1681,14 +1935,15 @@ function happyReasons(state) {
 }
 
 // Walking people: drawn only, never saved, never part of the rules.
-function walkersSpawn(state, h, n, arriving) {
+// tent: settlers who waited at the pier walk from the tents (they start on the road, not on the ship).
+function walkersSpawn(state, h, n, arriving, tent) {
   const pier = state.b.find((b) => b.type === 'pier');
   if (!pier || !state.walk) return;
   const path = roadPath(state, pier, h);
   if (!path || !path.length) return;
   for (let k = 0; k < Math.min(n, 6); k++) {
     if (state.walk.length > 60) return;
-    state.walk.push({ path: arriving ? path : path.slice().reverse(), pos: -k * 1.2, off: ((h.id * 7 + k * 3) % 10) / 10 - 0.45, arriving });
+    state.walk.push({ path: arriving ? path : path.slice().reverse(), pos: -k * 1.2, off: ((h.id * 7 + k * 3) % 10) / 10 - 0.45, arriving, tent: !!tent });
   }
 }
 
@@ -1843,10 +2098,19 @@ const GUIDE_INTRO = [
     done: (s) => countType(s, 'fishing') + countType(s, 'grove') >= 1 && countType(s, 'market') >= 1 },
 ];
 
+// Where a line points (M1: Show and the log fly there): the selected building's middle, else the tile `at`; [x, y].
+function actPlace(state, a) {
+  if (!a) return null;
+  const b = a.select && bById(state, a.select);
+  if (b) return [b.x + b.w / 2, b.y + b.h / 2];
+  if (a.at) return [a.at[0] + 0.5, a.at[1] + 0.5];
+  return null;
+}
+
 function guideSay(state, msg) {
   if (state.guide.msg && state.guide.msg.key === msg.key && state.guide.msg.text === msg.text) return;
   state.guide.msg = msg;
-  simLog(state, msg.text);
+  simLog(state, msg.text, actPlace(state, msg.act));
   simEvent(state, { kind: 'guide' });
 }
 
@@ -1902,16 +2166,29 @@ function yardText(s, b) {
   const why = takerState(s, b);
   if (why === 'none') return 'The ' + name + '’s yard is full: nobody takes the ' + g + '. Build ' + GOOD_TAKER[def.makes] + ' on its road.';
   if (why === 'unreached') return 'The ' + name + ' has no road to ' + GOOD_TAKER[def.makes] + '. Join its road to theirs (Show marks both).';
-  const cart = s.carts.find((c) => c.home === b.id);
-  if (cart && cart.st !== 'idle' && cart.path && cart.path.length > 14) {
-    return 'The ' + name + '’s cart is on a long road (' + (cart.path.length - 1) + ' tiles) and its yard is full. ' +
-      (s.stage >= PAVED_STAGE ? 'Pave the road: carts go twice as fast.' : 'Build the ' + GOOD_TAKER[def.makes].replace(/^an? /, '') + ' closer.');
+  const cart = longCart(s, b);
+  if (cart) {
+    // M1 (N16: "it says 72 tiles but offers no solution"): the fix by name, the button arms it beside the building
+    const t = takerTool(def.makes);
+    return 'The ' + name + '’s cart takes a long road (' + (cart.path.length - 1) + ' tiles) and its yard is full. Build ' +
+      (BUILDINGS[t].kind === 'harbor' ? 'a harbor on the coast near the ' + name : 'a ' + BUILDINGS[t].name.toLowerCase() + ' near the ' + name) +
+      (s.stage >= PAVED_STAGE ? ', or pave its road (carts go twice as fast)' : '') + '; Show marks its road.';
   }
   const cost = -bNumber(s, b).n;
   const exp = EXPORTABLE.includes(def.makes) && !s.exp[def.makes] && countHarbors(s) ? ', or export ' + g + ' at the desk' : '';
   if (foodBuilding(b)) return 'The ' + name + ' makes more ' + g + ' than the island eats: its yard is full. More homes will eat it' + exp + '.';
   return 'The ' + name + ' makes more ' + g + ' than the island uses: its yard is full. Close it to save $' + cost + ' a month' + exp + '.';
 }
+
+// The cart of a producer on a long road (more than 14 tiles), or null.
+function longCart(s, b) {
+  const cart = s.carts.find((c) => c.home === b.id);
+  return cart && cart.st !== 'idle' && cart.path && cart.path.length > 14 ? cart : null;
+}
+// The building that takes a good off a producer's yard (the tool Rosa's button arms).
+const TAKER_TOOL = { fish: 'market', fruit: 'market', cane: 'distillery', rum: 'harbor', bread: 'market', tobacco: 'cigars', cigars: 'harbor',
+  logs: 'sawmill', planks: 'harbor', beans: 'roastery', coffee: 'harbor', cattle: 'butcher', meat: 'market', tins: 'harbor' };
+function takerTool(g) { return TAKER_TOOL[g] || 'market'; }
 
 // Why a workshop has no input, in one cause and one fix (block 6): no supplier, its road not joined, too few suppliers
 // for the workshops, or (flour) every harbor shut. { g, text, btn, act }.
@@ -1977,6 +2254,7 @@ function needCause(s, need, homes) {
   }
   if (need === 'paved') return { text: 'pave the street in front of them', tool: 'paved', at };
   if (need === 'deco') return { text: 'place a garden, palms or a fountain near them (no road needed)', tool: 'garden', at };
+  if (need === 'park') return { text: 'build a park near them (no road needed)', tool: 'park', at };
   if (need === 'road') return { text: 'lay a road to them', tool: 'road', at };
   const t = NEED_FIX[need];
   const cut = homes.filter((h) => { const r = homeReach(s)[h.id]; return r && r.cut.some((id) => { const b = bById(s, id); return b && (BUILDINGS[b.type].gives === need || (need === 'market' && b.type === 'market')); }); });
@@ -2031,10 +2309,16 @@ function goalBlocker(s) {
   let best = null;
   for (const n in by) if (!best || by[n].length > by[best].length) best = n;
   const lname = LEVELS[L].name + 's', have = homesAtLevel(s, L), want = next[k[0]];
+  // M2: homes ready to move up come first: upgrading them is hers to do now (Upgrade on the home's card)
+  const rdy = homesReady(s).filter((h) => h.level === L - 1);
+  if (rdy.length) {
+    const cost = upgradeCost(L - 1);
+    return { level: L, n: 0, have, want, ready: rdy.length, select: rdy[0].id, text: lname + ': ' + plural(rdy.length, 'home is', 'homes are') + ' ready to move up · tap ' + (rdy.length === 1 ? 'it' : 'one') + ': Upgrade · ' + money$(cost) + (rdy.length > 1 ? ' (' + money$(cost * rdy.length) + ' for all)' : ''), tool: '' };
+  }
   if (!best) {
     const growing = ready.length;
     if (!growing) return { level: L, n: 0, have, want, text: lname + ': no ' + LEVELS[L - 1].name + ' is waiting to grow; more homes must grow first', tool: 'casita' };
-    return { level: L, n: 0, have, want, text: lname + ': ' + plural(growing, 'home has', 'homes have') + ' everything and ' + (growing === 1 ? 'moves' : 'move') + ' up after ' + levelUpMonths(L - 1) + ' months' + (growing < short ? '; build more homes' : ''), tool: growing < short ? 'casita' : '' };
+    return { level: L, n: 0, have, want, text: lname + ': ' + plural(growing, 'home has', 'homes have') + ' everything and ' + (growing === 1 ? 'is' : 'are') + ' ready to upgrade within ' + plural(levelUpMonths(L - 1), 'month', 'months') + (growing < short ? '; build more homes' : ''), tool: growing < short ? 'casita' : '' };
   }
   const fix = needCause(s, best, by[best]);
   return { level: L, need: best, n: by[best].length, have, want, text: lname + ': ' + by[best].length + ' homes lack ' + NEED_NAMES[best] + (SERVICE_NEEDS.includes(best) || best === 'market' ? ' in reach' : ''), fix, tool: fix.tool, at: fix.at };
@@ -2057,6 +2341,25 @@ function downsSay(s) {
   const what = NEED_GOODS.includes(best) ? 'no ' + NEED_NAMES[best] + ' in their market' : 'no ' + NEED_NAMES[best].replace(/^an? /, '') + (SERVICE_NEEDS.includes(best) || best === 'market' ? ' in reach' : '');
   return { key: 'down', text: plural(homes.length, 'home', 'homes') + ' stepped down: ' + what + ' · ' + fix.text + '. The ↓ marks show where for a month.',
     btn: toolLabel(fix.tool), act: { tool: fix.tool, at: fix.at || homesAt(homes) } };
+}
+
+// M2: where the waiting families are (the view goes there with the Home tool armed; the lit tiles are free spots).
+function waitAt(s) {
+  const t = tentSpots(s)[0];
+  if (t) return t;
+  const p = s.b.find((b) => b.type === 'pier');
+  return p ? [p.x + p.w, p.y] : undefined;
+}
+
+// M2: families who sailed away this month: said once (again only after a year without it), with the count.
+function sailSay(s) {
+  const n = s._sailedNow;
+  if (!n) return null;
+  const g = s.guide;
+  if (g.sailSaid !== undefined && g.sailSaid > s.month - 12) { g.sailSaid = s.month; return null; }
+  g.sailSaid = s.month;
+  return { key: 'sailed', text: plural(n, 'settler', 'settlers') + ' sailed away: ' + TUNE.waitLeaveMonths + ' months at the pier without a roof.' + (s.waiting ? ' ' + s.waiting + ' still wait.' : '') +
+    ' Build homes by a road: the lit tiles are free spots.', btn: 'Home', act: { tool: 'casita', at: waitAt(s) } };
 }
 
 // The most common thing homes miss (field 'miss' or 'missNext'), skipping food, market and road (said elsewhere).
@@ -2093,7 +2396,7 @@ const GUIDE_PROBLEMS = [
     const hungry = homesOccupied(s).filter((h) => (h.miss || []).includes('food'));
     if (!hungry.length) return null;
     const n = plural(hungry.length, 'home has', 'homes have');
-    if (!countType(s, 'market')) return { text: n + ' no food. Build a market near the homes.', btn: 'Market', act: { tool: 'market' } };
+    if (!countType(s, 'market')) return { text: n + ' no food. Build a market near the homes.', btn: 'Market', act: { tool: 'market', at: homesAt(hungry) } };
     const farms = s.b.filter((b) => BUILDINGS[b.type].food && BUILDINGS[b.type].makes);
     if (!farms.length) return { text: n + ' no food. Build a fishing hut or a fruit grove.', btn: 'Fishing hut', act: { tool: 'fishing' } };
     // A new market or farm gets a month before Rosa judges the food.
@@ -2104,19 +2407,19 @@ const GUIDE_PROBLEMS = [
     const near = [...ids].map((id) => bById(s, id)).filter(Boolean), working = near.filter((m) => m.open && m.workers > 0);
     if (near.length && !working.length) {
       const m = near[0];
-      return m.open ? { text: 'The market has no workers, so nobody gets food. Half of the people work: build homes.', btn: 'Home', act: { tool: 'casita' } }
+      return m.open ? { text: 'The market has no workers, so nobody gets food. Half of the people work: build homes.', btn: 'Home', act: { tool: 'casita', select: m.id } }
         : { text: 'The market is shut down, so nobody gets food. Open it on its card.', btn: 'Show', act: { select: m.id } };
     }
     if (working.length && working.every((m) => marketFood(m) < 1)) {
       // The food is made but cannot reach a market: that first.
       const lost = farms.find((b) => b.blocked === 'yard' && takerState(s, b) === 'unreached');
-      if (lost) return { text: 'Your markets have no food: the ' + BUILDINGS[lost.type].name.toLowerCase() + ' has no road to a market. Join its road to the town.', btn: 'Show', act: { select: lost.id, roads: true } };
+      if (lost) return { text: 'Your markets have no food: the ' + BUILDINGS[lost.type].name.toLowerCase() + ' has no road to a market. Join its road to the town (Show marks it).', btn: 'Road', act: { tool: 'road', at: [lost.x, lost.y], select: lost.id, roads: true } };
       return { text: 'Your markets have no food: build a fruit grove or a fishing hut.', btn: 'Fruit grove', act: { tool: 'grove' } };
     }
     const far = hungry.filter((h) => !reach[h.id].markets.length);
     const cut = far.filter((h) => reach[h.id].cut.some((id) => (bById(s, id) || {}).type === 'market'));
-    if (cut.length) return { text: plural(cut.length, 'home is', 'homes are') + ' near a market, but no road joins them. Join the roads (Show marks both).', btn: 'Show', act: { select: cut[0].id, roads: true } };
-    if (far.length) return { text: plural(far.length, 'home is', 'homes are') + ' more than ' + TUNE.marketReach + ' tiles from a market. Build a market near them.', btn: 'Show', act: { select: far[0].id } };
+    if (cut.length) return { text: plural(cut.length, 'home is', 'homes are') + ' near a market, but no road joins them. Join the roads (Show marks both).', btn: 'Road', act: { tool: 'road', at: homesAt(cut), select: cut[0].id, roads: true } };
+    if (far.length) return { text: plural(far.length, 'home is', 'homes are') + ' more than ' + TUNE.marketReach + ' tiles from a market. Build a market near them.', btn: 'Market', act: { tool: 'market', at: homesAt(far), select: far[0].id } };
     return { text: 'The markets run out of food: ' + n + ' none. Build another fishing hut or fruit grove.', btn: 'Fruit grove', act: { tool: 'grove' } };
   } },
   { key: 'landmark', check(s) {
@@ -2137,6 +2440,13 @@ const GUIDE_PROBLEMS = [
     const w = inputWhy(s, b);
     return w && Object.assign({ text: 'The ' + BUILDINGS[b.type].name.toLowerCase() + ' has no ' + GOODS[w.g].name.toLowerCase() + ': ' + w.text + '.' }, w.btn ? { btn: w.btn, act: w.act } : { btn: 'Show', act: { select: b.id } });
   } },
+  { key: 'waiting', check(s) {
+    // M2: settlers in tents at the pier (a kind, visible pressure): said when they have waited two month-ends.
+    if (!s.waiting) return null;
+    const rdy = homesReady(s), oldest = s.waitQ && s.waitQ[0], left = oldest ? Math.max(1, TUNE.waitLeaveMonths - (s.month - oldest.m)) : TUNE.waitLeaveMonths;
+    return { text: plural(s.waiting, 'settler waits', 'settlers wait') + ' at the pier in tents: no free home. Build homes by a road' + (rdy.length ? ', or upgrade ' + plural(rdy.length, 'ready home', 'ready homes') : '') + ': they move in at once. ' +
+      (left <= 1 ? 'Some sail away at the end of this month.' : 'After ' + TUNE.waitLeaveMonths + ' months they sail away.'), btn: 'Home', act: { tool: 'casita', at: waitAt(s) } };
+  } },
   { key: 'needs', check(s) {
     const t = topNeed(s, 'miss');
     if (!t || t.n < Math.max(2, Math.ceil(0.04 * homesOccupied(s).length))) return null;
@@ -2149,22 +2459,28 @@ const GUIDE_PROBLEMS = [
   { key: 'goal', check(s) {
     // Block 6: Rosa follows the pill: the need that holds back the next stage's homes, with its count and its fix.
     const k = goalBlocker(s);
+    if (k && k.ready) return { text: STAGES[s.stage + 1].name + ' needs ' + k.want + ' ' + LEVELS[k.level].name + 's (' + k.have + ' now): ' + k.text.replace(/^[A-Za-z]+: /, '') + '.', btn: 'Show', act: { select: k.select } };
     if (!k || !k.tool) return null;
     const next = STAGES[s.stage + 1];
     return { text: next.name + ' needs ' + k.want + ' ' + LEVELS[k.level].name + 's (' + k.have + ' now): ' + k.text.replace(/^[A-Za-z]+: /, '') + (k.fix ? ' · ' + k.fix.text : '') + '.', btn: toolLabel(k.tool), act: { tool: k.tool, at: k.at } };
   } },
   { key: 'yard', check(s) {
     // A food building that simply makes more than the homes eat comes last, and its button builds a home (block 5).
-    const full = s.b.filter((o) => o.blocked === 'yard'), surplus = (o) => foodBuilding(o) && takerState(s, o) === 'full';
+    // M1 (N10/N16): a long road is said before a surplus, and every case arms its own fix (never Home for "a market closer")
+    const full = s.b.filter((o) => o.blocked === 'yard'), surplus = (o) => foodBuilding(o) && takerState(s, o) === 'full' && !longCart(s, o);
     const b = full.find((o) => !surplus(o)) || full[0];
     if (!b) return null;
-    if (surplus(b)) return { text: yardText(s, b), btn: 'Home', act: { tool: 'casita' } };
-    return { text: yardText(s, b), btn: 'Show', act: { select: b.id, roads: takerState(s, b) === 'unreached' } };
+    const why = takerState(s, b), t = takerTool(BUILDINGS[b.type].makes);
+    if (why !== 'none' && why !== 'unreached' && longCart(s, b)) return { text: yardText(s, b), btn: toolLabel(t), act: { tool: t, at: [b.x, b.y], select: b.id, roads: true } };
+    if (surplus(b)) return { text: yardText(s, b), btn: 'Home', act: { tool: 'casita', select: b.id } };
+    if (why === 'none') return { text: yardText(s, b), btn: toolLabel(t), act: { tool: t, at: [b.x, b.y], select: b.id } };
+    if (why === 'unreached') return { text: yardText(s, b), btn: 'Road', act: { tool: 'road', at: [b.x, b.y], select: b.id, roads: true } };
+    return { text: yardText(s, b), btn: 'Show', act: { select: b.id } };
   } },
   { key: 'workers', check(s) {
     const b = s.b.find((o) => BUILDINGS[o.type].jobs && o.open && o.workers === 0);
     if (!b) return null;
-    return { text: 'The ' + BUILDINGS[b.type].name.toLowerCase() + ' has no workers. Half of the people work: build homes.', btn: 'Home', act: { tool: 'casita' } };
+    return { text: 'The ' + BUILDINGS[b.type].name.toLowerCase() + ' has no workers. Half of the people work: build homes.', btn: 'Home', act: { tool: 'casita', select: b.id } };
   } },
   { key: 'unhappy', check(s) {
     if (s.happy >= TUNE.happyArrive || !popCount(s)) return null;
@@ -2179,7 +2495,7 @@ const GUIDE_PROBLEMS = [
     return { text: plural(s.jobless, 'person has', 'people have') + ' no work. ' + (sell.length ? 'Build a farm or a workshop: the ship buys ' + listAnd(sell) + '.' : 'Build a farm: more food lets more homes fill.'), btn: toolLabel(t), act: { tool: t } };
   } },
   { key: 'beds', check(s) {
-    if (freeBeds(s) > 0 || s.happy < TUNE.happyArrive || countType(s, 'casita') < 3) return null;
+    if (s.waiting || freeBeds(s) > 0 || s.happy < TUNE.happyArrive || countType(s, 'casita') < 3) return null;
     return { text: 'Every home is full. Build homes so more settlers can come.', btn: 'Home', act: { tool: 'casita' } };
   } },
   { key: 'grow', check(s) {
@@ -2188,7 +2504,7 @@ const GUIDE_PROBLEMS = [
     const h = homesOccupied(s).find((x) => (x.missNext || []).includes(t.need));
     const next = LEVELS[h.level + 1];
     const fix = needFix(s, t.need);
-    return { text: t.n + ' homes need ' + NEED_NAMES[t.need] + ' to become ' + next.name + 's · ' + fix.text + '.', btn: toolLabel(fix.tool), act: { tool: fix.tool } };
+    return { text: t.n + ' homes need ' + NEED_NAMES[t.need] + ' to become ' + next.name + 's · ' + fix.text + '.', btn: toolLabel(fix.tool), act: { tool: fix.tool, at: fix.at || homesAt(homesOccupied(s).filter((x) => (x.missNext || []).includes(t.need))) } };
   } },
 ];
 
@@ -2209,6 +2525,15 @@ function guideMonth(state) {
   // Homes that stepped down this month: one line per cause, with the count and the fix (block 6).
   const down = downsSay(state);
   if (down && !(say && (say.key === 'red' || say.key === 'landmark'))) { say = down; g.seen.down = 1; }
+  // M2: settlers who sailed away (once a year at most, with the count) and the first ready home (once).
+  const sail = sailSay(state);
+  if (sail && !(say && (say.key === 'red' || say.key === 'landmark'))) say = sail;
+  const ready = !g.seen.ready && state._readyNow && state._readyNow.length ? bById(state, state._readyNow[0]) : null;
+  if (ready && !(say && (say.key === 'red' || say.key === 'landmark' || say.key === 'sailed'))) {
+    g.seen.ready = 1;
+    const nx = LEVELS[ready.level + 1];
+    say = { key: 'hint-ready', text: 'This home has everything a ' + nx.name + ' needs: it is ready to move up (the gold arrow). Tap it: Upgrade · ' + money$(upgradeCost(ready.level)) + '. ' + nx.people + ' people fit in a ' + nx.name + ', and each pays rent.', btn: 'Show', act: { select: ready.id } };
+  }
   if (say) guideSay(state, guideWay(state, say));
   else if (g.msg && !g.msg.key.startsWith('i-') && !g.msg.key.startsWith('hint')) g.msg = null;
 }
@@ -2289,6 +2614,7 @@ function loadGame(obj) {
   if (!s.mv) saveMigrate1(s);
   if (s.mv < 3) saveMigrate2(s);
   if (s.mv < 4) saveMigrate3(s);
+  if (s.mv < 5) saveMigrate4(s);
   s.ev = [];
   s.walk = [];
   return s;
@@ -2333,6 +2659,21 @@ function saveMigrate3(s) {
   s.mv = 4;
 }
 
+// Block 9 saves -> M2 (12 Oct 2026): homes keep their levels; a home that had everything for its next level is ready
+// to upgrade at once (it would have moved up by itself before); nobody waits at the pier yet.
+function saveMigrate4(s) {
+  for (const b of s.b) if (b.type === 'casita') {
+    b.build = 0;
+    const next = LEVELS[b.level + 1];
+    b.ready = !!(next && next.stage <= (s.stage || 0) && b.res > 0 && (b.missNext || []).length === 0 && (b.up || 0) > 0);
+    if (b.ready) b.up = levelUpMonths(b.level);
+  }
+  s.waitQ = [];
+  s.waiting = 0;
+  homeCountsUpdate(s);
+  s.mv = 5;
+}
+
 // A detached copy for previews: no events, no walkers.
 function simClone(state) {
   const s = loadGame(saveGame(state));
@@ -2354,19 +2695,21 @@ function newGame(seed) {
     happy: 50, workforce: 0, jobs: 0, jobless: 0, exported: {}, monthExported: {}, monthImports: {},
     lastReceipt: null, history: [], log: [], stageMonth: { 0: 0 }, stats: { levelUps: 0 },
     guide: { step: 0, msg: null, cnt: {}, seen: {}, snooze: {} }, lastMoves: { came: 0, left: 0 },
-    walk: [], ev: [], palace: 0, res: 0, mv: 4, downs: {}, downNeed: {},
+    walk: [], ev: [], palace: 0, res: 0, mv: 5, downs: {}, downNeed: {}, waitQ: [], waiting: 0,
   };
   for (const i of map.stub) state.road[i] = 1;
   state.b.push(newBuilding(state, 'pier', map.pier.x, map.pier.y));
   state.b.push(Object.assign(newBuilding(state, 'residence', map.residence.x, map.residence.y), { level: 0 }));
+  homeCountsUpdate(state);
   guideIntro(state);
   return state;
 }
 
 function simEvent(state, e) { if (state.ev) state.ev.push(e); }
 
-function simLog(state, text) {
-  state.log.push({ m: state.month, text });
+// at: [x, y] (tiles) when the line is about a place (M1: the log's Show flies there).
+function simLog(state, text, at) {
+  state.log.push(at ? { m: state.month, text, at } : { m: state.month, text });
   if (state.log.length > TUNE.logMax) state.log.shift();
   simEvent(state, { kind: 'log', text });
 }
@@ -2383,6 +2726,9 @@ function simTick(state) {
   for (const b of state.b) if (BUILDINGS[b.type].kind === 'market') marketTick(state, b);
   for (const b of state.b) if (b.type === 'casita') homeTick(state, b);
   if (state.mt % 20 === 10) downsClear(state, false);
+  // M2: settlers waiting at the pier move into a free bed within a second of it existing (a new home, an upgrade)
+  if (state.waiting && state.mt % 5 === 2) waitHouse(state);
+  if (state.mt % 10 === 0) homeCountsUpdate(state);
   walkersTick(state);
   state.tick++;
   state.mt++;
@@ -2392,7 +2738,7 @@ function simTick(state) {
 
 // The month's end, in a fixed order: homes, the ship, payday, happiness, people, the stage, the guide.
 function monthEnd(state) {
-  state._downNow = null;
+  state._downNow = null; state._readyNow = null; state._sailedNow = 0;
   downsClear(state, true);
   for (const b of state.b) if (b.type === 'casita') homeMonth(state, b);
   downsLog(state);
@@ -2405,6 +2751,7 @@ function monthEnd(state) {
   peopleMonth(state);
   jobsAssign(state);
   stageCheck(state);
+  homeCountsUpdate(state);
   guideMonth(state);
   state.monthImports = {};
   state.mt = 0;
@@ -4450,6 +4797,43 @@ const ISO = (() => {
   }
   // ---------- people and the ox-cart ----------
   const SHIRTS = ['#f6f0e2', '#df684c', '#3f74a8', '#f2c75a', '#5fbcb2', '#e9e2cf', '#f0a3c0'];
+  // M2: a settlers' tent (canvas on a ridge pole, the gable open toward the viewer), a bundle or a cooking fire by it.
+  function paintTent(v) {
+    const cols = ['#efe2c2', '#e6d3a8', '#f1e8d2', '#dccaa0'], c = cols[v % 4];
+    const x0 = 0.18, x1 = 0.86, y0 = 0.22, y1 = 0.82, ym = 0.52, hz = 0.42;
+    ell(P(0.55, 0.6)[0] + 3 * S, P(0.55, 0.6)[1] + 2 * S, 22 * S, 8 * S, 'rgba(40,28,50,.22)');
+    poly([P(x0, y0, 0), P(x1, y0, 0), P(x1, ym, hz), P(x0, ym, hz)], sh(c), ln(c), 0.9 * S);
+    poly([P(x0, y1, 0), P(x1, y1, 0), P(x1, ym, hz), P(x0, ym, hz)], c, ln(c), 0.9 * S);
+    hatch([P(x0, y1, 0), P(x1, y1, 0), P(x1, ym, hz), P(x0, ym, hz)], ln(c), 5 * S, 0.25, 0.6);
+    poly([P(x1, y0, 0), P(x1, y1, 0), P(x1, ym, hz)], dk(c, 0.12), ln(c), 0.9 * S);
+    poly([P(x1, ym - 0.12, 0), P(x1, ym + 0.12, 0), P(x1, ym, hz * 0.62)], '#4a3628', INK, 0.7 * S);
+    seg(P(x1, ym, hz), P(x1 + 0.04, ym, hz + 0.1), '#6b4a33', 1.4 * S);
+    seg(P(x0, ym, hz), P(x0 - 0.04, ym, hz + 0.1), '#6b4a33', 1.4 * S);
+    if (v % 2 === 0) {
+      const f = P(x1 + 0.1, y1 + 0.02, 0);
+      for (let k = 0; k < 6; k++) { const a = k / 6 * TAU; circ(f[0] + Math.cos(a) * 4 * S, f[1] + Math.sin(a) * 2 * S, 1.3 * S, '#8f8a80', INK, 0.4 * S); }
+      poly([[f[0] - 2.4 * S, f[1]], [f[0], f[1] - 6 * S], [f[0] + 2.4 * S, f[1]]], '#f29a38', '#c4553f', 0.6 * S);
+      circ(f[0], f[1] - 1.6 * S, 1.2 * S, '#ffe08a');
+    } else {
+      const q = P(x1 + 0.06, y1 - 0.05, 0);
+      ell(q[0], q[1] - 2.5 * S, 4 * S, 3 * S, '#b58a5a'); ctx.strokeStyle = INK; ctx.lineWidth = 0.7 * S; ctx.stroke();
+      seg([q[0] - 3 * S, q[1] - 3.5 * S], [q[0] + 3 * S, q[1] - 2 * S], '#7a5a3a', 0.9 * S);
+    }
+  }
+  // M2: scaffolding over a home being upgraded (poles, two plank decks, a ladder), drawn over its sprite.
+  function paintScaffold(lv) {
+    const H = [1.1, 1.1, 1.65, 1.75, 2.0, 1.9][Math.min(5, lv + 1)] || 1.9, wood = '#b07d4a', a = 0.08, b = 0.92;
+    for (const [x, y] of [[a, a], [b, a], [b, b], [a, b]]) seg(P(x, y, 0), P(x, y, H), dk(wood, 0.2), 1.6 * S);
+    for (const z of [H * 0.45, H * 0.9]) {
+      pline([P(a, b, z), P(b, b, z), P(b, a, z)], wood, 2.6 * S);
+      pline([P(a, b, z), P(b, b, z), P(b, a, z)], INK, 0.6 * S);
+    }
+    seg(P(b, b, 0), P(b, a, H * 0.9), dk(wood, 0.3), 0.9 * S);
+    seg(P(a, b, 0), P(b, b, H * 0.45), dk(wood, 0.3), 0.9 * S);
+    const l0 = P(0.7, b + 0.02, 0), l1 = P(0.7, b + 0.02, H * 0.9);
+    seg([l0[0] - 2 * S, l0[1]], [l1[0] - 2 * S, l1[1]], '#8a6a45', 1 * S); seg([l0[0] + 2 * S, l0[1]], [l1[0] + 2 * S, l1[1]], '#8a6a45', 1 * S);
+    for (let k = 1; k < 6; k++) { const yy = lerp(l0[1], l1[1], k / 6); seg([l0[0] - 2 * S, yy], [l0[0] + 2 * S, yy], '#8a6a45', 0.8 * S); }
+  }
   function paintPerson(x, y, v, fr, leaving) {
     const p = P(x, y, 0), s = S * 1.0, px = p[0], py = p[1];
     const wk = fr ? 1 : -1, bob = fr ? 0.7 * s : 0;
@@ -4986,6 +5370,8 @@ const ISO = (() => {
         const ch = chunkPaint(R, s, B, ci, cj); R.chunks.set(key, ch); have.push(ch);
       } else missing = true;
     }
+    // M1: ground with no chunk yet (a fast pinch-out) shows the overview, then whatever the old level still has
+    if (missing) overviewDraw(R, g);
     if (missing && R.prevB && R.prevB !== B) {
       const k2 = R.hw / R.prevB, cs2 = CHUNK * k2;
       for (const ch of R.chunks.values()) {
@@ -5004,6 +5390,40 @@ const ISO = (() => {
       ch.used = R.frame;
     }
     chunkEvict(R);
+  }
+  // M1 (12 Oct, "blue flashes when I zoom out"): a fast pinch-out shows ground that has no chunk at the new level yet
+  // (painted a few per frame) and none at the old one either, and the gesture picture's uncovered edge: both were
+  // flat sea-blue blocks where the island should be. The overview is the whole island at the smallest zoom level, at
+  // 1x pixels (OV_PX, ~3 MB), painted once per island and stage; any ground not covered yet is filled from it, scaled:
+  // a moment blurry, never blank.
+  const OV_PX = 1024 * 768;
+  function overviewGet(R, s) {
+    const key = s.seed + '|' + s.stage;
+    if (R.ov && R.ov.key === key) return R.ov;
+    if (R.ov) { canvasFree(R.ov.c); R.ov = null; }
+    const B = BUCKETS[0];
+    const ci0 = Math.floor(-(MAP_H + PAD) * B / CHUNK), ci1 = Math.floor((MAP_W + PAD) * B / CHUNK);
+    const cj0 = Math.floor(-PAD * B / CHUNK), cj1 = Math.floor((MAP_W + MAP_H + PAD) * B / 2 / CHUNK);
+    const c = canvasNew((ci1 - ci0 + 1) * CHUNK, (cj1 - cj0 + 1) * CHUNK), g = c.getContext('2d');
+    const keep = [R.dpr, R.frameChunks, R.stats.chunks];
+    R.dpr = 1;
+    try {
+      for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
+        const ch = chunkPaint(R, s, B, ci, cj);
+        g.drawImage(ch.c, (ci - ci0) * CHUNK, (cj - cj0) * CHUNK);
+        canvasFree(ch.c);
+      }
+    } finally { [R.dpr, R.frameChunks, R.stats.chunks] = keep; }
+    R.ov = { key, c, B, X0: ci0 * CHUNK, Y0: cj0 * CHUNK, W: c.width, H: c.height };
+    return R.ov;
+  }
+  // The overview under everything on g (identity transform, device px), at the view R.ox / R.oy / R.hw.
+  function overviewDraw(R, g) {
+    const ov = R.ov;
+    if (!ov) return;
+    const k = R.hw / ov.B, d = R.dpr;
+    g.drawImage(ov.c, (R.ox + ov.X0 * k) * d, (R.oy + ov.Y0 * k) * d, ov.W * k * d, ov.H * k * d);
+    R.stats.ovDraws = (R.stats.ovDraws || 0) + 1;
   }
   // Over the cap: chunks of other zoom levels go first, then the least recently drawn.
   function chunkEvict(R) {
@@ -5312,6 +5732,13 @@ const ISO = (() => {
     g.strokeStyle = '#fffaf0'; g.lineWidth = 2.4; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
     g.moveTo(x, y - 5); g.lineTo(x, y + 4.5); g.moveTo(x - 4, y + 0.8); g.lineTo(x, y + 4.8); g.lineTo(x + 4, y + 0.8); g.stroke();
   }
+  // M2: a home ready to move up: a small gold arrow (her cue to tap it and Upgrade).
+  function readyBadge(R, x, y) {
+    const g = R.ctx;
+    circ(x, y, 10, '#f2c14e', INK, 1.8);
+    g.strokeStyle = '#3a2a1f'; g.lineWidth = 2.4; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
+    g.moveTo(x, y + 5); g.lineTo(x, y - 4.5); g.moveTo(x - 4, y - 0.8); g.lineTo(x, y - 4.8); g.lineTo(x + 4, y - 0.8); g.stroke();
+  }
   // Above the buildings: a badge over each home in or near reach, labels on the two road pieces, level-down marks.
   function spaceMarks(R, s, ui, t) {
     const sp = ui.space;
@@ -5330,6 +5757,12 @@ const ISO = (() => {
         uiDraw(R, labelSprite(R, q.noRoad ? 'No road next to it' : 'Its road: not joined', false), pa[0], pa[1] - 26);
         uiDraw(R, labelSprite(R, 'Join it to this road', true), pb[0], pb[1] - 26);
       }
+    }
+    for (const b of s.b) {
+      if (!b.ready || b.build || b.type !== 'casita') continue;
+      const p = P(b.x + 0.5, b.y + 0.5, bubbleZ(b) + 0.15);
+      if (p[0] < -30 || p[0] > R.w + 30 || p[1] < -30 || p[1] > R.h + 30) continue;
+      readyBadge(R, p[0] - (b.lacks && b.lacks.length ? 22 : 0), p[1] - 16 + Math.sin(t * 2.2 + b.id) * 1.4);
     }
     if (s.downs) for (const id in s.downs) {
       const b = bById(s, +id); if (!b) continue;
@@ -5756,7 +6189,7 @@ const ISO = (() => {
       for (let gm = GM_MAX; gm >= 100; gm -= 20) {
         const sc = (R.w + 2 * gm) * (R.h + 2 * gm) * d * d;
         const need = (Math.ceil((R.w + 2 * gm) / CHUNK) + 1) * (Math.ceil((R.h + 2 * gm) / CHUNK) + 1);
-        const chunkCap = Math.max(24, Math.min(64, need + 8)), spr = total - scr - (still ? scr : 0) - sc - UI_CAP - chunkCap * chunkPx;
+        const chunkCap = Math.max(24, Math.min(64, need + 8)), spr = total - scr - (still ? scr : 0) - sc - UI_CAP - OV_PX - chunkCap * chunkPx;
         b = { still, gm, sc, need, chunkCap, sprCap: Math.max(6e6, spr) };
         if (sc <= CANVAS_MAX && spr >= SPR_GOOD) break;
       }
@@ -5764,14 +6197,14 @@ const ISO = (() => {
     }
     if (R.still && !b.still && R.gc) { canvasFree(R.gc.c); R.gc = null; }
     R.still = b.still; R.gm = b.gm; R.chunkCap = b.chunkCap; R.sprCap = b.sprCap; R.chunkNeed = b.need;
-    R.memPlan = { screen: scr, still: b.still ? scr : 0, gesture: b.sc, chunks: b.chunkCap * chunkPx, sprites: b.sprCap, ui: UI_CAP };
+    R.memPlan = { screen: scr, still: b.still ? scr : 0, gesture: b.sc, chunks: b.chunkCap * chunkPx, sprites: b.sprCap, ui: UI_CAP, overview: OV_PX };
   }
   // What the canvases hold now, in MB (4 bytes a px), and the plan's worst case.
   function mem(R) {
     const mb = (px) => Math.round(px * 4 / 1e5) / 10;
     let ch = 0; for (const c of R.chunks.values()) ch += c.c.width * c.c.height;
     const now = { screen: R.canvas.width * R.canvas.height, still: R.gc ? R.gc.c.width * R.gc.c.height : 0, gesture: R.sc ? R.sc.c.width * R.sc.c.height : 0,
-      chunks: ch, sprites: R.sprPx, ui: R.uiPx, other: (R.geo && R.geo.hillShade ? R.geo.hillShade.width * R.geo.hillShade.height : 0) + 128 * 128 };
+      chunks: ch, sprites: R.sprPx, ui: R.uiPx, overview: R.ov ? R.ov.W * R.ov.H : 0, other: (R.geo && R.geo.hillShade ? R.geo.hillShade.width * R.geo.hillShade.height : 0) + 128 * 128 };
     const out = { dpr: R.dpr, still: R.still, gm: R.gm, lowSprites: R.stats.lowSprites || 0, chunkCap: R.chunkCap, chunkNeed: R.chunkNeed, chunkCount: R.chunks.size, uiCount: R.ui.size, sprCap: Math.round(R.sprCap / 1e5) / 10, now: {}, plan: {} };
     let t = 0, tp = 0;
     for (const k in now) { out.now[k] = mb(now[k]); t += now[k]; }
@@ -5790,6 +6223,7 @@ const ISO = (() => {
     for (const ch of R.chunks.values()) canvasFree(ch.c); R.chunks.clear();
     for (const m of R.spr.values()) for (const sp of m.values()) canvasFree(sp.c); R.spr.clear(); R.sprPx = 0;
     for (const sp of R.ui.values()) canvasFree(sp.c); R.ui.clear(); R.uiPx = 0;
+    if (R.ov) { canvasFree(R.ov.c); R.ov = null; }
     R.geo = null; R.ship = null; R.shipMoney = []; R.objKey = ''; R.groundStage = -1; R.roadVer = -1; R.roadSnap = null; R.order = []; R.bubbles = [];
   }
   function trim(R) { for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; } R.groundDirty = true; }
@@ -5908,8 +6342,9 @@ const ISO = (() => {
       let pos = w.pos + 0.12 * f;
       const v = Math.floor((w.off + 0.5) * 10) + (w.arriving ? 0 : 3), wf = (Math.floor(now / 200) + Math.floor(w.off * 10)) % 2;
       if (pos < 0) {
-        // settlers still on the ship: they come down the gangway and along the pier to the road
-        if (!w.arriving || !m || pos < -1.6) continue;
+        // settlers still on the ship: they come down the gangway and along the pier to the road (M2: those who waited
+        // in the tents start on the road, one after another)
+        if (!w.arriving || w.tent || !m || pos < -1.6) continue;
         const u = (pos + 1.6) / 1.6, p = m.pier, ex = p.x + p.w, ey = p.y + 0.5 + w.off * 0.3;
         const g0 = docked ? [m.x + 0.3, m.y - 0.3, 0.4] : [p.x + 0.4, ey, 0.14], g1 = [m.x + 0.3, ey, 0.14];
         let x, y, z;
@@ -5921,6 +6356,8 @@ const ISO = (() => {
       const [x, y, dx, dy] = pathAt(w.path, Math.min(w.path.length - 1, pos)), side = w.off * 0.5;
       out.push({ k: 'walk', x: x - dy * side, y: y + dx * side, v, leaving: !w.arriving, fr: wf });
     }
+    // M2: the waiting families' tents by the pier (one a family; tentSpots in people.js), drawn in depth order
+    tentSpots(s).forEach(([tx, ty], k) => out.push({ k: 'tent', x: tx, y: ty, v: (tx * 7 + ty * 3 + k) % 4, box: [tx + 0.1, ty + 0.1, tx + 0.9, ty + 0.9] }));
     shipItems(R, s, out);
     // slot each moving thing right after the last static object it stands in front of
     for (const q of out) {
@@ -5943,6 +6380,7 @@ const ISO = (() => {
     sprDraw(R, dynSprite(R, q), p[0], p[1] - (q.bob || 0) * 0.9 * R.hw / 44);
   }
   function dynSprite(R, q) {
+    if (q.k === 'tent') return sprite(R, 'tent|' + q.v, [1, 1], 0.8, () => paintTent(q.v));
     if (q.k === 'cart') return sprite(R, 'cart|' + q.fx.toFixed(2) + ',' + q.fy.toFixed(2) + '|' + q.good + '|' + Math.min(3, q.n) + '|' + q.fr, [0.01, 0.01, 0.9, 0.5], 1.2, () => paintCart(q.fx, q.fy, q.good, q.n, q.fr));
     return sprite(R, 'walk|' + (q.v % 12) + '|' + (q.leaving ? 1 : 0) + '|' + q.fr, [0.01, 0.01, 0.3, 0.2], 0.55, () => paintPerson(0, 0, q.v, q.fr, q.leaving));
   }
@@ -5986,6 +6424,7 @@ const ISO = (() => {
         if (ob.k === 'b') {
           const b = ob.b, def = BUILDINGS[b.type];
           sprDraw(R, bSprite(R, s, b), p[0], p[1], b.open === false ? 0.6 : undefined);
+          if (b.build) sprDraw(R, sprite(R, 'scaf|' + (b.level || 1), [1, 1], 2.4, () => paintScaffold(b.level || 1)), p[0], p[1]);
           for (const [good, n, lx, ly] of pileSpots(s, b)) { const q = P(b.x + lx, b.y + ly, 0); sprDraw(R, pileSprite(R, good, Math.min(12, n)), q[0], q[1]); }
           if (smokeOf(def) && b.open && b.workers > 0 && !b.blocked) smoke.push(b);
         } else sprDraw(R, objSprite(R, s, ob, now), p[0], p[1]);
@@ -6016,7 +6455,8 @@ const ISO = (() => {
       const gest = typeof APP !== 'undefined' && !!APP.gesturing, wait = gest && now - (C.t || 0) < 300 && k > 0.45 && k < 2.2;
       if (covers || wait) {
         main.setTransform(1, 0, 0, 1, 0, 0);
-        if (!covers) { main.fillStyle = SEA_C; main.fillRect(0, 0, R.canvas.width, R.canvas.height); }
+        // M1: what the picture does not cover yet is the overview (it was flat sea-blue: the blue flashes)
+        if (!covers) { main.fillStyle = SEA_C; main.fillRect(0, 0, R.canvas.width, R.canvas.height); overviewDraw(R, main); }
         if (Math.abs(k - 1) < 1e-6) main.drawImage(C.c, Math.round(L * d), Math.round(Tp * d));
         else main.drawImage(C.c, L * d, Tp * d, C.W * k * d, C.H * k * d);
         R.stats.snapBlits = (R.stats.snapBlits || 0) + 1;
@@ -6060,6 +6500,7 @@ const ISO = (() => {
     if (nb !== R.B && (!R.B || !moving || ratio < 0.62 || ratio > 1.6)) { R.prevB = R.B || nb; R.B = nb; }
     if (!R.geo || R.geo.seed !== s.seed) { geoBuild(R, s); R.groundStage = -1; R.objKey = ''; }
     groundCheck(R, s);
+    overviewGet(R, s);
     shipUpdate(R, s, now);
     const g = R.ctx, d = R.dpr;
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
@@ -6185,7 +6626,7 @@ const ISO = (() => {
     }
     const n = bForecast(s, gh.type), sp = ui.space && ui.space.reach;
     const inReach = sp && !gh.why ? sp.homes.filter((h) => h.st === 'in').length : -1;
-    let text = gh.why || (def.name + ' · $' + def.cost.toLocaleString('en-US') + ' · ' + (n >= 0 ? '+$' + n : '−$' + -n) + ' a month' + (inReach >= 0 ? ' · ' + inReach + (inReach === 1 ? ' home' : ' homes') + ' in reach' : ''));
+    let text = gh.why || (def.name + ' · $' + def.cost.toLocaleString('en-US') + ' · ' + (n >= 0 ? '+$' + n : '−$' + -n) + ' a month' + (inReach >= 0 ? ' · ' + inReach + (inReach === 1 ? ' home' : ' homes') + ' in reach' : '') + (needsRoad(def) ? '' : ' · no road needed'));
     if (gh.held && !gh.why) text = 'Tap to build · ' + text;
     const p = P(gh.x + def.w / 2, gh.y + def.h / 2, bHeight({ type: gh.type, level: 1 }) * 0.8 + 0.3);
     uiDraw(R, labelSprite(R, text, !gh.why), p[0], p[1] - 14);
@@ -6320,9 +6761,12 @@ function hudInit() {
     const b = e.target.closest && e.target.closest('button.fix');
     const k = APP.pillFix;
     if (!b || !k) return;
-    if (k.at) viewFocus(k.at[0] + 0.5, k.at[1] + 0.5);
+    if (k.at) cameraFlyTo(k.at[0] + 0.5, k.at[1] + 0.5);
     toolSet(k.tool);
   });
+  toastInit();
+  glanceInit();
+  $('guideShow').addEventListener('click', guideShowPlace);
   barBuild();
 }
 
@@ -6345,9 +6789,10 @@ function hudUpdate() {
     // block 7: a phone shows the month short ("Sep 1902"): its top row was wider than the screen
     const mo = MONTHS[s.month % 12], yr = dateLabel(s.month).slice(mo.length);
     $('date').innerHTML = '<em class="ml">' + mo + '</em><em class="ms">' + mo.slice(0, 3) + '</em>' + esc(yr);
-    $('sMoney').innerHTML = statHtml('coin', fmtMoney(s.money));
+    // M1: a phone shows big sums short ("$12.3k"): the stats row holds six numbers now
+    const sm = Math.abs(s.money) >= 10000 ? (s.money < 0 ? '−$' : '$') + (Math.abs(s.money) / 1000).toFixed(Math.abs(s.money) >= 100000 ? 0 : 1) + 'k' : fmtMoney(s.money);
+    $('sMoney').innerHTML = statHtml('coin', '<em class="ml">' + fmtMoney(s.money) + '</em><em class="ms">' + sm + '</em>');
     $('sMoney').classList.toggle('neg', s.money < 0);
-    $('sPeople').innerHTML = statHtml('people', pop);
     $('sHappy').innerHTML = statHtml('smile', s.happy + '%');
     // The goal: each condition with ✓; the people line says how many the next boat can bring; the landmark its price.
     const lm = sc.conds.find((c) => c.landmark && !c.ok);
@@ -6365,23 +6810,66 @@ function hudUpdate() {
       esc(STAGES[s.stage].name) + (s.palace ? ' · the Governor\'s palace stands: the island is complete' : '');
     barPoor();
   }
+  glanceUpdate();
   if (APP.barStage !== s.stage) barBuild();
   barHeight();
 }
 
-// One toast at a time, at least 5 s each; while one shows, only the newest waits (block 4: toasts of 3.3 s stacked at 3x).
-function toastShow(text) {
-  if (APP.toasts.length && APP.toasts[APP.toasts.length - 1] === text) return;
-  APP.toasts = [text];
+// Notices (M1, notes N5/N9: "she can't read them in time; every notice must have a close button"): one at a time,
+// each with ✕ (and Show when it is about a place), on screen 3 s + 60 ms a character (5–12 s), the clock held while a
+// finger is on it; important ones (a family leaving, a workshop stopped) stay until closed. While one shows, the
+// important ones all wait and of the ordinary ones only the newest. The log (📜) keeps every notice, with Show.
+// o: { at: [x, y] tile, id: building, important, logged (already in the log) }.
+function toastShow(text, o) {
+  o = o || {};
+  const s = APP.state;
+  if (!o.logged && s && s.log) {
+    const at = placeOf(s, o);
+    s.log.push(at ? { m: s.month, text, at } : { m: s.month, text });
+    if (s.log.length > TUNE.logMax) s.log.shift();
+  }
+  if ((APP.toastCur && APP.toastCur.text === text) || APP.toasts.some((t) => t.text === text)) return;
+  const n = { text, at: o.at || null, id: o.id || 0, important: !!o.important };
+  APP.toasts = APP.toasts.filter((t) => t.important).concat([n]);
 }
 
+function toastMs(text) { return Math.max(5000, Math.min(12000, 3000 + 60 * String(text).length)); }
+
 function toastTick(now) {
-  const el = $('toast');
-  if (now < APP.toastUntil) return;
-  if (!APP.toasts.length) { el.classList.remove('show'); return; }
-  el.textContent = APP.toasts.shift();
+  const el = $('toast'), cur = APP.toastCur;
+  if (cur) {
+    if (APP.toastHold) cur.until = now + cur.left;
+    if (cur.important || now < cur.until) return;
+    toastClose();
+  }
+  if (!APP.toasts.length || now < (APP.toastGap || 0)) return;
+  const n = APP.toasts.shift();
+  n.until = now + toastMs(n.text); n.t0 = now;
+  APP.toastCur = n;
+  const place = n.at || n.id;
+  el.innerHTML = '<span class="tt">' + esc(n.text) + '</span>' + (place ? '<button class="tshow">Show</button>' : '') +
+    '<button class="tx" aria-label="Close">' + iconSvg('close') + '</button>';
+  el.classList.toggle('imp', n.important);
   el.classList.add('show');
-  APP.toastUntil = now + 5200;
+}
+
+function toastClose() {
+  APP.toastCur = null; APP.toastHold = false;
+  $('toast').classList.remove('show');
+  APP.toastGap = performance.now() + 300;
+}
+
+function toastInit() {
+  const el = $('toast');
+  el.addEventListener('pointerdown', () => { const c = APP.toastCur; if (c) { c.left = Math.max(1500, c.until - performance.now()); APP.toastHold = true; } });
+  const up = () => { APP.toastHold = false; };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up);
+  el.addEventListener('click', (e) => {
+    const c = APP.toastCur;
+    if (!c) return;
+    if (e.target.closest('.tx')) { toastClose(); return; }
+    if (e.target.closest('.tshow')) { const a = { at: c.at, id: c.id }; toastClose(); showPlace(a); }
+  });
 }
 
 function receiptShow(r) {
@@ -6414,7 +6902,16 @@ function guideRender() {
   }
   $('guideText').textContent = m.text;
   $('guideAct').textContent = m.btn || 'OK';
+  // M1 (N6/N10): a line about a place has Show (the camera flies there) beside the button that arms the fix
+  const a = m.act || {};
+  $('guideShow').style.display = (m.btn || 'OK') !== 'Show' && placeOf(APP.state, a) ? '' : 'none';
   el.classList.add('show');
+}
+
+function guideShowPlace() {
+  const m = guideMsg();
+  if (!m || performance.now() - (APP.guideT || 0) < 900) return;
+  showPlace(m.act || {});
 }
 
 function guideAct() {
@@ -6424,19 +6921,20 @@ function guideAct() {
   if (m === APP.ui.hint) {
     // the tool's hint: its button picks the tool that makes a spot (the hint stays until a spot exists); block 6: and
     // takes the view where that step belongs (the forest to clear, the gap for the road, the home that walls it in)
-    if (a.at) viewFocus(a.at[0] + 0.5, a.at[1] + 0.5);
+    if (a.at) cameraFlyTo(a.at[0] + 0.5, a.at[1] + 0.5);
     if (a.tool) toolSet(a.tool, true);
-    else if (a.select) { const b = bById(APP.state, a.select); toolSet('look', true); if (b) { viewFocus(b.x + 0.5, b.y + 0.5); cardOpen(b.id); } }
+    else if (a.select) { const b = bById(APP.state, a.select); toolSet('look', true); if (b) cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id); }
     else APP.ui.hint = null;
     guideRender();
     return;
   }
   // block 6: a line can say where its fix belongs (the homes that lack it, the forest to clear): the view goes there
-  if (a.at && (a.tool || !a.select)) viewFocus(a.at[0] + 0.5, a.at[1] + 0.5);
+  // M1: the camera flies (0.6 s) instead of jumping; a tool's button arms that tool where the fix belongs
+  if (a.at && (a.tool || !a.select)) { cardClose(); cameraFlyTo(a.at[0] + 0.5, a.at[1] + 0.5); }
   if (a.tool) toolSet(a.tool);
   else if (a.select) {
     const b = bById(APP.state, a.select);
-    if (b) { viewFocus(b.x + b.w / 2, b.y + b.h / 2); cardOpen(b.id); if (a.roads) roadsShow(b.id); }
+    if (b) { cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id); if (a.roads) roadsShow(b.id); }
   } else if (a.desk) deskOpen();
   if (!a.tool && !a.select && !a.desk) { guideDismiss(APP.state); }
   guideRender();
@@ -6633,7 +7131,8 @@ function bStatus(s, b) {
   // block 4 (the playtest): a market with empty shelves said "Working." in green
   if (def.kind === 'market' && marketFood(b) < 1) return { text: 'No food on the shelves: build a fruit grove or a fishing hut, joined to it by road.' };
   if (def.gives === 'light') return { text: 'Lit: the ship pays ' + Math.round(TUNE.lighthouseBonus * 100) + ' % more for everything (rum ' + money$(exportPrice(s, 'rum')) + ' instead of ' + money$(GOODS.rum.price) + '). One lighthouse is enough.', good: true };
-  if (def.kind === 'service' && !serviceHomes(s, b.id).length) return { text: 'No homes in reach: within ' + bReach(def) + ' tiles in a straight line and joined to it by road.' };
+  if (def.kind === 'service' && !serviceHomes(s, b.id).length) return { text: 'No homes in reach: within ' + bReach(def) + ' tiles in a straight line' + (needsRoad(def) ? ' and joined to it by road.' : ' (no road needed).') };
+  if (def.gives === 'park') return { text: 'Homes within ' + bReach(def) + ' tiles in a straight line have a park. No road needed: nothing is carried here.', good: true };
   if (def.gives === 'opera') return { text: 'Homes within ' + bReach(def) + ' tiles pay ' + Math.round(TUNE.operaRent * 100) + ' % more rent.', good: true };
   if (b.type === 'quay') return { text: 'Two ships a month, each buying up to ' + def.buys + ' of a good; twice the settlers. The landmark of the ' + STAGES[STAGES.length - 1].name + '.', good: true };
   if (b.type === 'cathedral') return { text: 'A church for homes within ' + bReach(def) + ' tiles, and +' + TUNE.cathedralHappy + ' happiness for the island.', good: true };
@@ -6653,7 +7152,10 @@ function cardHtml(s, b) {
       const t = 'Next boat: up to ' + shipSettlers(s) + ' settlers (' + TUNE.arrivalBase + ' + ' + Math.round(TUNE.arrivalPct * 100) + ' % of the people, at most ' + TUNE.arrivalCap +
         (q ? '; the steamship quay doubles it, at most ' + TUNE.quayArrivalCap : '; a steamship quay doubles it') + '). They come when homes have free beds and happiness is ' + TUNE.happyArrive +
         ' or more. While a harbor is open, the ship brings flour to every bakery and buys what the harbors hold.';
-      return head + '<h3>' + iconSvg('anchor') + 'Pier</h3><p class="why">' + esc(t) + '</p>';
+      // M2: the families waiting in tents, and why the boats slow down
+      const w = s.waiting ? plural(s.waiting, 'settler waits', 'settlers wait') + ' here in tents: no free home. They move in as soon as a home has room (build one, or upgrade a ready one); after ' +
+        TUNE.waitLeaveMonths + ' months they sail away. Word gets around: a boat brings people for the free beds and at most ' + TUNE.waitMax + ' more to wait.' : 'Nobody waits here: every settler has a roof. Settlers without one wait in tents.';
+      return head + '<h3>' + iconSvg('anchor') + 'Pier</h3><p class="why">' + esc(t) + '</p><p class="note' + (s.waiting ? '' : ' good') + '">' + esc(w) + '</p>';
     }
     // The residence: each level is bought here and is the landmark of the next stage; the palace is the last goal.
     const last = STAGES.length - 1, next = resNext(s), name = s.palace ? "Governor's palace" : RESIDENCE[s.res || 0].name;
@@ -6679,7 +7181,8 @@ function cardHtml(s, b) {
   }
   if (def.kind === 'home') {
     const lv = LEVELS[b.level], next = LEVELS[b.level + 1];
-    h += '<h3>' + iconSvg('home') + esc(lv.name) + '</h3>';
+    // M2 (N3): the level and its people in the title ("House · 8 people"; "House · 5 of 8 people" when not full)
+    h += '<h3>' + iconSvg('home') + esc(lv.name + ' · ' + (b.res === lv.people ? lv.people : b.res + ' of ' + lv.people) + ' people') + '</h3>';
     const opera = operaNear(s, b);
     h += '<div class="num ' + (x.n > 0 ? 'pos' : '') + '">' + fmtSigned(x.n) + ' a month</div><div class="why">rent from ' + b.res + ' / ' + lv.people + ' people' + (opera ? ' · +' + Math.round(TUNE.operaRent * 100) + ' %: the opera is near' : '') + '</div>';
     h += '<div class="line"><span>Needs</span><span>' + needList(s, b, b.level) + '</span></div>';
@@ -6692,7 +7195,9 @@ function cardHtml(s, b) {
     }
     if (APP.ui.downSeen && APP.ui.downSeen.id === b.id) h += '<p class="note">' + esc('It stepped down a level in ' + dateLabel(APP.ui.downSeen.m) + (APP.ui.downSeen.need ? ': it lacked ' + NEED_NAMES[APP.ui.downSeen.need] + (homeHas(s, b, APP.ui.downSeen.need) ? ', which it has again now.' : '. ' + needCause(s, APP.ui.downSeen.need, [b]).text.replace(/^./, (c) => c.toUpperCase()) + '.') : '.')) + '</p>';
     if (b.res && miss.length) h += '<p class="note">Lacks ' + esc(miss.map((n) => NEED_NAMES[n]).join(', ')) + '. ' + (b.level > 1 ? 'After ' + TUNE.levelDownMonths + ' months it becomes a ' + LEVELS[b.level - 1].name.toLowerCase() + ' again.' : 'People leave when happiness falls below ' + TUNE.happyLeave + '.') + '</p>';
-    else if (next && next.stage <= s.stage && missNext.length === 0 && b.res) h += '<p class="note good">Has everything: becomes a ' + esc(next.name) + ' after ' + levelUpMonths(b.level) + ' months like this' + (b.up ? ' (' + b.up + ' so far)' : '') + '.</p>';
+    else if (b.build) h += '<p class="note good">' + esc('Building the ' + next.name + ': scaffolding for a few seconds, then ' + next.people + ' people fit.') + '</p>';
+    else if (next && next.stage <= s.stage && missNext.length === 0 && b.res && !b.ready) h += '<p class="note good">' + esc('Has everything: ready to upgrade to a ' + next.name + ' after ' + plural(levelUpMonths(b.level), 'month', 'months') + ' like this' + (b.up ? ' (' + b.up + ' so far)' : '') + '.') + '</p>';
+    h += upgradeHtml(s, b);
   } else {
     h += '<h3>' + iconSvg(def.icon) + esc(def.name) + '</h3>';
     const parts = [];
@@ -6734,6 +7239,26 @@ function cardHtml(s, b) {
   }
   return h + cardButtons(s, b);
 }
+
+// M2: a ready home's card: Upgrade · $X (her act; cost by level), a warning when the island makes too little of what the
+// next level eats, the people waiting at the pier, and "Upgrade all N ready homes · $X" when others are ready too.
+function upgradeHtml(s, b) {
+  const next = LEVELS[b.level + 1];
+  if (!next || !b.ready || b.build) return '';
+  const cost = upgradeCost(b.level), poor = s.money < cost, all = upgradeAllInfo(s, b), more = all.n - 1;
+  let h = '<p class="note good">' + esc('Ready to move up: a ' + next.name + ' fits ' + next.people + ' people, not ' + LEVELS[b.level].people +
+    (s.waiting ? ' (' + s.waiting + ' wait at the pier)' : '') + '.' + (more > 0 ? ' And ' + more + ' more ' + (more === 1 ? 'home is' : 'homes are') + ' ready.' : '')) + '</p>';
+  const short = upgradeShort(s, b);
+  if (short) h += '<p class="note">' + esc('Careful: the island makes ' + Math.round(short.sup) + ' ' + (short.g === 'food' ? 'food' : GOODS[short.g].name.toLowerCase()) + ' a month; its homes would eat ' + short.dem + '. A ' + next.name + ' without it steps down.') + '</p>';
+  h += '<div class="btns"><button id="cardUp" class="up' + (poor ? ' poor' : '') + '">' + esc('Upgrade · ' + money$(cost)) + '</button>';
+  if (more > 0) {
+    const can = Math.min(all.n, affordCount(s, all.list));
+    h += '<button id="cardUpAll" class="up2' + (can < 1 ? ' poor' : '') + '">' + esc('All ' + all.n + ' ready · ' + money$(all.cost)) + '</button>';
+  }
+  return h + '</div>';
+}
+
+function affordCount(s, list) { let m = s.money, n = 0; for (const h of list) { const c = upgradeCost(h.level); if (m >= c) { m -= c; n++; } } return n; }
 
 // Remove and Shut down, each with a second tap to confirm (block 4: "Close it" sat where a map tap landed and shut the
 // fishing hut). Shut down says what it saves and sits apart from ✕ and Remove.
@@ -6834,6 +7359,20 @@ function cardRender() {
     toastShow(r.ok ? "The Governor's palace is built: the island is a capital." : r.why + '.');
     cardRender();
   });
+  const up = $('cardUp');
+  if (up) up.addEventListener('click', () => {
+    const r = homeUpgrade(s, b);
+    toastShow(r.ok ? 'Building the ' + LEVELS[b.level + 1].name.toLowerCase() + ': ' + money$(r.cost) + '.' : r.why + '.');
+    if (r.ok) audioCue('place');
+    APP.cardKey = ''; cardRender();
+  });
+  const upAll = $('cardUpAll');
+  if (upAll) upAll.addEventListener('click', () => {
+    const r = upgradeAll(s, b);
+    toastShow(r.done ? plural(r.done, 'home is', 'homes are') + ' being upgraded: ' + money$(r.spent) + (r.left ? '. ' + r.left + ' wait for money.' : '.') : 'Not enough money (' + money$(upgradeCost(b.level)) + ').');
+    if (r.done) audioCue('place');
+    APP.cardKey = ''; cardRender();
+  });
   const rm = $('cardRemove');
   if (rm) rm.addEventListener('click', () => cardConfirm(b.id, 'remove', () => { const r = removeAt(s, b.x, b.y); if (!r.why) { toastShow(BUILDINGS[b.type].name + ' removed: +$' + r.refund + '.'); cardClose(); audioCue('remove'); } }));
 }
@@ -6884,10 +7423,18 @@ function deskOpen() {
   }));
 }
 
+// M1: every notice and every line of Rosa's is kept here; the ones about a place have Show (the camera flies there).
 function logOpen() {
-  const s = APP.state;
-  const items = s.log.slice().reverse().map((m) => '<p><i>' + esc(dateLabel(m.m)) + '</i>' + esc(m.text) + '</p>').join('');
+  const s = APP.state, list = s.log.slice().reverse();
+  const items = list.map((m, i) => '<p' + (m.at ? ' class="at"' : '') + '><i>' + esc(dateLabel(m.m)) + '</i><span>' + esc(m.text) + '</span>' +
+    (m.at ? '<button class="lshow" data-i="' + i + '">Show</button>' : '') + '</p>').join('');
   sheetOpen('<h2>Messages</h2><div class="log">' + (items || '<p>No messages yet.</p>') + '</div>');
+  $('sheet').querySelectorAll('.lshow').forEach((b) => b.addEventListener('click', () => {
+    const m = list[+b.dataset.i];
+    sheetClose();
+    const hit = APP.state.b.find((o) => m.at[0] >= o.x && m.at[0] < o.x + o.w && m.at[1] >= o.y && m.at[1] < o.y + o.h && o.type !== 'pier');
+    cameraFlyTo(m.at[0], m.at[1], null, hit ? hit.id : 0);
+  }));
 }
 
 function stageCardOpen(stage) {
@@ -6922,6 +7469,245 @@ function happyPop() {
   el.onclick = () => el.classList.remove('show');
   clearTimeout(APP.popTimer);
   APP.popTimer = setTimeout(() => el.classList.remove('show'), 6000);
+}
+
+// ---- src/ui/glance.js
+// M1 (12 Oct 2026, Tomáš's notes N2, N3, N6, N10, N12 after Tugba's weekend): the glance and the camera.
+// - Three numbers in the top bar: people / places in homes (+ settlers waiting at the pier, red), workers / jobs (the
+//   people without work, red), homes lacking something (red when > 0). Each opens a short list; every line has Show.
+// - cameraFlyTo(x, y, zoom, id): a smooth 0.6 s pan and zoom to a tile; with a building it is selected (its card opens)
+//   and the tile lands in the middle of the part of the screen the card and the bars leave free.
+// - A workshop that stops (no input, a full yard) is an important notice: it stays until she closes it.
+// Reads M2's housing fields only if present (state.waiting, h.ready).
+
+const FLY_MS = 600;
+
+// ---------- the camera ----------
+function cameraFlyTo(x, y, zoom, id) {
+  const s = APP.state, v = APP.view;
+  if (id) {
+    const b = bById(s, id);
+    if (b) { if (APP.ui.tool !== 'look') toolSet('look'); cardOpen(b.id); cardRender(); }
+  }
+  const z1 = zoom || flyZoom();
+  // the tile goes to the middle of the free part of the screen (not under the card, the bars or Rosa)
+  const aim = flyAim(), w = window.innerWidth, h = window.innerHeight;
+  const end = { cx: x, cy: y, z: z1 };
+  const t = screenToTile(APP.R, end, w - aim.x, h - aim.y);
+  APP.fly = { x0: v.cx, y0: v.cy, z0: v.z, x1: t.x, y1: t.y, z1, t0: performance.now(), tx: x, ty: y };
+}
+
+// A comfortable zoom for looking at one place: homes readable, the street around them visible.
+function flyZoom() {
+  const z = APP.view.z;
+  if (APP.R && APP.R.kind === 'flat') return Math.max(z, 40);
+  return z < 29 ? 34.8 : z > 50.2 ? 50.2 : z;
+}
+
+// The middle of the screen the panels leave free (screen px).
+function flyAim() {
+  const w = window.innerWidth, h = window.innerHeight;
+  let top = 0, bottom = h, right = w;
+  const vis = (id) => { const e = $(id); if (!e) return null; const st = getComputedStyle(e); if (st.display === 'none' || st.visibility === 'hidden') return null; const r = e.getBoundingClientRect(); return r.width && r.height ? r : null; };
+  const tb = vis('top'); if (tb) top = Math.max(top, tb.bottom);
+  const pill = vis('pill'); if (pill && pill.bottom < h / 2) top = Math.max(top, pill.bottom);
+  const bar = vis('bar'); if (bar) bottom = Math.min(bottom, bar.top);
+  const card = $('card').classList.contains('show') ? vis('card') : null;
+  if (card) { if (card.left > w / 2) right = Math.min(right, card.left); else if (card.top > h / 3) bottom = Math.min(bottom, card.top); }
+  const lower = vis('guide'); if (lower && lower.top > h / 2 && !card) bottom = Math.min(bottom, lower.top);
+  return { x: right / 2, y: (top + bottom) / 2 };
+}
+
+function flyTick(now) {
+  const f = APP.fly;
+  if (!f) return;
+  const e = Math.min(1, (now - f.t0) / FLY_MS), k = e < 0.5 ? 2 * e * e : 1 - Math.pow(-2 * e + 2, 2) / 2;
+  const v = APP.view;
+  v.z = f.z0 * Math.pow(f.z1 / f.z0, k);
+  v.cx = f.x0 + (f.x1 - f.x0) * k; v.cy = f.y0 + (f.y1 - f.y0) * k;
+  viewClamp();
+  if (e >= 1) APP.fly = null;
+}
+
+// Where a line of Rosa's (its act) or a notice points: [x, y] in tiles (the middle of the building or the tile).
+function placeOf(s, a) {
+  if (!a) return null;
+  if (a.id && !a.select) { const o = bById(s, a.id); if (o) return [o.x + o.w / 2, o.y + o.h / 2]; }
+  return actPlace(s, a);
+}
+
+// Show: fly there; a building there is selected (and its roads drawn when the line is about roads).
+function showPlace(a) {
+  const s = APP.state, p = placeOf(s, a);
+  if (!p) return;
+  const id = a.select || a.id || 0;
+  cameraFlyTo(p[0], p[1], null, id);
+  if (id && a.roads) roadsShow(id);
+}
+
+// ---------- the numbers ----------
+function glanceData(s) {
+  let people = 0, places = 0, homes = 0;
+  for (const h of s.b) if (h.type === 'casita') { homes++; people += h.res || 0; places += LEVELS[h.level || 1].people; }
+  const lacking = homesOccupied(s).filter((h) => (h.miss || []).length).length;
+  const jobs = s.jobs || 0, jobless = s.jobless || 0, workers = Math.max(0, (s.workforce || 0) - jobless);
+  return { people, places, homes, waiting: s.waiting || 0, workers, jobs, jobless, lacking };
+}
+
+function glanceInit() {
+  for (const [id, kind] of [['sPeople', 'homes'], ['sWork', 'work'], ['sNeed', 'needs']]) $(id).addEventListener('click', () => glanceOpen(kind));
+  // a finger on the map stops a flight (she takes the camera back)
+  $('map').addEventListener('pointerdown', () => { APP.fly = null; }, true);
+  $('map').addEventListener('touchstart', () => { APP.fly = null; }, { capture: true, passive: true });
+}
+
+function glanceUpdate() {
+  const s = APP.state, d = glanceData(s);
+  const key = [d.people, d.places, d.waiting, d.workers, d.jobs, d.jobless, d.lacking].join('|');
+  if (key === APP.glanceKey) return;
+  APP.glanceKey = key;
+  APP.glance = d;
+  const badge = (n, title) => n > 0 ? '<i class="badge" title="' + title + '">' + (n > 99 ? '99+' : n) + '</i>' : '';
+  $('sPeople').innerHTML = '<span class="gi">' + iconSvg('home') + badge(d.waiting, 'waiting at the pier') + '</span><span>' + d.people + '<small>/' + d.places + '</small></span>';
+  $('sPeople').setAttribute('aria-label', d.people + ' people in ' + d.places + ' places' + (d.waiting ? ', ' + d.waiting + ' waiting at the pier' : ''));
+  $('sWork').innerHTML = '<span class="gi">' + iconSvg('worker') + badge(d.jobless, 'without work') + '</span><span>' + d.workers + '<small>/' + d.jobs + '</small></span>';
+  $('sWork').setAttribute('aria-label', d.workers + ' workers for ' + d.jobs + ' jobs' + (d.jobless ? ', ' + d.jobless + ' without work' : ''));
+  $('sNeed').innerHTML = '<span class="gi">' + iconSvg('bread') + '</span><span>' + d.lacking + '</span>';
+  $('sNeed').classList.toggle('bad', d.lacking > 0);
+  $('sNeed').setAttribute('aria-label', d.lacking + ' homes lack something');
+  if ($('glance').classList.contains('show')) glanceRender();
+}
+
+// ---------- the lists ----------
+// "near the west market": the market nearest the group's middle, named by where it lies on the screen among the markets.
+function marketNear(s, at) {
+  const ms = s.b.filter((b) => b.type === 'market');
+  if (!ms.length || !at) return '';
+  let best = ms[0];
+  for (const m of ms) if (Math.hypot(m.x - at[0], m.y - at[1]) < Math.hypot(best.x - at[0], best.y - at[1])) best = m;
+  if (Math.hypot(best.x - at[0], best.y - at[1]) > 14) return '';
+  if (ms.length < 2) return 'near the market';
+  const sx = (b) => b.x - b.y, sy = (b) => (b.x + b.y) / 2;
+  const mx = ms.reduce((a, b) => a + sx(b), 0) / ms.length, my = ms.reduce((a, b) => a + sy(b), 0) / ms.length;
+  const dx = sx(best) - mx, dy = sy(best) - my;
+  const dir = Math.abs(dx) >= Math.abs(dy) * 1.2 ? (dx < 0 ? 'west' : 'east') : (dy < 0 ? 'north' : 'south');
+  return 'near the ' + dir + ' market';
+}
+
+// The home of a group nearest its middle, as a place to show.
+function homeOf(list) { const at = homesAt(list); return at ? list.find((h) => h.x === at[0] && h.y === at[1]) : null; }
+
+function glanceRows(kind) {
+  const s = APP.state, d = glanceData(s), rows = [];
+  const show = (b) => b ? { id: b.id } : null;
+  if (kind === 'homes') {
+    const homes = s.b.filter((b) => b.type === 'casita');
+    const title = 'Homes · ' + d.people + ' people in ' + d.places + ' places';
+    if (d.waiting) rows.push({ text: d.waiting + (d.waiting === 1 ? ' settler waits' : ' settlers wait') + ' at the pier: no roof yet', bad: true, show: show(s.b.find((b) => b.type === 'pier')), tool: 'casita' });
+    for (let L = 1; L < LEVELS.length; L++) {
+      const at = homes.filter((h) => (h.level || 1) === L);
+      if (!at.length) continue;
+      const ppl = at.reduce((a, h) => a + (h.res || 0), 0);
+      rows.push({ text: plural(at.length, LEVELS[L].name, LEVELS[L].name + 's') + ' · ' + ppl + '/' + at.length * LEVELS[L].people + ' people', show: show(homeOf(at)) });
+    }
+    const free = homes.filter((h) => LEVELS[h.level || 1].people > (h.res || 0));
+    if (free.length) {
+      const n = free.reduce((a, h) => a + LEVELS[h.level || 1].people - (h.res || 0), 0);
+      const most = free.slice().sort((a, b) => (LEVELS[b.level || 1].people - b.res) - (LEVELS[a.level || 1].people - a.res))[0];
+      rows.push({ text: 'Free places: ' + n + ' in ' + plural(free.length, 'home', 'homes'), show: show(most) });
+    } else if (homes.length) rows.push({ text: 'Every place is taken: build homes for the next boat', tool: 'casita', show: show(homeOf(homes)) });
+    const ready = homes.filter((h) => h.ready);
+    if (ready.length) rows.push({ text: plural(ready.length, 'home is', 'homes are') + ' ready to upgrade', good: true, show: show(homeOf(ready)) });
+    if (!homes.length) rows.push({ text: 'No homes yet: build them along a road', tool: 'casita' });
+    return { title, rows };
+  }
+  if (kind === 'work') {
+    const title = 'Work · ' + d.workers + ' of ' + d.jobs + ' jobs filled';
+    if (d.jobless) {
+      const t = ['grove', 'cane', 'tobacco', 'finca', 'finca', 'finca'][s.stage] || 'grove';
+      rows.push({ text: plural(d.jobless, 'person has', 'people have') + ' no work: a farm or a workshop gives jobs', bad: true, tool: t, show: show(s.b.find((b) => b.type === 'pier')) });
+    }
+    const short = s.b.filter((b) => BUILDINGS[b.type].jobs && b.open && b.workers < BUILDINGS[b.type].jobs)
+      .sort((a, b) => (BUILDINGS[b.type].jobs - b.workers) - (BUILDINGS[a.type].jobs - a.workers) || a.id - b.id);
+    for (const b of short.slice(0, 6)) rows.push({ text: BUILDINGS[b.type].name + ' · ' + b.workers + '/' + BUILDINGS[b.type].jobs + ' workers', bad: b.workers === 0, show: show(b) });
+    if (short.length > 6) rows.push({ text: '… and ' + plural(short.length - 6, 'more workplace', 'more workplaces') + ' short of workers', show: show(short[6]) });
+    if (short.length && !d.jobless) rows.push({ text: 'Workplaces wait for people: half of the people work, so more homes fill them', tool: 'casita', show: show(short[0]) });
+    if (!short.length && !d.jobless) rows.push({ text: 'Every workplace has its workers', good: true });
+    const shut = s.b.filter((b) => BUILDINGS[b.type].jobs && !b.open);
+    if (shut.length) rows.push({ text: plural(shut.length, 'workplace is', 'workplaces are') + ' shut down', show: show(shut[0]) });
+    return { title, rows };
+  }
+  const homes = homesOccupied(s), by = {};
+  for (const h of homes) for (const n of h.miss || []) (by[n] = by[n] || []).push(h);
+  const title = 'Homes lacking something · ' + d.lacking;
+  const needs = Object.keys(by).sort((a, b) => by[b].length - by[a].length);
+  for (const n of needs.slice(0, 7)) {
+    const list = by[n], at = homesAt(list);
+    let fix = null;
+    try { fix = needCause(s, n, list); } catch (e) { fix = null; }
+    const near = n === 'market' ? '' : marketNear(s, at);
+    rows.push({ text: plural(list.length, 'home lacks', 'homes lack') + ' ' + NEED_NAMES[n] + (near ? ' · ' + near : ''), bad: true, why: fix && fix.text, tool: fix && fix.tool, at: fix && fix.at, show: show(homeOf(list)) });
+  }
+  if (!needs.length) rows.push({ text: homes.length ? 'Every home has what it needs' : 'No one lives here yet', good: true });
+  return { title, rows };
+}
+
+function glanceOpen(kind) {
+  const el = $('glance');
+  if (el.classList.contains('show') && APP.glanceKind === kind) { glanceClose(); return; }
+  APP.glanceKind = kind;
+  $('pop').classList.remove('show');
+  glanceRender();
+  el.classList.add('show');
+  // below the top bar and the stage pill (the pill is one or two lines)
+  const tb = $('top').getBoundingClientRect(), pl = $('pill').getBoundingClientRect();
+  el.style.top = Math.round(Math.max(tb.bottom, pl.height && pl.top < window.innerHeight / 3 ? pl.bottom : 0) + 8) + 'px';
+  document.querySelectorAll('#top .glance').forEach((b) => b.classList.toggle('on', b.dataset.g === kind));
+}
+
+function glanceClose() {
+  $('glance').classList.remove('show');
+  document.querySelectorAll('#top .glance').forEach((b) => b.classList.remove('on'));
+}
+
+function glanceRender() {
+  const r = glanceRows(APP.glanceKind), el = $('glance');
+  APP.glanceList = r.rows;
+  const html = r.rows.map((x, i) => '<div class="row' + (x.bad ? ' bad' : x.good ? ' good' : '') + '"><div class="t">' + esc(x.text) +
+    (x.why ? '<small>' + esc(x.why) + '</small>' : '') + '</div>' +
+    (x.tool ? '<button class="fix" data-fix="' + i + '">' + esc(toolLabel(x.tool)) + '</button>' : '') +
+    (x.show ? '<button class="show" data-show="' + i + '">Show</button>' : '') + '</div>').join('');
+  el.innerHTML = '<button class="x" id="glanceX" aria-label="Close">' + iconSvg('close') + '</button><b>' + esc(r.title) + '</b><div class="rows">' + html + '</div>';
+  $('glanceX').addEventListener('click', glanceClose);
+  el.querySelectorAll('[data-show]').forEach((b) => b.addEventListener('click', () => { const x = APP.glanceList[+b.dataset.show]; glanceClose(); showPlace(x.show); }));
+  el.querySelectorAll('[data-fix]').forEach((b) => b.addEventListener('click', () => {
+    const x = APP.glanceList[+b.dataset.fix];
+    glanceClose();
+    const p = x.at ? [x.at[0] + 0.5, x.at[1] + 0.5] : x.show ? placeOf(APP.state, x.show) : null;
+    cardClose();
+    if (p) cameraFlyTo(p[0], p[1]);
+    toolSet(x.tool);
+  }));
+}
+
+// ---------- a workshop stopped (an important notice: it stays until closed) ----------
+// Checked at each payday; the workshops already stopped when the island opens are not announced.
+function stopsCheck() {
+  const s = APP.state, said = APP.stopSaid || (APP.stopSaid = { init: false, ids: {} });
+  let told = 0;
+  for (const b of s.b) {
+    const def = BUILDINGS[b.type];
+    if (!def.uses) continue;
+    const stopped = b.open && b.workers > 0 && (b.blocked === 'input' || b.blocked === 'yard');
+    if (!stopped) { delete said.ids[b.id]; continue; }
+    if (said.ids[b.id]) continue;
+    said.ids[b.id] = 1;
+    if (!said.init || told) continue;
+    told++;
+    const name = def.name, why = b.blocked === 'input' ? 'no ' + GOODS[Object.keys(def.uses)[0]].name.toLowerCase() + ' comes in' : 'its yard is full, nobody takes the ' + GOODS[def.makes].name.toLowerCase();
+    toastShow('The ' + name.toLowerCase() + ' stopped: ' + why + '.', { id: b.id, important: true });
+  }
+  said.init = true;
 }
 
 // ---- src/ui/space.js
@@ -7019,7 +7805,7 @@ function reachPicture(s, b) {
     const d = footDist(foot, h);
     if (d > R + 2) continue;
     let st = d > R ? 'out' : 'in';
-    if (st === 'in' && def.kind !== 'deco' && !roadJoined(s, foot, h)) st = 'cut';
+    if (st === 'in' && needsRoad(def) && !roadJoined(s, foot, h)) st = 'cut';
     homes.push({ id: h.id, x: h.x, y: h.y, st, d });
   }
   return { x0: b.x - R, y0: b.y - R, x1: b.x + def.w + R, y1: b.y + def.h + R, homes, R, deco: def.kind === 'deco', name: def.name };
@@ -8416,16 +9202,17 @@ function eventsHandle() {
     const b = e.id && bById(s, e.id);
     if (e.kind === 'money' && !keep.has(e)) continue;
     if (e.kind === 'money' && b) floaterAdd(b.x + b.w / 2, b.y + b.h / 2, fmtSigned(e.n), e.n < 0 ? '#c0392b' : '#2e8b3e', false, b.id);
-    else if (e.kind === 'payday') { receiptShow(e.receipt); gameSave(); }
-    else if (e.kind === 'levelup' && b) { floaterAdd(b.x + 0.5, b.y + 0.5, LEVELS[e.level].name + '!', '#167a7a', true, b.id); toastShow('A home became a ' + LEVELS[e.level].name.toLowerCase() + ': more people, more rent.'); }
+    else if (e.kind === 'payday') { receiptShow(e.receipt); stopsCheck(); gameSave(); }
+    else if (e.kind === 'levelup' && b) { floaterAdd(b.x + 0.5, b.y + 0.5, LEVELS[e.level].name + '!', '#167a7a', true, b.id); toastShow('A home became a ' + LEVELS[e.level].name.toLowerCase() + ': more people, more rent.', { id: b.id }); }
     else if (e.kind === 'leveldown' && b) { floaterAdd(b.x + 0.5, b.y + 0.5, LEVELS[e.level].name + ' again', '#c0392b', true, b.id); downs.push(e); }
     else if (e.kind === 'stage') { stageCardOpen(e.stage); APP.R.terrainKey = ''; }
     else if (e.kind === 'year') yearCardShow(e.year);
     else if (e.kind === 'cleared') { floaterAdd(e.x + 1, e.y + 1, '−' + money$(e.cost), '#c0392b'); APP.R.geo = null; APP.R.terrainKey = ''; if (APP.spots) APP.spots = {}; }
-    else if (e.kind === 'residence' && b) { floaterAdd(b.x + b.w / 2, b.y + b.h / 2, RESIDENCE[e.level].name + '!', '#167a7a', true, b.id); toastShow('The ' + RESIDENCE[e.level].name + ' stands on the hill.'); }
+    else if (e.kind === 'residence' && b) { floaterAdd(b.x + b.w / 2, b.y + b.h / 2, RESIDENCE[e.level].name + '!', '#167a7a', true, b.id); toastShow('The ' + RESIDENCE[e.level].name + ' stands on the hill.', { id: b.id, logged: true }); }
     else if (e.kind === 'palace' && b) { floaterAdd(b.x + b.w / 2, b.y + b.h / 2, "Governor's palace!", '#167a7a', true, b.id); APP.R.terrainKey = ''; barBuild(); }
     else if (e.kind === 'guide') guideRender();
-    else if (e.kind === 'log' && /settlers? arrived|left the island/.test(e.text)) toastShow(e.text);
+    // M1: people leaving is an important notice (it stays until closed)
+    else if (e.kind === 'log' && /settlers? arrived|left the island/.test(e.text)) toastShow(e.text, { logged: true, important: /left the island/.test(e.text), id: /arrived/.test(e.text) ? (s.b.find((o) => o.type === 'pier') || {}).id : 0 });
   }
   // Block 6 (playtest 2): no toast for homes stepping down (it came every month for fifty years). Rosa says it once per
   // cause with the count and the fix; the ↓ marks stay a month or until the home has what it lacked again.
@@ -8518,6 +9305,7 @@ function frameRun(now) {
   eventsHandle();
   hudUpdate();
   hintCheck();
+  flyTick(now);
   spaceUpdate();
   if (APP.ui.sel && (s.tick % 5 === 0 || !APP.cardKey)) cardRender();
   toastTick(now);
