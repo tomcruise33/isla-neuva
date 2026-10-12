@@ -148,6 +148,7 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
 #card .btns button.shut { background: transparent; box-shadow: inset 0 0 0 1.5px rgba(58, 42, 31, 0.45); color: var(--ink2); font-weight: 700; font-size: 14px; }
 #card .btns button.shut.sure, #card .btns button.danger.sure { background: var(--red); color: #fff7ea; }
 #card .btns + .btns { margin-top: 8px; }
+#card .btns button.move { background: var(--paper2); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); font-weight: 800; }
 #card .link { min-height: 40px; padding: 0 12px; margin-top: 6px; border-radius: 10px; background: var(--paper); font-weight: 800; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); display: inline-flex; align-items: center; }
 #pop .lg { display: flex; gap: 8px; align-items: center; padding: 5px 0; border-top: 2px dotted rgba(58, 42, 31, 0.2); font-size: 13.5px; }
 #pop .bub { flex: none; width: 30px; height: 30px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--paper2); border: 1.5px solid var(--ink); }
@@ -168,6 +169,7 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
 #card .line { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-top: 2px dotted rgba(58, 42, 31, 0.22); font-size: 14px; }
 #card .note { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--coral-soft); color: #7e2e1c; font-size: 14px; border: 1.5px solid rgba(58, 42, 31, 0.25); }
 #card .note.good { background: #e3efcf; color: #2a5a2c; }
+#card .note.risk { background: #f8e2b0; color: #6a4708; }
 /* M3: the month's ledger on a workplace card, the harbor's hold, the verdict */
 #card table.ledger { width: 100%; border-collapse: collapse; margin: 4px 0 2px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 #card table.ledger th { text-align: left; font-weight: 600; padding: 4px 6px 4px 0; border-top: 2px dotted rgba(58, 42, 31, 0.22); }
@@ -300,6 +302,8 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
   #guide { max-width: none; }
   #receipt { align-self: flex-end; }
   #toast { bottom: auto; top: calc(var(--gap) + 156px + var(--st)); }
+  /* M9: the whole width (it was a 195 px column over the pill's button); toastPlace puts it under the pill */
+  #toast { left: calc(10px + var(--sl)); right: calc(10px + var(--sr)); transform: none; max-width: none; }
 }
 
 /* The title screen (block 5): the island behind, one paper card in front; also where the home-screen app opens. */
@@ -646,7 +650,11 @@ const TUNE = {
   waitLeaveMonths: 3,
   waitMax: 8,             // the boat brings families for the free beds and at most this many more to wait (2 families)
   familySize: 4,          // one tent per family of about four
-  levelDownMonths: 3,
+  // M9 (playtest 3: Villas went up and down for fifty years): a home that lacks a need of its level is *at risk* (an
+  // amber mark, its card and the pill name the need) for this many months before it steps down; it is safe again only
+  // after its needs held riskHoldMonths in a row.
+  levelDownMonths: 6,
+  riskHoldMonths: 2,
   flourPerBread: 0.5,
   guideMonths: 2,         // a problem must last this long before the guide speaks
   logMax: 30,
@@ -1475,7 +1483,7 @@ function wayFor(state, type) {
   path.reverse();
   const xy = (i) => [i % MAP_W, (i / MAP_W) | 0];
   for (const i of path) {
-    if (occ[i]) return { step: 'remove', at: xy(i), id: occ[i], n: path.length };
+    if (occ[i]) return { step: 'remove', at: xy(i), id: occ[i], n: path.length, spot: anchors[goal[hit]], path: path.filter((k) => !state.road[k]) };
     if (state.terrain[i] === FOREST) return { step: 'clear', at: xy(i), n: path.length };
   }
   if (clearFoot) {
@@ -1484,6 +1492,105 @@ function wayFor(state, type) {
   }
   // M4+M5: the road tiles to lay and the spot they open (the scripted players follow the step like a player does)
   return { step: 'road', at: xy(path[0] !== undefined ? path[0] : hit), n: path.filter((i) => !state.road[i]).length, to: xy(hit), path: path.filter((i) => !state.road[i]), spot: anchors[goal[hit]] };
+}
+
+// ---------- M9 (playtest 3: her own rows of homes walled in the open land): Move ----------
+// A building moves to another free spot for a share of its price (MOVE_SHARE); a home keeps its people, its level and
+// its pantry; a workshop keeps its yard; carts on their way go back to their yard and start again from the new spot.
+const MOVE_SHARE = 0.25;
+function moveCost(b) { return Math.max(50, Math.round(BUILDINGS[b.type].cost * MOVE_SHARE / 10) * 10); }
+
+// '' when building b may stand at (x, y) instead (as if it were lifted off its own lot), else the reason.
+// opts.free: ignoring money (the spots she sees light up).
+function moveWhy(state, b, x, y, opts) {
+  const def = BUILDINGS[b.type];
+  if (!def || def.kind === 'fixed' || def.project || b.wip) return 'Cannot be moved';
+  if (x === b.x && y === b.y) return 'It stands here now';
+  const keepB = state.b, keepVer = state.ver, keepC = state._c;
+  state.b = keepB.filter((o) => o !== b); state.ver = -1 - keepVer;
+  let why = '';
+  try { why = canPlace(state, b.type, x, y, { free: true }); } finally { state.b = keepB; state.ver = keepVer; state._c = keepC; }
+  if (why) return why;
+  if (!(opts && opts.free) && state.money < moveCost(b)) return 'Not enough money (' + money$(moveCost(b)) + ')';
+  return '';
+}
+
+// Every spot building b could move to (ignoring money): [[x, y], ...]. One lift for the whole map.
+function moveSpots(state, b) {
+  const def = BUILDINGS[b.type], out = [];
+  if (!def || def.kind === 'fixed' || def.project || b.wip) return out;
+  const keepB = state.b, keepVer = state.ver, keepC = state._c;
+  state.b = keepB.filter((o) => o !== b); state.ver = -1 - keepVer;
+  try {
+    for (let y = 0; y <= MAP_H - def.h; y++) for (let x = 0; x <= MAP_W - def.w; x++) if ((x !== b.x || y !== b.y) && canPlace(state, b.type, x, y, { free: true }) === '') out.push([x, y]);
+  } finally { state.b = keepB; state.ver = keepVer; state._c = keepC; }
+  return out;
+}
+
+function moveBuilding(state, b, x, y) {
+  const why = moveWhy(state, b, x, y);
+  if (why) return { ok: false, why };
+  const cost = moveCost(b), from = [b.x, b.y];
+  for (const c of state.carts) if (c.dest === b.id && c.st === 'go') cartAbort(state, c);
+  for (const c of state.carts) if (c.home === b.id) cartAbort(state, c);
+  for (const o of state.b) if (o.incoming) for (const g in o.incoming) if (o.incoming[g] < 0) o.incoming[g] = 0;
+  b.x = x; b.y = y;
+  state.money -= cost;
+  state.stats.moved = (state.stats.moved || 0) + 1;
+  state.ver++;
+  simLog(state, 'The ' + (b.type === 'casita' ? LEVELS[b.level].name.toLowerCase() : BUILDINGS[b.type].name.toLowerCase()) + ' moved' + (b.res ? ' with its ' + plural(b.res, 'person', 'people') : '') + ': ' + money$(cost) + '.', [x + b.w / 2, y + b.h / 2]);
+  simEvent(state, { kind: 'moved', id: b.id, from, cost });
+  return { ok: true, cost };
+}
+
+// M9: the walled-in town's one-tap way out ("Move it"): the home that blocks the way into open land steps aside: a road
+// is laid through its lot to the open land (wayFor's path), and the home moves to the free lot by that new road nearest
+// its old one, with its people. Tried on a copy first: nothing changes unless the whole step works.
+// { ok, cost, road, id, at } or { ok: false, why }.
+function openWayPlan(state, type) {
+  const w = wayFor(state, type);
+  if (!w || w.step !== 'remove' || !w.path) return null;
+  const h = bById(state, w.id);
+  if (!h || h.type !== 'casita' || h.build) return null;
+  const others = w.path.filter((i) => occMapOf(state, i) && occMapOf(state, i) !== h.id);
+  if (others.length || w.path.some((i) => !occMapOf(state, i) && state.terrain[i] === FOREST)) return null;
+  return { w, h };
+}
+function occMapOf(state, i) { return occMap(state)[i]; }
+function openWay(state, type, dry) {
+  const plan = openWayPlan(state, type);
+  if (!plan) return { ok: false, why: 'No home stands in the way' };
+  const { w, h } = plan, id = h.id, res = h.res, level = h.level, m0 = state.money;
+  const run = (s) => {
+    const hh = bById(s, id);
+    s.b = s.b.filter((o) => o !== hh); s.ver++;
+    const r = placeRoad(s, w.path, 1);
+    if (!w.path.every((i) => s.road[i])) return { ok: false, why: r.why || 'The road could not be laid' };
+    // the free lot by a road nearest its old lot (new land along the new road first)
+    let best = null;
+    for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+      if (canPlace(s, 'casita', x, y, { free: true }) !== '') continue;
+      const d = Math.abs(x - hh.x) + Math.abs(y - hh.y);
+      if (!best || d < best.d) best = { x, y, d };
+    }
+    if (!best) return { ok: false, why: 'No free lot by a road for the home' };
+    const cost = moveCost(hh);
+    if (s.money < cost) return { ok: false, why: 'Not enough money (' + money$(cost + r.cost) + ')' };
+    hh.x = best.x; hh.y = best.y; s.b.push(hh); s.money -= cost; s.ver++;
+    return { ok: true, at: [best.x, best.y], road: r.cost, cost: cost + r.cost };
+  };
+  // the trial is kept per change of the island (Rosa, the bar and the to-do list ask often)
+  const c = simCache(state);
+  if (!c.openWay) c.openWay = {};
+  const trial = c.openWay[type] || (c.openWay[type] = run(simClone(state)));
+  if (!trial.ok || dry) return trial;
+  const r = run(state);
+  if (r.ok) {
+    state.stats.moved = (state.stats.moved || 0) + 1;
+    simLog(state, 'A ' + LEVELS[level].name.toLowerCase() + ' moved' + (res ? ' with its ' + plural(res, 'person', 'people') : '') + ' and a road now runs through its lot to the open land: ' + money$(m0 - state.money) + '.', [r.at[0] + 0.5, r.at[1] + 0.5]);
+    simEvent(state, { kind: 'moved', id, cost: r.cost });
+  }
+  return Object.assign(r, { id });
 }
 
 // ---- src/sim/economy.js
@@ -1948,10 +2055,16 @@ function homeMonth(state, h) {
   const next = LEVELS[h.level + 1];
   h.missNext = next && next.stage <= state.stage ? homeMissing(state, h, h.level + 1) : [];
   if (h.build) { h.dry = {}; h.occTicks = 0; return; }
-  if (h.res > 0 && next && next.stage <= state.stage && h.missNext.length === 0) h.up = Math.min(h.up + 1, levelUpMonths(h.level)); else h.up = 0;
-  if (h.res > 0 && h.miss.length && h.level > 1) h.down++; else h.down = 0;
+  // M9: after a step-down a home is ready again only once its next level's needs held for at least 2 months (h.upNeed)
+  const upMonths = Math.max(levelUpMonths(h.level), h.upNeed || 0);
+  if (h.res > 0 && next && next.stage <= state.stage && h.missNext.length === 0) h.up = Math.min(h.up + 1, upMonths); else h.up = 0;
+  // M9 (playtest 3): at risk first. h.down counts the months it lacked a need of its level; it falls back to 0 only
+  // after its needs held TUNE.riskHoldMonths in a row (h.held), so a market that runs dry every other month does not
+  // reset the count, and one good month does not hide the risk.
+  if (h.res > 0 && h.miss.length && h.level > 1) { h.down++; h.held = 0; }
+  else if (h.down) { h.held = (h.held || 0) + 1; if (h.held >= TUNE.riskHoldMonths || !h.res || h.level <= 1) { h.down = 0; h.held = 0; } }
   const was = !!h.ready;
-  h.ready = h.up >= levelUpMonths(h.level) && !!next;
+  h.ready = h.up >= upMonths && !!next;
   if (h.ready && !was) {
     state.stats.ready = (state.stats.ready || 0) + 1;
     if (!state._readyNow) state._readyNow = [];
@@ -1959,7 +2072,7 @@ function homeMonth(state, h) {
     simEvent(state, { kind: 'ready', id: h.id, level: h.level + 1 });
   }
   if (h.down >= TUNE.levelDownMonths) {
-    h.level--; h.down = 0; h.up = 0; h.ready = false;
+    h.level--; h.down = 0; h.held = 0; h.up = 0; h.ready = false; h.upNeed = 2;
     const cap = LEVELS[h.level].people;
     if (h.res > cap) { walkersSpawn(state, h, h.res - cap, false); h.res = cap; }
     // Block 6 (playtest 2): a ↓ mark over it for a month, or until what it lacked is back (state.downs: home id ->
@@ -1994,6 +2107,22 @@ function downsLog(state) {
   const parts = Object.keys(now).sort((a, b) => now[b].length - now[a].length).map((n) => now[n].length + ' ' + NEED_NAMES[n]);
   const total = Object.values(now).reduce((a, l) => a + l.length, 0);
   simLog(state, plural(total, 'home', 'homes') + ' stepped down a level: ' + (total === 1 ? 'it lacked ' + NEED_NAMES[Object.keys(now)[0]] : 'they lacked ' + parts.join(', ')) + '.');
+}
+
+// M9: the homes at risk (lacking a need of their level, not yet stepped down): state.risk = { n, by: { need: [ids] },
+// soon: months until the first of them steps down }. Read by the pill, Rosa, the to-do list and the amber marks.
+function homeAtRisk(h) { return !!(h && h.type === 'casita' && h.res > 0 && h.level > 1 && h.down > 0 && (h.miss || []).length); }
+function riskLeft(h) { return Math.max(1, TUNE.levelDownMonths - (h.down || 0)); }
+function riskUpdate(state) {
+  const by = {};
+  let n = 0, soon = TUNE.levelDownMonths;
+  for (const h of state.b) {
+    if (!homeAtRisk(h)) continue;
+    n++; soon = Math.min(soon, riskLeft(h));
+    (by[h.miss[0]] = by[h.miss[0]] || []).push(h.id);
+  }
+  state.risk = { n, by, soon };
+  return state.risk;
 }
 
 // Fewer bubbles: every home shows at most one bubble, its most important missing thing (the first of its needs in the
@@ -2051,7 +2180,7 @@ function homeUpgrade(state, h) {
   if (why) return { ok: false, why };
   const cost = upgradeCost(h.level);
   state.money -= cost;
-  h.build = TUNE.upgradeTicks; h.ready = false; h.up = 0; h.down = 0;
+  h.build = TUNE.upgradeTicks; h.ready = false; h.up = 0; h.down = 0; h.held = 0; h.upNeed = 0;
   state.stats.upgrades = (state.stats.upgrades || 0) + 1;
   state.stats.upgradeSpent = (state.stats.upgradeSpent || 0) + cost;
   homeCountsUpdate(state);
@@ -2660,6 +2789,21 @@ function bigEmployer(s) {
     text: 'a ' + d.name.toLowerCase() + ' employs ' + d.jobs + (src ? ' (and ' + plural(feed, BUILDINGS[src].name.toLowerCase(), BUILDINGS[src].name.toLowerCase() + 's') + ' to feed it, ' + feed * BUILDINGS[src].jobs + ' more)' : '') };
 }
 
+// M9: the producer of her stage with the most jobs that has a spot by a road now (and whose input is made on the
+// island, or needs none), other than `not`: the jobs line names it when the biggest employer has no spot.
+function jobsAlt(s, not) {
+  let best = '';
+  for (const k of BUILD_ORDER) {
+    const d = BUILDINGS[k];
+    if (k === not || d.kind !== 'producer' || d.stage > s.stage || !d.jobs || (best && d.jobs <= BUILDINGS[best].jobs)) continue;
+    const u = d.uses && Object.keys(d.uses)[0];
+    if (u && u !== 'flour' && !s.b.some((o) => BUILDINGS[o.type].makes === u)) continue;
+    if (u === 'flour' && !countHarbors(s)) continue;
+    if (fitAnchors(s, k).length) best = k;
+  }
+  return best;
+}
+
 // The cart of a producer on a long road (more than 14 tiles), or null.
 function longCart(s, b) {
   const cart = s.carts.find((c) => c.home === b.id);
@@ -2753,10 +2897,33 @@ function wayText(s, type) {
   if (w.step === 'road') return { short: 'road first', text: 'There is open land for a ' + name + ', but no road to it: lay a road there (' + plural(Math.max(1, w.n), 'tile', 'tiles') + ').', btn: 'Show', act: { tool: 'road', at: w.at } };
   if (w.step === 'clear') return { short: 'clear forest first', text: w.foot ? 'No open grass is left for a ' + name + '. Clear the forest here (' + money$(clearTileCost(s)) + ' a tile): it fits once the trees are gone.' :
     'Forest blocks the way to open land for a ' + name + '. Clear it here (' + money$(clearTileCost(s)) + ' a tile), then lay a road.', btn: 'Clear forest', act: { tool: 'clear', at: w.at } };
-  if (w.step === 'remove') return { short: 'no road in', text: 'Your homes wall in the open land. Remove the home at the end of this street: a road through its lot reaches the grass for a ' + name + '.', btn: 'Show', act: { select: w.id } };
+  // M9 (playtest 3: "remove my own home?"): the home that walls the land in moves (its people stay), with its price
+  if (w.step === 'remove') {
+    const h = bById(s, w.id), what = h && h.type === 'casita' ? 'home' : h ? BUILDINGS[h.type].name.toLowerCase() : 'home';
+    const dir = h && w.spot ? compassOf([h.x, h.y], w.spot) : '';
+    const into = 'This ' + what + ' blocks the road into the ' + (dir ? dir + ' ' : 'open ') + 'fields';
+    // one tap when it can: the home steps aside to the new road and the road runs through its lot (openWay)
+    const ow = h && h.type === 'casita' ? openWay(s, type, true) : null;
+    if (ow && ow.ok) return { short: 'move a home first', text: into + ': Move it (' + money$(ow.cost) + ' with the road; ' + (h.res ? 'its ' + plural(h.res, 'person moves', 'people move') + ' with it' : 'it moves') + ' beside the new road) and the ' + name + ' fits.',
+      btn: 'Move it', act: { select: w.id, open: type, at: w.spot } };
+    return { short: 'move a ' + what + ' first', text: into + ': move it (' + money$(h ? moveCost(h) : 0) + (h && h.res ? ', its people stay' : '') + ') and lay a road through its lot to the grass for a ' + name + '.',
+      btn: 'Move', act: { select: w.id, move: w.id } };
+  }
   const next = STAGES[s.stage + 1];
-  return { short: 'no room', text: 'There is no room left for a ' + name + ' in the open land' + (next ? ': new land opens at ' + next.name + '.' : '.') + ' The Remove tool clears a spot.', btn: 'OK', act: {} };
+  return { short: 'no room', text: 'There is no room left for a ' + name + ' in the open land' + (next ? ': new land opens at ' + next.name + '.' : '.') + ' Move or remove a building to make a spot (on its card).', btn: 'OK', act: {} };
 }
+
+// M9: where a spot lies from a tile, in compass words ("east", "north-west"): north is up the map at the first turn.
+function compassOf(from, to) {
+  const dx = to[0] - from[0], dy = to[1] - from[1];
+  if (Math.abs(dx) >= 2 * Math.abs(dy)) return dx > 0 ? 'east' : 'west';
+  if (Math.abs(dy) >= 2 * Math.abs(dx)) return dy > 0 ? 'south' : 'north';
+  return (dy > 0 ? 'south' : 'north') + (dx > 0 ? '-east' : '-west');
+}
+
+// M9 (playtest 3: two or three advices glued together in Rosa's column): the problem part of a line (before its first
+// ':', '·' or '.'), so a line whose fix has no spot says the problem once and then the one step that makes room.
+function guideHead(text) { return String(text || '').split(/[:·.]/)[0].trim(); }
 
 // A line whose button arms a building that has no spot: the button becomes the step that makes one (never a tool with
 // no lit tile, never the loop "build a grove" <-> "lay a road into open grass").
@@ -2765,7 +2932,7 @@ function guideWay(s, m) {
   if (!t || !BUILDINGS[t] || BUILDINGS[t].kind === 'deco' || BUILDINGS[t].stage > s.stage || fitAnchors(s, t).length) return m;
   const w = wayText(s, t);
   if (!w) return m;
-  return Object.assign({}, m, { text: m.text.replace(/\.$/, '') + '. ' + w.text, btn: w.btn, act: w.act });
+  return Object.assign({}, m, { text: guideHead(m.text) + ' · no spot for a ' + BUILDINGS[t].name.toLowerCase() + ': ' + w.text.charAt(0).toLowerCase() + w.text.slice(1), btn: w.btn, act: w.act });
 }
 
 // Block 6: the goal's blocker. When a home-level condition of the next stage is not met, the need most homes one level
@@ -2794,6 +2961,17 @@ function goalBlocker(s) {
   if (rdy.length) {
     const cost = upgradeCost(L - 1);
     return { level: L, n: 0, have, want, ready: rdy.length, select: rdy[0].id, text: lname + ': ' + plural(rdy.length, 'home is', 'homes are') + ' ready to move up · tap ' + (rdy.length === 1 ? 'it' : 'one') + ': Upgrade · ' + money$(cost) + (rdy.length > 1 ? ' (' + money$(cost * rdy.length) + ' for all)' : ''), tool: '' };
+  }
+  // M9 (playtest 3: Villas went up and down for fifty years): the homes of the wanted level at risk come next: keeping
+  // them is the shortest way to the goal. The need most of them lack, the months left, the fix that is possible now.
+  const atRisk = homes.filter((h) => h.level === L && homeAtRisk(h));
+  if (atRisk.length) {
+    const by2 = {};
+    for (const h of atRisk) (by2[h.miss[0]] = by2[h.miss[0]] || []).push(h);
+    const need = Object.keys(by2).sort((a, b) => by2[b].length - by2[a].length)[0], list = by2[need];
+    const soon = Math.min(...list.map(riskLeft)), fix = needCause(s, need, list);
+    return { level: L, need, n: list.length, have, want, risk: atRisk.length, fix, tool: fix.tool, at: fix.at || homesAt(list),
+      text: lname + ': ' + list.length + ' at risk, ' + (list.length === 1 ? 'it lacks ' : 'they lack ') + NEED_NAMES[need] + (SERVICE_NEEDS.includes(need) || need === 'market' ? ' in reach' : '') + ' (the first steps down in ' + plural(soon, 'month', 'months') + ')' };
   }
   if (!best) {
     const growing = ready.length;
@@ -2940,8 +3118,10 @@ const GUIDE_PROBLEMS = [
     const homes = homesOccupied(s).filter((h) => (h.miss || []).includes(t.need));
     const fix = needCause(s, t.need, homes);
     const lv = LEVELS[(homes[0] || {}).level || 1];
-    return { text: t.n + ' homes lack ' + NEED_NAMES[t.need] + ' · ' + fix.text + '. ' + lv.name + 's without it step down after ' + TUNE.levelDownMonths + ' months.',
-      btn: toolLabel(fix.tool), act: { tool: fix.tool, at: fix.at, roads: fix.roads } };
+    // M9: how many are at risk and when the first steps down (one line: the count, the risk, the fix)
+    const risk = homes.filter(homeAtRisk), soon = risk.length ? Math.min(...risk.map(riskLeft)) : 0;
+    return { text: t.n + ' homes lack ' + NEED_NAMES[t.need] + (risk.length ? ' (' + risk.length + ' ' + lv.name + (risk.length === 1 ? '' : 's') + ' at risk: the first steps down in ' + plural(soon, 'month', 'months') + ')' : '') + ' · ' + fix.text + '.',
+      btn: toolLabel(fix.tool), act: { tool: fix.tool, at: fix.at, roads: fix.roads, select: fix.select } };
   } },
   { key: 'goal', check(s) {
     // Block 6: Rosa follows the pill: the need that holds back the next stage's homes, with its count and its fix.
@@ -2949,7 +3129,7 @@ const GUIDE_PROBLEMS = [
     if (k && k.ready) return { text: STAGES[s.stage + 1].name + ' needs ' + k.want + ' ' + LEVELS[k.level].name + 's (' + k.have + ' now): ' + k.text.replace(/^[A-Za-z]+: /, '') + '.', btn: 'Show', act: { select: k.select } };
     if (!k || !k.tool) return null;
     const next = STAGES[s.stage + 1];
-    return { text: next.name + ' needs ' + k.want + ' ' + LEVELS[k.level].name + 's (' + k.have + ' now): ' + k.text.replace(/^[A-Za-z]+: /, '') + (k.fix ? ' · ' + k.fix.text : '') + '.', btn: toolLabel(k.tool), act: { tool: k.tool, at: k.at } };
+    return { text: next.name + ' needs ' + k.want + ' ' + LEVELS[k.level].name + 's (' + k.have + ' now): ' + k.text.replace(/^[A-Za-z]+: /, '') + (k.fix ? ' · ' + k.fix.text : '') + '.', btn: toolLabel(k.tool), act: { tool: k.tool, at: k.at, select: k.fix && k.fix.select } };
   } },
   { key: 'ships', check(s) {
     // M3 (N4): goods wait because the ships are full: a second harbor (or the steamship quay) takes them
@@ -2987,7 +3167,15 @@ const GUIDE_PROBLEMS = [
     const big = bigEmployer(s);
     if (!big || s.stage === 0) return { text: plural(s.jobless, 'person has', 'people have') + ' no work. Build a farm: more food lets more homes fill.', btn: toolLabel('grove'), act: { tool: 'grove' } };
     const t = big.src && !s.b.some((o) => o.type === big.src) ? big.src : big.t;
-    return { text: plural(s.jobless, 'person has', 'people have') + ' no work. The biggest employer you can build: ' + big.text + '.' + (t === big.src ? ' Its ' + BUILDINGS[t].name.toLowerCase() + 's first.' : ''), btn: toolLabel(t), act: { tool: t } };
+    const who = plural(s.jobless, 'person has', 'people have') + ' no work';
+    // M9 (playtest 3: "182 have no work: a cigar factory" while it had no spot): only a fix that fits somewhere now,
+    // else the step that makes room for the biggest one
+    if (fitAnchors(s, t).length) return { text: who + '. The biggest employer you can build: ' + big.text + '.' + (t === big.src ? ' Its ' + BUILDINGS[t].name.toLowerCase() + 's first.' : ''), btn: toolLabel(t), act: { tool: t } };
+    const alt = jobsAlt(s, big.t);
+    if (alt) return { text: who + '. A ' + BUILDINGS[big.t].name.toLowerCase() + ' has no spot now; a ' + BUILDINGS[alt].name.toLowerCase() + ' (' + BUILDINGS[alt].jobs + ' jobs) fits: the lit tiles.', btn: toolLabel(alt), act: { tool: alt } };
+    const w = wayText(s, t);
+    if (w) return { text: who + ' · no spot for a ' + BUILDINGS[t].name.toLowerCase() + ' (' + BUILDINGS[t].jobs + ' jobs): ' + w.text.charAt(0).toLowerCase() + w.text.slice(1), btn: w.btn, act: w.act };
+    return { text: who + '. The biggest employer you can build: ' + big.text + '.', btn: toolLabel(t), act: { tool: t } };
   } },
   { key: 'project', check(s) {
     // M4: money with a destination: when the treasury holds more than four paydays, Rosa names the stage's grand project
@@ -3017,6 +3205,11 @@ function toolLabel(t) { return t === 'paved' ? 'Paved road' : t === 'road' ? 'Ro
 function guideMonth(state) {
   const g = state.guide;
   let say = null;
+  // M9 (playtest 3: the same line for years): a problem line that has been Rosa's for two years rests for one (it stays
+  // in the to-do list's Now section, with its fix), so the next problem gets her voice.
+  if (g.msg && g.msg.key === g.sameKey && !/^(i-|hint|red|strike|landmark)/.test(g.msg.key)) {
+    if (state.month - (g.sameSince || state.month) >= 24) { g.snooze[g.msg.key] = state.month + 12; g.sameKey = ''; }
+  } else { g.sameKey = g.msg ? g.msg.key : ''; g.sameSince = state.month; }
   // While her first three steps are on, only the urgent lines may interrupt them (block 4: a problem line replaced
   // "Build three homes" under her finger).
   const intro = g.step < GUIDE_INTRO.length;
@@ -3478,6 +3671,7 @@ function monthEnd(state) {
   downsClear(state, true);
   for (const b of state.b) if (b.type === 'casita') homeMonth(state, b);
   downsLog(state);
+  riskUpdate(state);
   bubblesPick(state);
   shipSail(state);
   jobsAssign(state);
@@ -4149,6 +4343,32 @@ function lotInReach(s, t, at) {
   const def = BUILDINGS[t], lim = bReach(def), h = { x: at[0], y: at[1], w: 1, h: 1 };
   return fitAnchors(s, t).some(([x, y]) => footDist({ x, y, w: def.w, h: def.h }, h) <= lim);
 }
+// M9: a lot for a service in reach of `at` that moving one or two homes would free (by a road, on open grass):
+// { at: [x, y], ids: [home ids], cost } or null; the fewest homes, then the nearest. Cached per change.
+function lotByMoving(s, t, at) {
+  const c = simCache(s), key = t + '|' + at[0] + ',' + at[1];
+  if (!c.mvLot) c.mvLot = {};
+  if (key in c.mvLot) return c.mvLot[key];
+  const def = BUILDINGS[t], lim = bReach(def), occ = occMap(s), h = { x: at[0], y: at[1], w: 1, h: 1 };
+  let best = null;
+  for (let y = at[1] - lim - def.h; y <= at[1] + lim; y++) for (let x = at[0] - lim - def.w; x <= at[0] + lim; x++) {
+    const f = { x, y, w: def.w, h: def.h };
+    if (footDist(f, h) > lim) continue;
+    const ids = new Set();
+    let ok = true;
+    for (let ty = y; ty < y + def.h && ok; ty++) for (let tx = x; tx < x + def.w && ok; tx++) {
+      if (!inMap(tx, ty)) { ok = false; break; }
+      const i = tileIdx(tx, ty), tr = s.terrain[i];
+      if (tr === SEA || tr === FOREST || (tr === BEACH && def.gives !== 'park') || !tileOpenAt(s, i) || s.road[i]) { ok = false; break; }
+      if (occ[i]) { const o = bById(s, occ[i]); if (!o || o.type !== 'casita' || o.build) ok = false; else ids.add(o.id); }
+    }
+    if (!ok || !ids.size || ids.size > 2 || (needsRoad(def) && !bEntrances(s, f).length)) continue;
+    const d = footDist(f, h);
+    if (!best || ids.size < best.ids.length || (ids.size === best.ids.length && d < best.d)) best = { at: [x, y], ids: [...ids], d };
+  }
+  if (best) best.cost = best.ids.reduce((a, id) => a + moveCost(bById(s, id)), 0);
+  return (c.mvLot[key] = best);
+}
 {
   const _needCause = needCause;
   needCause = function (s, need, homes) {
@@ -4156,7 +4376,15 @@ function lotInReach(s, t, at) {
     const t = NEED_FIX[need];
     if (!r || !r.at || r.tool !== t || !(SERVICE_NEEDS.includes(need) || need === 'market') || s.stage < TR.tramStage || lotInReach(s, t, r.at)) return r;
     const name = BUILDINGS[t].name.toLowerCase(), lim = bReach(BUILDINGS[t]);
-    return Object.assign({}, r, { text: 'no free lot for a ' + name + ' is left within ' + lim + ' tiles of them: lay a tram line from their street toward a ' + name + ' (homes by a stop reach it ' + TR.tramRide + ' tiles along the line), or remove two homes for a lot', tool: 'tram' });
+    // M9 (playtest 3: "[Tram line]" as the fix for a church read as a bug): the fix that is possible, in this order:
+    // a larger building of the same kind that reaches them from a free lot, a lot made by moving one or two homes
+    // (Show takes her to the first; its card has Move), then the tram as the other way.
+    const big = BUILD_ORDER.find((k) => k !== t && BUILDINGS[k].gives === BUILDINGS[t].gives && BUILDINGS[k].stage <= s.stage && bReach(BUILDINGS[k]) > lim && lotInReach(s, k, r.at));
+    if (big) return Object.assign({}, r, { text: 'no lot is free for a ' + name + ' within ' + lim + ' tiles of them; a ' + BUILDINGS[big].name.toLowerCase() + ' reaches ' + bReach(BUILDINGS[big]) + ' and fits: the lit tiles', tool: big });
+    const mv = lotByMoving(s, t, r.at);
+    if (mv) return Object.assign({}, r, { text: 'no lot is free for a ' + name + ' within ' + lim + ' tiles of them: move ' + (mv.ids.length === 1 ? 'the home' : 'the ' + mv.ids.length + ' homes') + ' on the lot Show marks (Move on its card, ' + money$(mv.cost) + ', its people stay), or lay a tram line toward a ' + name,
+      tool: 'tram', select: mv.ids[0], lot: mv.at });
+    return Object.assign({}, r, { text: 'no lot is free for a ' + name + ' within ' + lim + ' tiles of them: lay a tram line from their street toward a ' + name + ' (homes by a stop reach it ' + TR.tramRide + ' tiles along the line)', tool: 'tram' });
   };
   const _toolLabel = toolLabel;
   toolLabel = function (t) { return t === 'tram' ? 'Tram line' : t === 'avenue' ? 'Avenue' : _toolLabel(t); };
@@ -7306,6 +7534,14 @@ const ISO = (() => {
     g.strokeStyle = '#fffaf0'; g.lineWidth = 2.4; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
     g.moveTo(x, y - 5); g.lineTo(x, y + 4.5); g.moveTo(x - 4, y + 0.8); g.lineTo(x, y + 4.8); g.lineTo(x + 4, y + 0.8); g.stroke();
   }
+  // M9: a home at risk (it lacks a need of its level and steps down after a few months): an amber "!" (its card and the
+  // pill name the need and the months left).
+  function riskBadge(R, x, y) {
+    const g = R.ctx;
+    circ(x, y, 10, '#f0a531', INK, 1.8);
+    g.strokeStyle = '#3a2a1f'; g.lineWidth = 2.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x, y + 1.2); g.stroke();
+    circ(x, y + 4.6, 1.5, '#3a2a1f');
+  }
   // M2: a home ready to move up: a small gold arrow (her cue to tap it and Upgrade).
   function readyBadge(R, x, y) {
     const g = R.ctx;
@@ -7343,6 +7579,15 @@ const ISO = (() => {
       const p = P(b.x + 0.5, b.y + 0.5, bubbleZ(b) + 0.15);
       if (p[0] < -30 || p[0] > R.w + 30 || p[1] < -30 || p[1] > R.h + 30) continue;
       downBadge(R, p[0] + (b.lacks && b.lacks.length ? 22 : 0), p[1] - 18 + Math.sin(t * 2.6 + b.id) * 1.6);
+    }
+    // M9: like the bubbles, many homes at risk for the same need show one mark per small area
+    const many = s.risk && s.risk.n > TUNE.bubbleAll, cells = {};
+    for (const b of s.b) {
+      if (!homeAtRisk(b) || (s.downs && s.downs[b.id] !== undefined)) continue;
+      if (many) { const key = b.miss[0] + ':' + Math.floor(b.x / TUNE.bubbleCell) + ',' + Math.floor(b.y / TUNE.bubbleCell); if (cells[key]) continue; cells[key] = 1; }
+      const p = P(b.x + 0.5, b.y + 0.5, bubbleZ(b) + 0.15);
+      if (p[0] < -30 || p[0] > R.w + 30 || p[1] < -30 || p[1] > R.h + 30) continue;
+      riskBadge(R, p[0] + (b.lacks && b.lacks.length ? 22 : 0), p[1] - 18);
     }
   }
 
@@ -8709,18 +8954,21 @@ const ISO = (() => {
       return;
     }
     const def = BUILDINGS[gh.type];
+    // M9: the ghost of a building being moved looks like it (its level) and says what the move costs
+    const mvb = ui.move && ui.move.type === gh.type ? bById(s, ui.move.id) : null;
     diamond(R, gh.x, gh.y, gh.x + def.w, gh.y + def.h, gh.why ? 'rgba(196,85,63,.42)' : 'rgba(120,205,95,.5)', '#fbf3df', 4.5);
     diamond(R, gh.x, gh.y, gh.x + def.w, gh.y + def.h, null, gh.why ? '#a33a28' : '#2e7a3e', 2.2, [7, 4]);
     if (!gh.why) {
-      const fake = { id: 0, type: gh.type, x: gh.x, y: gh.y, w: def.w, h: def.h, level: def.kind === 'residence' ? 0 : 1, res: 1, open: true, stock: {}, inp: {}, yard: 0 };
+      const fake = { id: 0, type: gh.type, x: gh.x, y: gh.y, w: def.w, h: def.h, level: mvb ? mvb.level || 1 : def.kind === 'residence' ? 0 : 1, res: 1, open: true, stock: {}, inp: {}, yard: 0 };
       const q = vbox(R.rot || 0, gh.x, gh.y, gh.x + def.w, gh.y + def.h), p = PV(q[0], q[1], 0);
       sprDraw(R, bSprite(R, s, fake), p[0], p[1], 0.7 + 0.12 * Math.sin(t * 4));
     }
     const n = bForecast(s, gh.type), sp = ui.space && ui.space.reach;
     const inReach = sp && !gh.why ? sp.homes.filter((h) => h.st === 'in').length : -1;
     let text = gh.why || (def.name + ' · $' + def.cost.toLocaleString('en-US') + ' · ' + (n >= 0 ? '+$' + n : '−$' + -n) + ' a month' + (inReach >= 0 ? ' · ' + inReach + (inReach === 1 ? ' home' : ' homes') + ' in reach' : '') + (needsRoad(def) ? '' : ' · no road needed'));
-    if (gh.held && !gh.why) text = 'Tap to build · ' + text;
-    const p = P(gh.x + def.w / 2, gh.y + def.h / 2, bHeight({ type: gh.type, level: 1 }) * 0.8 + 0.3);
+    if (mvb && !gh.why) text = 'Move here · ' + money$(moveCost(mvb)) + (mvb.res ? ' · its people stay' : '') + (inReach >= 0 ? ' · ' + inReach + (inReach === 1 ? ' home' : ' homes') + ' in reach' : '');
+    if (gh.held && !gh.why) text = (mvb ? 'Tap to move · ' : 'Tap to build · ') + text.replace(/^Move here · /, '');
+    const p = P(gh.x + def.w / 2, gh.y + def.h / 2, bHeight({ type: gh.type, level: mvb ? mvb.level || 1 : 1 }) * 0.8 + 0.3);
     uiDraw(R, labelSprite(R, text, !gh.why), p[0], p[1] - 14);
   }
   function create(canvas) {
@@ -8925,10 +9173,48 @@ function toastShow(text, o) {
   APP.toasts = APP.toasts.filter((t) => t.important).concat([n]);
 }
 
+// M9 (playtest 3: "The rum distillery stopped: no cane comes in" every few months from 1923 to 1986): a notice about
+// the same thing (its key: kind + building) is shown once; again only when it was gone for a year and came back (a
+// bakery whose yard fills and empties by turns is one lasting problem, not news every season), or after 2 game years. The log keeps every one; a lasting problem stays in the to-do list's Now section.
+// state.notices: { key: { m: the month it was last shown, on: the last month it was present } } (saved with the island).
+function noticeGate(s, key) {
+  const n = s.notices || (s.notices = {}), r = n[key], m = s.month;
+  if (!r || m - r.on >= 12 || m - r.m >= 24) { n[key] = { m, on: m }; return true; }
+  r.on = m;
+  return false;
+}
+
+// The toast's place: never over Rosa's buttons or an open list (the to-do list, the glance lists): it waits meanwhile.
+function toastBlocked() {
+  const open = (id) => { const el = $(id); return !!(el && el.classList.contains('show')); };
+  return open('todo') || open('glance') || open('greet') || open('sheet');
+}
+function toastPlace() {
+  const el = $('toast'), g = $('guide');
+  el.style.bottom = ''; el.style.top = '';
+  // a phone: under the top bar and the goal pill (never over the pill's button)
+  if (window.innerWidth <= 600) {
+    const pl = $('pill').getBoundingClientRect(), tb = $('top').getBoundingClientRect();
+    el.style.bottom = 'auto'; el.style.top = Math.round(Math.max(tb.bottom, pl.height ? pl.bottom : 0) + 8) + 'px';
+  }
+  if (!g || !g.classList.contains('show')) return;
+  const a = el.getBoundingClientRect(), b = g.getBoundingClientRect();
+  if (a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom) return;
+  // above Rosa when there is room, else below her
+  if (b.top - a.height - 8 > 60) { el.style.top = 'auto'; el.style.bottom = Math.round(window.innerHeight - b.top + 8) + 'px'; }
+  else { el.style.bottom = 'auto'; el.style.top = Math.round(b.bottom + 8) + 'px'; }
+}
+
 function toastMs(text) { return Math.max(5000, Math.min(12000, 3000 + 60 * String(text).length)); }
 
 function toastTick(now) {
   const el = $('toast'), cur = APP.toastCur;
+  if (toastBlocked()) {
+    // M9: a list is open: the notice waits (an important one comes back after)
+    if (cur) { if (cur.important) APP.toasts.unshift(cur); toastClose(); }
+    return;
+  }
+  if (cur) toastPlace();
   if (cur) {
     if (APP.toastHold) cur.until = now + cur.left;
     if (cur.important || now < cur.until) return;
@@ -8943,6 +9229,7 @@ function toastTick(now) {
     '<button class="tx" aria-label="Close">' + iconSvg('close') + '</button>';
   el.classList.toggle('imp', n.important);
   el.classList.add('show');
+  toastPlace();
 }
 
 function toastClose() {
@@ -9295,7 +9582,14 @@ function cardHtml(s, b) {
       h += '<p class="note">' + esc('Near ' + listAnd(names.map((n) => 'a ' + n)) + ', but no road joins them.') + ' <button class="link" id="cardRoads">Show roads</button></p>';
     }
     if (APP.ui.downSeen && APP.ui.downSeen.id === b.id) h += '<p class="note">' + esc('It stepped down a level in ' + dateLabel(APP.ui.downSeen.m) + (APP.ui.downSeen.need ? ': it lacked ' + NEED_NAMES[APP.ui.downSeen.need] + (homeHas(s, b, APP.ui.downSeen.need) ? ', which it has again now.' : '. ' + needCause(s, APP.ui.downSeen.need, [b]).text.replace(/^./, (c) => c.toUpperCase()) + '.') : '.')) + '</p>';
-    if (b.res && miss.length) h += '<p class="note">Lacks ' + esc(miss.map((n) => NEED_NAMES[n]).join(', ')) + '. ' + (b.level > 1 ? 'After ' + TUNE.levelDownMonths + ' months it becomes a ' + LEVELS[b.level - 1].name.toLowerCase() + ' again.' : 'People leave when happiness falls below ' + TUNE.happyLeave + '.') + '</p>';
+    // M9 (playtest 3): at risk first, with the months left and the fix that is possible now
+    if (b.res && miss.length && b.level > 1) {
+      let fx = null;
+      try { fx = needCause(s, miss[0], [b]); } catch (e) { fx = null; }
+      const left = Math.max(1, TUNE.levelDownMonths - (b.down || 0));
+      h += '<p class="note risk">' + esc('At risk: lacks ' + miss.map((n) => NEED_NAMES[n]).join(', ') + '. It becomes a ' + LEVELS[b.level - 1].name.toLowerCase() + ' again in ' + plural(left, 'month', 'months') + ' unless it has it again' + (fx ? ': ' + fx.text : '') + '.') + '</p>';
+    } else if (b.res && miss.length) h += '<p class="note">Lacks ' + esc(miss.map((n) => NEED_NAMES[n]).join(', ')) + '. People leave when happiness falls below ' + TUNE.happyLeave + '.</p>';
+    else if (b.res && b.down && b.level > 1) h += '<p class="note">' + esc('Has everything again: safe after ' + plural(Math.max(1, TUNE.riskHoldMonths - (b.held || 0)), 'more month', 'more months') + ' like this.') + '</p>';
     else if (b.build) h += '<p class="note good">' + esc('Building the ' + next.name + ': scaffolding for a few seconds, then ' + next.people + ' people fit.') + '</p>';
     else if (next && next.stage <= s.stage && missNext.length === 0 && b.res && !b.ready) h += '<p class="note good">' + esc('Has everything: ready to upgrade to a ' + next.name + ' after ' + plural(levelUpMonths(b.level), 'month', 'months') + ' like this' + (b.up ? ' (' + b.up + ' so far)' : '') + '.') + '</p>';
     h += upgradeHtml(s, b);
@@ -9445,8 +9739,8 @@ function legendOpen(bub) {
   };
   if (bub && bub.home) add(bub.need, bub.warn);
   for (const q of (APP.R && APP.R.bubbles) || []) if (q.home) add(q.need, q.warn);
-  el.innerHTML = '<b>Bubbles over homes</b><div class="why" style="font-size:13px;color:var(--ink2)">Red: a home lacks it (a House or better steps down after ' + TUNE.levelDownMonths +
-    ' months). Light: it needs it to grow. One bubble per home, one per street for the same thing.</div>' + rows.slice(0, 5).join('') +
+  el.innerHTML = '<b>Bubbles over homes</b><div class="why" style="font-size:13px;color:var(--ink2)">Red: a home lacks it. An amber ! : a House or better that lacks it is at risk and steps down after ' + TUNE.levelDownMonths +
+    ' months (safe again after ' + TUNE.riskHoldMonths + ' months with everything). Light: it needs it to grow. One bubble per home, one per street for the same thing.</div>' + rows.slice(0, 5).join('') +
     '<div class="why" style="font-size:13px;color:var(--ink2);margin-top:4px">Over workplaces: workers 2/4 (short of workers: build homes), a full yard (nobody takes the goods), a missing input.</div>';
   el.classList.add('show');
   // the click a touch sends after the tap lands where the legend now is: ignore it
@@ -9849,22 +10143,23 @@ function glanceRender() {
 
 // ---------- a workshop stopped (an important notice: it stays until closed) ----------
 // Checked at each payday; the workshops already stopped when the island opens are not announced.
+// M9: once per workshop and cause (noticeGate): again only after a year without it, or 2 years on.
 function stopsCheck() {
-  const s = APP.state, said = APP.stopSaid || (APP.stopSaid = { init: false, ids: {} });
+  const s = APP.state, first = !s.notices;
   let told = 0;
   for (const b of s.b) {
     const def = BUILDINGS[b.type];
     if (!def.uses) continue;
     const stopped = b.open && b.workers > 0 && (b.blocked === 'input' || b.blocked === 'yard');
-    if (!stopped) { delete said.ids[b.id]; continue; }
-    if (said.ids[b.id]) continue;
-    said.ids[b.id] = 1;
-    if (!said.init || told) continue;
+    if (!stopped) continue;
+    // the workshops already stopped when an island opens are not announced; one notice a payday (the others next time)
+    if (first) { noticeGate(s, 'stop:' + b.blocked + ':' + b.id); continue; }
+    if (told || !noticeGate(s, 'stop:' + b.blocked + ':' + b.id)) continue;
     told++;
     const name = def.name, why = b.blocked === 'input' ? 'no ' + GOODS[Object.keys(def.uses)[0]].name.toLowerCase() + ' comes in' : 'its yard is full, nobody takes the ' + GOODS[def.makes].name.toLowerCase();
     toastShow('The ' + name.toLowerCase() + ' stopped: ' + why + '.', { id: b.id, important: true });
   }
-  said.init = true;
+  if (!s.notices) s.notices = {};
 }
 
 // ---- src/ui/transport_ui.js
@@ -10448,6 +10743,129 @@ function inputInit(canvas) {
     if (e.key === ' ') { speedSet(APP.speed ? 0 : 1); e.preventDefault(); }
   });
 }
+
+// ---- src/ui/move.js
+// M9 (playtest 3, problem 3: her own rows of homes walled in the open land; Rosa asked her to remove her own home):
+// Move. "Move · $X" on a building's card (a quarter of its price) arms the move: the building's ghost follows the
+// finger over the lit spots where it may stand (worked out as if it were lifted off its own lot), a tap on one moves it
+// there; a home keeps its people, level and pantry. The ghost and the lit tiles go through the renderer's world <-> view
+// mapping like any building tool, so the move works in all four turns. Rosa's, the hint's and the to-do list's "Move"
+// buttons (act.move) start the same. Rules: moveWhy / moveSpots / moveBuilding in sim/place.js.
+
+function moveStart(id) {
+  const s = APP.state, b = bById(s, id);
+  if (!b || BUILDINGS[b.type].kind === 'fixed' || BUILDINGS[b.type].project || b.wip) return false;
+  const name = b.type === 'casita' ? LEVELS[b.level].name.toLowerCase() : BUILDINGS[b.type].name.toLowerCase();
+  cardClose();
+  APP.moveStarting = true;
+  try { toolSet(b.type, true); } finally { APP.moveStarting = false; }
+  APP.ui.move = { id: b.id, type: b.type };
+  APP.spots = {};
+  const n = spotsFor(s, b.type).n;
+  APP.ui.hint = { key: 'move', text: n ? 'Move the ' + name + ': tap a lit spot (' + money$(moveCost(b)) + (b.res ? ', its ' + plural(b.res, 'person moves', 'people move') + ' with it' : '') + ').' :
+    'The ' + name + ' has no other free spot by a road. Lay a road into open land first.', btn: 'Cancel', act: { tool: 'look' } };
+  guideRender();
+  return true;
+}
+
+function moveOn() { const m = APP.ui && APP.ui.move; return m && APP.ui.tool === m.type ? m : null; }
+
+// Any other tool (Done, the bar, Cancel) ends the move.
+{ const _ts = toolSet; toolSet = function (tool) {
+  if (APP.ui.move && !APP.moveStarting) {
+    APP.ui.move = null; APP.spots = {};
+    if (APP.ui.hint && APP.ui.hint.key === 'move') APP.ui.hint = null;
+  }
+  return _ts.apply(this, arguments);
+}; }
+
+// The lit spots while moving: where the lifted building may stand (cached per change of the island).
+{ const _sf = spotsFor; spotsFor = function (s, type, opts) {
+  const mv = moveOn(), b = mv && type === mv.type && !(opts && opts.noRoad) ? bById(s, mv.id) : null;
+  if (!b) return _sf.apply(this, arguments);
+  const key = s.ver + '|' + s.stage + '|move' + b.id + '@' + b.x + ',' + b.y;
+  if (mv.sp && mv.sp.key === key) return mv.sp;
+  const anchors = moveSpots(s, b), tiles = new Uint8Array(MAP_W * MAP_H), def = BUILDINGS[b.type], at = new Set();
+  for (const [x, y] of anchors) {
+    at.add(tileIdx(x, y));
+    for (let ty = y; ty < y + def.h; ty++) for (let tx = x; tx < x + def.w; tx++) tiles[tileIdx(tx, ty)] = 1;
+  }
+  return (mv.sp = { key, tiles, anchors, n: anchors.length, at });
+}; }
+
+// The ghost snaps to the nearest lit spot within two tiles of the finger (as for building).
+{ const _snap = snapFoot; snapFoot = function (type, sx, sy) {
+  const mv = moveOn(), s = APP.state, b = mv && type === mv.type ? bById(s, mv.id) : null;
+  if (!b) return _snap.apply(this, arguments);
+  const def = BUILDINGS[type], t = screenToTile(APP.R, APP.view, sx, sy), sp = spotsFor(s, type);
+  const fx = Math.floor(t.x), fy = Math.floor(t.y);
+  let best = null;
+  for (let y = fy - def.h - 2; y <= fy + 2; y++) for (let x = fx - def.w - 2; x <= fx + 2; x++) {
+    if (!inMap(x, y) || !sp.at.has(tileIdx(x, y))) continue;
+    const gx = Math.max(x - t.x, 0, t.x - (x + def.w)), gy = Math.max(y - t.y, 0, t.y - (y + def.h)), edge = Math.max(gx, gy);
+    if (edge > 2) continue;
+    const d = edge * 4 + Math.hypot(x + def.w / 2 - t.x, y + def.h / 2 - t.y);
+    if (!best || d < best.d) best = { x, y, d };
+  }
+  if (!best) return { x: Math.round(t.x - def.w / 2), y: Math.round(t.y - def.h / 2), why: 'No room here' };
+  return { x: best.x, y: best.y, why: s.money < moveCost(b) ? 'Not enough money (' + money$(moveCost(b)) + ')' : '' };
+}; }
+
+// A tap while moving: the building goes to the spot (or the ghost says why not).
+{ const _tap = tapAt; tapAt = function (sx, sy) {
+  const mv = moveOn();
+  if (!mv) return _tap.apply(this, arguments);
+  const s = APP.state, b = bById(s, mv.id);
+  if (!b) { toolSet('look'); return; }
+  $('pop').classList.remove('show');
+  const f = snapFoot(mv.type, sx, sy);
+  const r = f.why ? { ok: false, why: f.why } : moveBuilding(s, b, f.x, f.y);
+  if (!r.ok) { APP.ui.ghost = { type: mv.type, x: f.x, y: f.y, why: r.why }; return; }
+  APP.ui.ghost = null;
+  floaterAdd(b.x + b.w / 2, b.y + b.h / 2, '−' + money$(r.cost), '#c0392b', false, b.id);
+  toolSet('look');
+  try { audioCue('place'); } catch (e) { /* no sound */ }
+  guideRender();
+}; }
+
+// "Move · $X" on the card (not for the pier, the residence, grand projects or a home under scaffolding).
+{ const _cb = cardButtons; cardButtons = function (s, b) {
+  const h = _cb.apply(this, arguments), def = BUILDINGS[b.type];
+  if (!def || def.kind === 'fixed' || def.project || b.wip || b.build) return h;
+  const c = moveCost(b);
+  return '<div class="btns"><button class="move' + (s.money < c ? ' poor' : '') + '" id="cardMove">' + esc('Move · ' + money$(c) + (b.res ? ' · its people stay' : '')) + '</button></div>' + h;
+}; }
+{ const _cr = cardRender; cardRender = function () {
+  const r = _cr.apply(this, arguments), el = $('cardMove');
+  if (el && !el.dataset.w) { el.dataset.w = '1'; el.addEventListener('click', () => { const id = APP.ui.sel; if (id) moveStart(id); }); }
+  return r;
+}; }
+
+// Rosa's line and a tool's hint: a "Move" button starts the move of the building that walls the land in.
+{ const _ga = guideAct; guideAct = function () {
+  const m = guideMsg(), a = m && m.act;
+  // "Move it" in a walled-in town: the home steps aside to a new road through its lot (openWay), one tap; then the
+  // building she wanted is armed where it now fits
+  if (a && a.open && performance.now() - (APP.guideT || 0) >= 900) {
+    const s = APP.state, r = openWay(s, a.open);
+    if (m === APP.ui.hint) APP.ui.hint = null;
+    if (r.ok) {
+      const h = bById(s, r.id);
+      if (h) floaterAdd(h.x + 0.5, h.y + 0.5, '−' + money$(r.cost), '#c0392b', false, h.id);
+      toastShow('The home moved beside the new road: the way into the open land is free.', { logged: true, at: a.at });
+      try { audioCue('place'); } catch (e) { /* no sound */ }
+      if (a.at) cameraFlyTo(a.at[0] + 0.5, a.at[1] + 0.5);
+      toolSet(a.open);
+    } else toastShow(r.why + '.');
+    guideRender();
+    return;
+  }
+  if (a && a.move && performance.now() - (APP.guideT || 0) >= 900) {
+    const b = bById(APP.state, a.move);
+    if (b) { if (m === APP.ui.hint) APP.ui.hint = null; cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2); moveStart(b.id); return; }
+  }
+  return _ga.apply(this, arguments);
+}; }
 
 // ---- src/ui/rotate.js
 // View rotation (docs/ROTATION.md): the island turns in 90° steps, animated by the renderer. Two round buttons on the
@@ -11782,14 +12200,23 @@ function todoNow(s) {
     let fix = null;
     try { fix = needCause(s, n, list); } catch (e) { fix = null; }
     const near = n === 'market' ? '' : marketNear(s, at);
-    return { key: 'need:' + n, bad: n === 'food', n: list.length, label: (list.length === 1 ? 'home lacks ' : 'homes lack ') + NEED_NAMES[n] + (near ? ' · ' + near : ''), why: fix && fix.text,
-      tool: fix && fix.tool, at: fix && fix.at, show: todoShowOf(homeOf(list)), loop: plural(list.length, 'home lacks', 'homes lack') + ' ' + NEED_NAMES[n] };
+    const risk = list.filter(homeAtRisk).length;
+    return { key: 'need:' + n, bad: n === 'food' || risk > 0, n: list.length, label: (list.length === 1 ? 'home lacks ' : 'homes lack ') + NEED_NAMES[n] + (risk ? ' · ' + risk + ' at risk' : '') + (near ? ' · ' + near : ''), why: fix && fix.text,
+      tool: fix && fix.tool, at: fix && fix.at, show: fix && fix.select ? { id: fix.select } : todoShowOf(homeOf(list)), loop: plural(list.length, 'home lacks', 'homes lack') + ' ' + NEED_NAMES[n] };
   };
   if (needs[0] === 'food') out.push(needRow('food'));
   if (s.jobless > 0) {
-    const t = ['grove', 'cane', 'tobacco', 'finca', 'finca', 'finca'][s.stage] || 'grove';
-    out.push({ key: 'jobless', n: s.jobless, label: s.jobless === 1 ? 'person has no work' : 'people have no work', why: 'a farm or a workshop gives jobs', tool: t,
-      loop: plural(s.jobless, 'person has', 'people have') + ' no work' });
+    let t = ['grove', 'cane', 'tobacco', 'finca', 'finca', 'finca'][s.stage] || 'grove', why = 'a farm or a workshop gives jobs', act = null;
+    // M9: only a fix that fits somewhere now, else the step that makes room for it
+    try {
+      if (BUILDINGS[t] && !fitAnchors(s, t).length) {
+        const alt = jobsAlt(s, t);
+        if (alt) { why = 'a ' + BUILDINGS[alt].name.toLowerCase() + ' (' + BUILDINGS[alt].jobs + ' jobs) fits now'; t = alt; }
+        else { const w = wayText(s, t); if (w) { why = 'no spot for a ' + BUILDINGS[t].name.toLowerCase() + ': ' + w.short; act = w.act; t = w.act && w.act.tool ? w.act.tool : ''; } }
+      }
+    } catch (e) { act = null; }
+    out.push({ key: 'jobless', n: s.jobless, label: s.jobless === 1 ? 'person has no work' : 'people have no work', why, tool: t, at: act && act.at,
+      show: act && act.select ? { id: act.select } : null, loop: plural(s.jobless, 'person has', 'people have') + ' no work' });
   }
   const still = s.b.filter((o) => o.blocked === 'input' && o.workers > 0 && o.open && s.month - o.built > 1);
   if (still.length) {
@@ -11908,7 +12335,7 @@ function todoCardPin() {
   if (!b) return;
   const p = todoPinnedB(s, b);
   if (p) { todoUnpin(p.id); toastShow('Unpinned from My notes.', { logged: true }); }
-  else if (todoPin(todoPinText(s, b), b)) { toastShow('Pinned to My notes (✓ in the top bar).', { logged: true }); todoBump(); }
+  else { const n = todoPin(todoPinText(s, b), b); if (n) { n.auto = 1; toastShow('Pinned to My notes (✓ in the top bar).', { logged: true }); todoBump(); } }
   APP.cardKey = '';
   cardRender();
 }
@@ -12104,11 +12531,44 @@ function todoNowHtml(r, done) {
     (r.why && !done ? '<small>' + esc(r.why) + '</small>' : '') + '</div>' + (done ? '' : todoBtns(r, 'n')) + '</div>';
 }
 
+// M9 (playtest 3: "✓ the rum distillery has no cane" struck through while the same problem stood open below it): a
+// row ticks off only when its problem is really gone: not when it came back within 3 months of its last tick (a
+// workshop that runs and stops by turns; it stays open until it has run 3 months), and not while one of her pins on
+// the same building still shows a problem. APP.todoTicks: { key: { m: month ticked, back: month it came back } }.
+function todoSeen(s, k) {
+  const t = (APP.todoTicks = APP.todoTicks || {})[k];
+  if (t && t.back === undefined && s.month - t.m < 3) t.back = s.month;
+}
+function todoReallyGone(s, k, item) {
+  const ticks = APP.todoTicks = APP.todoTicks || {}, t = ticks[k];
+  if (t && t.back !== undefined && s.month - t.back < 12) return false;
+  const id = item && item.show && item.show.id, b = id && bById(s, id);
+  if (b && todoNotes(s).some((n) => n.bid === id && !todoPinLive(s, n).good)) return false;
+  ticks[k] = { m: s.month };
+  return true;
+}
+
+// A pin made on a building's card follows that building: its line is the building's state now ("Rum distillery: no
+// cane comes in", then "Rum distillery · runs again ✓"), so a note never says a problem the island no longer has.
+// Her own words (a free note, Rosa's line) stay as she pinned them. { text, good, auto }.
+function todoPinLive(s, n) {
+  const b = n.bid && bById(s, n.bid);
+  if (!b) return { text: n.text, good: true, auto: false };
+  const def = BUILDINGS[b.type], name = def.kind === 'home' ? LEVELS[b.level || 1].name : b.type === 'residence' ? '' : def.name;
+  const auto = !!name && (n.auto || n.text === name || n.text.indexOf(name + ':') === 0 || (def.kind === 'home' && LEVELS.some((l) => l && (n.text === l.name || n.text.indexOf(l.name + ':') === 0))));
+  if (!auto) return { text: n.text, good: true, auto: false };
+  let now = n.text;
+  try { now = todoPinText(s, b); } catch (e) { now = n.text; }
+  const good = now.indexOf(':') < 0 || / ready to upgrade$/.test(now);
+  return { text: good && n.text.indexOf(':') >= 0 ? now.replace(/:.*$/, '') + ' · runs again ✓' : now, good, auto: true };
+}
+
 function todoCheck() { return '<svg class="cks" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 L10 17.5 L19.5 7"/></svg>'; }
 
 function todoNoteHtml(s, n, done) {
   const b = n.bid && bById(s, n.bid), where = b ? (BUILDINGS[b.type].kind === 'home' ? LEVELS[b.level || 1].name : BUILDINGS[b.type].name) : n.at ? 'a place' : '';
-  return '<div class="row note' + (done ? ' done' : '') + '" data-k="note:' + n.id + '"><button class="tick" data-tick="' + n.id + '" aria-label="Done: ' + esc(n.text) + '">' + todoCheck() + '</button><div class="t"><span class="l">' + esc(n.text) + '</span>' +
+  const live = todoPinLive(s, n);
+  return '<div class="row note' + (done ? ' done' : '') + (live.auto && live.good && n.text.indexOf(':') >= 0 ? ' fixed' : '') + '" data-k="note:' + n.id + '"><button class="tick" data-tick="' + n.id + '" aria-label="Done: ' + esc(live.text) + '">' + todoCheck() + '</button><div class="t"><span class="l">' + esc(live.text) + '</span>' +
     '<small>' + (where ? iconSvg('pin', 'ic pinic') + esc(where) + ' · ' : '') + esc(dateLabel(n.m || 0)) + '</small></div>' +
     (done ? '' : '<span class="bs">' + ((b || n.at) ? '<button class="show" data-note="' + n.id + '">Show</button>' : '') + '<button class="del" data-del="' + n.id + '" aria-label="Delete the note">' + iconSvg('close') + '</button></span>') + '</div>';
 }
@@ -12132,7 +12592,8 @@ function todoRefresh(s, force) {
   if (!open) { APP.todoPrev = null; return; }
   // what was on the list a moment ago and is gone now (not merely pushed below the five): done, it ticks off
   const keys = new Set(d.now.map((r) => r.key)), prev = APP.todoPrev;
-  if (prev) for (const k in prev.now) if (!keys.has(k)) { APP.todoGone.push({ key: 'n:' + k, item: prev.now[k], t0: now }); todoDing(); }
+  if (prev) for (const k in prev.now) if (!keys.has(k) && todoReallyGone(s, k, prev.now[k])) { APP.todoGone.push({ key: 'n:' + k, item: prev.now[k], t0: now }); todoDing(); }
+  for (const r of d.now) todoSeen(s, r.key);
   const okNow = {};
   for (const r of d.goal.rows) { okNow[r.key] = r.ok; if (prev && r.ok && prev.ok[r.key] === false) { r.pop = true; todoDing(); } }
   APP.todoPrev = { now: Object.fromEntries(d.shown.map((r) => [r.key, r])), ok: okNow };
@@ -12379,7 +12840,8 @@ function eventsHandle() {
     else if (e.kind === 'palace' && b) { floaterAdd(b.x + b.w / 2, b.y + b.h / 2, "Governor's palace!", '#167a7a', true, b.id); APP.R.terrainKey = ''; barBuild(); }
     else if (e.kind === 'guide') guideRender();
     // M1: people leaving is an important notice (it stays until closed)
-    else if (e.kind === 'log' && /settlers? arrived|left the island/.test(e.text)) toastShow(e.text, { logged: true, important: /left the island/.test(e.text), id: /arrived/.test(e.text) ? (s.b.find((o) => o.type === 'pier') || {}).id : 0 });
+    // M9: each kind once (noticeGate: again after a year without it, or 2 years on); the log keeps every month's
+    else if (e.kind === 'log' && /settlers? arrived|left the island/.test(e.text) && noticeGate(s, /arrived/.test(e.text) ? 'arrived' : /rent is high/.test(e.text) ? 'left:rent' : 'left:happy')) toastShow(e.text, { logged: true, important: /left the island/.test(e.text), id: /arrived/.test(e.text) ? (s.b.find((o) => o.type === 'pier') || {}).id : 0 });
   }
   // Block 6 (playtest 2): no toast for homes stepping down (it came every month for fifty years). Rosa says it once per
   // cause with the count and the fix; the ↓ marks stay a month or until the home has what it lacked again.
@@ -12489,6 +12951,7 @@ function boot() {
   if (fresh) { const old = storeGet(SAVE_KEY); if (old) storeSet(SAVE_KEY + '-prev', old); }
   const saved = fresh ? null : gameLoad();
   if (saved) { try { APP.savedAt = JSON.parse(storeGet(SAVE_KEY)).savedAt || 0; } catch (e) { APP.savedAt = 0; } }
+  if (saved) { try { sessionStorage.removeItem('nova-reread'); } catch (e) { /* private window */ } }
   APP.state = saved || newGame(+(params.get('seed') || 1902));
   APP.R = renderCreate($('map'));
   iosInit();
@@ -12506,6 +12969,18 @@ function boot() {
   });
   if (!fresh && !play) titleOpen(!!saved);
   else if (APP.loadNote) toastShow(APP.loadNote);
+  // M9 (the pins-lost flake): right after a reload the page can find the storage empty for a moment (seen in Chromium
+  // after a save and a reload: 1 read in about 20 came back with no keys at all; the same storage held the island a moment
+  // later). An island that opened empty looks again twice; if the save is there now and nothing was played yet, the page
+  // opens it (never more than once a session, so it cannot loop).
+  if (!saved && !fresh) {
+    const again = () => {
+      if (!storeGet(SAVE_KEY) || APP.state.month > 0 || APP.state.b.length > 3) return;
+      try { if (sessionStorage.getItem('nova-reread')) return; sessionStorage.setItem('nova-reread', '1'); } catch (e) { return; }
+      location.reload();
+    };
+    setTimeout(again, 400); setTimeout(again, 1500);
+  }
   try { if (location.search && history.replaceState) history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* file: or sandbox */ }
   loopStart();
 }
