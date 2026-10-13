@@ -603,6 +603,47 @@ body.titled #comstack { display: none !important; }
 #date .todi { width: 15px; height: 15px; flex: none; color: var(--ink); }
 /* a phone: the clock on its own line under the month (beside it the top row was 47 px wider than the screen) */
 @media (max-width: 600px) { #date .tod { display: flex; margin: 1px 0 0; gap: 3px; font-size: 13.5px; line-height: 1.1; } #date .todi { width: 14px; height: 14px; } #date .tod em { letter-spacing: 0.02em; font-weight: 700; } }
+
+/* A5: the Isla Nueva Gazette at the New Year (one tap closes it), the slip at the edge, the old pages in the Album */
+#gazette { position: fixed; z-index: 10; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(40, 28, 18, 0.42);
+  padding: calc(14px + var(--st)) calc(12px + var(--sr)) calc(14px + var(--sb)) calc(12px + var(--sl)); overflow-y: auto; }
+#gazette.show { display: flex; }
+#gazette .gpaper { position: relative; width: min(620px, 100%); max-height: 100%; overflow-y: auto; margin: auto; padding: 18px 22px 12px; background: #f6ecd2;
+  border: 2px solid var(--ink); border-radius: 6px; box-shadow: inset 0 0 0 5px #f6ecd2, inset 0 0 0 6px rgba(58, 42, 31, 0.35), 0 4px 0 rgba(58, 42, 31, 0.35), 0 18px 40px rgba(20, 12, 6, 0.35);
+  background-image: radial-gradient(rgba(120, 90, 50, 0.07) 1px, transparent 1px); background-size: 5px 5px; transform: rotate(-0.4deg); }
+#gazette .gmast { text-align: center; font: 700 34px/1.05 var(--serif); letter-spacing: 0.02em; border-bottom: 3px double var(--ink); padding-bottom: 6px; }
+#gazette .gline { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--ink2); border-bottom: 1.5px solid var(--ink); padding: 4px 0 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+#gazette .ghead { font: italic 700 28px/1.12 var(--serif); margin: 12px 0 10px; text-align: center; }
+#gazette .gitems { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+#gazette .gitems li { display: flex; align-items: center; gap: 10px; min-height: 48px; font-size: 15px; line-height: 1.28; border-top: 1.5px dotted rgba(58, 42, 31, 0.35); padding-top: 6px; }
+#gazette .gitems li.warn .gtx { color: #8a2f1e; }
+#gazette .gpi { flex: none; width: 38px; height: 38px; border-radius: 50%; background: #fff7e4; border: 2px solid var(--ink); display: flex; align-items: center; justify-content: center; }
+#gazette .gpi .ic { width: 24px; height: 24px; fill: #7a604b; stroke: var(--ink); stroke-width: 1.1px; paint-order: stroke; }
+#gazette .gitems li.warn .gpi { background: #fbe3d9; }
+#gazette .gtx { flex: 1; min-width: 0; }
+#gazette .gshow { flex: none; min-height: 40px; min-width: 56px; border-radius: 10px; background: var(--paper2); box-shadow: inset 0 0 0 1.5px var(--ink); font-weight: 800; font-size: 13px; }
+#gazette .grosa { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; padding: 8px 10px; border-radius: 10px; background: #fff7e4; border: 1.5px solid rgba(58, 42, 31, 0.4); font-size: 15px; }
+#gazette .gwho { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--coral-soft); color: #8a3a22; border: 2px solid var(--ink); display: flex; align-items: center; justify-content: center; font: italic 700 18px var(--serif); }
+#gazette .gtap { text-align: center; font-size: 12px; color: var(--ink2); margin: 6px 0 0; }
+#gzslip { position: fixed; z-index: 5; right: calc(10px + var(--sr)); top: calc(var(--gap) + 190px + var(--st)); display: none; align-items: center; gap: 6px; min-height: 46px; padding: 0 14px 0 10px;
+  border-radius: 12px 4px 4px 12px; background: #f6ecd2; border: 2px solid var(--ink); font: 600 14px var(--sans); color: var(--ink); box-shadow: 0 3px 0 rgba(58, 42, 31, 0.3), 0 6px 14px rgba(30, 20, 10, 0.16); transform: rotate(-2deg); }
+#gzslip.show { display: flex; }
+#gzslip .ic { width: 22px; height: 22px; fill: #7a604b; stroke: var(--ink); stroke-width: 1px; paint-order: stroke; }
+#gzslip b { color: #a2402a; }
+#sheet .gzlist { display: flex; flex-direction: column; gap: 6px; }
+#sheet .gzold { display: flex; gap: 10px; align-items: center; min-height: 44px; padding: 4px 12px; border-radius: 10px; background: #f6ecd2; box-shadow: inset 0 0 0 1.5px rgba(58, 42, 31, 0.4); text-align: left; font-size: 14px; }
+#sheet .gzold b { font: italic 700 18px var(--serif); }
+#sheet h4.ph { margin: 10px 0 6px; font-size: 14px; }
+@media (max-width: 600px) {
+  #gazette .gpaper { padding: 14px 14px 10px; }
+  #gazette .gmast { font-size: 25px; }
+  #gazette .ghead { font-size: 22px; margin: 8px 0; }
+  #gazette .gitems { grid-template-columns: 1fr; gap: 4px; }
+  #gazette .gitems li { font-size: 14px; }
+  #gazette .gline span:nth-child(2) { display: none; }
+  #gzslip { top: auto; bottom: calc(150px + var(--sb)); }
+}
+body.titled #gzslip, body.titled #gazette { display: none !important; }
 </style>
 </head>
 <body>
@@ -1933,7 +1974,8 @@ function homeTick(state, h) {
   h.occTicks++;
   const occ = h.res / LEVELS[h.level].people;
   for (const need of homeWants(state, h)) {
-    const left = (h.pantry[need] || 0) - eatRate(h, need) * occ / TUNE.ticksPerMonth;
+    // A5: homes eat more of a cheap local good and less of a dear one (purse.js priceEat; 1 at fair and for the rest)
+    const left = (h.pantry[need] || 0) - eatRate(h, need) * occ / TUNE.ticksPerMonth * (typeof priceEat === 'function' ? priceEat(state, need) : 1);
     h.pantry[need] = Math.max(0, left);
     if (left <= 0) h.dry[need] = (h.dry[need] || 0) + 1;
   }
@@ -2966,6 +3008,10 @@ function needCause(s, need, homes) {
     const maker = makerOf(need), def = BUILDINGS[maker], raw = def.uses ? Object.keys(def.uses)[0] : '';
     if (raw === 'flour' && !countHarbors(s)) return { text: 'a bakery needs flour: the ship brings it to a harbor', tool: 'harbor' };
     if (raw === 'flour' && !flourShip(s)) return { text: 'the bakeries get no flour while every harbor is shut down: open a harbor on its card', tool: 'harbor' };
+    // A5 (the saver stalled at City for 80 game months: "build a coffee finca and a roastery" armed the finca while two
+    // fincas stood with full yards): when the fields stand, the works that takes their crop is the step, beside them
+    const rawB = raw && raw !== 'flour' ? s.b.filter((o) => o.type === makerOf(raw)) : [];
+    if (!countType(s, maker) && rawB.length) return { text: 'build a ' + name(maker) + ' beside the ' + name(makerOf(raw)) + (rawB.length > 1 ? 's' : '') + ': its ' + GOODS[raw].name.toLowerCase() + ' wait in the yard', tool: maker, at: [rawB[0].x + 1, rawB[0].y + 1] };
     if (!countType(s, maker)) return { text: 'build ' + (raw && raw !== 'flour' ? inputSource(raw) + ' and a ' + name(maker) : 'a ' + name(maker)), tool: raw && raw !== 'flour' ? makerOf(raw) : maker, at };
     // Q1 ("a home asking for a bakery has two next to it"): makers right by these homes: say why their goods do not
     // reach them (no market reaches the homes, no input, no workers, shut, or their carts take it to other markets)
@@ -5154,6 +5200,478 @@ function comLay(s, q) {
   };
 }
 
+// ---- src/sim/purse.js
+// A5 (13 Oct 2026): money fundamentals with faces. Tomáš after Tugba's evening of 12 Oct: "she can build very fast
+// because she has a lot of money; it's only 1918 and everything is already filled", "raising rents is a very easy way
+// to get money and there are no protests, no strikes, nothing", "the bakery can't change the price of bread when there
+// is a lot", "I miss cool overviews at the end of the year". PSYCHOLOGY2.md rule 4: every lever has a visible social
+// reaction. DESIGN.md §24. Four parts, each visible in the game:
+// 1. Money stays meaningful: town services that grow with the people (the residence's monthly number, its own receipt
+//    line); the big things priced to the town's income (grand projects, the residence's levels, the quay, the palace,
+//    the dear decorations), so they stay worth saving for as the town grows (M8's idea, without its land sales, which
+//    left the scripted players stuck).
+// 2. Levers with faces: high rent or low wages bring a crowd with placards to the residence, growing each month the
+//    lever stays; it costs happiness and (rent) sends more families away with their suitcases; Rosa says it once.
+// 3. Prices of local goods (food, bread, meat): cheap · fair · dear at the desk and on the maker's card.
+// 4. The year in one page: the Isla Nueva Gazette's data, kept for every year (the page itself is ui/gazette.js).
+
+// ---------- 1. town services and prices priced to the town ----------
+const PURSE = {
+  // $ a person a month for the town services (police, lamps, sweeping, water), by stage (Settlement .. Capital)
+  // (light while the town is young: a Town waiting a year for its clinic was the stuck detector's first find)
+  perPerson: [0, 0.25, 0.5, 1.25, 1.5, 1.75],
+  keep: 0.3,            // a well-run town keeps about 30 % of its rent and exports: "a town's month"
+  ema: 0.15,            // the smoothed income follows the last six months or so (moves at payday only)
+  round: 500,           // prices in steps of $500
+  // months of a town's month for each priced thing (never below the table's own price)
+  months: { waterworks: 9, power: 10, hospital: 11, university: 12, quay: 6, statue: 1.5, bandstand: 3, cathedral: 8, opera: 9 },
+  resMonths: [0, 3, 5, 6],
+  palaceMonths: 8,
+};
+const PURSE_BASE = {};               // the tables' own prices (the floor), kept the first time they are changed
+const PURSE_RES = RESIDENCE.map((r) => r.cost);
+const PURSE_PALACE = TUNE.palaceCost;
+
+// TUNE.a5Off: an island played by the rules before A5 (tests that rebuild an earlier module's scenario, laid out as it
+// was then: the old prices, no services per person, the old pill)
+function townMonth(state) { return TUNE.a5Off ? 0 : Math.max(500, PURSE.keep * (state.gross || 0)); }
+function purseRound(v) { return Math.round(v / PURSE.round) * PURSE.round; }
+
+// Mutates the priced buildings', the residence's and the palace's costs in place for the island being simulated (all
+// prices are read at use time). Called every tick (a desk preview runs a copy), at load and at a new island.
+function pricesApply(state) {
+  const m = townMonth(state);
+  for (const t in PURSE.months) {
+    if (!BUILDINGS[t]) continue;
+    if (PURSE_BASE[t] === undefined) PURSE_BASE[t] = BUILDINGS[t].cost;
+    BUILDINGS[t].cost = Math.max(PURSE_BASE[t], purseRound(PURSE.months[t] * m));
+  }
+  for (let k = 1; k < RESIDENCE.length; k++) RESIDENCE[k].cost = Math.max(PURSE_RES[k], purseRound((PURSE.resMonths[k] || 5) * m));
+  TUNE.palaceCost = Math.max(PURSE_PALACE, purseRound(PURSE.palaceMonths * m));
+}
+
+// At payday: the smoothed income moves, and the prices with it.
+function purseMonth(state, r) {
+  const inc = Math.max(0, r.rent + r.exports);
+  state.gross = state.gross ? Math.round((1 - PURSE.ema) * state.gross + PURSE.ema * inc) : inc;
+  pricesApply(state);
+}
+
+// { streets, people, rate, n }: the streets' dirt and paving (M4, from Town) and the services per person (from Village).
+function townServices(state) {
+  const streets = streetsCost(state), rate = TUNE.a5Off ? 0 : PURSE.perPerson[Math.min(state.stage, PURSE.perPerson.length - 1)] || 0;
+  const people = Math.round(popCount(state) * rate);
+  return { streets, people, rate, n: streets + people };
+}
+const SERVICES_LABEL = 'Town services (police, lamps, sweeping, water)';
+
+// ---------- 2. levers with faces: the protest at the residence ----------
+// state.unrest = { n: months the grievance has lasted, why: 'rent' | 'wages' | 'both' | '', crowd: figures at the
+// residence, since: the month it began, say: Rosa's line is due }. It grows a month at a time while rent is high or
+// wages are low and falls two a month after.
+const UNREST = { max: 8, crowd0: 3, crowdPer: 2, crowdMax: 18, happyPer: 1, leavePer: 0.0015 };
+
+function unrestOf(state) { return state.unrest || (state.unrest = { n: 0, why: '', crowd: 0, since: -1, say: false }); }
+// What the town is angry about: high rent, low wages, a dear local good (food, bread, meat).
+function unrestCauses(state) {
+  const out = [];
+  if (state.lev.rent === 'high') out.push('rent');
+  if (state.lev.wages === 'low') out.push('wages');
+  for (const n of LOCAL_GOODS) if (priceOf(state, n) === 'dear' && localSeen(state, n)) out.push(n);
+  return out;
+}
+function unrestWhy(state) {
+  const c = unrestCauses(state);
+  return c.length > 1 ? 'both' : c[0] || '';
+}
+
+function unrestMonth(state) {
+  const u = unrestOf(state), why = unrestWhy(state);
+  if (why) { if (!u.n) { u.since = state.month; u.say = true; } u.n = Math.min(UNREST.max, u.n + 1); }
+  else u.n = Math.max(0, u.n - 2);
+  u.why = why;
+  // the crowd grows by two a month while the grievance lasts; when she gives way, it thins out (more than half go home
+  // each month: gone within two)
+  u.crowd = why ? Math.min(UNREST.crowdMax, UNREST.crowd0 + UNREST.crowdPer * (u.n - 1)) : Math.max(0, Math.floor((u.crowd || 0) / 2) - 2);
+}
+
+// The happiness the protest costs (a part of happyCalc): −1 a month it has lasted, at most −8.
+function unrestHappy(state) { const u = state.unrest; return u && u.n && unrestWhy(state) ? -Math.min(UNREST.max, u.n * UNREST.happyPer) : 0; }
+
+// What the protest is about, in her words.
+function unrestText(state) {
+  const t = { rent: 'the rent is high', wages: 'the wages are low', food: 'fish and fruit are dear', bread: 'bread is dear', meat: 'meat is dear' };
+  return listAnd(unrestCauses(state).map((c) => t[c]));
+}
+
+// ---------- 3. prices of local goods ----------
+// Homes pay for their food, bread and meat in their rent at the fair price; she can set each cheap or dear at the desk.
+// Dear: homes pay a third more on top (the makers' number: +$ for each unit sold to the markets), buy a sixth less,
+// and happiness falls; cheap: the town pays a quarter of the price (−$ a unit), homes buy a fifth more (a pile goes
+// down), and happiness rises.
+const LOCAL_GOODS = ['food', 'bread', 'meat'];
+const LOCAL_NAME = { food: 'Fish and fruit', bread: 'Bread', meat: 'Meat' };
+const LOCAL_UNIT = { food: 'basket', bread: 'batch', meat: 'side' };
+// the fair price of a unit (in the rent): a basket of fish or fruit feeds four people a month, a batch of bread
+// sixteen, a side of meat eighty
+const LOCAL_BASE = { food: 12, bread: 36, meat: 120 };
+const PRICES = {
+  cheap: { d: -0.25, eat: 1.2, happy: 2 },
+  fair: { d: 0, eat: 1, happy: 0 },
+  dear: { d: 0.35, eat: 0.85, happy: -3 },
+};
+function priceOf(state, need) { return (state.price && state.price[need]) || 'fair'; }
+function priceEat(state, need) { return PRICES[priceOf(state, need)].eat; }
+function priceDelta(state, need) { return LOCAL_BASE[need] ? Math.round(LOCAL_BASE[need] * PRICES[priceOf(state, need)].d * 100) / 100 : 0; }
+function priceSet(state, need, v) {
+  if (!LOCAL_BASE[need] || !PRICES[v]) return false;
+  if (!state.price) state.price = {};
+  if (priceOf(state, need) === v) return false;
+  state.price[need] = v;
+  simLog(state, LOCAL_NAME[need] + ' at the markets: ' + v + '.');
+  return true;
+}
+// A local good is on the island (a building makes it) and some home eats it.
+function localSeen(state, need) {
+  return state.b.some((b) => { const g = BUILDINGS[b.type].makes; return g && goodNeed(g) === need; });
+}
+// The rule in one line (the desk and the cards: nothing hidden).
+function priceRule(need) {
+  return 'Dear: homes pay ' + Math.round(PRICES.dear.d * 100) + ' % more (+$' + (LOCAL_BASE[need] * PRICES.dear.d).toFixed(0) + ' a ' + LOCAL_UNIT[need] + ' to its makers), buy a sixth less, −' + -PRICES.dear.happy +
+    ' happiness, and a crowd at the residence while it lasts. Cheap: the town pays ' + Math.round(-PRICES.cheap.d * 100) + ' % ($' + (LOCAL_BASE[need] * -PRICES.cheap.d).toFixed(0) + ' a ' + LOCAL_UNIT[need] + '), homes buy a fifth more, +' + PRICES.cheap.happy + ' happiness.';
+}
+function priceHappy(state) {
+  const out = [];
+  for (const need of LOCAL_GOODS) {
+    const v = priceOf(state, need);
+    if (v !== 'fair' && localSeen(state, need)) out.push({ label: LOCAL_NAME[need] + ' ' + v, v: PRICES[v].happy });
+  }
+  return out;
+}
+
+// ---------- 4. the year in one page: the Gazette's data ----------
+// state.yr: this year's counters (sold to the markets by good, exported units and $, each workplace's numbers, families
+// who came, left, sailed; the island at the year's start). At the New Year it becomes one page in state.gazettes.
+const GAZ_KEEP = 24;
+function typeCounts(state) { const o = {}; for (const b of state.b) o[b.type] = (o[b.type] || 0) + 1; return o; }
+function gzOf(state) {
+  if (state.yr && state.yr.y === yearOf(state)) return state.yr;
+  return (state.yr = { y: yearOf(state), sold: {}, exp: {}, expV: {}, bn: {}, came: 0, left: 0, rentLeft: 0, sailed: 0, pop0: popCount(state), types0: typeCounts(state),
+    housed0: (state.stats && state.stats.housed) || 0, tram0: (state.tram || []).length, rail0: (state.rail || []).length, stage0: state.stage, result: 0, popMax0: state.popMax || 0, strikes0: (state.stats && state.stats.strikes) || 0, local: 0 });
+}
+
+const GAZ_FIRSTS = { harbor: 'The first ship sails from our own harbor', distillery: 'The first barrel of rum', chapel: 'The first Mass in the new chapel', school: 'The first school bell',
+  clinic: 'The first clinic opens its doors', cigars: 'The first cigar factory', central: 'The sugar central grinds', park: 'The first park', quay: 'The first steamship at the quay',
+  lighthouse: 'The lighthouse is lit', cathedral: 'The cathedral’s bells', opera: 'Opening night at the opera', airfield: 'The first flying boat', waterworks: 'Clean water flows',
+  power: 'Electric light', hospital: 'The hospital opens', university: 'The university’s first students', cannery: 'The first tins from the cannery', roastery: 'The smell of roasting coffee' };
+
+// The page for the year that just ended: { y, head, items: [{ icon, text, id? }], verdict, pop, money }.
+function gazetteMake(state, Y) {
+  const items = [], s = state;
+  const pop = popCount(s), dPop = pop - Y.pop0;
+  const nm = (g) => GOODS[g] ? GOODS[g].name.toLowerCase() : g;
+  const unit = (g, n) => { const u = GOOD_UNIT[g] || ''; return Math.round(n) === 1 ? u.replace(/ves$/, 'f').replace(/s$/, '') : u; };
+  let head = '', first = '';
+  // a stage reached
+  if (s.stage > Y.stage0) head = 'Isla Nueva is a ' + STAGES[s.stage].name + '!';
+  // firsts: a kind of building that stood nowhere a year ago, the first tram, the first train
+  const t0 = Y.types0 || {}, now = typeCounts(s);
+  if (!Y.tram0 && (s.tram || []).length) first = 'The first tram!';
+  else if (!Y.rail0 && (s.rail || []).length) first = 'The first train!';
+  else for (const t of BUILD_ORDER) if (GAZ_FIRSTS[t] && !t0[t] && now[t]) { first = GAZ_FIRSTS[t] + '!'; break; }
+  // what sold most at the markets
+  const sold = Object.keys(Y.sold).filter((g) => Y.sold[g] >= 1).sort((a, b) => Y.sold[b] - Y.sold[a]);
+  if (sold.length) {
+    const g = sold[0];
+    items.push({ icon: BUILDINGS[makerOf(g)] ? BUILDINGS[makerOf(g)].icon : 'market', text: 'Sold most at the markets: ' + Math.round(Y.sold[g]).toLocaleString('en-US') + ' ' + (unit(g, Y.sold[g]) ? unit(g, Y.sold[g]) + ' of ' : '') + nm(g) + (sold[1] ? ', then ' + nm(sold[1]) : '') + '.' });
+  }
+  // the top export
+  const ex = Object.keys(Y.expV).filter((g) => Y.expV[g] > 0).sort((a, b) => Y.expV[b] - Y.expV[a]);
+  if (ex.length) {
+    const g = ex[0], all = ex.reduce((a, k) => a + Y.expV[k], 0);
+    items.push({ icon: 'anchor', text: 'Top export: ' + Math.round(Y.exp[g] || 0).toLocaleString('en-US') + ' ' + (unit(g, Y.exp[g] || 0) ? unit(g, Y.exp[g] || 0) + ' of ' : '') + nm(g) + ', ' + money$(Y.expV[g]) + (ex.length > 1 ? ' (all the ships: ' + money$(all) + ')' : '') + '.' });
+  }
+  // the best and the worst workplace (the year's numbers added up)
+  const ws = Object.keys(Y.bn).map((id) => ({ b: bById(s, +id), n: Y.bn[id] })).filter((o) => o.b && BUILDINGS[o.b.type].jobs && BUILDINGS[o.b.type].kind !== 'home');
+  // (the makers of food, bread and meat feed the homes, which pay the rent: they are not judged by their own number)
+  const mk = Y.mk || {}, sh = Y.sh || {};
+  const earn = ws.filter((o) => ['producer', 'harbor'].includes(BUILDINGS[o.b.type].kind) && !LOCAL_GOODS.includes(goodNeed(BUILDINGS[o.b.type].makes || '')) && (BUILDINGS[o.b.type].kind === 'harbor' || (sh[o.b.id] || 0) >= (mk[o.b.id] || 0))).sort((a, b) => b.n - a.n);
+  if (earn.length && earn[0].n > 0) items.push({ icon: BUILDINGS[earn[0].b.type].icon, id: earn[0].b.id, text: 'Best workplace: the ' + BUILDINGS[earn[0].b.type].name.toLowerCase() + ', ' + signed$(earn[0].n) + ' in the year.' });
+  const lost = earn.filter((o) => o.n < 0);
+  if (lost.length) { const w = lost[lost.length - 1]; items.push({ icon: BUILDINGS[w.b.type].icon, id: w.b.id, warn: 1, text: 'Lost the most: the ' + BUILDINGS[w.b.type].name.toLowerCase() + ', ' + signed$(w.n) + (lost.length > 1 ? ' (' + plural(lost.length, 'workplace', 'workplaces') + ' lost money)' : '') + '.' }); }
+  else if (earn.length > 1) items.push({ icon: 'check', text: 'No workshop lost money this year.' });
+  // families
+  const came = Y.came + Math.max(0, ((s.stats && s.stats.housed) || 0) - (Y.housed0 || 0));
+  const fam = [plural(came, 'settler', 'settlers') + ' arrived'];
+  if (Y.left) fam.push(Y.left + ' left' + (Y.rentLeft ? ' (' + Y.rentLeft + ' over the rent)' : ''));
+  if (Y.sailed) fam.push(Y.sailed + ' sailed away without a roof');
+  items.push({ icon: 'home', warn: Y.left + Y.sailed > came ? 1 : 0, text: fam.join(', ') + ' · ' + plural(pop, 'person', 'people') + ' now (' + (dPop >= 0 ? '+' : '−') + Math.abs(dPop) + ').' });
+  // a record or a first
+  if (first && s.stage > Y.stage0) items.push({ icon: 'star', text: first });
+  else if (pop > (Y.popMax0 || 0) && Y.popMax0) items.push({ icon: 'star', text: 'A record: ' + pop.toLocaleString('en-US') + ' people live on the island.' });
+  const strikes = ((s.stats && s.stats.strikes) || 0) - (Y.strikes0 || 0);
+  if (strikes) items.push({ icon: 'warn', warn: 1, text: plural(strikes, 'strike', 'strikes') + ' this year: wages were low.' });
+  // the headline: a stage, a first, a protest, else the biggest number
+  const u = s.unrest;
+  if (!head && first) head = first;
+  if (!head && u && u.n >= 3) head = 'Crowds at the residence: ' + unrestText(s) + '!';
+  if (!head && ex.length && Y.expV[ex[0]] >= Math.max(5000, 0.15 * Math.abs(Y.result))) head = 'A year of ' + nm(ex[0]) + ': ' + money$(Y.expV[ex[0]]) + ' sails away';
+  if (!head) head = dPop >= 0 ? 'Isla Nueva grows to ' + pop.toLocaleString('en-US') + ' people' : 'Isla Nueva loses ' + -dPop + ' people';
+  // Rosa's one line
+  const v = Y.result;
+  const verdict = u && u.n >= 2 ? 'The town is angry: ' + unrestText(s) + '. Money now, fewer people later.' :
+    Y.sailed > came / 2 && Y.sailed > 4 ? 'Families sail away for lack of a roof: build homes first next year.' :
+    v < 0 ? 'We spent more than we earned: ' + money$(v) + '. Look at what lost money.' :
+    dPop > 0 ? 'A good year: ' + signed$(v) + ' and ' + dPop + ' more people.' : 'A quiet year: ' + signed$(v) + '.';
+  return { y: Y.y, head, items: items.slice(0, 6), verdict, pop, money: s.money, result: v, stage: s.stage };
+}
+
+// ---------- wrappers (purse.js loads after commissions.js) ----------
+{
+  // 1. the residence's monthly number: the streets (M4) and the town services per person
+  const _bn = bNumber;
+  bNumber = function (state, b) {
+    const x = _bn.apply(this, arguments);
+    if (b.type === 'residence') { const sv = townServices(state); x.upkeep = sv.n; x.n = -sv.n; }
+    else if (b.mLocal) { x.local = Math.round(b.mLocal); x.n += x.local; }
+    return x;
+  };
+  MONTH_KEYS.push('mLocal');
+  const _mk = monthKeep;
+  monthKeep = function (state, b, x) {
+    const local = x && x.local;
+    const r = _mk.apply(this, arguments);
+    if (b.last && b.last.m === state.month) b.last.local = local || 0;
+    return r;
+  };
+  // the deliveries to the markets: the local price's difference goes to the maker (dear +, cheap −)
+  const _db = deliverBook;
+  deliverBook = function (state, src, d, g, n) {
+    const r = _db.apply(this, arguments);
+    if (src && d && n && BUILDINGS[d.type].kind === 'market') {
+      const dv = priceDelta(state, goodNeed(g));
+      if (dv) src.mLocal = (src.mLocal || 0) + dv * n;
+      const Y = gzOf(state);
+      Y.sold[g] = (Y.sold[g] || 0) + n;
+    }
+    return r;
+  };
+  // payday: the services get their own receipt line; the local prices theirs; the Gazette counts the year
+  const _pr = paydayRun;
+  paydayRun = function (state) {
+    let local = 0;
+    for (const b of state.b) if (b.mLocal) local += Math.round(b.mLocal);
+    const r = _pr.apply(this, arguments);
+    if (r.streets) { r.services = r.streets; r.wagesUpkeep -= r.streets; }
+    r.local = local;
+    const Y = gzOf(state);
+    Y.result += r.result;
+    Y.local += local;
+    for (const g in r.soldUnits || {}) Y.exp[g] = (Y.exp[g] || 0) + r.soldUnits[g];
+    for (const g in r.soldValue || {}) Y.expV[g] = (Y.expV[g] || 0) + r.soldValue[g];
+    for (const l of r.lines) if (l.id) Y.bn[l.id] = (Y.bn[l.id] || 0) + l.n;
+    // where each workplace's goods went (to the markets: they feed the homes, which pay the rent; to the ship or a
+    // workshop: they earn on its own number) — the Gazette judges only the second kind by its money
+    if (!Y.mk) { Y.mk = {}; Y.sh = {}; }
+    for (const b of state.b) { const L = b.last; if (!L || L.m !== state.month) continue; if (L.mkt) Y.mk[b.id] = (Y.mk[b.id] || 0) + L.mkt; if (L.ship || L.shop) Y.sh[b.id] = (Y.sh[b.id] || 0) + (L.ship || 0) + (L.shop || 0); }
+    purseMonth(state, r);
+    return r;
+  };
+  const _rl = receiptLines;
+  receiptLines = function (state, r) {
+    const lines = _rl.apply(this, arguments);
+    const k = lines.findIndex((l) => l[0] === 'Wages and upkeep');
+    const add = [];
+    if (r.services) add.push([SERVICES_LABEL, -r.services]);
+    if (r.local) add.push(['Market prices (' + LOCAL_GOODS.filter((n) => priceOf(state, n) !== 'fair').map((n) => LOCAL_NAME[n].toLowerCase() + ' ' + priceOf(state, n)).join(', ') + ')', r.local]);
+    // the residence is not listed again among the costliest (its line is the services)
+    const out = lines.filter((l) => !(r.services && l[1] === -r.services && /Governor/.test(l[0])));
+    out.splice(k < 0 ? out.length : k + 1, 0, ...add);
+    return out.slice(0, 11);
+  };
+  const _ms = moneySources;
+  moneySources = function (state) {
+    const o = _ms.apply(this, arguments);
+    if (!o) return o;
+    const c = o.costs.find((x) => x.key === 'streets');
+    if (c) c.label = 'Town services: streets, police, lamps, water';
+    const r = state.lastReceipt;
+    if (r && r.local) (r.local > 0 ? o.income : o.costs).push({ key: 'local', label: 'Market prices (cheap or dear)', n: r.local, ids: state.b.filter((b) => b.last && b.last.local).sort((a, b) => Math.abs(b.last.local) - Math.abs(a.last.local)).map((b) => b.id) });
+    return o;
+  };
+  // 2. the protest: counted after the levers each month; the happiness it costs; more leave over high rent
+  const _lm = leversMonth;
+  leversMonth = function (state) { const r = _lm.apply(this, arguments); unrestMonth(state); return r; };
+  const _hc = happyCalc;
+  happyCalc = function (state) {
+    const o = _hc.apply(this, arguments), extra = [];
+    const u = unrestHappy(state);
+    if (u) extra.push({ label: 'Protest at the residence: ' + unrestText(state), v: u });
+    for (const p of priceHappy(state)) extra.push(p);
+    if (!extra.length) return o;
+    o.parts = o.parts.concat(extra);
+    o.value = Math.max(0, Math.min(100, o.value + extra.reduce((a, p) => a + p.v, 0)));
+    return o;
+  };
+  const _pm = peopleMonth;
+  peopleMonth = function (state) {
+    // high rent: 1 in 200 a month leaves (M4), and a quarter of a percent more for every month of the protest
+    const u = state.unrest, base = LEVERS.rent.high.leave;
+    if (u && u.n && state.lev.rent === 'high') LEVERS.rent.high.leave = base + UNREST.leavePer * Math.min(UNREST.max, u.n);
+    try { return _pm.apply(this, arguments); } finally { LEVERS.rent.high.leave = base; }
+  };
+  // 3. homes eat by the price (economy.js homeTick reads priceEat)
+  // 4. the year's families, and the Gazette at the New Year
+  const _me = monthEnd;
+  monthEnd = function (state) {
+    const Y = gzOf(state);
+    const r = _me.apply(this, arguments);
+    const mv = state.lastMoves || {};
+    Y.came += (mv.came || 0); Y.left += (mv.left || 0) + (mv.rentLeft || 0); Y.rentLeft += mv.rentLeft || 0; Y.sailed += mv.sailed || 0;
+    if (state.month % 12 === 0 && state.month > 0) {
+      const page = gazetteMake(state, Y);
+      if (!state.gazettes) state.gazettes = [];
+      state.gazettes.push(page);
+      if (state.gazettes.length > GAZ_KEEP) state.gazettes.shift();
+      state.popMax = Math.max(state.popMax || 0, popCount(state));
+      simLog(state, 'The Isla Nueva Gazette, ' + page.y + ': ' + page.head);
+      simEvent(state, { kind: 'gazette', y: page.y });
+      state.yr = null;
+      gzOf(state);
+    }
+    return r;
+  };
+  // prices follow the island being simulated; old saves and new islands get theirs at once
+  const _st = simTick;
+  simTick = function (state) { pricesApply(state); return _st.apply(this, arguments); };
+  const _lg = loadGame;
+  loadGame = function (obj) {
+    const s = _lg.apply(this, arguments);
+    if (!s.gross && s.lastReceipt) s.gross = Math.max(0, (s.lastReceipt.rent || 0) + (s.lastReceipt.exports || 0));
+    if (!s.price) s.price = { food: 'fair', bread: 'fair', meat: 'fair' };
+    if (!s.gazettes) s.gazettes = [];
+    unrestOf(s);
+    pricesApply(s);
+    return s;
+  };
+  const _ng = newGame;
+  newGame = function () {
+    const s = _ng.apply(this, arguments);
+    s.price = { food: 'fair', bread: 'fair', meat: 'fair' }; s.gazettes = []; unrestOf(s);
+    pricesApply(s);
+    return s;
+  };
+  // the desk: a price change is a change like the levers (previews simulate it)
+  const _da = deskApply;
+  deskApply = function (state, change) {
+    const r = _da.apply(this, arguments);
+    if (change.price) priceSet(state, change.price, change.value);
+    return r;
+  };
+  const _dc = deskChanges;
+  deskChanges = function (state) {
+    const list = _dc.apply(this, arguments);
+    for (const need of LOCAL_GOODS) if (localSeen(state, need)) for (const v of ['cheap', 'fair', 'dear']) list.push({ id: 'price:' + need + ':' + v, change: { price: need, value: v } });
+    return list;
+  };
+  // the levers' rules say the protest (nothing hidden)
+  const _lr = leverRule;
+  leverRule = function (lever) {
+    const t = _lr.apply(this, arguments);
+    return t + (lever === 'rent' ? ' High rent also brings a crowd with placards to the residence: −1 happiness, and 0.15 % more of the people leaving, for every month it lasts (up to ' + UNREST.max + ').'
+      : ' Low wages bring the crowd too: −1 happiness for every month it lasts (up to ' + UNREST.max + ').');
+  };
+  // the stage card names the services' rate from that stage
+  const _so = stageOpens;
+  stageOpens = function (stage) {
+    const list = _so.apply(this, arguments);
+    const rate = PURSE.perPerson[Math.min(stage, PURSE.perPerson.length - 1)];
+    if (rate) list.push('Town services cost $' + rate.toFixed(2) + ' a person a month (police, lamps, sweeping, water: the residence’s number)');
+    return list;
+  };
+  // Rosa: the protest, once, with the numbers; a pile of a local good: a lower price (or export)
+  const k = GUIDE_PROBLEMS.findIndex((p) => p.key === 'loss');
+  GUIDE_PROBLEMS.splice(k < 0 ? 2 : k, 0, { key: 'protest', now: true, check(s) {
+    const u = s.unrest;
+    if (!u || !u.say || !u.n || !unrestWhy(s)) return null;
+    u.say = false;
+    const R = s.levFx && s.levFx.rent, W = s.levFx && s.levFx.wages, res = s.b.find((b) => b.type === 'residence');
+    const cs = unrestCauses(s), lv = cs.includes('rent') ? 'rent' : cs.includes('wages') ? 'wages' : 'prices';
+    const money = listAnd([cs.includes('rent') && R && R.money ? signed$(R.money) + ' a month in rent' : '', cs.includes('wages') && W && W.money ? signed$(W.money) + ' a month in wages' : ''].filter(Boolean));
+    return { text: 'A crowd with placards stands at the residence: ' + unrestText(s) + (money ? ' (' + money + ')' : '') + '. ' + (lv === 'rent' ? 'Families pack their suitcases: 1 in 200 leaves a month, more each month it lasts; the boats bring half.' : lv === 'wages' ? 'The big works strike when happiness falls under ' + TUNE.strikeHappy + '.' : 'Below 50 happiness no settlers come.') +
+      ' The crowd grows, and happiness falls 1 more each month. Change it at the desk.', btn: 'Desk', act: { desk: 1, at: res ? [res.x + 1, res.y + 1] : null } };
+  } });
+  const ky = GUIDE_PROBLEMS.findIndex((p) => p.key === 'yard');
+  GUIDE_PROBLEMS.splice(ky < 0 ? GUIDE_PROBLEMS.length : ky, 0, { key: 'pile', check(s) {
+    const b = s.b.find((o) => o.blocked === 'yard' && BUILDINGS[o.type].makes && LOCAL_GOODS.includes(goodNeed(BUILDINGS[o.type].makes)) && takerState(s, o) === 'full' && !longCart(s, o));
+    if (!b) return null;
+    const g = BUILDINGS[b.type].makes, need = goodNeed(g);
+    if (priceOf(s, need) === 'cheap') return null;
+    const exp = EXPORTABLE.includes(g) && !s.exp[g] && countHarbors(s) ? ', or export ' + GOODS[g].name.toLowerCase() + ' (the desk)' : '';
+    return { text: GOODS[g].name + ' piles up at the ' + BUILDINGS[b.type].name.toLowerCase() + ': the markets are full. Make it cheap at the desk: homes buy a fifth more (+' + PRICES.cheap.happy + ' happiness; the town pays $' + (LOCAL_BASE[need] * -PRICES.cheap.d).toFixed(0) + ' a ' + LOCAL_UNIT[need] + ')' + exp + '.',
+      btn: 'Desk', act: { desk: 1, at: [b.x, b.y] } };
+  } });
+}
+
+// The pill's blocker names the step below when too few homes can grow into the wanted level (the saver of A5 and the
+// playtester: "13 / 20 Villas", 2 Houses left that could grow, 15 Casitas ready to become Houses, and nobody said so;
+// $1.5M piled up at Town for 90 minutes). Villas come from Houses: upgrade the ready Casitas.
+{
+  const _gb = goalBlocker;
+  goalBlocker = function (s) {
+    const k = _gb.apply(this, arguments);
+    if (!k || k.ready || k.risk || !k.level || k.level < 3 || TUNE.a5Off) return k;
+    const L = k.level, short = k.want - k.have, below = homesOccupied(s).filter((h) => h.level === L - 1).length;
+    if (below >= short) return k;
+    const rdy = homesReady(s).filter((h) => h.level === L - 2);
+    if (!rdy.length) return k;
+    const cost = upgradeCost(L - 2), lname = LEVELS[L].name + 's', mid = LEVELS[L - 1].name + 's';
+    return { level: L - 1, n: 0, have: k.have, want: k.want, ready: rdy.length, select: rdy[0].id, step: 1, tool: '',
+      text: lname + ': only ' + below + ' ' + (below === 1 ? LEVELS[L - 1].name : mid) + ' can grow into ' + lname + ' (' + short + ' more needed) · ' + plural(rdy.length, 'home is', 'homes are') + ' ready to become ' + mid + ': tap ' + (rdy.length === 1 ? 'it' : 'one') + ': Upgrade · ' + money$(cost) + (rdy.length > 1 ? ' (' + money$(cost * rdy.length) + ' for all)' : '') };
+  };
+}
+
+// Money with a destination, asked by people (A3's commissions): the Governor's office asks for the residence's next level
+// as soon as the treasury holds it and two paydays more (before: only when it was all the next stage still needed, so a
+// rich town sat on its money and Rosa's project line waited behind the unbought landmark); the plaza committee asks
+// for the statue or the bandstand when the town can afford one (priced to the town, purse.js).
+{
+  const L = COMMISSIONS.find((t) => t.key === 'landmark');
+  if (L) {
+    const _w = L.when;
+    L.when = function (s) {
+      const r = _w.apply(this, arguments);
+      if (r) return r;
+      const nx = resNext(s), lr = s.lastReceipt;
+      if (!nx || nx.stage > s.stage || !lr || s.palace) return null;
+      const k = (s.res || 0) + 1, need = STAGES.findIndex((st) => st.landmark && st.landmark.res === k);
+      if (s.money < nx.cost + 2 * Math.max(1000, lr.result)) return null;
+      const rb = s.b.find((b) => b.type === 'residence');
+      return { tool: '', res: k, select: rb && rb.id, near: rb ? [rb.x, rb.y] : comCentre(s), glowB: rb && rb.id,
+        ask: 'The treasury holds ' + money$(s.money) + '. The ' + nx.name + ' (' + money$(nx.cost) + ') can go up now' + (need > 0 ? ': ' + STAGES[need].name + ' will need it' : '') + '. Tap the glowing residence.',
+        praise: 'The ' + nx.name + ' stands on the hill.', done: (q) => (q.res || 0) >= k };
+    };
+  }
+  const D = COMMISSIONS.find((t) => t.key === 'deco');
+  if (D) {
+    const _w = D.when;
+    D.when = function (s) {
+      const r = _w.apply(this, arguments), lr = s.lastReceipt;
+      if (!r || !lr) return r;
+      const big = ['bandstand', 'statue'].find((k) => BUILDINGS[k].stage <= s.stage && s.money >= BUILDINGS[k].cost + 2 * Math.max(1000, lr.result) && fitAnchors(s, k).length);
+      if (!big) return r;
+      return Object.assign({}, r, { tool: big, ask: r.ask.replace(/^The town is doing well\. .*? among/, 'The town is doing well. ' + comA(big).replace(/^./, (x) => x.toUpperCase()) + ' (' + money$(BUILDINGS[big].cost) + ') among'), praise: 'The whole town comes out to the new ' + comBName(big) + ' on Sundays.' });
+    };
+  }
+}
+
+// The after-effect line of the protest (the desk, under the lever's own "Since you …" line).
+function unrestLine(state) {
+  const u = state.unrest;
+  if (!u || !u.n || !unrestWhy(state)) return '';
+  return 'A crowd of ' + u.crowd + ' with placards at the residence (' + plural(u.n, 'month', 'months') + '): happiness ' + unrestHappy(state) + (unrestCauses(state).includes('rent') ? ', ' + (Math.round((LEVERS.rent.high.leave + UNREST.leavePer * u.n) * 1000) / 10) + ' % of the people leave a month' : '') + '.';
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -5669,6 +6187,7 @@ const ISO = (() => {
   // the turn r, in device px (d).
   function worldXf(g, d, z, ox0, oy0, r) {
     const m = ROTM[r];
+    if (TOP) { const t = z * KT; g.setTransform(d * m[0] * t, d * m[2] * t, d * m[1] * t, d * m[3] * t, d * (m[4] * t + ox0), d * (m[5] * t + oy0)); return; }
     g.setTransform(d * (m[0] - m[2]) * z, d * (m[0] + m[2]) * z / 2, d * (m[1] - m[3]) * z, d * (m[1] + m[3]) * z / 2, d * ((m[4] - m[5]) * z + ox0), d * ((m[4] + m[5]) * z / 2 + oy0));
   }
 
@@ -5676,12 +6195,19 @@ const ISO = (() => {
   // P takes world coordinates in the frame (the pen's turn PR applies) and local view coordinates in a sprite (no turn);
   // PV takes view coordinates in the frame.
   let ctx = null, ox = 0, oy = 0, hw = 32, hh = 16, zs = 30, S = 1, LW = 1, DP = 1, PR = null;
-  function pen(c, x0, y0, h, dpr, r) { ctx = c; ox = x0; oy = y0; hw = h; hh = h / 2; zs = h * ZS; S = h / 44; LW = Math.max(0.6, 1.1 * S); DP = dpr; PR = r ? ROTM[r] : null; }
+  // A2 — from above (docs/LOG.md): TOP projects straight down onto the map, a tile TT = KT x the iso half-width wide,
+  // with a slight lift of ZT a unit of height (the front wall shows as a strip under the roof, as in the first iPad
+  // version); every painter that works through P draws its plan from above. TOP is the frame's mode (R.top), and in a
+  // sprite the mode its key names ('^' first: from above).
+  const KT = 1.4, ZT = 0.2;
+  let TOP = false, TT = 44.8;
+  function pen(c, x0, y0, h, dpr, r) { ctx = c; ox = x0; oy = y0; hw = h; hh = h / 2; zs = h * ZS; S = h / 44; LW = Math.max(0.6, 1.1 * S); DP = dpr; PR = r ? ROTM[r] : null; TT = h * KT; }
   function P(x, y, z) {
     if (PR) { const u = PR[0] * x + PR[1] * y + PR[4]; y = PR[2] * x + PR[3] * y + PR[5]; x = u; }
+    if (TOP) return [ox + x * TT, oy + y * TT - (z || 0) * TT * ZT];
     return [ox + (x - y) * hw, oy + (x + y) * hh - (z || 0) * zs];
   }
-  function PV(u, v, z) { return [ox + (u - v) * hw, oy + (u + v) * hh - (z || 0) * zs]; }
+  function PV(u, v, z) { return TOP ? [ox + u * TT, oy + v * TT - (z || 0) * TT * ZT] : [ox + (u - v) * hw, oy + (u + v) * hh - (z || 0) * zs]; }
 
   // ---------- primitives (from the sample) ----------
   function hull(pts) {
@@ -5867,11 +6393,21 @@ const ISO = (() => {
     ctx.fillStyle = '#000'; ctx.fill(); ctx.restore();
   }
   function boxShadow(x0, y0, x1, y1, h) {
+    // A2, from above: the sun still from the upper left, a shorter shadow toward the lower right (heights read, nothing hidden)
+    if (TOP) {
+      const dx = 0.2 * h + 0.04, dy = 0.12 * h + 0.03;
+      const pts = hull([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0 + dx, y0 + dy], [x1 + dx, y0 + dy], [x1 + dx, y1 + dy], [x0 + dx, y1 + dy]]).map((p) => P(p[0], p[1], 0));
+      softPoly(pts, 'rgba(37,28,56,0.24)', 3 * S + 1);
+      return;
+    }
     const dx = 0.55 * h, dy = -0.12 * h;
     const pts = hull([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0 + dx, y0 + dy], [x1 + dx, y0 + dy], [x1 + dx, y1 + dy], [x0 + dx, y1 + dy]]).map((p) => P(p[0], p[1], 0));
     softPoly(pts, 'rgba(37,28,56,0.3)', 2.5 * S + 1);
   }
-  function blobShadow(x, y, r) { const c = P(x + r * 0.9, y - r * 0.2, 0); ell(c[0], c[1], r * hw * 1.25, r * hh * 1.25, 'rgba(37,28,56,0.16)'); }
+  function blobShadow(x, y, r) {
+    if (TOP) { const c = P(x + r * 0.45, y + r * 0.3, 0); ell(c[0], c[1], r * TT * 0.95, r * TT * 0.8, 'rgba(37,28,56,0.16)'); return; }
+    const c = P(x + r * 0.9, y - r * 0.2, 0); ell(c[0], c[1], r * hw * 1.25, r * hh * 1.25, 'rgba(37,28,56,0.16)');
+  }
 
   // ---------- cylinders and pile items ----------
   function ringPts(cx, cy, cz, axis, pos, r, n) { const p = []; n = n || 20; for (let k = 0; k < n; k++) { const a = k / n * TAU, cu = Math.cos(a) * r, sz = Math.sin(a) * r; p.push(axis === 'y' ? P(cx + cu, cy + pos, cz + sz) : P(cx + pos, cy + cu, cz + sz)); } return p; }
@@ -7318,7 +7854,18 @@ const ISO = (() => {
     if (dress) poly([[px - 1.9 * s, yb - 11 * s], [px + 1.9 * s, yb - 11 * s], [px + 3.6 * s, yb - 3 * s], [px - 3.6 * s, yb - 3 * s]], col, ln(col), 0.9 * S);
     else poly([[px - 2.3 * s, yb - 11.5 * s], [px + 2.3 * s, yb - 11.5 * s], [px + 2.1 * s, yb - 5.5 * s], [px - 2.1 * s, yb - 5.5 * s]], col, ln(col), 0.9 * S);
     seg([px - 2.2 * s, yb - 10.5 * s], [px - 2.8 * s - wk * s, yb - 6.5 * s], col, 1.6 * s); seg([px + 2.2 * s, yb - 10.5 * s], [px + 2.8 * s + wk * s, yb - 6.5 * s], col, 1.6 * s);
-    if (leaving) { poly([[px + 2.6 * s, yb - 7 * s], [px + 6.6 * s, yb - 7 * s], [px + 6.6 * s, yb - 3.6 * s], [px + 2.6 * s, yb - 3.6 * s]], '#8a5a3c', INK, 0.7 * S); }
+    // A5: people leaving the island carry a suitcase (with a handle and a strap) and, every other one, a bundle on the back.
+    // A2+A5: the case is as wide as the person and dark-edged with a pale strap, so it reads at the normal zoom (40) in
+    // both views, by day and under the night's tint (it was 5 x 5 px there).
+    if (leaving) {
+      const x0 = px + 2.6 * s, x1 = px + 11.2 * s, y0 = yb - 7.4 * s, y1 = yb - 0.3 * s, xc = (x0 + x1) / 2;
+      seg([px + 2.2 * s, yb - 10.5 * s], [xc, y0 - 1.9 * s], col, 1.6 * s);
+      poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], '#93502c', INK, 1.1 * S);
+      seg([x0 + 0.8 * s, y0 + 1.1 * s], [x1 - 0.8 * s, y0 + 1.1 * s], '#c27a4a', 1 * s);
+      seg([x0, (y0 + y1) / 2 + 0.5 * s], [x1, (y0 + y1) / 2 + 0.5 * s], '#f1dfb4', 1.6 * s);
+      seg([xc - 1.6 * s, y0], [xc - 1.2 * s, y0 - 1.9 * s], INK, 1 * S); seg([xc + 1.6 * s, y0], [xc + 1.2 * s, y0 - 1.9 * s], INK, 1 * S); seg([xc - 1.2 * s, y0 - 1.9 * s], [xc + 1.2 * s, y0 - 1.9 * s], INK, 1 * S);
+      if (v % 2) { ell(px - 2.8 * s, yb - 9.6 * s, 3.4 * s, 3.6 * s, '#efe2c4'); ctx.strokeStyle = INK; ctx.lineWidth = 0.8 * S; ctx.stroke(); seg([px - 4.6 * s, yb - 11.4 * s], [px - 1 * s, yb - 7.6 * s], '#b5402c', 0.9 * s); }
+    }
     else if (v % 4 === 3) { ell(px + 3.4 * s, yb - 6 * s, 2.6 * s, 1.5 * s, '#c89a5a'); circ(px + 2.9 * s, yb - 7.2 * s, 1.1 * s, '#f29a38'); circ(px + 4 * s, yb - 7.2 * s, 1.1 * s, '#9ccf55'); }
     circ(px, yb - 13.6 * s, 2.3 * s, skin, ln(skin), 0.8 * S);
     if (v % 2 === 0) { ell(px, yb - 14.6 * s, 4.2 * s, 1.4 * s, '#e8d29a'); ctx.strokeStyle = '#8a7340'; ctx.lineWidth = 0.7 * S; ctx.stroke(); ell(px, yb - 15.8 * s, 2.1 * s, 1.4 * s, '#e8d29a'); }
@@ -7372,6 +7919,38 @@ const ISO = (() => {
     wheel(x + sx * near * 0.26 * k, y + sy * near * 0.26 * k, fx, fy, 0.2 * k);
     if (towardViewer) drawOx();
     paintPerson(ox2 + sx * 0.32 * k * near * -1, oy2 + sy * 0.32 * k * near * -1, 0, fr, false);
+  }
+
+  // A2, from above: the ox-cart as a plan (the iso one, projected straight down, is a brown smudge): the bed with its
+  // planks and load, two wheels, the shafts, the ox with its horns, the driver's straw hat. Drawn about P(0, 0) along
+  // the heading (fx, fy).
+  function paintCartTop(fx, fy, good, n, fr) {
+    const c = P(0, 0, 0), t = TT, g = ctx, k = S;
+    g.save(); g.translate(c[0], c[1]); g.rotate(Math.atan2(fy, fx));
+    const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+    // soft shadow toward the lower right (in screen terms: undo the heading for the offset)
+    const a = -Math.atan2(fy, fx), ox0 = (Math.cos(a) * 2.5 - Math.sin(a) * 3) * k, oy0 = (Math.sin(a) * 2.5 + Math.cos(a) * 3) * k;
+    g.fillStyle = 'rgba(37,28,56,.2)'; g.beginPath(); g.ellipse(0.06 * t + ox0, oy0, 0.36 * t, 0.15 * t, 0, 0, TAU); g.fill();
+    // wheels, then the bed
+    g.fillStyle = '#3a2a1f'; rr(-0.22 * t, -0.19 * t, 0.17 * t, 0.06 * t, 0.02 * t); g.fill(); rr(-0.22 * t, 0.13 * t, 0.17 * t, 0.06 * t, 0.02 * t); g.fill();
+    rr(-0.3 * t, -0.14 * t, 0.36 * t, 0.28 * t, 0.04 * t); g.fillStyle = '#a8784c'; g.fill(); g.strokeStyle = INK; g.lineWidth = 1 * k; g.stroke();
+    g.strokeStyle = 'rgba(90,60,35,.55)'; g.lineWidth = 0.8 * k; g.beginPath(); for (const yy of [-0.05, 0.04]) { g.moveTo(-0.28 * t, yy * t); g.lineTo(0.04 * t, yy * t); } g.stroke();
+    if (good && n > 0) {
+      const col = GOODS[good] ? GOODS[good].color : '#c99a5e', m = Math.min(3, n);
+      for (let i = 0; i < m; i++) { const x = (-0.22 + i * 0.1) * t; rr(x, -0.08 * t, 0.085 * t, 0.16 * t, 0.025 * t); g.fillStyle = col; g.fill(); g.strokeStyle = ln(col); g.lineWidth = 0.7 * k; g.stroke(); }
+    }
+    // the shafts and the ox ahead
+    g.strokeStyle = '#6b4a33'; g.lineWidth = 1.4 * k; g.beginPath(); g.moveTo(0.06 * t, -0.06 * t); g.lineTo(0.2 * t, -0.03 * t); g.moveTo(0.06 * t, 0.06 * t); g.lineTo(0.2 * t, 0.03 * t); g.stroke();
+    const st = fr ? 0.02 : -0.02;
+    g.fillStyle = '#5a4434'; for (const [lx, ly] of [[0.2 + st, -0.07], [0.2 - st, 0.07], [0.38 - st, -0.07], [0.38 + st, 0.07]]) { g.beginPath(); g.arc(lx * t, ly * t, 0.025 * t, 0, TAU); g.fill(); }
+    g.beginPath(); g.ellipse(0.29 * t, 0, 0.13 * t, 0.085 * t, 0, 0, TAU); g.fillStyle = '#9a6644'; g.fill(); g.strokeStyle = ln('#9a6644'); g.lineWidth = 0.9 * k; g.stroke();
+    g.beginPath(); g.ellipse(0.27 * t, -0.02 * t, 0.07 * t, 0.035 * t, 0, 0, TAU); g.fillStyle = lt('#9a6644', 0.3); g.fill();
+    g.beginPath(); g.ellipse(0.44 * t, 0, 0.055 * t, 0.05 * t, 0, 0, TAU); g.fillStyle = '#8a5a3c'; g.fill(); g.stroke();
+    g.strokeStyle = '#f4ecda'; g.lineWidth = 1.5 * k; g.lineCap = 'round'; g.beginPath(); g.moveTo(0.43 * t, -0.04 * t); g.lineTo(0.41 * t, -0.1 * t); g.moveTo(0.43 * t, 0.04 * t); g.lineTo(0.41 * t, 0.1 * t); g.stroke();
+    // the driver walks beside the ox: a straw hat
+    g.beginPath(); g.arc(0.22 * t, 0.17 * t, 0.055 * t, 0, TAU); g.fillStyle = '#e8d29a'; g.fill(); g.strokeStyle = '#8a7340'; g.lineWidth = 0.8 * k; g.stroke();
+    g.beginPath(); g.arc(0.22 * t, 0.17 * t, 0.026 * t, 0, TAU); g.fillStyle = '#d9c07c'; g.fill();
+    g.restore();
   }
 
   // ---------- bubbles, labels, floaters (screen-sized sprites) ----------
@@ -7713,7 +8292,7 @@ const ISO = (() => {
   function chunkRange(B, ci, cj, r) {
     const X0 = ci * CHUNK, Y0 = cj * CHUNK;
     let tx0 = 1e9, tx1 = -1e9, ty0 = 1e9, ty1 = -1e9;
-    for (const [X, Y] of [[X0, Y0], [X0 + CHUNK, Y0], [X0, Y0 + CHUNK], [X0 + CHUNK, Y0 + CHUNK]]) { const a = X / B, c = Y / (B / 2), w = unrotPt(r || 0, (a + c) / 2, (c - a) / 2), x = w[0], y = w[1]; tx0 = Math.min(tx0, x); tx1 = Math.max(tx1, x); ty0 = Math.min(ty0, y); ty1 = Math.max(ty1, y); }
+    for (const [X, Y] of [[X0, Y0], [X0 + CHUNK, Y0], [X0, Y0 + CHUNK], [X0 + CHUNK, Y0 + CHUNK]]) { const a = X / B, c = Y / (B / 2), w = TOP ? unrotPt(r || 0, X / (B * KT), Y / (B * KT)) : unrotPt(r || 0, (a + c) / 2, (c - a) / 2), x = w[0], y = w[1]; tx0 = Math.min(tx0, x); tx1 = Math.max(tx1, x); ty0 = Math.min(ty0, y); ty1 = Math.max(ty1, y); }
     return { tx0: Math.floor(tx0) - 2, tx1: Math.ceil(tx1) + 2, ty0: Math.floor(ty0) - 2, ty1: Math.ceil(ty1) + 2 };
   }
   function chunkPaint(R, s, B, ci, cj) {
@@ -7722,7 +8301,8 @@ const ISO = (() => {
     const r = R.rot || 0, M = ROTM[r];
     const world = (dz) => worldXf(g, d, B, -X0, -Y0 + (dz || 0), r);
     const scr = () => g.setTransform(d, 0, 0, d, -d * X0, -d * Y0);
-    const SX = (x, y) => ((M[0] - M[2]) * x + (M[1] - M[3]) * y + M[4] - M[5]) * B, SY = (x, y) => ((M[0] + M[2]) * x + (M[1] + M[3]) * y + M[4] + M[5]) * B / 2;
+    const SX = TOP ? (x, y) => (M[0] * x + M[1] * y + M[4]) * B * KT : (x, y) => ((M[0] - M[2]) * x + (M[1] - M[3]) * y + M[4] - M[5]) * B;
+    const SY = TOP ? (x, y) => (M[2] * x + M[3] * y + M[5]) * B * KT : (x, y) => ((M[0] + M[2]) * x + (M[1] + M[3]) * y + M[4] + M[5]) * B / 2;
     const T = (x, y) => (inMap(x, y) ? s.terrain[tileIdx(x, y)] : SEA);
     const tx0 = Math.max(rg.tx0, -PAD), tx1 = Math.min(rg.tx1, MAP_W + PAD), ty0 = Math.max(rg.ty0, -PAD), ty1 = Math.min(rg.ty1, MAP_H + PAD);
     g.lineJoin = 'round'; g.lineCap = 'round';
@@ -7814,7 +8394,7 @@ const ISO = (() => {
     g.fillStyle = g.createPattern(grainPattern(R), 'repeat'); g.fillRect(0, 0, c.width, c.height);
     g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     R.stats.chunks++; R.frameChunks++;
-    return { c, B, r, ci, cj, tx0: rg.tx0, tx1: rg.tx1, ty0: rg.ty0, ty1: rg.ty1, used: R.frame, stale: false };
+    return { c, B, r, top: TOP, ci, cj, tx0: rg.tx0, tx1: rg.tx1, ty0: rg.ty0, ty1: rg.ty1, used: R.frame, stale: false };
   }
   // Roads and the stage are the only things the ground depends on: changed tiles mark their chunks stale.
   function groundCheck(R, s) {
@@ -7870,13 +8450,14 @@ const ISO = (() => {
   }
   function groundCompose(R, s) {
     const g = R.ctx, d = R.dpr, B = R.B, k = R.hw / B, cs = CHUNK * k, r = R.rot || 0, VW = viewW(r), VH = viewH(r);
-    const lim = [Math.floor(-(VH + PAD) * B / CHUNK), Math.floor((VW + PAD) * B / CHUNK), Math.floor(-PAD * B / CHUNK), Math.floor((VW + VH + PAD) * B / 2 / CHUNK)];
+    const PT = 40, lim = TOP ? [Math.floor(-PT * B * KT / CHUNK), Math.floor((VW + PT) * B * KT / CHUNK), Math.floor(-PT * B * KT / CHUNK), Math.floor((VH + PT) * B * KT / CHUNK)]
+      : [Math.floor(-(VH + PAD) * B / CHUNK), Math.floor((VW + PAD) * B / CHUNK), Math.floor(-PAD * B / CHUNK), Math.floor((VW + VH + PAD) * B / 2 / CHUNK)];
     const ci0 = Math.max(lim[0], Math.floor(-R.ox / cs)), ci1 = Math.min(lim[1], Math.floor((R.w - R.ox) / cs));
     const cj0 = Math.max(lim[2], Math.floor(-R.oy / cs)), cj1 = Math.min(lim[3], Math.floor((R.h - R.oy) / cs));
     g.setTransform(1, 0, 0, 1, 0, 0);
     const todo = [], have = [];
     for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
-      const key = B + '|' + r + '|' + ci + '|' + cj, ch = R.chunks.get(key);
+      const key = (TOP ? 't' : '') + B + '|' + r + '|' + ci + '|' + cj, ch = R.chunks.get(key);
       if (ch && !ch.stale) have.push(ch); else todo.push([key, ci, cj, ch]);
     }
     // stale chunks (a road was drawn) are redrawn now; missing ones (a new zoom) within the frame budget
@@ -7893,7 +8474,7 @@ const ISO = (() => {
     if (missing && R.prevB && R.prevB !== B) {
       const k2 = R.hw / R.prevB, cs2 = CHUNK * k2;
       for (const ch of R.chunks.values()) {
-        if (ch.B !== R.prevB || ch.r !== r) continue;
+        if (ch.B !== R.prevB || ch.r !== r || !!ch.top !== TOP) continue;
         const L = R.ox + ch.ci * cs2, Tt = R.oy + ch.cj * cs2;
         if (L > R.w || Tt > R.h || L + cs2 < 0 || Tt + cs2 < 0) continue;
         g.drawImage(ch.c, Math.round(L * d), Math.round(Tt * d), Math.round((L + cs2) * d) - Math.round(L * d), Math.round((Tt + cs2) * d) - Math.round(Tt * d));
@@ -7921,24 +8502,29 @@ const ISO = (() => {
   function affMul(A, B) { return [A[0] * B[0] + A[2] * B[1], A[1] * B[0] + A[3] * B[1], A[0] * B[2] + A[2] * B[3], A[1] * B[2] + A[3] * B[3], A[0] * B[4] + A[2] * B[5] + A[4], A[1] * B[4] + A[3] * B[5] + A[5]]; }
   function ovFrame(r) {
     const B = BUCKETS[0], VW = viewW(r), VH = viewH(r);
+    if (TOP) {
+      const t = B * KT, ci0 = Math.floor(-PAD * t / CHUNK), ci1 = Math.floor((VW + PAD) * t / CHUNK), cj0 = Math.floor(-PAD * t / CHUNK), cj1 = Math.floor((VH + PAD) * t / CHUNK);
+      return { B, ci0, ci1, cj0, cj1, X0: ci0 * CHUNK, Y0: cj0 * CHUNK, W: (ci1 - ci0 + 1) * CHUNK, H: (cj1 - cj0 + 1) * CHUNK };
+    }
     const ci0 = Math.floor(-(VH + PAD) * B / CHUNK), ci1 = Math.floor((VW + PAD) * B / CHUNK);
     const cj0 = Math.floor(-PAD * B / CHUNK), cj1 = Math.floor((VW + VH + PAD) * B / 2 / CHUNK);
     return { B, ci0, ci1, cj0, cj1, X0: ci0 * CHUNK, Y0: cj0 * CHUNK, W: (ci1 - ci0 + 1) * CHUNK, H: (cj1 - cj0 + 1) * CHUNK };
   }
   function overviewGet(R, s, r) {
     if (r === undefined) r = R.rot || 0;
-    const key = s.seed + '|' + s.stage;
+    const key = s.seed + '|' + s.stage, ok = (TOP ? 't' : '') + r;
     if (!R.ovs) R.ovs = {};
-    const have = R.ovs[r];
+    const have = R.ovs[ok];
     if (have && have.key === key) { if (r === (R.rot || 0)) R.ov = have; return have; }
-    if (have) { if (have !== R.ovM) canvasFree(have.c); delete R.ovs[r]; }
+    if (have) { if (have !== R.ovM) canvasFree(have.c); delete R.ovs[ok]; }
     if (R.ovM && R.ovM.key !== key) { canvasFree(R.ovM.c); for (const k in R.ovs) if (R.ovs[k] === R.ovM) delete R.ovs[k]; R.ovM = null; }
     const F = ovFrame(r), c = canvasNew(F.W, F.H), g = c.getContext('2d');
     const M0 = R.ovM;
     if (M0) {
       // the master turned: its pixels -> its screen -> view -> world -> this turn's view -> screen -> pixels
-      const B = F.B, m = ROTM[M0.r], n = ROTM[r];
-      const M = [B, B / 2, -B, B / 2, 0, 0], Mi = [1 / (2 * B), -1 / (2 * B), 1 / B, 1 / B, 0, 0];
+      // (A2: the master's projection and this one's, iso or from above: both are affine maps of the flat ground)
+      const B = F.B, m = ROTM[M0.r], n = ROTM[r], t = B * KT;
+      const M = TOP ? [t, 0, 0, t, 0, 0] : [B, B / 2, -B, B / 2, 0, 0], Mi = M0.top ? [1 / t, 0, 0, 1 / t, 0, 0] : [1 / (2 * B), -1 / (2 * B), 1 / B, 1 / B, 0, 0];
       const unrotO = [m[0], m[1], m[2], m[3], -(m[0] * m[4] + m[2] * m[5]), -(m[1] * m[4] + m[3] * m[5])], rotN = [n[0], n[2], n[1], n[3], n[4], n[5]];
       let T = [1, 0, 0, 1, M0.X0, M0.Y0];
       for (const A of [Mi, unrotO, rotN, M, [1, 0, 0, 1, -F.X0, -F.Y0]]) T = affMul(A, T);
@@ -7956,14 +8542,16 @@ const ISO = (() => {
         }
       } finally { [R.dpr, R.frameChunks, R.stats.chunks, R.rot] = keep; }
     }
-    const ov = R.ovs[r] = { key, r, c, B: F.B, X0: F.X0, Y0: F.Y0, W: c.width, H: c.height };
+    const ov = R.ovs[ok] = { key, r, top: TOP, c, B: F.B, X0: F.X0, Y0: F.Y0, W: c.width, H: c.height };
     if (!M0) R.ovM = ov;
+    // A2: the first overview in the other view (from above or angled) becomes the master: the plan keeps two overviews
+    else if (!!M0.top !== TOP) { for (const k in R.ovs) if (R.ovs[k] === M0) delete R.ovs[k]; canvasFree(M0.c); R.ovM = ov; }
     if (r === (R.rot || 0)) R.ov = ov;
     return ov;
   }
   // Only the master, the overview of the turn on screen (and the one a turn is still animating from) stay.
   function overviewTrim(R) {
-    for (const k in R.ovs || {}) { const r = +k, o = R.ovs[k]; if (r !== (R.rot || 0) && !(R.turn && r === R.turn.from)) { if (o !== R.ovM) canvasFree(o.c); delete R.ovs[k]; } }
+    for (const k in R.ovs || {}) { const o = R.ovs[k], r = o.r; if (!!o.top !== TOP || (r !== (R.rot || 0) && !(R.turn && r === R.turn.from))) { if (o !== R.ovM) canvasFree(o.c); delete R.ovs[k]; } }
   }
   // The overview under everything on g (identity transform, device px), at the view R.ox / R.oy / R.hw.
   function overviewDraw(R, g, ov) {
@@ -7976,7 +8564,7 @@ const ISO = (() => {
   // Over the cap: chunks of other zoom levels go first, then the least recently drawn.
   function chunkEvict(R) {
     if (R.chunks.size <= R.chunkCap) return;
-    const cur = (c) => (c.B === R.B && c.r === (R.rot || 0) ? 1 : 0);
+    const cur = (c) => (c.B === R.B && c.r === (R.rot || 0) && !!c.top === TOP ? 1 : 0);
     const list = [...R.chunks.entries()].sort((a, b) => (cur(a[1]) - cur(b[1])) || (a[1].used - b[1].used));
     for (let i = 0; i < list.length - R.chunkCap; i++) { canvasFree(list[i][1].c); R.chunks.delete(list[i][0]); }
   }
@@ -7987,6 +8575,11 @@ const ISO = (() => {
   // far in), the new one is painted up to three levels coarser and drawn scaled (sp.low), and painted sharp again
   // once memory is free. So the cap holds even in the worst case.
   function sprDims(B, foot, H) {
+    if (TOP) {
+      // from above: the footprint, a margin for shadows, smoke and things that stick out, and room for the lift
+      const t = B * KT, mg = (0.42 + Math.max(foot[2] || 0, foot[3] || 0)) * t, up = H * ZT * t;
+      return { L: mg, T: mg + up, W: foot[0] * t + 2 * mg, H: foot[1] * t + 2 * mg + up };
+    }
     const fw = foot[0], fd = foot[1], mg = 0.45 * B;
     const L = fd * B + mg + (foot[2] || 0) * B, Rr = fw * B + mg + H * 0.75 * B, T = H * B * ZS + mg, Bt = (fw + fd) * B / 2 + mg + (foot[3] || 0) * B;
     return { L, T, W: L + Rr, H: T + Bt };
@@ -8027,6 +8620,7 @@ const ISO = (() => {
     }
   }
   function sprite(R, base, foot, H, paint) {
+    if (TOP && base.charCodeAt(0) !== 94) base = '^' + base;
     let m = R.spr.get(base);
     if (!m) { m = new Map(); R.spr.set(base, m); }
     let sp = m.get(R.B);
@@ -8036,10 +8630,14 @@ const ISO = (() => {
       R.pending = true; R.stats.altSprites = (R.stats.altSprites || 0) + 1; ALT.used = R.frame;
       return ALT;
     }
+    // A2: while the old picture still covers a switch of view, new looks are painted a frame budget at a time (the
+    // picture fades only once they are all there: no long frame, no half-drawn town)
+    if (!sp && R.fade && !R.fade.t0 && performance.now() - R.frameStart >= R.budget) { R.pending = true; return holdSprite(R); }
     if (!sp) {
       if (!m.size || performance.now() - R.frameStart < R.budget) {
         const tc0 = performance.now();
         const d = R.dpr, px = (B) => { const q = sprDims(B, foot, H); return Math.ceil(q.W * d) * Math.ceil(q.H * d); };
+        const topWas = TOP; TOP = base.charCodeAt(0) === 94;
         sprRoom(R, px(R.B) / 3);
         // a trimmed sprite keeps about a third of the painted canvas (measured on a late town): px / 3 for the check
         let B = R.B;
@@ -8052,7 +8650,7 @@ const ISO = (() => {
         pen(g, q.L, q.T, B, d);
         paint();
         { const k = base.slice(0, base.indexOf('|') + 1 || base.length), pm = R.stats.paintMs || (R.stats.paintMs = {}); pm[k] = (pm[k] || 0) + performance.now() - tp; }
-        pen(saved[0], saved[1], saved[2], saved[3], saved[4]); PR = saved[5];
+        pen(saved[0], saved[1], saved[2], saved[3], saved[4]); PR = saved[5]; TOP = topWas;
         const cut = sprTrim(c);
         c = cut.c;
         sp = { c, ax: q.L - cut.x / d, ay: q.T - cut.y / d, w: c.width / d, h: c.height / d, B, px: c.width * c.height, used: R.frame, low: B !== R.B };
@@ -8068,7 +8666,11 @@ const ISO = (() => {
     sp.used = R.frame;
     return sp;
   }
+  // An empty stand-in (nothing drawn) for a look not painted yet while a switch of view waits under the old picture.
+  let HOLD = null;
+  function holdSprite(R) { R.holdN = (R.holdN || 0) + 1; if (!HOLD) HOLD = { c: canvasNew(1, 1), ax: 0, ay: 0, w: 0, h: 0, px: 1, used: 0 }; HOLD.B = R.hw; return HOLD; }
   function sprDraw(R, sp, sx, sy, alpha) {
+    if (sp === HOLD) return;
     const k = R.hw / sp.B, g = R.ctx, d = R.dpr;
     if (alpha !== undefined) g.globalAlpha = alpha;
     if (k === 1) g.drawImage(sp.c, Math.round((sx - sp.ax) * d) / d, Math.round((sy - sp.ay) * d) / d, sp.w, sp.h);
@@ -8076,6 +8678,7 @@ const ISO = (() => {
     if (alpha !== undefined) g.globalAlpha = 1;
   }
   function uiDraw(R, sp, sx, sy, alpha) {
+    if (sp === HOLD) return;
     const g = R.ctx, d = R.dpr;
     if (alpha !== undefined) g.globalAlpha = alpha;
     g.drawImage(sp.c, Math.round((sx - sp.ax) * d) / d, Math.round((sy - sp.ay) * d) / d, sp.w, sp.h);
@@ -8388,6 +8991,85 @@ const ISO = (() => {
   // A building's view box [u0, v0, u1, v1] in the renderer's turn, and a point of its painted (view-local) layout in world.
   function bVBox(R, b) { return vbox(R.rot || 0, b.x, b.y, b.x + b.w, b.y + b.h); }
   function localWorld(R, b, lx, ly) { const q = bVBox(R, b); return unrotPt(R.rot || 0, q[0] + lx, q[1] + ly); }
+  // A5 (money with faces, PSYCHOLOGY2.md rule 4): while rent is high or wages are low a crowd with placards stands in
+  // front of the residence (sim/purse.js state.unrest.crowd: 3 the first month, two more each month, at most 18), the
+  // placards bobbing; the reason over them. It thins out when she gives way.
+  // A2+A5 (both views): the crowd stands on free ground (lawn, street, square) around the residence, the tiles in front
+  // of its door first (the view's lower side: in front of the house in the angled view and from above), never on another
+  // building's roof; four people a tile, so a bigger crowd spills along the street. With no free ground within 3 tiles,
+  // the lawn just under the door as before. At night every third one holds a lantern.
+  function protestSpots(R, s, b) {
+    const r = R.rot || 0, key = s.ver + '|' + b.id + '|' + b.x + ',' + b.y + '|' + r + (TOP ? 't' : '');
+    if (R.protestKey === key) return R.protestSpots;
+    const occ = occMap(s), vb = bVBox(R, b), du = (vb[0] + vb[2]) / 2, cand = [];
+    const tileAt = (u, v) => { const w = unrotPt(r, u + 0.5, v + 0.5), x = Math.floor(w[0]), y = Math.floor(w[1]); return x < 0 || y < 0 || x >= MAP_W || y >= MAP_H ? -1 : tileIdx(x, y); };
+    // angled: a house standing in front of a tile (view +u, +v) would hide the people on it (they are drawn over it)
+    const hides = (u, v) => { const i = tileAt(u, v); if (i < 0 || !occ[i] || occ[i] === b.id) return false; const o = bById(s, occ[i]); return !!o && bHeight(o) > 0.9; };
+    for (let v = Math.floor(vb[1]) - 3; v < vb[3] + 3; v++) for (let u = Math.floor(vb[0]) - 3; u < vb[2] + 3; u++) {
+      if (u >= vb[0] && u < vb[2] && v >= vb[1] && v < vb[3]) continue;
+      const i = tileAt(u, v);
+      if (i < 0) continue;
+      const tt = s.terrain[i];
+      if (occ[i] || tt === SEA || tt === FOREST) continue;
+      // nearest the door (the middle of the house's lower side) first; beside the house a little later, behind it last
+      const behind = v < vb[1] || (!TOP && u < vb[0] && v < vb[3]) ? 3 : v < vb[3] ? 0.5 : 0;
+      const hid = !TOP && (hides(u + 1, v) || hides(u, v + 1) || hides(u + 1, v + 1)) ? 2.5 : 0;
+      cand.push({ u, v, d: behind + hid + Math.hypot(u + 0.5 - du, v + 0.5 - vb[3]) });
+    }
+    cand.sort((a, c) => a.d - c.d);
+    // one group: each next tile is the best one touching the tiles already taken (if any touches)
+    const pick = [];
+    while (pick.length < 6 && cand.length) {
+      let bi = 0, bs = 1e9;
+      cand.forEach((c, k) => { const near = pick.length ? Math.min(...pick.map((q) => Math.max(Math.abs(q.u - c.u), Math.abs(q.v - c.v)))) : 1; const sc = c.d + (near > 1 ? 4 + near : 0); if (sc < bs) { bs = sc; bi = k; } });
+      pick.push(cand.splice(bi, 1)[0]);
+    }
+    const slots = [];
+    const LOC = [[0.28, 0.3], [0.74, 0.36], [0.34, 0.78], [0.78, 0.8]];
+    for (const c of pick) for (const [lu, lv] of LOC) { const w = unrotPt(r, c.u + lu, c.v + lv); slots.push([w[0], w[1], c.u + lu, c.v + lv]); }
+    if (!slots.length) {
+      const W = vb[2] - vb[0], H = vb[3] - vb[1];
+      for (let k = 0; k < 18; k++) { const row = Math.floor(k / 6), col = k % 6, lu = -0.35 + (col + (row % 2) * 0.5) * (W + 0.7) / 6, lv = H + 0.3 + row * 0.42, w = localWorld(R, b, lu, lv); slots.push([w[0], w[1], vb[0] + lu, vb[1] + lv]); }
+    }
+    R.protestKey = key; R.protestSpots = slots;
+    return slots;
+  }
+  function protestDraw(R, s, b, t) {
+    const u = s.unrest, n0 = u && u.crowd ? u.crowd : 0;
+    if (!n0) return;
+    const slots = protestSpots(R, s, b), n = Math.min(n0, slots.length);
+    const dark = typeof dayDark === 'function' && dayOn(s) ? dayDark(dayClock(s)) : 0;
+    // back rows first (from above: by the view's v; angled: by u + v)
+    const order = [];
+    for (let k = 0; k < n; k++) order.push(k);
+    order.sort((a, c) => (TOP ? slots[a][3] - slots[c][3] : slots[a][2] + slots[a][3] - slots[c][2] - slots[c][3]));
+    const st = R.stats.protest = { n, spots: [] };
+    for (const k of order) {
+      const fx = slots[k][0], fy = slots[k][1];
+      st.spots.push([+fx.toFixed(2), +fy.toFixed(2)]);
+      // a third larger than the walkers: a crowd she sees at a glance
+      const q = P(fx, fy, 0), up = Math.sin(t * 3.1 + k * 1.7) * 1.6 * S;
+      ctx.save(); ctx.translate(q[0], q[1]); ctx.scale(1.35, 1.35); ctx.translate(-q[0], -q[1]);
+      ell(q[0] + 1 * S, q[1] + 0.6 * S, 6 * S, 2.4 * S, 'rgba(40,28,50,.22)');
+      paintPerson(fx, fy, k * 5 + 3, Math.floor(t * 2 + k) % 2, false);
+      if (dark > 0.35 && k % 3 === 0) {
+        // a lantern in the free hand: a warm pool on the ground and the flame
+        const lx = q[0] - 3.4 * S, ly = q[1] - 6 * S, gr = ctx.createRadialGradient(lx, ly, 0, lx, ly, 14 * S);
+        gr.addColorStop(0, 'rgba(255,214,130,' + (0.55 * dark).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(255,190,90,0)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(lx, ly, 14 * S, 0, TAU); ctx.fill();
+        seg([lx, ly - 4 * S], [lx, ly - 2.2 * S], INK, 0.7 * S);
+        poly([[lx - 1.6 * S, ly - 2.2 * S], [lx + 1.6 * S, ly - 2.2 * S], [lx + 1.3 * S, ly + 2 * S], [lx - 1.3 * S, ly + 2 * S]], '#ffd27a', INK, 0.6 * S);
+      }
+      seg([q[0] + 3 * S, q[1] - 10 * S], [q[0] + 3 * S, q[1] - 25 * S + up], '#6b4a2e', 1.2 * S);
+      poly([[q[0] - 4 * S, q[1] - 32 * S + up], [q[0] + 10 * S, q[1] - 32 * S + up], [q[0] + 10 * S, q[1] - 23 * S + up], [q[0] - 4 * S, q[1] - 23 * S + up]], k % 3 === 1 ? '#fbe3d9' : '#fbf3df', INK, 0.8 * S);
+      seg([q[0] - 2 * S, q[1] - 29.5 * S + up], [q[0] + 8 * S, q[1] - 29.5 * S + up], '#b5402c', 1.1 * S);
+      seg([q[0] - 2 * S, q[1] - 26 * S + up], [q[0] + 5 * S, q[1] - 26 * S + up], '#3a2a1f', 0.9 * S);
+      ctx.restore();
+    }
+    const why = typeof unrestText === 'function' ? unrestText(s) : '';
+    const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) + 0.9);
+    uiDraw(R, labelSprite(R, 'Protest: ' + (why || 'the crowd goes home'), false), p[0], p[1] - 6);
+  }
   function bHeight(b) {
     const def = BUILDINGS[b.type], art = bArt(def);
     if (def.deco && DECO_H[def.deco]) return DECO_H[def.deco][0];
@@ -8422,10 +9104,11 @@ const ISO = (() => {
   let ALT = null;
   function bSprite(R, s, b) {
     const def = BUILDINGS[b.type];
-    ALT = b.id && def.w === def.h && R.lastSpr ? R.lastSpr.get(b.id) || null : null;
+    const lk = TOP ? -b.id : b.id;
+    ALT = b.id && def.w === def.h && R.lastSpr ? R.lastSpr.get(lk) || null : null;
     let sp;
     try { sp = bSpriteOf(R, s, b); } finally { ALT = null; }
-    if (b.id && sp) (R.lastSpr || (R.lastSpr = new Map())).set(b.id, sp);
+    if (b.id && sp) (R.lastSpr || (R.lastSpr = new Map())).set(lk, sp);
     return sp;
   }
   function bSpriteOf(R, s, b) {
@@ -8495,8 +9178,11 @@ const ISO = (() => {
     for (const o of list) {
       const q = vbox(r, o.x0, o.y0, o.x1, o.y1); o.u0 = q[0]; o.v0 = q[1]; o.u1 = q[2]; o.v1 = q[3];
       o.X0 = o.u0 - o.v1 - 0.4; o.X1 = o.u1 - o.v0 + 0.4 + (o.k === 'b' ? o.h * 0.6 : 0.3); o.Y0 = (o.u0 + o.v0) / 2 - o.h * ZS - 0.4; o.Y1 = (o.u1 + o.v1) / 2 + 0.4;
+      // A2, from above: the screen box in tiles (the lift of its height upward, a margin for the shadow)
+      if (TOP) { o.X0 = o.u0 - 0.45; o.X1 = o.u1 + 0.6; o.Y0 = o.v0 - o.h * ZT - 0.45; o.Y1 = o.v1 + 0.6; }
     }
-    const order = topo(list);
+    // from above nothing stands in front of anything: back rows first (a roof's lift covers a little of the row behind)
+    const order = TOP ? list.slice().sort((a, b) => (a.v1 - b.v1) || (a.u0 - b.u0)) : topo(list);
     const grid = new Int32Array(VW * VH).fill(-1);
     order.forEach((o, k) => { o.i = k; for (let v = Math.max(0, Math.floor(o.v0)); v < Math.min(VH, Math.ceil(o.v1)); v++) for (let u = Math.max(0, Math.floor(o.u0)); u < Math.min(VW, Math.ceil(o.u1)); u++) grid[v * VW + u] = k; });
     R.order = order; R.grid = grid; R.gridW = VW; R.gridH = VH; R.orderRot = r;
@@ -8861,8 +9547,21 @@ const ISO = (() => {
       poly([P(q.x + 0.15, q.y - 0.5, 0.14), P(q.x + 0.45, q.y - 0.5, 0.14), P(q.x + 0.45, q.y - 0.3, 0.4), P(q.x + 0.15, q.y - 0.3, 0.4)], '#b38a5a', ln('#b38a5a'), 0.8 * S);
       g.globalAlpha = 1;
     }
-    sprDraw(R, shipSprite(R, q.kind, base), p[0], p[1] + bob, q.a);
-    if (wo > 0.12) sprDraw(R, shipSprite(R, q.kind, other), p[0], p[1] + bob, q.a * clamp((wo - 0.12) / 0.38, 0, 1) * 0.9);
+    if (TOP) {
+      // A2, from above: the nearest of the four painted headings, turned by what is left (from above two headings
+      // fading into each other read as a cross)
+      const i = Math.round(f) % 4, rest = (f - Math.round(f)) * Math.PI / 2, sp = shipSprite(R, q.kind, i), g = R.ctx;
+      if (sp !== HOLD) {
+        const k = R.hw / sp.B;
+        g.save(); g.translate(p[0], p[1] + bob * 0.4); g.rotate(rest);
+        if (q.a !== undefined) g.globalAlpha = q.a;
+        g.drawImage(sp.c, -sp.ax * k, -sp.ay * k, sp.w * k, sp.h * k);
+        g.restore();
+      }
+    } else {
+      sprDraw(R, shipSprite(R, q.kind, base), p[0], p[1] + bob, q.a);
+      if (wo > 0.12) sprDraw(R, shipSprite(R, q.kind, other), p[0], p[1] + bob, q.a * clamp((wo - 0.12) / 0.38, 0, 1) * 0.9);
+    }
     if (q.kind === 'steam') {
       // smoke from the funnel
       const c = P(q.x - Math.cos(q.hd) * 0.15, q.y - Math.sin(q.hd) * 0.15, 0.42 + 1.4), sc = R.hw / 44, g = R.ctx;
@@ -9173,6 +9872,7 @@ const ISO = (() => {
   // Is a point (view u, v, height z) covered by a static object drawn after object `self`? (The screen point of
   // (u, v, z) is also that of (u + a, v + a, z + a / ZS): anything standing there at least that tall hides it.)
   function dayHidden(R, u, v, z, self) {
+    if (TOP) return false;
     const VW = R.gridW, VH = R.gridH;
     for (let a = 0.3; a < 3.8; a += 0.42) {
       const uu = Math.floor(u + a), vv = Math.floor(v + a);
@@ -9300,7 +10000,7 @@ const ISO = (() => {
       let u, v;
       if (L[1] >= 0) { const q = rotPt(R.rot || 0, L[1] + 0.18, L[2] + 0.18); u = q[0]; v = q[1]; } else { u = L[4]; v = L[5]; }
       if (dayHidden(R, u, v, 0.62, -1)) { st.hidden++; continue; }
-      const gp = [p[0], p[1] + 0.62 * R.hw * ZS];
+      const gp = [p[0], p[1] + 0.62 * (TOP ? R.hw * KT * ZT : R.hw * ZS)];
       glow(gp, 30 * k, 0.5 * n, 0.5);
       glow(p, 10 * k + 2, 0.8 * n);
       g.globalAlpha = Math.min(1, n); g.fillStyle = '#fff0c0'; g.beginPath(); g.arc(p[0], p[1], 1.6 * k + 0.4, 0, TAU); g.fill();
@@ -9471,21 +10171,31 @@ const ISO = (() => {
   // ---------- frame ----------
   // The turn a view is drawn or picked in: view.rot (the player's choice), else the renderer's.
   function rotOf(R, view) { return view && view.rot !== undefined ? (view.rot & 3) : (R.rot || 0); }
-  function viewOrigin(R, view, rr) {
+  // A2: the view seen from above (view.top, the player's choice), else the renderer's mode
+  function topOf(R, view) { return view && view.top !== undefined ? !!view.top : !!R.top; }
+  function viewOrigin(R, view, rr, tp) {
     const w = R.w || R.canvas.clientWidth, h = R.h || R.canvas.clientHeight, r = rr !== undefined ? rr : rotOf(R, view), c = rotPt(r, view.cx, view.cy);
-    return { ox: w / 2 - (c[0] - c[1]) * view.z, oy: h / 2 - (c[0] + c[1]) * view.z / 2, hw: view.z, r };
+    const top = tp !== undefined ? tp : topOf(R, view);
+    if (top) { const t = view.z * KT; return { ox: w / 2 - c[0] * t, oy: h / 2 - c[1] * t, hw: view.z, r, top }; }
+    return { ox: w / 2 - (c[0] - c[1]) * view.z, oy: h / 2 - (c[0] + c[1]) * view.z / 2, hw: view.z, r, top };
   }
-  function toScreen(R, view, tx, ty) { const o = viewOrigin(R, view), p = rotPt(o.r, tx, ty); return { x: o.ox + (p[0] - p[1]) * o.hw, y: o.oy + (p[0] + p[1]) * o.hw / 2 }; }
+  function toScreen(R, view, tx, ty) {
+    const o = viewOrigin(R, view), p = rotPt(o.r, tx, ty);
+    if (o.top) return { x: o.ox + p[0] * o.hw * KT, y: o.oy + p[1] * o.hw * KT };
+    return { x: o.ox + (p[0] - p[1]) * o.hw, y: o.oy + (p[0] + p[1]) * o.hw / 2 };
+  }
   function toTile(R, view, sx, sy) {
-    const o = viewOrigin(R, view), a = (sx - o.ox) / o.hw, b = (sy - o.oy) / (o.hw / 2), w = unrotPt(o.r, (a + b) / 2, (b - a) / 2);
+    const o = viewOrigin(R, view);
+    if (o.top) { const t = o.hw * KT, w = unrotPt(o.r, (sx - o.ox) / t, (sy - o.oy) / t); return { x: w[0], y: w[1] }; }
+    const a = (sx - o.ox) / o.hw, b = (sy - o.oy) / (o.hw / 2), w = unrotPt(o.r, (a + b) / 2, (b - a) / 2);
     return { x: w[0], y: w[1] };
   }
   // The buildings drawn under a screen point: the hull of each footprint's view box up to its pick height (roofs stand
   // over the tiles behind), frontmost (latest drawn) first.
   function pickList(R, view, s, sx, sy) {
     const o = viewOrigin(R, view), out = [];
-    const Q = (u, v, z) => [o.ox + (u - v) * o.hw, o.oy + (u + v) * o.hw / 2 - z * o.hw * ZS];
-    const same = o.r === (R.rot || 0) && !R.turn;
+    const Q = o.top ? (u, v, z) => [o.ox + u * o.hw * KT, o.oy + (v - z * ZT) * o.hw * KT] : (u, v, z) => [o.ox + (u - v) * o.hw, o.oy + (u + v) * o.hw / 2 - z * o.hw * ZS];
+    const same = o.r === (R.rot || 0) && !R.turn && o.top === !!R.top;
     for (const b of s.b) {
       const H = pickHeight(b), q = vbox(o.r, b.x, b.y, b.x + b.w, b.y + b.h), u0 = q[0], v0 = q[1], u1 = q[2], v1 = q[3];
       const hl = hull([Q(u0, v0, 0), Q(u1, v0, 0), Q(u1, v1, 0), Q(u0, v1, 0), Q(u0, v0, H), Q(u1, v0, H), Q(u1, v1, H), Q(u0, v1, H)]);
@@ -9539,7 +10249,7 @@ const ISO = (() => {
     const mb = (px) => Math.round(px * 4 / 1e5) / 10;
     let ch = 0; for (const c of R.chunks.values()) ch += c.c.width * c.c.height;
     const now = { screen: R.canvas.width * R.canvas.height, still: R.gc ? R.gc.c.width * R.gc.c.height : 0, gesture: R.sc ? R.sc.c.width * R.sc.c.height : 0,
-      chunks: ch, sprites: R.sprPx, ui: R.uiPx, overview: Object.values(R.ovs || {}).reduce((n, o) => n + (o === R.ovM ? 0 : o.W * o.H), 0) + (R.ovM ? R.ovM.W * R.ovM.H : 0), turn: R.turnPx || 0, other: (R.geo ? R.geo.hillShades.reduce((n, c) => n + (c ? c.width * c.height : 0), 0) : 0) + 128 * 128 };
+      chunks: ch, sprites: R.sprPx, ui: R.uiPx, overview: Object.values(R.ovs || {}).reduce((n, o) => n + (o === R.ovM ? 0 : o.W * o.H), 0) + (R.ovM ? R.ovM.W * R.ovM.H : 0), turn: (R.turnPx || 0) + (R.fadePx || 0), other: (R.geo ? R.geo.hillShades.reduce((n, c) => n + (c ? c.width * c.height : 0), 0) : 0) + 128 * 128 };
     const out = { dpr: R.dpr, still: R.still, gm: R.gm, lowSprites: R.stats.lowSprites || 0, chunkCap: R.chunkCap, chunkNeed: R.chunkNeed, chunkCount: R.chunks.size, uiCount: R.ui.size, sprCap: Math.round(R.sprCap / 1e5) / 10, now: {}, plan: {} };
     let t = 0, tp = 0;
     for (const k in now) { out.now[k] = mb(now[k]); t += now[k]; }
@@ -9562,7 +10272,7 @@ const ISO = (() => {
     R.lastSpr = null;
     R.geo = null; R.ship = null; R.shipMoney = []; R.hs = null; R.slips = []; R.depSeen = null; R.objKey = ''; R.groundStage = -1; R.roadVer = -1; R.roadSnap = null; R.order = []; R.bubbles = [];
   }
-  function trim(R) { if (R.turn) { R.rot = R.turn.to; turnEnd(R); } for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; } R.groundDirty = true; }
+  function trim(R) { if (R.turn) { R.rot = R.turn.to; turnEnd(R); } fadeEnd(R); for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; } R.groundDirty = true; }
   function bucketFor(R, z) {
     for (const b of BUCKETS) if (Math.abs(b - z) < 1e-3) return b;
     if (R.B && z <= R.B * 1.02 && z >= R.B / 1.3) return R.B;
@@ -9581,7 +10291,7 @@ const ISO = (() => {
     if (Math.abs(target - view.z) < 0.03) view.z = target;
     R.zSeen = view.z;
   }
-  function onScreen(R, X0, Y0, X1, Y1) { const hwv = R.hw; return R.ox + X1 * hwv > -20 && R.ox + X0 * hwv < R.w + 20 && R.oy + Y1 * hwv > -20 && R.oy + Y0 * hwv < R.h + 20; }
+  function onScreen(R, X0, Y0, X1, Y1) { const hwv = TOP ? R.hw * KT : R.hw; return R.ox + X1 * hwv > -20 && R.ox + X0 * hwv < R.w + 20 && R.oy + Y1 * hwv > -20 && R.oy + Y0 * hwv < R.h + 20; }
   function wavesDraw(R, t) {
     const g = R.ctx, d = R.dpr, z = R.hw;
     worldXf(g, d, z, R.ox, R.oy, R.rot || 0);
@@ -9616,6 +10326,21 @@ const ISO = (() => {
     poly([[x + 1 * s, y - 16 * s], [x + 8.6 * s, y - 16 * s], [x + 7.1 * s, y - 19 * s], [x + 1 * s, y - 19 * s]], '#df684c');
     poly([[x - 1 * s, y - 27 * s], [x - 11 * s, y - 8 * s], [x - 1 * s, y - 8 * s]], '#efe5cf', '#9c8f78', 1 * S);
   }
+  // A2, from above: a fishing boat as a plan: the hull, the white sail bellied by the wind, the wake behind.
+  function paintSailboatTop() {
+    const c = P(0, 0, 0), t = TT, g = ctx, k = S;
+    g.save(); g.translate(c[0], c[1]);
+    g.strokeStyle = 'rgba(233,251,246,.6)'; g.lineWidth = 1.4 * k; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(-0.32 * t, -0.04 * t); g.quadraticCurveTo(-0.55 * t, -0.08 * t, -0.75 * t, -0.13 * t); g.moveTo(-0.32 * t, 0.04 * t); g.quadraticCurveTo(-0.55 * t, 0.08 * t, -0.75 * t, 0.13 * t); g.stroke();
+    g.fillStyle = 'rgba(14,85,112,.25)'; g.beginPath(); g.ellipse(0.04 * t, 0.06 * t, 0.34 * t, 0.12 * t, 0, 0, TAU); g.fill();
+    g.beginPath(); g.moveTo(0.34 * t, 0); g.quadraticCurveTo(0.12 * t, -0.13 * t, -0.3 * t, -0.08 * t); g.lineTo(-0.3 * t, 0.08 * t); g.quadraticCurveTo(0.12 * t, 0.13 * t, 0.34 * t, 0); g.closePath();
+    g.fillStyle = '#f3efe4'; g.fill(); g.strokeStyle = INK; g.lineWidth = 1 * k; g.stroke();
+    g.beginPath(); g.moveTo(0.26 * t, 0); g.quadraticCurveTo(0.08 * t, -0.08 * t, -0.24 * t, -0.05 * t); g.lineTo(-0.24 * t, 0.05 * t); g.quadraticCurveTo(0.08 * t, 0.08 * t, 0.26 * t, 0); g.closePath(); g.fillStyle = '#b98a5a'; g.fill();
+    g.beginPath(); g.moveTo(0.04 * t, -0.02 * t); g.quadraticCurveTo(-0.08 * t, 0.2 * t, -0.24 * t, 0.26 * t); g.lineTo(-0.2 * t, 0.02 * t); g.closePath(); g.fillStyle = '#f8f0dc'; g.fill(); g.strokeStyle = '#9c8f78'; g.lineWidth = 0.9 * k; g.stroke();
+    g.fillStyle = '#df684c'; g.fillRect(-0.12 * t, 0.1 * t, 0.06 * t, 0.04 * t);
+    g.beginPath(); g.arc(0.04 * t, 0, 0.025 * t, 0, TAU); g.fillStyle = '#5a4030'; g.fill();
+    g.restore();
+  }
   // A few fishing boats drifting far from the shore, where the sea is open (found once per island).
   function sailboatsDraw(R, t) {
     const G = R.geo;
@@ -9623,7 +10348,7 @@ const ISO = (() => {
       G.boats = [];
       for (const [x, y] of [[2, 6], [44, 44], [6, 45], [45, 4], [24, 1], [1, 24]]) if (G.boats.length < 3 && fieldAt(G.wide, x, y) < 0.01 && fieldAt(G.wide, x + 2, y) < 0.01) G.boats.push([x, y]);
     }
-    const sp = sprite(R, 'sailboat', [0.01, 0.01, 0.6, 0.3], 0.95, paintSailboat);
+    const sp = TOP ? sprite(R, 'sailboat', [0.01, 0.01, 0.5, 0.5], 0.4, paintSailboatTop) : sprite(R, 'sailboat', [0.01, 0.01, 0.6, 0.3], 0.95, paintSailboat);
     G.boats.forEach(([x, y], k) => { const p = P(x + Math.sin(t * 0.05 + k * 2) * 1.2, y + Math.cos(t * 0.04 + k) * 0.6, 0); if (p[0] > -60 && p[0] < R.w + 60 && p[1] > -60 && p[1] < R.h + 60) sprDraw(R, sp, p[0], p[1] + Math.sin(t * 1.4 + k) * 1.2); });
   }
   function gridDraw(R) {
@@ -9702,6 +10427,8 @@ const ISO = (() => {
     // slot each moving thing right after the last static object it stands in front of (in view coordinates)
     const r = R.rot || 0, VW = R.gridW || MAP_W, VH = R.gridH || MAP_H;
     for (const q of out) {
+      // A2, from above: nothing moving is ever behind a building: all of it after the static objects, back rows first
+      if (TOP) { q.after = 1e9; q.dk = q.y !== undefined ? rotPt(r, q.x, q.y)[1] : 0; if (q.fx !== undefined && r) { const f = rotDir(r, q.fx, q.fy); q.fx = Math.round(f[0] * 1e4) / 1e4 || 0; q.fy = Math.round(f[1] * 1e4) / 1e4 || 0; } continue; }
       let mx = -1;
       const w = q.box || [q.x - 0.05, q.y - 0.05, q.x + 0.05, q.y + 0.05], vb = vbox(r, w[0], w[1], w[2], w[3]);
       const B0 = { u0: vb[0], v0: vb[1], u1: vb[2], v1: vb[3] };
@@ -9732,10 +10459,10 @@ const ISO = (() => {
     if (q.k === 'tent') return sprite(R, 'tent|' + q.v, [1, 1], 0.8, () => paintTent(q.v));
     if (q.k === 'cart') {
       // a turn gives every cart a new heading: its last sprite stands in while the frame's paint budget is spent
-      const key = 'c' + q.id;
+      const key = (TOP ? '^c' : 'c') + q.id;
       ALT = R.lastSpr ? R.lastSpr.get(key) || null : null;
       let sp;
-      try { sp = sprite(R, 'cart|' + q.fx.toFixed(2) + ',' + q.fy.toFixed(2) + '|' + q.good + '|' + Math.min(3, q.n) + '|' + q.fr, [0.01, 0.01, 0.9, 0.5], 1.2, () => paintCart(q.fx, q.fy, q.good, q.n, q.fr)); } finally { ALT = null; }
+      try { sp = sprite(R, 'cart|' + q.fx.toFixed(2) + ',' + q.fy.toFixed(2) + '|' + q.good + '|' + Math.min(3, q.n) + '|' + q.fr, TOP ? [0.01, 0.01, 0.2, 0.2] : [0.01, 0.01, 0.9, 0.5], TOP ? 0.3 : 1.2, () => (TOP ? paintCartTop : paintCart)(q.fx, q.fy, q.good, q.n, q.fr)); } finally { ALT = null; }
       (R.lastSpr || (R.lastSpr = new Map())).set(key, sp);
       return sp;
     }
@@ -9764,6 +10491,7 @@ const ISO = (() => {
   // it on screen are drawn see-through. The target is the selected object or the ghost's view box.
   const XRAY_A = 0.3;
   function xrayTarget(R, s, ui) {
+    if (TOP) return null;
     const gh = ui.ghost;
     if (gh && gh.type && BUILDINGS[gh.type]) {
       const def = BUILDINGS[gh.type], q = vbox(R.rot || 0, gh.x, gh.y, gh.x + def.w, gh.y + def.h);
@@ -9868,6 +10596,8 @@ const ISO = (() => {
   // The iso spin about the screen centre (device px): the ground plane turns by th as the island does (M Rot M^-1).
   function spinXf(g, R, th) {
     const c = Math.cos(th), sn = Math.sin(th), cx = R.canvas.width / 2, cy = R.canvas.height / 2;
+    // A2, from above: the map simply turns about the screen centre
+    if (TOP) { g.setTransform(c, sn, -sn, c, cx - (c * cx - sn * cy), cy - (sn * cx + c * cy)); return; }
     g.setTransform(c, 0.5 * sn, -2 * sn, c, cx - (c * cx - 2 * sn * cy), cy - (0.5 * sn * cx + c * cy));
   }
   function turnBegin(R, view, to) {
@@ -9880,7 +10610,7 @@ const ISO = (() => {
     A.getContext('2d').drawImage(R.canvas, 0, 0, A.width, A.height);
     // the sprites on screen now stand in for their new looks until those are painted: kept from eviction during the turn
     const keep = [];
-    for (const ob of R.order) if (ob.k === 'b' && onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1)) { const sp = R.lastSpr && R.lastSpr.get(ob.b.id); if (sp) keep.push(sp); }
+    for (const ob of R.order) if (ob.k === 'b' && onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1)) { const sp = R.lastSpr && R.lastSpr.get(TOP ? -ob.b.id : ob.b.id); if (sp) keep.push(sp); }
     for (const [k, sp] of R.lastSpr || []) if (typeof k === 'string') keep.push(sp);
     R.turn = { from, to: (from + dir) & 3, dir, t0: performance.now(), A, B: null, keep, k, W, H };
     R.turnPx = A.width * A.height;
@@ -9903,7 +10633,7 @@ const ISO = (() => {
       const B = R.B, k = R.hw / B, cs = CHUNK * k;
       for (let cj = Math.floor(-R.oy / cs); cj <= Math.floor((R.h - R.oy) / cs) && performance.now() < until; cj++) {
         for (let ci = Math.floor(-R.ox / cs); ci <= Math.floor((R.w - R.ox) / cs) && performance.now() < until; ci++) {
-          const key = B + '|' + to + '|' + ci + '|' + cj;
+          const key = (TOP ? 't' : '') + B + '|' + to + '|' + ci + '|' + cj;
           if (R.chunks.has(key)) continue;
           R.chunks.set(key, chunkPaint(R, s, B, ci, cj));
         }
@@ -9953,18 +10683,61 @@ const ISO = (() => {
   }
   function draw(R, s, view, ui) {
     resize(R);
+    // A2: from above or at the angle (view.top): a change cross-fades from the last picture (modeBegin)
+    const wantTop = !!(view && view.top);
+    if (R.top === undefined || !R.geo) R.top = wantTop;
+    if (R.fade && (R.fade.W !== R.canvas.width || R.fade.H !== R.canvas.height)) fadeEnd(R);
+    if (wantTop !== R.top) modeBegin(R, wantTop);
+    TOP = !!R.top;
     const want = rotOf(R, view);
     if (R.rot === undefined || R.rot === null) R.rot = want;
     if (R.turn && (R.turn.W !== R.canvas.width || R.turn.H !== R.canvas.height)) { R.rot = R.turn.to; turnEnd(R); }
-    if (!R.turn && want !== R.rot && R.geo) turnBegin(R, view, want);
-    if (R.turn) { turnDraw(R, s, view, ui); return; }
-    R.rot = want;
-    drawFrame(R, s, view, ui);
+    // (a turn during a switch of view ends the switch first: memory for the turn's two pictures)
+    if (!R.turn && want !== R.rot && R.geo) { fadeEnd(R); turnBegin(R, view, want); }
+    if (R.turn) turnDraw(R, s, view, ui);
+    else { R.rot = want; drawFrame(R, s, view, ui); }
+    if (R.fade) fadeDraw(R);
+  }
+  // ---------- A2: the switch between the angled view and the view from above (a cross-fade of FADE_MS) ----------
+  // The last picture (A) is kept; the new view is drawn as usual underneath (its first frame paints what it needs: the
+  // old picture still covers it at full strength), then A fades out over FADE_MS. Memory: A is one screen-sized canvas
+  // (15.5 MB on an iPad Air at DPR 2), made after the still ground and the gesture picture were freed; at half size where
+  // the plan has no still ground (12.9" iPad). Freed when the fade ends.
+  const FADE_MS = 400, FADE_WAIT = 900;
+  function modeBegin(R, top) {
+    if (R.turn) { R.rot = R.turn.to; turnEnd(R); }
+    if (R.fade) fadeEnd(R);
+    for (const k of ['gc', 'sc']) if (R[k]) { canvasFree(R[k].c); R[k] = null; }
+    const W = R.canvas.width, H = R.canvas.height, k = R.still ? 1 : 0.5, A = canvasNew(W * k, H * k);
+    A.getContext('2d').drawImage(R.canvas, 0, 0, A.width, A.height);
+    R.fade = { A, t0: 0, W, H, to: top };
+    R.fadePx = A.width * A.height;
+    R.top = top; R.objKey = ''; R.groundDirty = true; R.ov = null; R.bubbles = [];
+    R.stats.modeSwitches = (R.stats.modeSwitches || 0) + 1;
+  }
+  function fadeEnd(R) {
+    if (!R.fade) return;
+    canvasFree(R.fade.A); R.fade = null; R.fadePx = 0;
+    overviewTrim(R);
+  }
+  function fadeDraw(R) {
+    const F = R.fade, g = R.ctx, now = performance.now();
+    // the clock starts once the new view is all painted (a frame budget of new looks and ground a frame, the old
+    // picture covering it meanwhile; at most FADE_WAIT ms)
+    if (!F.t0) {
+      F.w0 = F.w0 || now; F.frames = (F.frames || 0) + 1; F.maxMs = Math.max(F.maxMs || 0, R.stats.last || 0);
+      if ((R.holdN || (R.pending && now - F.w0 < FADE_WAIT / 2)) && now - F.w0 < FADE_WAIT) { g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.drawImage(F.A, 0, 0, F.W, F.H); return; }
+      F.t0 = now; R.stats.fade = { waitMs: Math.round(now - F.w0), frames: F.frames, maxFrameMs: +F.maxMs.toFixed(1) };
+    }
+    const u = R.fadeU !== undefined ? R.fadeU : clamp((now - F.t0) / FADE_MS, 0, 1), e = u * u * (3 - 2 * u);
+    if (u >= 1) { fadeEnd(R); return; }
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1 - e; g.drawImage(F.A, 0, 0, F.W, F.H); g.globalAlpha = 1;
+    R.pending = true;
   }
   function drawFrame(R, s, view, ui) {
     const t0 = performance.now();
     resize(R);
-    R.frame++; R.frameStart = t0; R.frameChunks = 0; R.pending = false;
+    R.frame++; R.frameStart = t0; R.frameChunks = 0; R.pending = false; R.holdN = 0;
     const now = ui.now || t0, t = now / 1000;
     zoomSettle(R, view, t0);
     R.hw = view.z;
@@ -9974,7 +10747,7 @@ const ISO = (() => {
     const gest = typeof APP !== 'undefined' && !!APP.gesturing, onLevel = BUCKETS.some((b) => Math.abs(b - view.z) < 1e-3);
     if (o.ox !== R.ox || o.oy !== R.oy || view.z !== R.zLast) R.movedT = t0;
     R.zLast = view.z;
-    const moving = !R.turn && (gest || !onLevel || t0 - (R.movedT || 0) < 150);
+    const moving = !R.turn && !R.fade && (gest || !onLevel || t0 - (R.movedT || 0) < 150);
     R.ox = o.ox; R.oy = o.oy;
     // during a gesture the zoom level (sprites and ground) is kept and scaled, unless the scale drifts too far
     const nb = bucketFor(R, view.z), ratio = R.B ? view.z / R.B : 1;
@@ -9989,7 +10762,7 @@ const ISO = (() => {
     R.lastMark = performance.now();
     // the static objects (rebuilt when buildings, roads or levels change), with carts and people slotted in
     let lv = 0; for (const b of s.b) lv += (b.level || 0) * 7 + (b.res ? 1 : 0);
-    const key = s.ver + '|' + s.stage + '|' + lv + '|' + s.b.length + '|' + (R.rot || 0);
+    const key = s.ver + '|' + s.stage + '|' + lv + '|' + s.b.length + '|' + (R.rot || 0) + (TOP ? 't' : '');
     if (key !== R.objKey) { objectsBuild(R, s); R.objKey = key; }
     mark('build');
     if (moving) snapDraw(R, s, ui, now, t, mark);
@@ -10013,6 +10786,8 @@ const ISO = (() => {
         for (let k = 0; k < 5; k++) { const wq = localWorld(R, b, 0.2 + k * (vb[2] - vb[0] - 0.3) / 5, vb[3] - vb[1] + 0.35 + (k % 2) * 0.25), fx = wq[0], fy = wq[1]; paintPerson(fx, fy, k + b.id, Math.floor(t * 2 + k) % 2, false); const q = P(fx, fy, 0); seg([q[0] + 3 * S, q[1] - 10 * S], [q[0] + 3 * S, q[1] - 24 * S], '#6b4a2e', 1.2 * S); poly([[q[0] - 3 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 22 * S], [q[0] - 3 * S, q[1] - 22 * S]], '#fbf3df', INK, 0.8 * S); }
         const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) + 0.5); uiDraw(R, labelSprite(R, 'On strike', false), p[0], p[1] - 6);
       }
+      // A5: the crowd at the residence (rent high or wages low)
+      if (b.type === 'residence' && s.unrest && s.unrest.crowd) protestDraw(R, s, b, t);
       if (b.wip && !ui.money) { const p = P(b.x + b.w / 2, b.y + b.h / 2, 2.9); uiDraw(R, labelSprite(R, 'Being built · ' + Math.round(100 * projectDone(b)) + ' %', true), p[0], p[1]); }
       if (!m) continue;
       const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b));
@@ -10045,7 +10820,7 @@ const ISO = (() => {
       uiDraw(R, floaterSprite(R, f.text, f.color, f.big), p[0], fy, 1 - age * age);
     }
     mark('overlay');
-    if (!(typeof APP !== 'undefined' && APP.titleOn)) lockLabels(R, s);
+    if (!(typeof APP !== 'undefined' && APP.titleOn)) lockLabels(R, s, ui);
     mark('locks');
     ghostDraw(R, s, ui, t);
     const ms = performance.now() - t0;
@@ -10115,17 +10890,32 @@ const ISO = (() => {
     }
     if (rt.label && age > 0.8) { const p = P(rt.x, rt.y - 1, 2.6); uiDraw(R, labelSprite(R, rt.label, true), p[0], p[1] - 10 - 4 * Math.sin(t * 2), Math.min(1, (age - 0.8) * 2)); }
   }
-  function lockLabels(R, s) {
-    const best = {}, cx = R.w / 2, cy = R.h / 2;
+  // One "Opens at …" label a locked region, on its tile nearest the screen's middle; A2: a label that would overlap
+  // another one (or the commission's label on its dotted line) takes the region's next nearest tile instead.
+  function lockLabels(R, s, ui) {
+    const cand = {}, cx = R.w / 2, cy = R.h / 2;
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
       const i = tileIdx(x, y), r = s.region[i];
       if (r <= s.stage || s.terrain[i] === SEA) continue;
       const p = P(x + 0.5, y + 0.5, 0);
       if (p[0] < 120 || p[0] > R.w - 120 || p[1] < (R.w < 600 ? 240 : 160) || p[1] > R.h - 290) continue;
-      const dd = Math.hypot(p[0] - cx, p[1] - cy);
-      if (!best[r] || dd < best[r].d) best[r] = { d: dd, p };
+      (cand[r] || (cand[r] = [])).push({ d: Math.hypot(p[0] - cx, p[1] - cy), p });
     }
-    for (const r in best) uiDraw(R, labelSprite(R, 'Opens at ' + STAGES[Math.min(+r, STAGES.length - 1)].name, true), best[r].p[0], best[r].p[1]);
+    const boxes = [], hit = (b) => boxes.some((q) => b[0] < q[2] + 6 && q[0] < b[2] + 6 && b[1] < q[3] + 4 && q[1] < b[3] + 4);
+    const cm = ui && ui.com;
+    if (cm && cm.label && cm.line && cm.line.length && !ui.money) {
+      const i = cm.line[(cm.line.length / 2) | 0], m = P(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5, 0), sp = labelSprite(R, cm.label, true);
+      boxes.push([m[0] - sp.ax, m[1] - 30 - sp.ay, m[0] - sp.ax + sp.w, m[1] - 30 - sp.ay + sp.h]);
+    }
+    for (const r of Object.keys(cand).sort((a, b) => a - b)) {
+      const sp = labelSprite(R, 'Opens at ' + STAGES[Math.min(+r, STAGES.length - 1)].name, true), list = cand[r].sort((a, b) => a.d - b.d);
+      for (let k = 0; k < list.length; k += 1 + (k >> 4)) {
+        const p = list[k].p, b = [p[0] - sp.ax, p[1] - sp.ay, p[0] - sp.ax + sp.w, p[1] - sp.ay + sp.h];
+        if (hit(b)) continue;
+        boxes.push(b); uiDraw(R, sp, p[0], p[1]);
+        break;
+      }
+    }
   }
   function ghostDraw(R, s, ui, t) {
     const g = R.ctx, d = R.dpr, z = R.hw;
@@ -11312,7 +12102,7 @@ function cameraFlyTo(x, y, zoom, id) {
   const z1 = zoom || flyZoom();
   // the tile goes to the middle of the free part of the screen (not under the card, the bars or Rosa)
   const aim = flyAim(), w = window.innerWidth, h = window.innerHeight;
-  const end = { cx: x, cy: y, z: z1, rot: v.rot };
+  const end = { cx: x, cy: y, z: z1, rot: v.rot, top: v.top };
   const t = screenToTile(APP.R, end, w - aim.x, h - aim.y);
   APP.fly = { x0: v.cx, y0: v.cy, z0: v.z, x1: t.x, y1: t.y, z1, t0: performance.now(), tx: x, ty: y };
 }
@@ -12325,13 +13115,44 @@ function viewNudge(dx, dy) {
 const ROT_ICON = {
   l: '<svg viewBox="0 0 24 24" class="ic"><path d="M12 4.5a7.5 7.5 0 1 1-7.2 9.6l2.2-.6A5.2 5.2 0 1 0 12 6.8h-.6l2 2-1.6 1.6L7 5.6 11.8.8l1.6 1.6-2 2h.6z"/></svg>',
   r: '<svg viewBox="0 0 24 24" class="ic"><path d="M12 4.5a7.5 7.5 0 1 0 7.2 9.6l-2.2-.6A5.2 5.2 0 1 1 12 6.8h.6l-2 2 1.6 1.6L17 5.6 12.2.8l-1.6 1.6 2 2H12z"/></svg>',
+  // A2: a square seen from above (a roof plan with its ridge), and the angled view (a tile and a little house in iso)
+  top: '<svg viewBox="0 0 24 24" class="ic"><path d="M3 3h18v18H3z" fill="#9cc46a"/><path d="M7 7h10v8H7z" fill="#c75a3c"/><path d="M7 7l3.5 4L7 15zM17 7l-3.5 4L17 15z" fill="#a8473a"/><path d="M10.5 11h3" fill="none" stroke-width="1.4"/><path d="M7 15h10v2.4H7z" fill="#f2c75a"/></svg>',
+  iso: '<svg viewBox="0 0 24 24" class="ic"><path d="M12 13.5l9.5 4.7L12 23 2.5 18.2z" fill="#9cc46a"/><path d="M7 11.2l5 2.5v5.6l-5-2.5z" fill="#f2c75a"/><path d="M12 13.7l5-2.5v5.6l-5 2.5z" fill="#d9a13c"/><path d="M5.6 11.6L10.4 4l7.8 4.2-1.2 3-5 2.5z" fill="#c75a3c"/></svg>',
 };
+
+// A2 (13 Oct 2026): "From above": the island seen straight down (calm, nothing hidden behind roofs, lighter to draw), or
+// the illustrated angled view. A third round button beside the turn buttons shows the view a tap gives; the choice is
+// remembered on this device (localStorage 'isla-nova-view'; a private window or blocked storage just starts angled).
+// The renderer cross-fades between the two in 0.4 s; the turn buttons turn either view. T on a keyboard.
+const VIEW_KEY = 'isla-nova-view';
+function viewPrefLoad() { try { const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null'); return !!(v && v.top); } catch (e) { return false; } }
+function viewPrefSave(top) { try { localStorage.setItem(VIEW_KEY, JSON.stringify({ top: !!top })); } catch (e) { /* storage blocked: the choice lasts this visit */ } }
+function viewTopSet(top) {
+  if (!APP.R || APP.R.kind === 'flat' || APP.titleOn) return false;
+  APP.view.top = !!top;
+  viewPrefSave(top);
+  topBtnRender();
+  return true;
+}
+function topBtnRender() {
+  const b = $('topBtn');
+  if (!b) return;
+  const top = !!APP.view.top;
+  APP.topShown = top;
+  b.innerHTML = top ? ROT_ICON.iso : ROT_ICON.top;
+  b.setAttribute('aria-pressed', top ? 'true' : 'false');
+  b.setAttribute('aria-label', top ? 'See the island at an angle' : 'See the island from above');
+  b.title = top ? 'At an angle' : 'From above';
+}
 
 function rotInit() {
   const el = $('rotbtns');
   if (!el) return;
   if (APP.R && APP.R.kind === 'flat') { el.style.display = 'none'; return; }
-  el.innerHTML = '<button id="rotL" aria-label="Turn the island left">' + ROT_ICON.l + '</button><button id="rotR" aria-label="Turn the island right">' + ROT_ICON.r + '</button>';
+  el.innerHTML = '<button id="topBtn"></button><button id="rotL" aria-label="Turn the island left">' + ROT_ICON.l + '</button><button id="rotR" aria-label="Turn the island right">' + ROT_ICON.r + '</button>';
+  APP.view.top = viewPrefLoad();
+  topBtnRender();
+  $('topBtn').addEventListener('click', () => viewTopSet(!APP.view.top));
   $('rotL').addEventListener('click', () => viewRotate(-1));
   $('rotR').addEventListener('click', () => viewRotate(1));
   window.addEventListener('keydown', (e) => {
@@ -12340,6 +13161,7 @@ function rotInit() {
     if (t === 'INPUT' || t === 'TEXTAREA') return;
     if (e.key === 'q' || e.key === 'Q') { if (viewRotate(-1)) e.preventDefault(); }
     else if (e.key === 'e' || e.key === 'E') { if (viewRotate(1)) e.preventDefault(); }
+    else if (e.key === 't' || e.key === 'T') { if (viewTopSet(!APP.view.top)) e.preventDefault(); }
   });
   rotPlace();
 }
@@ -12349,7 +13171,8 @@ function rotInit() {
 function rotPlace() {
   const el = $('rotbtns');
   if (!el || el.style.display === 'none') return;
-  const ins = safeInsets(), gap = 10, W = window.innerWidth, bw = el.offsetWidth || 106, bh = el.offsetHeight || 50;
+  if (APP.topShown !== !!APP.view.top) topBtnRender();
+  const ins = safeInsets(), gap = 10, W = window.innerWidth, bw = el.offsetWidth || 162, bh = el.offsetHeight || 50;
   const vis = (id) => { const e = $(id); if (!e) return null; const st = getComputedStyle(e); if (st.display === 'none' || st.visibility === 'hidden') return null; const r = e.getBoundingClientRect(); return r.width && r.height ? r : null; };
   let right = W - gap - ins.r, top = gap + ins.t;
   const tb = vis('top'); if (tb) top = Math.max(top, tb.bottom + gap);
@@ -14534,7 +15357,8 @@ function comTapHit(sx, sy) {
   if (!toolOk) return null;
   // a building drawn under the finger (a roof over the glowing lot behind it) opens as before (Q1: a tap never builds
   // what she did not mean); with the asked tool armed (Rosa's button) the lot under the finger is built
-  if (APP.ui.tool === 'look' && renderPick(APP.R, APP.view, s, sx, sy)) return null;
+  // A2+A5: so does a bubble drawn over a glowing lot or the dotted line (its legend; the space smoke's find)
+  if (APP.ui.tool === 'look' && (renderPick(APP.R, APP.view, s, sx, sy) || bubbleAt(sx, sy))) return null;
   const t = screenToTile(APP.R, APP.view, sx, sy), tx = Math.floor(t.x), ty = Math.floor(t.y);
   const sp = cm.spots.find((p) => tx >= p.x && tx < p.x + p.w && ty >= p.y && ty < p.y + p.h);
   if (sp) return { q, sp };
@@ -14908,6 +15732,234 @@ function confettiRun() {
   };
 }
 
+// ---- src/ui/gazette.js
+// A5 (13 Oct 2026): money with faces, what she sees. (1) The Isla Nueva Gazette at each New Year: one short page she
+// reads (a headline, 4-6 items with numbers and pictograms, Rosa's verdict), closed with one tap; at 1x it opens each
+// year, at 2x/3x a slip "Gazette 1918 · Read" waits at the right edge and every fifth year it opens by itself (the
+// stages have A3's own Gazette page with the photo). The old pages are kept with the island (state.gazettes) and listed
+// in the Album. (2) The desk: prices of local goods (cheap · fair · dear, each with its simulated preview), and the
+// protest's after-effect line under rent and wages. (3) Cards: the maker's and the market's price line, the residence's
+// town services. Sim side: sim/purse.js.
+
+const GZ_ICON = { star: 'light', check: 'smile', warn: 'worker' };
+const GZ_EVERY = 5;
+
+function gzIcon(name) { return iconSvg(GZ_ICON[name] || name || 'log'); }
+
+// The page for year y (default: the last one).
+function gazetteHtml(s, y) {
+  const list = s.gazettes || [], g = y ? list.find((o) => o.y === y) : list[list.length - 1];
+  if (!g) return '';
+  const items = g.items.map((it, k) => '<li class="' + (it.warn ? 'warn' : '') + '"><span class="gpi">' + gzIcon(it.icon) + '</span><span class="gtx">' + esc(it.text) + '</span>' +
+    (it.id && bById(s, it.id) ? '<button class="gshow" data-id="' + it.id + '">Show</button>' : '') + '</li>').join('');
+  return '<div class="gpaper"><div class="gmast">The Isla Nueva Gazette</div><div class="gline"><span>' + esc('January ' + (g.y + 1)) + '</span><span>The year ' + g.y + ' in review</span><span>' +
+    esc(STAGES[g.stage] ? STAGES[g.stage].name : '') + ' · ' + esc(plural(g.pop, 'person', 'people')) + '</span></div>' +
+    '<h2 class="ghead">' + esc(g.head) + '</h2><ul class="gitems">' + items + '</ul>' +
+    '<p class="grosa"><span class="gwho">R</span><span><b>Rosa:</b> “' + esc(g.verdict) + '”</span></p><p class="gtap">Tap anywhere to close</p></div>';
+}
+
+function gazetteOpen(y) {
+  const s = APP.state, el = $('gazette');
+  const html = el && gazetteHtml(s, y);
+  if (!html) return;
+  slipHide(y);
+  const g = y ? (s.gazettes || []).find((o) => o.y === y) : (s.gazettes || []).slice(-1)[0];
+  if (g) APP.gzRead = Math.max(APP.gzRead || 0, g.y);
+  // the clock waits while she reads (as on the stage card)
+  if (!el.classList.contains('show')) { APP.gzPrev = APP.speed; speedSet(0); }
+  el.innerHTML = html;
+  el.classList.add('show');
+  el.scrollTop = 0;
+}
+
+function gazetteClose() {
+  const el = $('gazette');
+  if (!el || !el.classList.contains('show')) return;
+  uiGone(el);
+  el.classList.remove('show');
+  const p = APP.gzPrev;
+  APP.gzPrev = undefined;
+  if (p !== undefined && APP.speed === 0) speedSet(p);
+}
+
+function gazetteClick(e) {
+  const sb = e.target.closest && e.target.closest('.gshow');
+  gazetteClose();
+  if (sb) { const b = bById(APP.state, +sb.dataset.id); if (b) cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id); }
+}
+
+// The slip at the edge: "Gazette 1918 · Read".
+function slipShow(y) {
+  const el = $('gzslip');
+  if (!el) return;
+  el.dataset.y = y;
+  el.innerHTML = gzIcon('log') + '<span>Gazette ' + y + ' · <b>Read</b></span>';
+  el.classList.add('show');
+  slipPlace();
+}
+// Where the slip waits: under the turn buttons at the right edge, else above the bar, else under the top-left notice;
+// the first place that covers no panel (the commissions' stack, Rosa, the receipt, a notice, the card, the pill).
+function slipPlace() {
+  const el = $('gzslip');
+  if (!el || !el.classList.contains('show')) return;
+  const W = innerWidth, H = innerHeight, r0 = el.getBoundingClientRect(), w = r0.width || 180, h = r0.height || 46;
+  const rect = (sel) => { const e = document.querySelector(sel); if (!e || getComputedStyle(e).display === 'none') return null; const r = e.getBoundingClientRect(); return r.width && r.height ? r : null; };
+  const rot = rect('#rotbtns'), bar = rect('#bar'), top = rect('#top');
+  const panels = ['#pill', '#guide', '#receipt.show', '#toast.show', '#card.show', '#glance.show', '#bar', '#rotbtns'].map(rect).filter(Boolean);
+  const st = $('comstack');
+  if (st) for (const k of st.children) { const r = k.getBoundingClientRect(); if (r.width && r.height) panels.push(r); }
+  const free = (x, y) => x >= 0 && y >= 0 && x + w <= W && y + h <= H && !panels.some((r) => !(r.right <= x || r.left >= x + w || r.bottom <= y || r.top >= y + h));
+  const cands = [];
+  if (rot) cands.push([W - w - 10, rot.bottom + 10], [rot.left - w - 10, rot.top + 2]);
+  if (bar) cands.push([W - w - 10, bar.top - h - 10]);
+  const yTop = top ? top.bottom + 10 : 80;
+  for (let y = yTop; y < H - h - 20; y += 24) cands.push([W - w - 10, y]);
+  const c = cands.find(([x, y]) => free(x, y)) || cands[0] || [W - w - 10, yTop];
+  el.style.left = Math.round(c[0]) + 'px'; el.style.top = Math.round(c[1]) + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto';
+}
+
+function slipHide(y) { const el = $('gzslip'); if (el && (!y || +el.dataset.y <= y)) el.classList.remove('show'); }
+
+// At the New Year: the page at 1x (or every fifth year), else the slip; never over a stage's ritual or an open sheet.
+function gazetteArrive(y, ritual) {
+  if (APP.titleOn) return;
+  const busy = ritual || APP.ui.ritual || $('sheet').classList.contains('show') || $('gazette').classList.contains('show');
+  if (!busy && (APP.speed <= 1 || y % GZ_EVERY === 0)) gazetteOpen(y);
+  else slipShow(y);
+}
+
+// ---------- the desk: prices of local goods and the protest ----------
+function deskPricesHtml(s, pv) {
+  const goods = LOCAL_GOODS.filter((n) => localSeen(s, n));
+  if (!goods.length) return '';
+  return '<h4 id="deskPrices">Prices at the markets</h4><p class="sub">Homes pay for food, bread and meat in their rent at the fair price.</p>' + goods.map((need) => {
+    const now = priceOf(s, need);
+    return '<h4 class="ph">' + esc(LOCAL_NAME[need]) + ' (fair: $' + LOCAL_BASE[need] + ' a ' + LOCAL_UNIT[need] + ')</h4><div class="seg">' + ['cheap', 'fair', 'dear'].map((v) => {
+      const p = pv['price:' + need + ':' + v];
+      return '<button data-price="' + need + '" data-v="' + v + '" class="' + (now === v ? 'on' : '') + '"><b>' + v[0].toUpperCase() + v.slice(1) + '</b><span>' + (now === v ? 'now' : esc(p ? p.text : '')) + '</span></button>';
+    }).join('') + '</div><p class="rule">' + esc(priceRule(need)) + '</p>';
+  }).join('');
+}
+
+// ---------- wrappers ----------
+{
+  // the desk
+  const _do = deskOpen;
+  deskOpen = function () {
+    const r = _do.apply(this, arguments);
+    const s = APP.state, sh = $('sheet');
+    // the protest's line under the lever it is about
+    const ul = unrestLine(s);
+    if (ul) {
+      const cs = unrestCauses(s), lv = cs.includes('rent') ? 'rent' : cs.includes('wages') ? 'wages' : 'rent', seg = sh.querySelector('[data-lever="' + lv + '"]');
+      const at = sh.querySelector('#after-' + lv) || (seg && seg.parentNode.nextElementSibling);
+      if (at) at.insertAdjacentHTML('afterend', '<p class="after" id="after-unrest">' + esc(ul) + '</p>');
+    }
+    const ch = [];
+    for (const need of LOCAL_GOODS) if (localSeen(s, need)) for (const v of ['cheap', 'fair', 'dear']) if (v !== priceOf(s, need)) ch.push({ id: 'price:' + need + ':' + v, change: { price: need, value: v } });
+    if (ch.length) {
+      const pv = deskPreviews(s, ch);
+      const last = [...sh.querySelectorAll('p.sub')].pop();
+      if (last) last.insertAdjacentHTML('beforebegin', deskPricesHtml(s, pv));
+      sh.querySelectorAll('[data-price]').forEach((b) => b.addEventListener('click', () => {
+        deskApply(s, { price: b.dataset.price, value: b.dataset.v });
+        s.happy = happyCalc(s).value;
+        toastShow(LOCAL_NAME[b.dataset.price] + ': ' + b.dataset.v + '.');
+        deskOpen();
+        const ph = $('deskPrices');
+        if (ph) ph.scrollIntoView({ block: 'nearest' });
+      }));
+    }
+    if (APP.deskTo === 'prices') { APP.deskTo = ''; const ph = $('deskPrices'); if (ph) ph.scrollIntoView({ block: 'start' }); }
+    return r;
+  };
+  // cards: the price line on a maker of a local good and on a market; the residence's town services
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    let html = _ch.apply(this, arguments);
+    const def = BUILDINGS[b.type];
+    let add = '';
+    if (b.type === 'residence') {
+      const sv = townServices(s);
+      add = '<p class="why">Town services: ' + money$(sv.n) + ' a month' + (sv.rate ? ' ($' + sv.rate.toFixed(2) + ' a person: police, lamps, sweeping, water' + (sv.streets ? '; streets ' + money$(sv.streets) : '') + ')' : sv.streets ? ' (streets)' : ' (from Village on: $' + PURSE.perPerson[1].toFixed(2) + ' a person)') + '. It grows with the people.</p>';
+      const u = s.unrest;
+      if (u && u.crowd && unrestWhy(s)) add += '<p class="note">A crowd of ' + u.crowd + ' with placards: ' + esc(unrestText(s)) + '. Happiness ' + unrestHappy(s) + '.</p>';
+    } else if ((def.makes && LOCAL_GOODS.includes(goodNeed(def.makes))) || def.kind === 'market') {
+      const goods = def.kind === 'market' ? LOCAL_GOODS.filter((n) => localSeen(s, n)) : [goodNeed(def.makes)];
+      if (goods.length) {
+        const L = b.last && b.last.local;
+        add = '<p class="why">' + goods.map((n) => esc(LOCAL_NAME[n]) + ' at the markets: <b>' + priceOf(s, n) + '</b>').join(' · ') + (L ? ' · last month ' + signed$(L) + ' from the price' : '') + '. Dear earns more a sale, but homes buy less and happiness falls; cheap the opposite.</p><button class="link" id="cardPrice">Desk: prices</button>';
+      }
+    }
+    if (!add) return html;
+    // right under the ledger's verdict (in view without scrolling), else before the buttons
+    const v = html.indexOf('<p class="verdict">'), ve = v >= 0 ? html.indexOf('</p>', v) : -1;
+    if (ve > 0) return html.slice(0, ve + 4) + add + html.slice(ve + 4);
+    const k = html.lastIndexOf('<div class="btns');
+    return k > 0 ? html.slice(0, k) + add + html.slice(k) : html + add;
+  };
+  const _cr = cardRender;
+  cardRender = function () {
+    const r = _cr.apply(this, arguments);
+    const pb = $('cardPrice');
+    if (pb && !pb.dataset.on) { pb.dataset.on = 1; pb.addEventListener('click', () => { APP.deskTo = 'prices'; deskOpen(); }); }
+    return r;
+  };
+  // the slip keeps clear of the panels that come and go (at most five times a second, with the HUD)
+  const _hu = hudUpdate;
+  hudUpdate = function () { const r = _hu.apply(this, arguments); slipPlace(); return r; };
+  // (found by the to-do smoke on A5's island) the to-do list hides the commissions' stack while it is open; its Show
+  // closes the list and the stack comes back after the flight was aimed, so the place landed under the stack
+  const _fa = flyAim;
+  flyAim = function () {
+    // the list has just closed (todoClose comes first): the stack is drawn again before the aim is measured
+    if (APP.state && !document.body.classList.contains('todoing')) comStackRender();
+    return _fa.apply(this, arguments);
+  };
+  // the page and the slip exist from the start
+  const _hi = hudInit;
+  hudInit = function () {
+    const r = _hi.apply(this, arguments);
+    if (!$('gazette')) {
+      const g = document.createElement('div');
+      g.id = 'gazette'; g.setAttribute('role', 'dialog'); g.setAttribute('aria-label', 'The Isla Nueva Gazette');
+      document.body.appendChild(g);
+      g.addEventListener('click', gazetteClick);
+      const sl = document.createElement('button');
+      sl.id = 'gzslip'; sl.setAttribute('aria-label', 'Read the Gazette');
+      document.body.appendChild(sl);
+      sl.addEventListener('click', () => gazetteOpen(+sl.dataset.y));
+    }
+    return r;
+  };
+  // the New Year: the Gazette (the old three-line year card only for a year without a page, an island from before A5)
+  const _yc = yearCardShow;
+  yearCardShow = function (year) {
+    if ((APP.state.gazettes || []).some((g) => g.y === year)) return;
+    return _yc.apply(this, arguments);
+  };
+  const _eh = eventsHandle;
+  eventsHandle = function () {
+    const evs = APP.state && APP.state.ev ? APP.state.ev.slice() : [];
+    const r = _eh.apply(this, arguments);
+    const stage = evs.some((e) => e.kind === 'stage');
+    for (const e of evs) if (e.kind === 'gazette') gazetteArrive(e.y, stage);
+    return r;
+  };
+  // the Album lists the old Gazettes
+  const _ao = albumOpen;
+  albumOpen = function () {
+    const r = _ao.apply(this, arguments);
+    const list = (APP.state.gazettes || []).slice().reverse();
+    const sh = $('sheet');
+    if (list.length && sh) {
+      sh.insertAdjacentHTML('beforeend', '<h4>The Gazette</h4><div class="gzlist">' + list.map((g) => '<button class="gzold" data-y="' + g.y + '"><b>' + g.y + '</b><span>' + esc(g.head) + '</span></button>').join('') + '</div>');
+      sh.querySelectorAll('.gzold').forEach((b) => b.addEventListener('click', () => { sheetClose(); gazetteOpen(+b.dataset.y); }));
+    }
+    return r;
+  };
+}
+
 // ---- src/ui/main.js
 // The app: load or start an island, run the clock (pause / 1x / 2x / 3x), turn sim events into what she sees, autosave.
 // Block 5 (iPad): the title screen first, the loop and the clock stop while the page is hidden, saving never throws,
@@ -15053,7 +16105,7 @@ function frameRun(now) {
   // each frame (12-14 ms of a 16-18 ms frame at 1180 x 820, DPR 2). At rest (no finger on the map, no flight, no turn,
   // no tool armed) the town is drawn 30 times a second instead of 60: half the work, the same picture; under a finger
   // and while a tool is armed it is drawn every frame as before.
-  const calm = !APP.gesturing && !APP.fly && !(APP.R && APP.R.turn) && APP.ui.tool === 'look' && !APP.ui.ghost;
+  const calm = !APP.gesturing && !APP.fly && !(APP.R && (APP.R.turn || APP.R.fade)) && APP.ui.tool === 'look' && !APP.ui.ghost;
   if (calm && now - (APP.drawT || 0) < 30) return;
   APP.drawT = now;
   renderDraw(APP.R, s, APP.view, APP.ui);
