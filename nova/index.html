@@ -541,6 +541,46 @@ body.titled #todo, body.titled #greet { display: none !important; }
   .stat.todo.hot .badge.tb { background: var(--red); }
   #greet h2 { font-size: 26px; }
 }
+/* A3: commissions (the stack at the edge, praise, Rosa in the asker's voice), the ritual (confetti, the Gazette), the album */
+#comstack { position: fixed; z-index: 4; display: none; flex-direction: column; align-items: flex-start; gap: 6px; max-width: min(320px, calc(100% - 20px - var(--sl) - var(--sr))); pointer-events: none; }
+#comstack.show { display: flex; }
+#comstack > * { pointer-events: auto; }
+#comstack .cchip { display: flex; align-items: center; gap: 8px; min-height: 48px; max-width: 100%; padding: 4px 12px 4px 5px; border-radius: 26px; background: var(--paper); text-align: left;
+  box-shadow: inset 0 0 0 2px var(--ink), 0 3px 0 rgba(58, 42, 31, 0.3), 0 6px 14px rgba(30, 20, 10, 0.16); font-size: 13.5px; line-height: 1.2; color: var(--ink); }
+#comstack .cchip.main { box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 3px #f2b632, 0 3px 0 rgba(58, 42, 31, 0.3), 0 6px 14px rgba(30, 20, 10, 0.16); }
+#comstack .cchip .ct { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cface { flex: none; width: 38px; height: 38px; border-radius: 50%; color: #fff7ea; border: 2px solid var(--ink); display: flex; align-items: center; justify-content: center;
+  font: italic 700 15px/1 var(--serif); letter-spacing: 0.02em; }
+#comstack .cpraise { display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 16px; background: #e4f1dc; color: #1f5a30; font-weight: 700; font-size: 14px; line-height: 1.3;
+  box-shadow: inset 0 0 0 2px var(--green), 0 3px 0 rgba(47, 122, 69, 0.35), 0 8px 18px rgba(30, 20, 10, 0.18); animation: guideIn 0.5s ease-out; }
+#guide .who.com { font: italic 700 15px/38px var(--serif); }
+@media (min-width: 901px) { #guide.com { max-width: 620px; } }
+#stagecard .gzp { max-height: 38vh; object-fit: cover; }
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 8; pointer-events: none; display: none; }
+#confetti.show { display: block; }
+#stagecard .gz { margin: -4px 0 8px; }
+#stagecard .gzh { font: 700 25px/1.1 var(--serif); letter-spacing: 0.03em; border-bottom: 3px double var(--ink); padding-bottom: 4px; margin-right: 40px; margin-left: 40px; }
+#stagecard .gzd { font: 700 12px var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink2); margin: 4px 0 8px; }
+#stagecard .gzp, #greet .gphoto { display: block; width: 100%; max-width: 420px; margin: 0 auto; border-radius: 6px; border: 3px solid #fffaf0; box-shadow: 0 0 0 2px var(--ink), 0 6px 14px rgba(30, 20, 10, 0.22); }
+#stagecard .gzr { font: italic 600 15px/1.35 var(--serif); margin: 10px 4px 0; }
+#stagecard .big { margin-top: 0; }
+#sheet { max-height: calc(100% - 20px - var(--st) - var(--sb)); overflow-y: auto; }
+.talbum { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 11px; background: var(--paper2); color: var(--ink); font-weight: 800; font-size: 14px;
+  box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); margin: 4px 8px 4px 0; }
+.talbum .ic { width: 18px; height: 18px; fill: var(--ink2); }
+#todo .talbum { position: absolute; top: 4px; right: 54px; margin: 0; }
+#greet .gphoto { max-width: 100%; margin-bottom: 10px; }
+.album { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 8px; }
+.album figure { margin: 0; }
+.album img { width: 100%; border-radius: 5px; border: 3px solid #fffaf0; box-shadow: 0 0 0 2px var(--ink); display: block; }
+.album figcaption { font-size: 13px; margin-top: 5px; display: flex; flex-direction: column; gap: 1px; }
+.album figcaption i { font-family: var(--serif); color: var(--ink2); }
+#todo .crow .lbl { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; }
+#todo .crow .lbl small { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink2); margin-top: 1px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#todo .crow .cface { width: 34px; height: 34px; font-size: 13px; }
+#todo .crow.main .cface { box-shadow: 0 0 0 3px #f2b632; }
+@media (max-width: 600px) { #stagecard .gzh { font-size: 21px; margin-left: 30px; margin-right: 30px; } #todo .crow { flex-wrap: wrap; } #todo .crow .lbl { flex: 1 1 160px; } #todo .crow .bs { margin-left: auto; } #comstack .cchip { font-size: 13px; } }
+body.titled #comstack { display: none !important; }
 #safe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 
@@ -557,6 +597,12 @@ body.titled #todo, body.titled #greet { display: none !important; }
 #trlegend i { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; margin: -8px -10px -8px 4px; cursor: pointer; }
 #trlegend i svg { width: 18px; height: 18px; fill: currentColor; }
 .note.trip { border-left: 3px solid #f0a828; }
+/* A1 (the day turns): the time of day beside the month, "MARCH 1912 · ☀ 07:40" (ui/daytime.js) */
+#date .tod { font-style: normal; white-space: nowrap; margin-left: 0.55em; display: inline-flex; align-items: center; gap: 3px; vertical-align: -3px; }
+#date .tod em { font-family: var(--sans); font-style: normal; font-weight: 800; letter-spacing: 0.06em; font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
+#date .todi { width: 15px; height: 15px; flex: none; color: var(--ink); }
+/* a phone: the clock on its own line under the month (beside it the top row was 47 px wider than the screen) */
+@media (max-width: 600px) { #date .tod { display: flex; margin: 1px 0 0; gap: 3px; font-size: 13.5px; line-height: 1.1; } #date .todi { width: 14px; height: 14px; } #date .tod em { letter-spacing: 0.02em; font-weight: 700; } }
 </style>
 </head>
 <body>
@@ -1580,22 +1626,29 @@ function openWay(state, type, dry) {
     const r = placeRoad(s, w.path, 1);
     if (!w.path.every((i) => s.road[i])) return { ok: false, why: r.why || 'The road could not be laid' };
     // the free lot by a road nearest its old lot (new land along the new road first)
-    let best = null;
+    const lots = [];
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
       if (canPlace(s, 'casita', x, y, { free: true }) !== '') continue;
-      const d = Math.abs(x - hh.x) + Math.abs(y - hh.y);
-      if (!best || d < best.d) best = { x, y, d };
+      lots.push({ x, y, d: Math.abs(x - hh.x) + Math.abs(y - hh.y) });
     }
-    if (!best) return { ok: false, why: 'No free lot by a road for the home' };
+    if (!lots.length) return { ok: false, why: 'No free lot by a road for the home' };
     const cost = moveCost(hh);
     if (s.money < cost) return { ok: false, why: 'Not enough money (' + money$(cost + r.cost) + ')' };
-    hh.x = best.x; hh.y = best.y; s.b.push(hh); s.money -= cost; s.ver++;
+    // A3 (found by the scripted island with commissions): the nearest lot could be the very spot the building needs,
+    // so the field still did not fit; the home takes the nearest lot that leaves a spot for it (of the 12 nearest)
+    lots.sort((a, b2) => a.d - b2.d);
+    let best = lots[0];
+    s.b.push(hh); s.money -= cost;
+    for (const l of lots.slice(0, 12)) { hh.x = l.x; hh.y = l.y; s.ver++; if (!BUILDINGS[type] || fitAnchors(s, type).length) { best = l; break; } }
+    hh.x = best.x; hh.y = best.y; s.ver++;
     return { ok: true, at: [best.x, best.y], road: r.cost, cost: cost + r.cost };
   };
   // the trial is kept per change of the island (Rosa, the bar and the to-do list ask often)
   const c = simCache(state);
   if (!c.openWay) c.openWay = {};
-  const trial = c.openWay[type] || (c.openWay[type] = run(simClone(state)));
+  // A3: a trial that failed only for money is tried again (the cache lives per change of the island, not of the treasury)
+  const kept = c.openWay[type] && !/money/i.test(c.openWay[type].why || '') ? c.openWay[type] : null;
+  const trial = kept || (c.openWay[type] = run(simClone(state)));
   if (!trial.ok || dry) return trial;
   const r = run(state);
   if (r.ok) {
@@ -4472,6 +4525,632 @@ function lotByMoving(s, t, at) {
   guideMonth = function (state) {
     _guideMonth(state);
     if (state.guide.msg && state.guide.msg.key === 'jam') state.guide.seen.jam = state.month + 1;
+  };
+}
+
+// ---- src/sim/commissions.js
+// A3 (13 Oct 2026, PSYCHOLOGY2.md §2-3; Tomáš's T15/T16/T11): commissions from people. Novices follow; they do not
+// browse (she never opened the to-do list, and nothing asked for the railway or the airfield, so they never happened).
+// Every next thing is asked for by a person with a name and a role, at the moment its need is visible, with 2-3 glowing
+// places on the map (or a dotted line for a road, the railway or paving), a reward she feels, and praise when it stands.
+// - One commission is the main one (Rosa says it, its places glow); at most two more wait in a small stack at the
+//   screen's edge; she may tap one to make it the main one (state.com.main).
+// - From the start to Village every step is a commission (the first evening's chain, like the first iPad version's
+//   chapters: road from the pier -> three homes -> fishing hut -> market -> fruit grove -> three more homes), then
+//   needs that pull: families in tents, hungry homes, the stage's chain (cane -> distillery -> harbor), the pill's
+//   blocker (the same goalBlocker Rosa and the pill read, so they never disagree), the landmark, a jam, the railway
+//   (City: the planters of the east valley), the airfield (Port city, from 1920), grand projects, decorations when rich.
+// - Expertise reversal (Kalyuga et al. 2003): once she has done a kind of thing twice, its places are offered, not
+//   imposed: a quiet dotted outline instead of the pulsing glow and arrows (com.faded).
+// - Rewards are small and visible: a gift of money on the payday line "Gifts" (a floater over the building), or
+//   happiness for a year shown in the happiness reasons ("Thanks: the Demir family's bakery +2"), and a line of praise.
+// State (saved with the island): state.com = { list: [commission], main, done: { key: n }, last: { key: month },
+//   kinds: { tool: n }, joy: [{ label, v, until }], n, v, m, chain }.
+// History behind the asks (no web access in A3; from the standard histories, as M5's notes): cane railways into the
+// cane after 1900 (Zanetti & García 1998); flying boats Key West-Havana from 1920 (Aeromarine), Pan Am 1927.
+
+const COM_FIRST = ['Ana', 'Elif', 'Mária', 'Lucía', 'Ayşe', 'Zuzana', 'Carmen', 'Fatma', 'Jana', 'Inés', 'Zeynep', 'Eva'];
+const COM_SUR = ['Santos', 'Yılmaz', 'Kováč', 'Demir', 'Rivera', 'Novák', 'Aydın', 'Mendoza', 'Horváth', 'Kaya', 'Şahin', 'Torres', 'Hudák', 'Çelik', 'Ortiz', 'Özdemir'];
+// Who asks: a role and how they are named (fam: "the Demir family", mr/mrs: "Mr Yılmaz", first: "Ana Santos", or a body).
+const COM_WHO = {
+  boatman: { role: 'the boatman', form: 'mr', col: '#2e6f9a' },
+  settlers: { role: 'settlers on the boat', form: 'fam', col: '#b5682c' },
+  fishwife: { role: 'a fisherman’s wife', form: 'first', col: '#2e9a91' },
+  cook: { role: 'a cook', form: 'mrs', col: '#c0703a' },
+  planter: { role: 'a planter', form: 'mr', col: '#4f8a3a' },
+  family: { role: 'a family in the town', form: 'fam', col: '#b5682c' },
+  merchant: { role: 'a merchant', form: 'mr', col: '#8a5a2e' },
+  priest: { role: 'the parish', form: 'father', col: '#6b4a8a' },
+  teacher: { role: 'the schoolteacher', form: 'first', col: '#7a5a9a' },
+  doctor: { role: 'the doctor', form: 'dr', col: '#b5402c' },
+  harbor: { role: 'the harbour master', form: 'mr', col: '#2e6f9a' },
+  carters: { role: 'the carters’ guild', form: 'body', col: '#7a604b', body: 'The carters’ guild', ini: 'CG' },
+  planters: { role: 'the planters of the east valley', form: 'body', col: '#4f8a3a', body: 'The planters of the east valley', ini: 'PV' },
+  governor: { role: 'the Governor’s office', form: 'body', col: '#24786f', body: 'The Governor’s office', ini: 'GO' },
+  council: { role: 'the town council', form: 'body', col: '#24786f', body: 'The town council', ini: 'TC' },
+  ladies: { role: 'the plaza committee', form: 'first', col: '#c0567a' },
+  pier: { role: 'families waiting at the pier', form: 'fam', col: '#b5682c' },
+};
+
+// A person for a commission: the same seed and count always give the same person.
+function comPerson(s, who, k) {
+  const w = COM_WHO[who] || COM_WHO.family, n = (s.seed || 0) * 7 + k * 5 + who.length;
+  const sur = COM_SUR[n % COM_SUR.length], first = COM_FIRST[(n * 3 + 1) % COM_FIRST.length];
+  const name = w.form === 'body' ? w.body : w.form === 'fam' ? 'The ' + sur + ' family' : w.form === 'mr' ? 'Mr ' + sur :
+    w.form === 'mrs' ? 'Mrs ' + sur : w.form === 'father' ? 'Father ' + sur : w.form === 'dr' ? 'Dr ' + sur : first + ' ' + sur;
+  const ini = w.ini ? w.ini :
+    w.form === 'first' ? first[0] + sur[0] : sur[0];
+  return { name, role: w.role, ini: ini || '?', col: w.col, sur };
+}
+
+function comState(s) {
+  if (!s.com || typeof s.com !== 'object') s.com = {};
+  const c = s.com;
+  if (!Array.isArray(c.list)) c.list = [];
+  if (!c.done) c.done = {};
+  if (!c.last) c.last = {};
+  if (!c.kinds) c.kinds = {};
+  if (!Array.isArray(c.joy)) c.joy = [];
+  if (typeof c.n !== 'number') c.n = 0;
+  if (typeof c.chain !== 'number') c.chain = 0;
+  return c;
+}
+
+const comBName = (t) => (BUILDINGS[t] ? BUILDINGS[t].name.toLowerCase() : t);
+const comA = (t) => (/^[aeiou]/i.test(comBName(t)) ? 'an ' : 'a ') + comBName(t);
+
+// How many of a kind of thing she has done (for the fading glow): buildings of that type, or lines she accepted.
+function comKind(s, tool) {
+  const c = comState(s);
+  if (BUILDINGS[tool]) return countType(s, tool) + (c.kinds[tool] || 0);
+  return c.kinds[tool] || 0;
+}
+
+// 2-3 good places for a building near (x, y): where it fits now by a road, spread apart (the first version's stSpots).
+function comSpots(s, type, near, n) {
+  if (!BUILDINGS[type] || !near) return [];
+  const def = BUILDINGS[type];
+  let list = fitAnchors(s, type);
+  if (!list.length) return [];
+  const cx = near[0], cy = near[1], pier = s.b.find((b) => b.type === 'pier');
+  const score = ([x, y]) => {
+    let d = Math.hypot(x + def.w / 2 - cx, y + def.h / 2 - cy);
+    // homes keep a step from the pier and from workshops; fields keep out of the middle of the town
+    if (def.kind === 'home' && pier && Math.abs(pier.x - x) + Math.abs(pier.y - y) < 3) d += 4;
+    return d;
+  };
+  // never wall the town in (the first version's rule): the two tiles beyond each road's dead end stay free, so the
+  // road can go on into the open land
+  const keep = new Set();
+  for (let i = 0; i < s.road.length; i++) {
+    if (!s.road[i]) continue;
+    const x = i % MAP_W, y = (i / MAP_W) | 0, nb = DIRS4.filter(([dx, dy]) => isRoad(s, x + dx, y + dy));
+    if (nb.length !== 1) continue;
+    for (let k = 1; k <= 2; k++) { const tx = x - nb[0][0] * k, ty = y - nb[0][1] * k; if (inMap(tx, ty)) keep.add(tileIdx(tx, ty)); }
+  }
+  const walls = ([x, y]) => { for (let ty = y; ty < y + def.h; ty++) for (let tx = x; tx < x + def.w; tx++) if (keep.has(tileIdx(tx, ty))) return true; return false; };
+  if (list.some((p) => !walls(p))) list = list.filter((p) => !walls(p));
+  list = list.slice().sort((a, b) => score(a) - score(b));
+  const out = [], sep = Math.max(def.w, def.h) + 1;
+  for (const p of list) {
+    if (out.every((o) => Math.abs(o[0] - p[0]) >= sep || Math.abs(o[1] - p[1]) >= sep)) out.push([p[0], p[1]]);
+    if (out.length >= (n || 3)) break;
+  }
+  return out;
+}
+
+// A straight line of free tiles from (x, y) in the direction with the most room (a road, the railway): at most len.
+function comLine(s, x, y, len, ok, dirs) {
+  let best = [];
+  for (const [dx, dy] of dirs || [[1, 0], [0, 1], [0, -1], [-1, 0]]) {
+    const line = [];
+    for (let k = 1; k <= len; k++) { const tx = x + dx * k, ty = y + dy * k; if (!inMap(tx, ty) || !ok(tx, ty)) break; line.push(tileIdx(tx, ty)); }
+    if (line.length > best.length) best = line;
+  }
+  return best;
+}
+
+// The road from the pier: on from the end of the stub, inland.
+function comPierLine(s) {
+  const end = s.stub[s.stub.length - 1], x = end % MAP_W, y = (end / MAP_W) | 0;
+  return comLine(s, x, y, 8, (tx, ty) => canRoad(s, tx, ty) === '' && !s.road[tileIdx(tx, ty)], [[1, 0], [0, -1], [0, 1]]);
+}
+
+// The railway: from beside the cane's taker (a distillery or the sugar central, within the track's reach of it) out
+// into the open land, 8-14 tiles in a straight line (it may cross a road); the line with the most open land along it.
+function comRailLine(s) {
+  const takers = s.b.filter((b) => { const u = BUILDINGS[b.type].uses; return u && u.cane !== undefined; });
+  const occ = occMap(s), open = (x, y) => { let n = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const tx = x + dx, ty = y + dy; if (inMap(tx, ty) && !occ[tileIdx(tx, ty)] && !s.road[tileIdx(tx, ty)] && s.terrain[tileIdx(tx, ty)] !== SEA && s.terrain[tileIdx(tx, ty)] !== FOREST && tileOpenAt(s, tileIdx(tx, ty))) n++; } return n; };
+  let best = null;
+  for (const t of takers) {
+    for (let sy = t.y - TR.railNear; sy < t.y + t.h + TR.railNear; sy++) for (let sx = t.x - TR.railNear; sx < t.x + t.w + TR.railNear; sx++) {
+      if (!inMap(sx, sy) || railWhy(s, sx, sy) || s.road[tileIdx(sx, sy)] || footDist(t, tile1(tileIdx(sx, sy))) > TR.railNear) continue;
+      for (const [dx, dy] of [[1, 0], [0, 1], [0, -1], [-1, 0]]) {
+        const line = [tileIdx(sx, sy)];
+        for (let k = 1; k <= 13; k++) { const x = sx + dx * k, y = sy + dy * k; if (!inMap(x, y) || railWhy(s, x, y)) break; line.push(tileIdx(x, y)); }
+        if (line.length < 8) continue;
+        let score = 0;
+        for (const i of line.slice(-6)) score += open(i % MAP_W, (i / MAP_W) | 0);
+        score -= line.filter((i) => s.road[i]).length * 6;
+        if (!best || score > best.score) best = { line, t, score };
+      }
+    }
+  }
+  return best && best.score > 60 ? best : null;
+}
+
+// A new street for homes: from a road tile, 5-8 tiles straight into free open land (not along the coast), the one
+// nearest `near` with the most room on both sides.
+function comRoadOut(s, near) {
+  if (!near) return null;
+  let best = null;
+  const free = (x, y) => inMap(x, y) && canRoad(s, x, y) === '' && !s.road[tileIdx(x, y)] && s.terrain[tileIdx(x, y)] !== BEACH;
+  for (let i = 0; i < s.road.length; i++) {
+    if (!s.road[i]) continue;
+    const x = i % MAP_W, y = (i / MAP_W) | 0, d = Math.abs(x - near[0]) + Math.abs(y - near[1]);
+    if (d > 24) continue;
+    for (const [dx, dy] of DIRS4) {
+      const line = comLine(s, x, y, 8, free, [[dx, dy]]);
+      if (line.length < 5) continue;
+      let room = 0;
+      for (const t of line) { const tx = t % MAP_W, ty = (t / MAP_W) | 0; if (free(tx + dy, ty + dx)) room++; if (free(tx - dy, ty - dx)) room++; }
+      const score = room * 2 + line.length - d * 0.5;
+      if (room >= 6 && (!best || score > best.score)) best = { line, score };
+    }
+  }
+  return best ? best.line : null;
+}
+
+// A workshop or field whose road is not joined to the town: the shortest new road (free tiles) from its own road
+// piece (or its edge) to the pier's network.
+function comJoinPath(s, b) {
+  const net = roadNets(s), pier = s.b.find((o) => o.type === 'pier'), main = pier ? bNets(s, pier) : [];
+  if (!main.length) return null;
+  const own = new Set(bNets(s, b)), n = MAP_W * MAP_H, prev = new Int32Array(n).fill(-2), q = [];
+  for (let i = 0; i < n; i++) if (s.road[i] && own.has(net[i])) { prev[i] = -1; q.push(i); }
+  if (!q.length) for (const e of bEntrances(s, b)) { prev[e] = -1; q.push(e); }
+  if (!q.length) { for (let y = b.y - 1; y <= b.y + b.h; y++) for (let x = b.x - 1; x <= b.x + b.w; x++) if (inMap(x, y) && canRoad(s, x, y) === '' && !s.road[tileIdx(x, y)]) { prev[tileIdx(x, y)] = -1; q.push(tileIdx(x, y)); } }
+  for (let h = 0; h < q.length && h < 4000; h++) {
+    const i = q[h], x = i % MAP_W, y = (i / MAP_W) | 0;
+    for (const [dx, dy] of DIRS4) {
+      const nx = x + dx, ny = y + dy;
+      if (!inMap(nx, ny)) continue;
+      const j = tileIdx(nx, ny);
+      if (prev[j] !== -2) continue;
+      if (s.road[j] && main.includes(net[j])) { const path = []; for (let k = i; k >= 0 && !(s.road[k] && own.has(net[k])); k = prev[k]) path.push(k); return path.length && path.length <= 16 ? path.reverse() : null; }
+      if (s.road[j] || canRoad(s, nx, ny) !== '') continue;
+      prev[j] = i; q.push(j);
+    }
+  }
+  return null;
+}
+
+// Would M9's Move it really make room for `t` (tried on a copy)? Only then does an ask offer it.
+function comMoveHelps(s, t) {
+  try { const c2 = simClone(s); return openWay(c2, t).ok && fitAnchors(c2, t).length > 0; } catch (e) { return false; }
+}
+
+// The busy dirt tiles around the worst jam (the paving line).
+function comJamLine(s) {
+  const j = worstJam(s);
+  if (!j || j.kind !== 1 || s.stage < PAVED_STAGE) return null;
+  const jx = j.i % MAP_W, jy = (j.i / MAP_W) | 0, out = [];
+  for (let i = 0; i < s.road.length; i++) if (s.road[i] === 1 && trafficLevel(s, i) > TR.busy && Math.abs(i % MAP_W - jx) + Math.abs(((i / MAP_W) | 0) - jy) <= 5) out.push(i);
+  return out.length ? { line: out.slice(0, 16), at: [jx, jy], where: placeName(s, j.i) } : null;
+}
+
+const comHomes = (s) => s.b.filter((b) => b.type === 'casita');
+const comCentre = (s) => {
+  const m = s.b.find((b) => b.type === 'market'), h = comHomes(s);
+  if (m) return [m.x + 1, m.y + 1];
+  if (h.length) return homesAt(h);
+  const p = s.b.find((b) => b.type === 'pier');
+  return p ? [p.x + 5, p.y] : [MAP_W / 2, MAP_H / 2];
+};
+const comPierAt = (s) => { const p = s.b.find((b) => b.type === 'pier'); return p ? [p.x + 2, p.y] : comCentre(s); };
+const comGift = (cost, share) => Math.max(50, Math.round(cost * (share || 0.1) / 50) * 50);
+
+// The templates. when(s) -> null or { tool, near, need (how many more of tool), line, ask, praise, gift, joy, done }.
+// chain: the first evening's steps, in order (stage 0). p: priority (lower first). who: COM_WHO key.
+const COMMISSIONS = [
+  { key: 'road1', chain: 1, who: 'boatman', when(s) {
+    if (s.road.reduce((a, v) => a + v, 0) > s.stub.length + 2) return null;
+    return { tool: 'road', line: comPierLine(s), ask: 'The first families land this month. A road from the pier into the island, please: tap the dotted line.',
+      praise: 'A fine road. The carts can roll.', done: (q) => q.road.reduce((a, v) => a + v, 0) > q.stub.length + 2 };
+  } },
+  { key: 'homes3', chain: 2, who: 'settlers', when(s) {
+    const n = countType(s, 'casita');
+    if (n >= 3) return null;
+    const r = s.road.findIndex((v, i) => v && !s.stub.includes(i));
+    return { tool: 'casita', need: 3 - n, near: r >= 0 ? [r % MAP_W, (r / MAP_W) | 0] : comPierAt(s), ask: 'We are three families. Three homes along the new road: tap the glowing places.',
+      praise: 'Three roofs! They move in at the end of the month and pay rent on payday.', gift: 0 };
+  } },
+  { key: 'fish1', chain: 3, who: 'fishwife', when(s) {
+    if (countType(s, 'fishing') + countType(s, 'grove') >= 1) return null;
+    return { tool: 'fishing', need: 1, near: comPierAt(s), ask: 'My husband fished all his life. A fishing hut on the beach, and we feed everyone.',
+      praise: 'The boats are out. Fish for everyone tomorrow.', gift: comGift(BUILDINGS.fishing.cost) };
+  } },
+  { key: 'market1', chain: 4, who: 'cook', when(s) {
+    if (countType(s, 'market') >= 1) return null;
+    const h = comHomes(s);
+    return { tool: 'market', need: 1, near: h.length ? homesAt(h) : comCentre(s), ask: 'Fish on the beach feeds nobody. A market near the homes, and every family eats.',
+      praise: 'The market is open: every home within its reach gets food.', gift: comGift(BUILDINGS.market.cost) };
+  } },
+  { key: 'grove1', chain: 5, who: 'planter', when(s) {
+    if (countType(s, 'grove') >= 1) return null;
+    return { tool: 'grove', need: 1, near: comCentre(s), ask: 'The soil is good here. A fruit grove by the road: more food than the sea alone.',
+      praise: 'Mangoes and guavas in the market by next month.', gift: comGift(BUILDINGS.grove.cost) };
+  } },
+  { key: 'homes6', chain: 6, who: 'settlers', when(s) {
+    const n = countType(s, 'casita');
+    if (n >= 6) return null;
+    return { tool: 'casita', need: 6 - n, near: comCentre(s), ask: 'Our cousins come on the next boat. Three more homes near the market, please.',
+      praise: 'Six homes: Isla Nueva is becoming a village.', gift: 0 };
+  } },
+  // ---- needs that pull (any stage) ----
+  { key: 'tents', p: 1, who: 'pier', when(s) {
+    if ((s.waiting || 0) < 3) return null;
+    return { tool: 'casita', need: 2, near: waitAt(s) || comPierAt(s), ask: s.waiting + ' of us sleep in tents at the pier. Two homes by a road, and we move in at once.',
+      praise: 'They carried their bags straight in. No more tents tonight.', joy: 1, gone: (q) => !q.waiting };
+  } },
+  { key: 'food', p: 2, who: 'cook', when(s) {
+    // the same diagnosis as Rosa's food line (guide.js), in the cook's voice, so the two never disagree; only when
+    // its fix is a building (no market, an empty market, homes too far): the other causes stay Rosa's
+    const pr = GUIDE_PROBLEMS.find((q) => q.key === 'food'), m = pr && pr.check(s);
+    const t = m && m.act && m.act.tool;
+    if (!t || !['fishing', 'grove', 'market'].includes(t) || !countType(s, 'market')) return null;
+    return { tool: t, need: 1, near: m.act.at || (t === 'fishing' ? comPierAt(s) : comCentre(s)), ask: m.text.replace(/ Build /, ' Please build ').replace(/\.$/, '') + ', and the plates are full again.',
+      praise: 'Full plates again.', gift: comGift(BUILDINGS[t].cost) };
+  } },
+  { key: 'beds', p: 5, who: 'settlers', when(s) {
+    if (s.stage > 1 || s.waiting || freeBeds(s) > 0 || s.happy < TUNE.happyArrive || countType(s, 'casita') < 3) return null;
+    return { tool: 'casita', need: 2, near: comCentre(s), ask: 'Every home is full and more of us want to come. Two more homes, please.',
+      praise: 'The next boat will fill them.' };
+  } },
+  { key: 'join', p: 2, who: 'planter', when(s) {
+    // Rosa's "the fruit grove has no road to a market" (the yard line), as the asker's dotted road
+    const b = s.b.find((o) => o.blocked === 'yard' && BUILDINGS[o.type].makes && s.month - o.built > 0 && takerState(s, o) === 'unreached');
+    const path = b && comJoinPath(s, b);
+    if (!path || !path.length) return null;
+    const name = comBName(b.type), g = GOODS[BUILDINGS[b.type].makes].name.toLowerCase();
+    return { tool: 'road', line: path, near: [b.x, b.y], select: b.id, sub: String(b.id), ask: 'The ' + name + ' has no road to ' + (GOOD_TAKER[BUILDINGS[b.type].makes] || 'a taker') + ': our ' + g + ' cannot reach the town. Join its road along the dots.',
+      praise: 'The carts roll to town with the ' + g + '.', gift: comGift(BUILDINGS[b.type].cost) };
+  } },
+  // ---- the Village chain: cane -> rum -> harbor (Town needs rum exported), bread, the chapel ----
+  { key: 'cane1', p: 3, who: 'planter', when(s) {
+    if (s.stage < 1 || countType(s, 'cane')) return null;
+    return { tool: 'cane', need: 1, near: comCentre(s), ask: 'Cane grows like grass here. A cane field at the edge of town, and we make rum.',
+      praise: 'The first cane is planted. A distillery will turn it into rum.', gift: comGift(BUILDINGS.cane.cost) };
+  } },
+  { key: 'rum1', p: 3, who: 'merchant', when(s) {
+    if (s.stage < 1 || !countType(s, 'cane') || countType(s, 'distillery')) return null;
+    const f = s.b.find((b) => b.type === 'cane');
+    return { tool: 'distillery', need: 1, near: [f.x + 1, f.y + 1], ask: 'A rum distillery beside the cane, and the ship pays $' + GOODS.rum.price + ' a barrel.',
+      praise: 'Smoke over the still: the first barrels age in the yard.', gift: comGift(BUILDINGS.distillery.cost) };
+  } },
+  { key: 'harbor1', p: 3, who: 'harbor', when(s) {
+    if (s.stage < 1 || !countType(s, 'distillery') || countHarbors(s)) return null;
+    return { tool: 'harbor', need: 1, near: comPierAt(s), ask: 'A harbor on the coast, and the ship takes our rum to Havana every month.',
+      praise: 'The ship will call at the harbor this month: rum for Havana.', gift: comGift(BUILDINGS.harbor.cost), joy: 1 };
+  } },
+  { key: 'chapel1', p: 4, who: 'priest', when(s) {
+    if (s.stage < 1 || countType(s, 'chapel')) return null;
+    const h = homesOccupied(s);
+    return { tool: 'chapel', need: 1, near: h.length ? homesAt(h) : comCentre(s), ask: 'We pray under a tree. A chapel near the homes: Houses need a church in reach.',
+      praise: 'The bell rang for the first time this Sunday.', joy: 1 };
+  } },
+  // ---- the pill's blocker: the need that holds the next stage back (the same goalBlocker as the pill and Rosa) ----
+  { key: 'need', p: 2, who: 'family', when(s) {
+    const k = goalBlocker(s);
+    if (!k || !k.need || !k.tool || !BUILDINGS[k.tool] && !['paved', 'tram'].includes(k.tool)) return null;
+    const who = { church: 'priest', school: 'teacher', clinic: 'doctor', park: 'family', bread: 'family', deco: 'ladies', market: 'cook' }[k.need] || 'family';
+    const what = BUILDINGS[k.tool] ? comA(k.tool) : k.tool === 'tram' ? 'a tram line' : 'a paved street';
+    const lv = LEVELS[k.level] ? LEVELS[k.level].name + 's' : 'better homes';
+    return { tool: k.tool, need: BUILDINGS[k.tool] ? 1 : 0, near: k.at || comCentre(s), who, sub: k.need,
+      ask: what.replace(/^./, (x) => x.toUpperCase()) + ' near us: ' + (k.n || 'our') + ' homes lack ' + NEED_NAMES[k.need] + ' to become ' + lv + '.',
+      praise: 'The street has ' + NEED_NAMES[k.need] + ' now: homes can move up.', joy: 1, gift: BUILDINGS[k.tool] ? comGift(BUILDINGS[k.tool].cost, 0.05) : 0,
+      gone: (q) => { const b = goalBlocker(q); return !b || b.need !== k.need; } };
+  } },
+  { key: 'landmark', p: 1, who: 'governor', when(s) {
+    const { next, conds } = stageConds(s);
+    if (!next || next.goal || !conds.length) return null;
+    const lm = conds.find((c) => c.landmark);
+    if (!lm || lm.ok || conds.some((c) => !c.landmark && !c.ok)) return null;
+    if (next.landmark.res) {
+      const r = s.b.find((b) => b.type === 'residence'), R = RESIDENCE[next.landmark.res];
+      return { tool: '', res: next.landmark.res, select: r && r.id, near: r ? [r.x, r.y] : comCentre(s), glowB: r && r.id,
+        ask: next.name + ' needs only its landmark: the ' + R.name + ', ' + money$(R.cost) + '. Tap the glowing residence.',
+        praise: 'The ' + R.name + ' stands on the hill.', done: (q) => (q.res || 0) >= next.landmark.res };
+    }
+    const t = next.landmark.b;
+    return { tool: t, need: 1, near: comPierAt(s), ask: next.name + ' needs only its landmark: ' + comA(t) + ', ' + money$(BUILDINGS[t].cost) + '.',
+      praise: 'The ' + comBName(t) + ' is built.' };
+  } },
+  { key: 'ships', p: 3, who: 'harbor', when(s) {
+    const f = shipsFull(s);
+    if (!f || f.n < 6) return null;
+    const t = f.quayOpen ? 'quay' : 'harbor';
+    return { tool: t, need: 1, near: comPierAt(s), ask: f.n + ' ' + GOODS[f.g].name.toLowerCase() + ' wait for a ship. ' + comA(t).replace(/^./, (x) => x.toUpperCase()) + ' on the coast, and more ships call.',
+      praise: 'More ships call now: nothing waits on the quay.', gift: comGift(BUILDINGS[t].cost, 0.05) };
+  } },
+  // ---- transport: paving a jam, the railway, the airfield ----
+  { key: 'paving', p: 3, who: 'carters', when(s) {
+    const j = comJamLine(s);
+    if (!j) return null;
+    return { tool: 'paved', line: j.line, near: j.at, ask: 'Our carts crawl on ' + j.where + '. Pave the dotted stretch: twice as fast, twice the carts.',
+      praise: 'The carts roll again on ' + j.where + '.', joy: 1, done: (q) => j.line.every((i) => q.road[i] >= 2) || !worstJam(q) };
+  } },
+  { key: 'railway', p: 2, who: 'planters', when(s) {
+    if (s.stage < TR.railStage || (s.rail || []).length) return null;
+    const fields = s.b.filter((b) => railField(BUILDINGS[b.type]));
+    if (fields.length < 2 || !s.b.some((b) => { const u = BUILDINGS[b.type].uses; return u && u.cane !== undefined; })) return null;
+    const L = comRailLine(s);
+    if (!L) return null;
+    let far = 0;
+    for (const f of fields) { const tr = producerTrip(s, f); if (tr && tr.tiles > far) far = tr.tiles; }
+    return { tool: 'rail', line: L.line, near: [L.t.x, L.t.y], gift: Math.round(L.line.length * TR.railCost / 2),
+      ask: (far >= 8 ? 'Our cane rides ' + far + ' tiles of road to the mill and dries on the way. ' : 'The valley past the mill is good land with no road. ') +
+        'A railway into the valley (the dotted line): fields by the track need no road. We pay half.',
+      praise: 'The first train! Fields beside the track need no road now: plant cane along it.', done: (q) => (q.rail || []).length >= 6 };
+  } },
+  { key: 'railfields', p: 3, who: 'planters', when(s) {
+    if (!(s.rail || []).length || s.stage < TR.railStage) return null;
+    const L = railLines(s).lines, onLine = L.reduce((a, l) => a + l.fields.length, 0);
+    if (onLine >= 2) return null;
+    const rail = s.rail, mid = rail[(rail.length / 2) | 0];
+    return { tool: 'cane', need: 1, near: [mid % MAP_W, (mid / MAP_W) | 0], nearRail: true, ask: 'A cane field beside the new track (no road needed), and the train takes its cane.',
+      praise: 'Cane on the line: the train takes it to the mill.', gift: comGift(BUILDINGS.cane.cost) };
+  } },
+  { key: 'airfield', p: 2, who: 'governor', when(s) {
+    if (s.stage < BUILDINGS.airfield.stage || yearOf(s) < TR.airYear || countType(s, 'airfield')) return null;
+    return { tool: 'airfield', need: 1, near: comPierAt(s), joy: 1,
+      ask: 'Visitors on the flying boats from Key West are turned away at the pier. An airfield on the coast, and they come every week.',
+      praise: 'The first flying boat touched down: visitors walk up from the slipway.' };
+  } },
+  // ---- money with a destination: grand projects; decorations when the town is rich ----
+  { key: 'project', p: 6, who: 'council', when(s) {
+    const pr = GUIDE_PROBLEMS.find((q) => q.key === 'project'), m = pr && pr.check(s), t = projectNext(s);
+    if (!m || !t) return null;
+    return { tool: t, need: 1, near: comCentre(s), ask: 'The treasury holds ' + money$(s.money) + '. The ' + comBName(t) + ' (' + money$(BUILDINGS[t].cost) + ', ' + BUILDINGS[t].project + ' months): ' + PROJECT_FX[BUILDINGS[t].gives].text + '.',
+      praise: 'The scaffolding is up: the ' + comBName(t) + ' is being built.' };
+  } },
+  { key: 'deco', p: 7, who: 'ladies', when(s) {
+    const r = s.lastReceipt;
+    if (s.stage < 1 || !r || s.money < 3 * Math.max(r.result, 1000)) return null;
+    const bare = homesOccupied(s).filter((h) => !homeHas(s, h, 'deco'));
+    if (bare.length < 6) return null;
+    const t = ['fountain', 'palms', 'garden'].find((k) => BUILDINGS[k].stage <= s.stage && fitAnchors(s, k).length) || 'garden';
+    return { tool: t, need: 1, near: homesAt(bare), joy: 1, ask: 'The town is doing well. ' + comA(t).replace(/^./, (x) => x.toUpperCase()) + ' among the ' + bare.length + ' homes with nothing pretty near them?',
+      praise: 'Children play around the ' + comBName(t) + ' all evening.' };
+  } },
+];
+
+// The main commission: her choice when it is still open, else the most important one.
+// (a commission with nowhere to go yet, no place and no road to one, waits behind one she can do now)
+function comMain(s) {
+  const c = comState(s), can = (q) => q.res || q.spots.length || (q.line && q.line.length) || (q.road && q.road.length) || q.move || !BUILDINGS[q.tool];
+  return c.list.find((q) => q.key === c.main) || c.list.find((q) => q.key === c.voice && can(q)) || c.list.find(can) || c.list[0] || null;
+}
+
+function comCount(s, q) { return q.tool === 'rail' ? (s.rail || []).length : BUILDINGS[q.tool] ? countType(s, q.tool) : 0; }
+
+// A new commission from a template's answer.
+function comMake(s, T, r) {
+  const c = comState(s);
+  c.n++;
+  if (!c.asked) c.asked = {};
+  if (c.asked[T.key] === undefined) c.asked[T.key] = s.month;
+  const who = comPerson(s, r.who || T.who, c.n);
+  const q = { key: T.key, sub: r.sub || '', who, tool: r.tool, need: r.need || 0, base: 0, m0: s.month, ask: r.ask, praise: r.praise || 'Thank you!',
+    gift: r.gift || 0, joy: r.joy ? 1 : 0, near: r.near || null, line: r.line || null, select: r.select || 0, glowB: r.glowB || 0, res: r.res || 0, nearRail: !!r.nearRail,
+    chain: T.chain || 0, p: T.chain ? 0 : T.p || 5, spots: [], sv: -1 };
+  q.base = comCount(s, q);
+  q.faded = comKind(s, q.tool || 'res') >= 2;
+  comRespot(s, q);
+  return q;
+}
+
+// Its glowing places, worked out again when the island changed and one of them no longer fits.
+function comRespot(s, q) {
+  if (q.sv === s.ver) return;
+  q.sv = s.ver;
+  if (!BUILDINGS[q.tool] || !q.near) { q.spots = []; return; }
+  const def = BUILDINGS[q.tool];
+  if (q.spots.length && !q.road && q.spots.every(([x, y]) => canPlace(s, q.tool, x, y, { free: true }) === '')) return;
+  let sp = comSpots(s, q.tool, q.near, def.w * def.h >= 9 ? 2 : 3);
+  if (q.nearRail && (s.rail || []).length) {
+    const near = (x, y) => s.rail.some((i) => footDist({ x, y, w: def.w, h: def.h }, tile1(i)) <= TR.railNear);
+    sp = fitAnchors(s, q.tool).filter(([x, y]) => near(x, y)).slice(0, 3);
+  }
+  q.spots = sp;
+  // no lot by a road: the road to the nearest open land is part of the ask (dots she can tap: "Road first")
+  q.road = null; q.move = 0; q.moveFor = '';
+  if (!sp.length && !q.nearRail) {
+    const w = wayFor(s, q.tool);
+    const out = BUILDINGS[q.tool] && BUILDINGS[q.tool].kind === 'home' ? comRoadOut(s, q.near) : null;
+    if (w && w.step === 'road' && w.path && w.path.length && w.spot) { q.road = w.path; q.spots = [w.spot]; }
+    // homes: a new street into the open land (lots on both sides of it), the first version's "lay a new road"
+    else if (out) { q.road = out; q.spots = []; }
+    // walled in by her own homes: M9's one step (the home moves beside a new road through its lot); for homes the
+    // road opens the way for a block (a market's 2 x 2 lot), and the new street follows from there
+    else {
+      const t = BUILDINGS[q.tool] && BUILDINGS[q.tool].kind === 'home' ? 'market' : q.tool, w2 = t === q.tool ? w : wayFor(s, t);
+      if (w2 && w2.step === 'remove' && w2.spot && openWayPlan(s, t) && comMoveHelps(s, t)) { q.move = w2.id; q.moveFor = t; q.spots = t === q.tool ? [w2.spot] : []; }
+    }
+  }
+}
+
+// The template's own done test, else: as many more of its tool as it asked for.
+function comIsDone(s, q) {
+  const T = COMMISSIONS.find((t) => t.key === q.key);
+  if (q.res) return (s.res || 0) >= q.res;
+  if (q.key === 'road1') return s.road.reduce((a, v) => a + v, 0) > s.stub.length + 2;
+  if (q.key === 'railway') return (s.rail || []).length >= 6;
+  if (q.key === 'paving') return !!q.line && q.line.every((i) => s.road[i] >= 2);
+  if (q.key === 'join') { const b = bById(s, q.select); return !b || takerState(s, b) !== 'unreached'; }
+  if (q.tool === 'tram') return (s.tram || []).length > 0 && T && !T.when(s);
+  if (q.need > 0) return comCount(s, q) >= q.base + q.need;
+  return T ? !T.when(s) : true;
+}
+
+// The trigger is gone without her (a want that went away by itself): it leaves the stack quietly.
+function comGone(s, q) {
+  if (q.chain) return false;
+  const T = COMMISSIONS.find((t) => t.key === q.key);
+  if (!T) return true;
+  const r = T.when(s);
+  if (!r) return true;
+  if ((q.key === 'need' || q.key === 'join') && r.sub !== q.sub) return true;
+  // the cause changed (Rosa's diagnosis now names another fix): this ask is not the right one any more
+  if (r.tool !== undefined && q.tool && r.tool !== q.tool) return true;
+  return false;
+}
+
+// Done: the reward (money as a gift line on the next payday, happiness for a year), the praise, the kind counted.
+function comFinish(s, q) {
+  const c = comState(s);
+  c.list = c.list.filter((o) => o !== q);
+  if (c.main === q.key) c.main = '';
+  c.done[q.key] = (c.done[q.key] || 0) + 1;
+  c.last[q.key + (q.sub ? ':' + q.sub : '')] = s.month;
+  c.kinds[q.tool || 'res'] = (c.kinds[q.tool || 'res'] || 0) + (BUILDINGS[q.tool] ? 0 : 1);
+  if (q.gift) { s.money += q.gift; c.gifts = (c.gifts || 0) + q.gift; }
+  if (q.joy) { c.joy.push({ label: 'Thanks: ' + q.who.name.replace(/^The /, 'the ') + (q.tool && BUILDINGS[q.tool] ? '’s ' + comBName(q.tool) : ''), v: 2, until: s.month + 12 }); c.joy = c.joy.slice(-4); }
+  const thanks = q.who.name + ': “' + q.praise + '”' + (q.gift ? ' +' + money$(q.gift) : '') + (q.joy ? ' (+2 happiness for a year)' : '');
+  s.log.push({ m: s.month, text: thanks });
+  if (s.log.length > TUNE.logMax) s.log.shift();
+  simEvent(s, { kind: 'com', what: 'done', key: q.key, text: thanks, gift: q.gift, who: q.who, at: q.spots[0] || q.near });
+}
+
+// Every few ticks: finished ones are praised; new ones are asked (the first evening's chain at once, the rest at most
+// one new a month); at most three wait; then Rosa's line follows the main one.
+function comTick(s) {
+  // TUNE.comOff: an island without commissions (tests that rebuild an earlier module's scenario)
+  if (TUNE.comOff) return;
+  const c = comState(s);
+  let changed = false;
+  for (const q of c.list.slice()) {
+    if (comIsDone(s, q)) { comFinish(s, q); changed = true; continue; }
+    if (comGone(s, q)) { c.list = c.list.filter((o) => o !== q); c.last[q.key + (q.sub ? ':' + q.sub : '')] = s.month; if (c.main === q.key) c.main = ''; changed = true; continue; }
+  }
+  const fresh = changed || c.m !== s.month || (c.v !== s.ver && s.stage === 0);
+  c.v = s.ver;
+  if (fresh) {
+    const newOne = c.m !== s.month || s.stage === 0 || changed;
+    c.m = s.month;
+    // the first evening: the next undone step of the chain, one at a time, before anything else
+    const chainOpen = c.list.some((q) => q.chain);
+    if (!chainOpen && s.stage === 0) {
+      for (const T of COMMISSIONS.filter((t) => t.chain).sort((a, b) => a.chain - b.chain)) {
+        if (T.chain <= c.chain) continue;
+        const r = T.when(s);
+        c.chain = T.chain;
+        if (r) { c.list.unshift(comMake(s, T, r)); simEvent(s, { kind: 'com', what: 'new', key: T.key }); break; }
+      }
+    }
+    if (newOne && c.list.length < 3) {
+      const cand = [];
+      for (const T of COMMISSIONS) {
+        if (T.chain || c.list.some((q) => q.key === T.key)) continue;
+        // a want she just met or that just went away waits half a year before it is asked again
+        const r = T.when(s);
+        if (!r) continue;
+        const lk = T.key + (r.sub ? ':' + r.sub : '');
+        if (c.last[lk] !== undefined && s.month - c.last[lk] < 6) continue;
+        cand.push([T, r]);
+      }
+      cand.sort((a, b) => (a[0].p || 5) - (b[0].p || 5));
+      // during the first evening's chain only the urgent ones join it (tents, hunger)
+      const room = 3 - c.list.length;
+      let added = 0;
+      for (const [T, r] of cand) {
+        if (added >= Math.min(room, s.stage === 0 && c.list.some((q) => q.chain) ? 1 : 2)) break;
+        if (s.stage === 0 && c.list.some((q) => q.chain) && (T.p || 5) > 2) continue;
+        c.list.push(comMake(s, T, r)); added++;
+        simEvent(s, { kind: 'com', what: 'new', key: T.key });
+      }
+      c.list.sort((a, b) => a.p - b.p);
+    }
+  }
+  for (const q of c.list) comRespot(s, q);
+  comGuide(s);
+}
+
+// Rosa's line follows the main commission. Her own lines that must be said now (the red treasury, a strike, homes
+// stepping down, settlers who sailed, a workshop with no input, the first ready home...) stay hers, except when a
+// commission asks for the very same thing: then that person says it (waiting settlers -> the families in tents, the
+// pill's blocker -> the street that lacks it, the jam -> the carters, full ships, the landmark, hunger -> the cook), and
+// that commission is the one that glows. Her soft lines (the intro, hints, full homes) give way to any commission.
+const COM_SOFT = /^(i-|hint-payday|hint-stage|beds|grow|com-)/;
+const COM_SAME = { waiting: 'tents', goal: 'need', jam: 'paving', ships: 'ships', landmark: 'landmark', food: 'food', project: 'project', beds: 'beds', yard: 'join' };
+function comGuide(s) {
+  const g = s.guide, c = comState(s);
+  const same = g.msg && COM_SAME[g.msg.key] && c.list.find((o) => o.key === COM_SAME[g.msg.key]);
+  c.voice = same ? same.key : '';
+  const q = same || comMain(s);
+  if (!q) { if (g.msg && g.msg.key.startsWith('com-')) g.msg = null; return; }
+  if (g.msg && !same && !COM_SOFT.test(g.msg.key)) return;
+  const prog = q.need > 1 ? ' (' + Math.max(0, comCount(s, q) - q.base) + ' of ' + q.need + ')' : '';
+  const at = q.spots[0] || (q.line && q.line.length ? [q.line[0] % MAP_W, (q.line[0] / MAP_W) | 0] : q.near);
+  const first = q.road && q.road.length ? ' No lot by a road yet: lay the dotted road first (' + money$(q.road.length * TUNE.roadCost) + ').' :
+    q.move ? ' Your homes wall the open land in: Move it (the glowing home moves beside a new road; its people stay).' : '';
+  const text = q.who.name + ': “' + q.ask + '”' + prog + first;
+  const btn = q.res ? 'Residence' : q.move ? 'Move it' : q.line || first ? 'Lay it' : toolLabel(q.tool);
+  // when the person says Rosa's own line, her line's place and selection stay (Show marks the same homes)
+  const under = same ? g.msg.act || {} : {};
+  const act = q.res ? { select: q.select, com: q.key } : Object.assign({}, under, { tool: q.tool, at, com: q.key });
+  if (g.msg && g.msg.key === 'com-' + q.key && g.msg.text === text) return;
+  // her ✕ on Rosa's line rests the commission's voice for 3 months (its places still glow; the stack keeps it)
+  if (g.snooze['com-' + q.key] > s.month) return;
+  const said = 'com-' + q.key + '|' + text;
+  // said before (Rosa's month-end cleared it): back on her line without a second log entry
+  const msg = { key: 'com-' + q.key, text, btn, act, under: same ? g.msg.key : '' };
+  if (c.said === said) { g.msg = msg; simEvent(s, { kind: 'guide' }); return; }
+  c.said = said;
+  guideSay(s, msg);
+}
+
+// Her pick from the stack: that one becomes the main one (Rosa says it, its places glow).
+function comPick(s, key) {
+  const c = comState(s);
+  if (!c.list.some((q) => q.key === key)) return false;
+  c.main = key;
+  comGuide(s);
+  return true;
+}
+
+// Accepting a dotted line: the road, the railway or the paving is laid along it (what she can afford).
+function comLay(s, q) {
+  if (q && q.move) { const r = openWay(s, q.moveFor || q.tool); return { built: r.ok ? 1 : 0, cost: r.cost || 0, why: r.why || '' }; }
+  if (q && q.road && q.road.length && !(q.line && q.line.length)) return placeRoad(s, q.road, 1);
+  if (!q || !q.line || !q.line.length) return { built: 0, why: 'No line' };
+  if (q.tool === 'rail') return placeRail(s, q.line);
+  if (q.tool === 'paved') return placeRoad(s, q.line, 2);
+  return placeRoad(s, q.line, 1);
+}
+
+{
+  const _simTick = simTick;
+  simTick = function (state) { _simTick(state); if (state.tick % 5 === 0 || (state.com && state.com.v !== state.ver)) comTick(state); };
+  const _happyCalc = happyCalc;
+  happyCalc = function (state) {
+    const r = _happyCalc(state), c = state.com;
+    if (c && c.joy) {
+      c.joy = c.joy.filter((j) => j.until > state.month);
+      const v = Math.min(6, c.joy.reduce((a, j) => a + j.v, 0));
+      if (v) { r.parts.push({ label: c.joy.length === 1 ? c.joy[0].label : 'Thanks from ' + c.joy.length + ' families you helped', v }); r.value = Math.max(0, Math.min(100, r.value + v)); }
+    }
+    return r;
+  };
+  const _newGame = newGame;
+  newGame = function (seed) { const s = _newGame.apply(this, arguments); comState(s); comTick(s); return s; };
+  const _loadGame = loadGame;
+  loadGame = function (obj) {
+    const s = _loadGame.apply(this, arguments);
+    comState(s);
+    // an island from before A3 has done the first evening long ago: its chain is closed
+    if (!s.com.v && s.month > 0) s.com.chain = 99;
+    return s;
   };
 }
 
@@ -8466,6 +9145,329 @@ const ISO = (() => {
     uiDraw(R, labelSprite(R, text, !blk && !plan.bad.length && afford), p[0], p[1] - 34);
   }
 
+  // ---------- A1 — the day turns (13 Oct 2026; the clock, the tint's colours and the commuters' plan: ui/daytime.js) ----------
+  // After the scene and before the marks (bubbles, labels, floaters and the ghost stay as by day): one full-screen
+  // multiply in the colour of the hour, then the lights added on top ('lighter'), all from one shared 64 px glow sprite:
+  // windows of homes whose people are home, workplaces open in the evening, street lamps on paved roads and the pier,
+  // ships' lanterns, cars' headlights, the lighthouse's beam. At most DAY_LIGHTS glows a frame; a light hidden behind a
+  // building in front of it (R.grid along the view diagonal) is not drawn. Nothing is cached per building.
+  // The commuters are dynamic objects (dynCollect), sorted in depth with the carts and walkers.
+  const DAY_LIGHTS = 150, DAY_WINDOWS = 90, DAY_LAMPS = 45;
+  function dayOn(s) { return !!s && typeof dayClock === 'function' && !(typeof APP !== 'undefined' && APP.dayOff); }
+  function glowSprite(R) {
+    if (R.glow) return R.glow;
+    const c = canvasNew(64, 64), g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,244,210,1)'); gr.addColorStop(0.16, 'rgba(255,214,140,0.85)'); gr.addColorStop(0.45, 'rgba(255,172,82,0.3)'); gr.addColorStop(1, 'rgba(255,150,60,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    return (R.glow = c);
+  }
+  function dayTintDraw(R, s) {
+    if (!dayOn(s)) return;
+    const c = dayTint(dayClock(s));
+    if (c[0] > 252 && c[1] > 252 && c[2] > 252) return;
+    const g = R.ctx;
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'multiply';
+    g.fillStyle = 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; g.fillRect(0, 0, R.canvas.width, R.canvas.height);
+    g.restore();
+  }
+  // Is a point (view u, v, height z) covered by a static object drawn after object `self`? (The screen point of
+  // (u, v, z) is also that of (u + a, v + a, z + a / ZS): anything standing there at least that tall hides it.)
+  function dayHidden(R, u, v, z, self) {
+    const VW = R.gridW, VH = R.gridH;
+    for (let a = 0.3; a < 3.8; a += 0.42) {
+      const uu = Math.floor(u + a), vv = Math.floor(v + a);
+      if (uu < 0 || vv < 0 || uu >= VW || vv >= VH) return false;
+      const k = R.grid[vv * VW + uu];
+      if (k < 0 || k <= self) continue;
+      const o = R.order[k];
+      // a home stands inside its lot (a garden around it): the line of sight passes it in the garden
+      if (o.k === 'b' && o.b.type === 'casita') { const fu = u + a - uu, fv = v + a - vv; if (fu < 0.08 || fu > 0.88 || fv < 0.08 || fv > 0.88) continue; }
+      if (o.h * 0.85 >= z + a / ZS) return true;
+    }
+    return false;
+  }
+  // The windows of a building: [view-local u, v, height of the centre, on the u face (fl), width, height], from the
+  // painted layouts (paintHome, paintTownhouse, paintMansion; other kinds: a body inset from the front faces).
+  function dayWins(R, s, b, vw, vh) {
+    const def = BUILDINGS[b.type], art = bArt(def);
+    const fw = (B, onFl, f, t, ww, wh) => (onFl ? [B[0] + B[2] * f, B[1] + B[3], t, true, ww, wh] : [B[0] + B[2], B[1] + B[3] - B[3] * f, t, false, ww, wh]);
+    const out = [];
+    if (art === 'home') {
+      const lv = b.level || 1, fy = homeFace(s, b, R.rot || 0) === 'y';
+      if (lv <= 1) { const B = [0.15, 0.15, 0.64, 0.64]; return [fw(B, fy, fy ? 0.73 : 0.74, 0.255, 0.14, 0.15), fw(B, !fy, 0.5, 0.255, 0.14, 0.15)]; }
+      if (lv === 2) { const B = [0.1, 0.1, 0.72, 0.72]; for (const [f, t, df] of [[0.73, 0.27, 1], [0.3, 0.27, 0], [0.3, 0.73, 1], [0.72, 0.73, 0], [0.72, 0.27, 0], [0.73, 0.73, 1], [0.3, 0.73, 0]]) out.push(fw(B, df ? fy : !fy, f, t, 0.15, 0.21)); return out; }
+      if (lv === 3) { const B = [0.06, 0.06, fy ? 0.84 : 0.7, fy ? 0.7 : 0.84]; for (const [f, t, df] of [[0.2, 0.27, 1], [0.28, 0.27, 0], [0.5, 0.76, 1], [0.8, 0.27, 1], [0.72, 0.76, 0], [0.2, 0.76, 1], [0.28, 0.76, 0], [0.8, 0.76, 1], [0.72, 0.27, 0]]) out.push(fw(B, df ? fy : !fy, f, t, 0.13, 0.23)); return out; }
+      if (lv === 4) { const B = [0.08, 0.08, 0.84, 0.84]; for (const t of [0.29, 0.79, 1.31]) for (const f of [0.3, 0.72]) { if (t > 0.3 || f > 0.5) out.push(fw(B, fy, f, t, 0.15, 0.34)); out.push(fw(B, !fy, f, t, 0.15, 0.34)); } return out; }
+      const B = [0.05, 0.05, fy ? 0.9 : 0.68, fy ? 0.68 : 0.9];
+      for (const f of [0.17, 0.33, 0.67, 0.83]) out.push(fw(B, fy, f, 0.29, 0.11, 0.3));
+      for (const f of [0.17, 0.33, 0.5, 0.67, 0.83]) out.push(fw(B, fy, f, 0.88, 0.11, 0.32));
+      for (const f of [0.25, 0.5, 0.75]) { out.push(fw(B, !fy, f, 0.29, 0.11, 0.3)); out.push(fw(B, !fy, f, 0.88, 0.11, 0.32)); }
+      return out;
+    }
+    if (art === 'hut' || art === 'harbor' || art === 'pier') return [[vw * 0.5, vh - 0.1, 0.5, true, 0.12, 0.14]];
+    const ins = 0.14, H = bHeight(b), t0 = Math.min(0.42, H * 0.22), B = [ins, ins, vw - 2 * ins, vh - 2 * ins];
+    const nU = Math.max(1, Math.round(vw * 1.2)), nV = Math.max(1, Math.round(vh * 1.2));
+    for (let k = 0; k < Math.max(nU, nV); k++) {
+      if (k < nU) out.push(fw(B, true, (k + 0.5) / nU, t0, 0.14, 0.2));
+      if (k < nV) out.push(fw(B, false, (k + 0.5) / nV, t0, 0.14, 0.2));
+    }
+    if (H > 1.8) for (let k = 0; k < nU; k++) out.push(fw(B, true, (k + 0.5) / nU, t0 + 0.6, 0.14, 0.2));
+    return out;
+  }
+  // How many of a building's windows are lit now (0: dark): homes while their people are home (homeLit), workplaces
+  // with workers until 21:00-22:30, markets until 20:30, the residence until after midnight, clinics and harbors all night.
+  function dayLitN(s, b, tod, nWin) {
+    const def = BUILDINGS[b.type], art = bArt(def), m = tod < 300 ? tod + 1440 : tod, r = h2(b.id * 3 + 1, 41);
+    if (art === 'field' || def.deco || b.wip || b.build) return 0;
+    if (art === 'home') { if (!b.res || !homeLit(s, b, tod)) return 0; return Math.min(nWin, Math.max(1, Math.round(nWin * (0.45 + 0.4 * h2(b.id, Math.floor(m / 45)))))); }
+    if (b.open === false) return 0;
+    if (art === 'residence') return m >= 1080 && m < 1470 + 60 * r ? nWin : 0;
+    if (def.gives === 'clinic' || def.gives === 'hospital' || art === 'harbor' || art === 'pier' || art === 'hut' || def.gives === 'light') return Math.max(1, Math.round(nWin * 0.5));
+    if (!b.workers && def.jobs) return 0;
+    const off = art === 'market' ? 1230 : def.gives === 'church' ? 1260 : def.gives === 'school' ? 1110 : 1260 + 90 * r;
+    if (m >= 1050 && m < off) return nWin;
+    if (tod >= 330 && tod < 470 && art === 'workshop') return Math.ceil(nWin / 2);
+    return 0;
+  }
+  function dayLamps(s) {
+    // paved roads and avenues: a lamp every third tile (with the old gas lamps of the plazas in mind; electric street
+    // light reached Havana in 1889), on the tile's corner toward the viewer at turn 0
+    const out = [];
+    for (let i = 0; i < s.road.length; i++) if (s.road[i] >= 2) { const x = i % MAP_W, y = (i / MAP_W) | 0; if ((x + 2 * y) % 3 === 0) out.push(i); }
+    return out;
+  }
+  function lightsDraw(R, s, now, t) {
+    const tod = dayClock(s), dk = dayDark(tod), st = R.stats.day = { dark: +dk.toFixed(2), windows: 0, lamps: 0, ships: 0, cars: 0, beams: 0, hidden: 0 };
+    if (dk < 0.04) return;
+    // the lights' strength: already clear at dusk (dark 0.4 at 19:30), full at night
+    const n = Math.min(1, 0.2 + dk * 1.1), g = R.ctx, d = R.dpr, gl = glowSprite(R), k = R.hw / 44;
+    g.save(); g.setTransform(d, 0, 0, d, 0, 0); g.globalCompositeOperation = 'lighter';
+    pen(g, R.ox, R.oy, R.hw, d, R.rot);
+    let left = DAY_LIGHTS;
+    const vis = (p, r) => p[0] > -r && p[0] < R.w + r && p[1] > -r && p[1] < R.h + r;
+    const glow = (p, r, a, sq) => { g.globalAlpha = Math.min(1, a); g.drawImage(gl, p[0] - r, p[1] - r * (sq || 1), 2 * r, 2 * r * (sq || 1)); };
+    // windows (at most DAY_WINDOWS; thinned evenly by a fixed hash per window, so the same ones stay lit)
+    const cand = [];
+    for (const ob of R.order) {
+      if (ob.k !== 'b' || !onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1)) continue;
+      // a building's windows in their fixed lighting order, kept until the objects are rebuilt (roads, levels, a turn)
+      const WINC = R.winc || (R.winc = new Map());
+      let ord = WINC.get(ob.b.id);
+      if (!ord || ord.key !== R.objKey) {
+        ord = dayWins(R, s, ob.b, ob.u1 - ob.u0, ob.v1 - ob.v0).map((w, i) => [h2(ob.b.id * 7 + i, 5), w, h2(ob.b.id * 13 + i, 29)]).sort((a, b) => a[0] - b[0]);
+        ord.key = R.objKey; WINC.set(ob.b.id, ord);
+      }
+      const m = dayLitN(s, ob.b, tod, ord.length);
+      for (let i = 0; i < m; i++) cand.push([ob, ord[i][1], ord[i][2]]);
+    }
+    const shown = [];
+    for (const c of cand) {
+      const ob = c[0], w = c[1], u = ob.u0 + w[0], v = ob.v0 + w[1], p = PV(u, v, w[2]);
+      if (!vis(p, 20)) continue;
+      if (dayHidden(R, u, v, w[2], ob.i)) { st.hidden++; continue; }
+      shown.push([ob, w, c[2], u, v, p]);
+    }
+    const wKeep = shown.length > DAY_WINDOWS ? DAY_WINDOWS / shown.length : 1;
+    g.fillStyle = '#ffd27a';
+    for (const [ob, w, r, u, v, p] of shown) {
+      if (st.windows >= DAY_WINDOWS) break;
+      if (wKeep < 1 && r > wKeep) continue;
+      glow(p, 10 * k + 3, 0.34 * n);
+      // the pane itself, along its wall
+      const hw2 = w[4] / 2, hh2 = w[5] / 2, du = w[3] ? hw2 : 0, dv = w[3] ? 0 : hw2;
+      const c1 = PV(u - du, v - dv, w[2] - hh2), c2 = PV(u + du, v + dv, w[2] - hh2), c3 = PV(u + du, v + dv, w[2] + hh2), c4 = PV(u - du, v - dv, w[2] + hh2);
+      g.globalAlpha = Math.min(1, 0.85 * n); g.beginPath(); g.moveTo(c1[0], c1[1]); g.lineTo(c2[0], c2[1]); g.lineTo(c3[0], c3[1]); g.lineTo(c4[0], c4[1]); g.closePath(); g.fill();
+      left--; st.windows++;
+    }
+    left = Math.min(left, DAY_LIGHTS - DAY_WINDOWS + (DAY_WINDOWS - st.windows));
+    // street lamps: they come on one by one at dusk and go off at dawn; thinned evenly when there are too many
+    const lamps = [];
+    for (const i of dayLamps(s)) {
+      const x = i % MAP_W, y = (i / MAP_W) | 0, r = h2(x * 5 + 2, y * 9 + 1), on = 1095 + 50 * r, off = 345 + 40 * r;
+      if (!(tod >= on || tod < off)) continue;
+      const p = P(x + 0.18, y + 0.18, 0.62);
+      if (vis(p, 30)) lamps.push([p, x, y, r]);
+    }
+    for (const b of s.b) if (b.type === 'pier') {
+      const q = bVBox(R, b);
+      for (const f of [0.2, 0.55, 0.9]) { const u = q[0] + (q[2] - q[0]) * f, v = q[1] + (q[3] - q[1]) * 0.5, p = PV(u, v, 0.75); if (vis(p, 30)) lamps.push([p, -1, -1, f, u, v]); }
+    }
+    const lampCap = Math.min(left - 12, DAY_LAMPS + (DAY_WINDOWS - st.windows)), keep = lamps.length > lampCap ? lampCap / lamps.length : 1;
+    for (const L of lamps) {
+      if (left <= 0 || st.lamps >= lampCap) break;
+      if (keep < 1 && L[3] > keep) continue;
+      const p = L[0];
+      let u, v;
+      if (L[1] >= 0) { const q = rotPt(R.rot || 0, L[1] + 0.18, L[2] + 0.18); u = q[0]; v = q[1]; } else { u = L[4]; v = L[5]; }
+      if (dayHidden(R, u, v, 0.62, -1)) { st.hidden++; continue; }
+      const gp = [p[0], p[1] + 0.62 * R.hw * ZS];
+      glow(gp, 30 * k, 0.5 * n, 0.5);
+      glow(p, 10 * k + 2, 0.8 * n);
+      g.globalAlpha = Math.min(1, n); g.fillStyle = '#fff0c0'; g.beginPath(); g.arc(p[0], p[1], 1.6 * k + 0.4, 0, TAU); g.fill();
+      left--; st.lamps++;
+    }
+    // ships' lanterns: the masthead and the stern
+    const ships = []; shipItems(R, s, ships);
+    for (const q of ships) {
+      if (left <= 0) break;
+      const ca = Math.cos(q.hd), sa = Math.sin(q.hd), steam = q.kind === 'steam';
+      for (const [a, z] of steam ? [[0.9, 1.1], [-1.0, 0.7], [0, 0.8], [0.45, 0.8], [-0.45, 0.8]] : [[0.1, 2.3], [-0.85, 0.6]]) {
+        const p = P(q.x + ca * a, q.y + sa * a, z);
+        if (!vis(p, 30)) continue;
+        glow(p, 12 * k + 2, 0.6 * n * (q.a === undefined ? 1 : q.a)); left--; st.ships++;
+      }
+    }
+    // cars' headlights (the commuters' cars drawn this frame)
+    if (R.dayCarsF === R.frame) for (const c of R.dayCars || []) {
+      if (left <= 0) break;
+      const p = P(c.x + c.fx * 0.62, c.y + c.fy * 0.62, 0), h = P(c.x + c.fx * 0.27, c.y + c.fy * 0.27, 0.13);
+      if (!vis(p, 30)) continue;
+      glow(p, 16 * k, 0.4 * n, 0.55); glow(h, 6 * k + 1, 0.8 * n); left--; st.cars++;
+    }
+    // the lighthouse: the lantern and two beams sweeping the sea
+    for (const b of s.b) if (b.type === 'lighthouse' && b.open !== false) {
+      const q = bVBox(R, b), u = q[0] + 0.6, v = q[1] + 0.45, z = 2.87, p0 = PV(u, v, z);
+      if (!vis(p0, 700)) continue;
+      // the beams sweep the sea; over the land (the keeper shades the land side) they fade
+      const a0 = t * 0.8 + b.id, sv = seaView(s, b, R.rot || 0), sl = sv ? Math.hypot(sv[0], sv[1]) || 1 : 1;
+      for (const a of [a0, a0 + Math.PI]) {
+        const toSea = sv ? (Math.cos(a) * sv[0] + Math.sin(a) * sv[1]) / sl : 1, wa = clamp(0.3 + 0.7 * toSea, 0.12, 1);
+        const L = 11, w = 0.16, p1 = PV(u + Math.cos(a - w) * L, v + Math.sin(a - w) * L, z), p2 = PV(u + Math.cos(a + w) * L, v + Math.sin(a + w) * L, z);
+        const gr = g.createLinearGradient(p0[0], p0[1], (p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2);
+        gr.addColorStop(0, 'rgba(255,244,200,0.55)'); gr.addColorStop(1, 'rgba(255,244,200,0)');
+        g.globalAlpha = n * wa; g.fillStyle = gr; g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]); g.closePath(); g.fill();
+        st.beams++;
+      }
+      glow(p0, 22 * k, n); glow(p0, 10 * k, n);
+    }
+    g.restore();
+    st.lights = DAY_LIGHTS - left;
+  }
+  // The frame's one A1 call (drawFrame): the colour of the hour, then the lights.
+  function dayDraw(R, s, now, t) {
+    if (!dayOn(s)) return;
+    const t0 = performance.now();
+    const dbg = typeof APP !== 'undefined' ? APP : {};
+    if (!dbg.dayNoTint) dayTintDraw(R, s);
+    const t1 = performance.now();
+    if (!dbg.dayNoLights) lightsDraw(R, s, now, t);
+    const t2 = performance.now(), st = R.stats;
+    // what the day costs a frame (ms, smoothed): the tint, the lights, the commuters' collection (in dynCollect)
+    st.dayMs = { tint: +(((st.dayMs || {}).tint || 0) * 0.9 + (t1 - t0) * 0.1).toFixed(2), lights: +(((st.dayMs || {}).lights || 0) * 0.9 + (t2 - t1) * 0.1).toFixed(2), people: (st.dayMs || {}).people || 0 };
+  }
+  // The people on the move (dynCollect's one A1 call): commuters on foot, by bicycle or by car along their road, children
+  // to school, shoppers at the markets in the morning; at most COMMUTE.onScreen on screen.
+  function commutersCollect(R, s, out, now) {
+    R.dayCars = []; R.dayCarsF = R.frame;
+    if (!dayOn(s) || typeof commutersAt !== 'function') return;
+    const tod = dayClock(s), st = R.stats.dayDyn = { moving: 0, drawn: 0, cars: 0, bikes: 0, kids: 0, shoppers: 0 };
+    const go = typeof APP !== 'undefined' && APP.speed > 0, cap = COMMUTE.onScreen;
+    const onScr = (x, y) => { const p = P(x, y, 0); return p[0] > -40 && p[0] < R.w + 40 && p[1] > -40 && p[1] < R.h + 60; };
+    commutersAt(s, tod, (f, u, back) => {
+      st.moving++;
+      if (st.drawn >= cap) return;
+      let [x, y, dx, dy] = pathAt(f.path, u * (f.path.length - 1));
+      if (back) { dx = -dx; dy = -dy; }
+      const fr = go ? (Math.floor(now / 190) + f.v) % 2 : 0;
+      if (f.mode === 'car' || f.mode === 'bike') {
+        const side = f.mode === 'car' ? 0.17 : 0.27, px = x - dy * side, py = y + dx * side;
+        if (!onScr(px, py)) return;
+        const h = head8(dx, dy);
+        out.push({ k: f.mode, x: px, y: py, fx: h[0], fy: h[1], v: f.v, fr });
+        if (f.mode === 'car') { R.dayCars.push({ x: px, y: py, fx: h[0], fy: h[1] }); st.cars++; } else st.bikes++;
+      } else {
+        const side = ((f.v >> 4) % 7) / 7 * 0.56 - 0.28 + (f.mode === 'kid' ? 0 : 0.1), px = x - dy * side, py = y + dx * side;
+        if (!onScr(px, py)) return;
+        if (f.mode === 'kid') { out.push({ k: 'kid', x: px, y: py, v: f.v % 12, fr }); st.kids++; st.drawn++; return; }
+        // people walk to work in twos and threes (one figure stands for a few workers: a small group reads as a crowd)
+        const grp = 1 + ((f.v >> 7) % 3), len = f.path.length - 1;
+        for (let j = 0; j < grp && st.drawn < cap; j++) {
+          let gx = px, gy = py;
+          if (j) { const q = pathAt(f.path, clamp(u * len + (back ? 0.32 : -0.32) * j, 0, len)), sd = side + (j === 1 ? 0.16 : -0.16); gx = q[0] - q[3] * sd; gy = q[1] + q[2] * sd; }
+          out.push({ k: 'walk', x: gx, y: gy, v: (f.v + j * 5) % 12, leaving: false, fr: (fr + j) % 2 });
+          st.drawn++;
+        }
+        return;
+      }
+      st.drawn++;
+    });
+    // the tram they ride: from 06:40 to 07:50 (and 16:40 to 17:50) people wait at the stops of a line with two or more
+    // stops, a few at each (more where more riders live near it), and board as the morning goes on
+    if ((s.tram || []).length && typeof tramLines === 'function' && ((tod >= 400 && tod < 470) || (tod >= 1000 && tod < 1070))) {
+      const T = tramLines(s), riders = typeof tramRiders === 'function' ? tramRiders(s) : 0, ph = (tod >= 1000 ? tod - 1000 : tod - 400) / 70;
+      let nst = 0; for (const L of T.lines) if (L.stops.length >= 2) nst += L.stops.length;
+      const per = Math.min(3, Math.max(1, Math.round(riders / Math.max(1, nst) / 8))), wcap = Math.min(cap, st.drawn + 24);
+      for (const L of T.lines) {
+        if (L.stops.length < 2) continue;
+        for (const i of L.stops) {
+          const x = i % MAP_W, y = (i / MAP_W) | 0;
+          for (let j = 0; j < per && st.drawn < wcap; j++) {
+            // each waits from a moment in the first half hour and boards at a moment in the last
+            const r = h2(i * 3 + j, 17);
+            if (ph < r * 0.45 || ph > 0.55 + r * 0.45) continue;
+            const px = x + 0.62 + (j % 3) * 0.13, py = y + 0.86 + Math.floor(j / 3) * 0.12;
+            if (!onScr(px, py)) continue;
+            out.push({ k: 'walk', x: px, y: py, v: (i + j * 7) % 12, leaving: false, fr: 0 });
+            st.drawn++; st.waiting = (st.waiting || 0) + 1;
+          }
+        }
+      }
+    }
+    // the markets are busy in the morning: shoppers in front of the stalls from 06:40, fewer by 11:30
+    for (const b of s.b) {
+      if (BUILDINGS[b.type].kind !== 'market' || b.open === false || st.drawn >= cap) continue;
+      const q = bVBox(R, b), vw = q[2] - q[0], vh = q[3] - q[1], nn = 3 + Math.round(vw * 1.5);
+      for (let i = 0; i < nn && st.drawn < cap; i++) {
+        const r = h2(b.id * 11 + i, 3), from = 400 + 70 * r, to = 690 - 50 * h2(b.id + i, 9);
+        if (tod < from || tod >= to) continue;
+        const front = i % 2 === 0, lu = front ? 0.25 + (vw - 0.5) * h2(i, b.id) : vw - 0.12, lv = front ? vh - 0.12 : 0.25 + (vh - 0.5) * h2(b.id, i);
+        const w = localWorld(R, b, lu, lv);
+        if (!onScr(w[0], w[1])) continue;
+        out.push({ k: 'walk', x: w[0], y: w[1], v: (b.id + i * 5) % 12, leaving: false, fr: go ? (Math.floor(now / 900) + i) % 2 : 0 });
+        st.drawn++; st.shoppers++;
+      }
+    }
+  }
+  function commuterSprite(R, q) {
+    if (q.k === 'kid') return sprite(R, 'kid|' + (q.v % 12) + '|' + q.fr, [0.01, 0.01, 0.3, 0.2], 0.45, () => { const s0 = S; S = s0 * 0.72; try { paintPerson(0, 0, q.v, q.fr, false); } finally { S = s0; } });
+    if (q.k === 'bike') return sprite(R, 'bike|' + q.fx + ',' + q.fy + '|' + (q.v % 8) + '|' + q.fr, [0.01, 0.01, 0.5, 0.35], 0.75, () => paintBike(q.fx, q.fy, q.v, q.fr));
+    return sprite(R, 'car|' + q.fx + ',' + q.fy + '|' + (q.v % 6), [0.01, 0.01, 0.7, 0.45], 0.6, () => paintCar(q.fx, q.fy, q.v));
+  }
+  function paintBike(fx, fy, v, fr) {
+    const sx = -fy, sy = fx, col = ['#c9473a', '#3f74a8', '#2f8f88', '#3a2a1f'][v % 4], shirt = SHIRTS[(v >> 2) % 7], rW = 0.075;
+    const c0 = P(0, 0, 0); ell(c0[0] + 1.5 * S, c0[1] + 0.6 * S, 10 * S, 2.8 * S, 'rgba(40,28,50,.25)');
+    const ring = (cx, cy) => { const pts = []; for (let k = 0; k < 14; k++) { const a = k / 14 * TAU; pts.push(P(cx + fx * Math.cos(a) * rW, cy + fy * Math.cos(a) * rW, rW + Math.sin(a) * rW)); } poly(pts, null, '#2a211c', 1.4 * S); };
+    const f1 = [fx * 0.17, fy * 0.17], f2 = [-fx * 0.17, -fy * 0.17];
+    ring(f2[0], f2[1]); ring(f1[0], f1[1]);
+    const hub1 = P(f1[0], f1[1], rW), hub2 = P(f2[0], f2[1], rW), seat = P(-fx * 0.06, -fy * 0.06, 0.2), bar = P(fx * 0.12, fy * 0.12, 0.25), crank = P(0, 0, 0.075);
+    ctx.lineCap = 'round';
+    pline([hub2, seat, crank, hub2], col, 1.5 * S); pline([crank, bar], col, 1.5 * S); pline([bar, hub1], col, 1.5 * S);
+    // the rider: legs to the pedals, body leaning to the handlebar, a hat or a cap
+    const near = (sx + sy) > 0 ? 1 : -1, ped = fr ? 1 : -1;
+    const p1 = P(fx * 0.05 * ped + sx * 0.03 * near, fy * 0.05 * ped + sy * 0.03 * near, 0.075 + 0.04 * ped), p2 = P(-fx * 0.05 * ped - sx * 0.03 * near, -fy * 0.05 * ped - sy * 0.03 * near, 0.075 - 0.04 * ped);
+    const hip = [seat[0], seat[1] - 2 * S], pants = ['#5b4a3e', '#3e4f5c', '#6b5040'][v % 3];
+    seg(hip, p2, pants, 2 * S); seg(hip, p1, pants, 2 * S);
+    const sh0 = [lerp(seat[0], bar[0], 0.35), seat[1] - 10 * S];
+    poly([[hip[0] - 2.2 * S, hip[1]], [hip[0] + 2.2 * S, hip[1]], [sh0[0] + 2.4 * S, sh0[1]], [sh0[0] - 2.4 * S, sh0[1]]], shirt, ln(shirt), 0.9 * S);
+    seg([sh0[0], sh0[1] + 1 * S], [bar[0], bar[1] - 1 * S], shirt, 1.6 * S);
+    const skin = v % 2 ? '#8a5a3c' : '#b98060';
+    circ(sh0[0], sh0[1] - 2.6 * S, 2.3 * S, skin, ln(skin), 0.8 * S);
+    if (v % 2 === 0) { ell(sh0[0], sh0[1] - 3.6 * S, 4 * S, 1.3 * S, '#e8d29a'); ell(sh0[0], sh0[1] - 4.7 * S, 2 * S, 1.3 * S, '#e8d29a'); }
+    else { ctx.beginPath(); ctx.arc(sh0[0], sh0[1] - 3 * S, 2.5 * S, Math.PI * 1.05, Math.PI * 1.95); ctx.closePath(); ctx.fillStyle = ['#df684c', '#f6f0e2', '#3f74a8'][v % 3]; ctx.fill(); }
+  }
+  function paintCar(fx, fy, v) {
+    const col = ['#c9473a', '#2f6f9a', '#3f8a52', '#e9c46a', '#f6f0e2', '#3a3434'][v % 6], sx = -fy, sy = fx;
+    const c0 = P(0.05, 0.05, 0); ell(c0[0], c0[1], 15 * S, 6 * S, 'rgba(37,28,56,.22)');
+    for (const [a, b] of [[0.16, 0.13], [-0.16, 0.13], [0.16, -0.13], [-0.16, -0.13]]) { const p = P(fx * a + sx * b, fy * a + sy * b, 0.06); circ(p[0], p[1], 2.6 * S, '#2a211c'); }
+    obox(0, 0, fx, fy, 0.52, 0.27, 0.05, 0.11, col);
+    const top = obox(-fx * 0.06, -fy * 0.06, fx, fy, 0.25, 0.23, 0.16, 0.1, mix(col, '#f6f0e2', 0.35));
+    // the windscreen on the cabin's front, two lamps on the bonnet
+    const wq = [P(fx * 0.065 - sx * 0.1, fy * 0.065 - sy * 0.1, 0.17), P(fx * 0.065 + sx * 0.1, fy * 0.065 + sy * 0.1, 0.17), P(fx * 0.065 + sx * 0.1, fy * 0.065 + sy * 0.1, 0.25), P(fx * 0.065 - sx * 0.1, fy * 0.065 - sy * 0.1, 0.25)];
+    if (fx + fy > -0.2) poly(wq, '#3d5560', INK, 0.6 * S);
+    for (const b of [-0.08, 0.08]) { const p = P(fx * 0.26 + sx * b, fy * 0.26 + sy * b, 0.12); circ(p[0], p[1], 1.2 * S, '#f6eccb', INK, 0.5 * S); }
+    poly(top, null, ln(col), 0.6 * S);
+  }
+
   // ---------- frame ----------
   // The turn a view is drawn or picked in: view.rot (the player's choice), else the renderer's.
   function rotOf(R, view) { return view && view.rot !== undefined ? (view.rot & 3) : (R.rot || 0); }
@@ -8695,6 +9697,8 @@ const ISO = (() => {
     tentSpots(s).forEach(([tx, ty], k) => out.push({ k: 'tent', x: tx, y: ty, v: (tx * 7 + ty * 3 + k) % 4, box: [tx + 0.1, ty + 0.1, tx + 0.9, ty + 0.9] }));
     shipItems(R, s, out);
     trItems(R, s, out, now);
+    // A1 — the day turns: commuters, children to school, shoppers at the markets
+    { const tc = performance.now(); commutersCollect(R, s, out, now); if (R.stats.dayMs) R.stats.dayMs.people = +(R.stats.dayMs.people * 0.9 + (performance.now() - tc) * 0.1).toFixed(2); }
     // slot each moving thing right after the last static object it stands in front of (in view coordinates)
     const r = R.rot || 0, VW = R.gridW || MAP_W, VH = R.gridH || MAP_H;
     for (const q of out) {
@@ -8720,6 +9724,7 @@ const ISO = (() => {
     sprDraw(R, dynSprite(R, q), p[0], p[1] - (q.bob || 0) * 0.9 * R.hw / 44);
   }
   function dynSprite(R, q) {
+    if (q.k === 'bike' || q.k === 'car' || q.k === 'kid') return commuterSprite(R, q);
     if (q.k === 'tram') return sprite(R, 'tram|' + q.fx + ',' + q.fy, [0.01, 0.01, 0.9, 0.5], 1.3, () => paintTram(q.fx, q.fy));
     if (q.k === 'loco') return sprite(R, 'loco|' + q.fx + ',' + q.fy, [0.01, 0.01, 0.9, 0.5], 1.3, () => paintLoco(q.fx, q.fy));
     if (q.k === 'wagon') return sprite(R, 'wagon|' + q.fx + ',' + q.fy + '|' + q.load, [0.01, 0.01, 0.8, 0.5], 1.0, () => paintWagon(q.fx, q.fy, q.load));
@@ -8937,6 +9942,8 @@ const ISO = (() => {
     // the ground under both pictures: the overview of the turn shown (old before the midpoint, new after)
     // one overview under both (the new turn's, turned with B: the same ground as A's)
     if (R.ov) { spinXf(g, R, th - T.dir * Math.PI / 2); overviewDraw(R, g, R.ov); }
+    // A1: the overview in the corners takes the colour of the hour (A and B already have it)
+    dayTintDraw(R, s);
     if (aB < 1) { spinXf(g, R, th); g.drawImage(T.A, 0, 0, T.W, T.H); }
     if (aB > 0) { spinXf(g, R, th - T.dir * Math.PI / 2); g.globalAlpha = aB; g.drawImage(T.B, 0, 0, T.W, T.H); g.globalAlpha = 1; }
     g.setTransform(1, 0, 0, 1, 0, 0);
@@ -8991,6 +9998,8 @@ const ISO = (() => {
     pen(g, R.ox, R.oy, R.hw, d, R.rot);
     shipOverlay(R, s, now, t);
     planesDraw(R, s, now);
+    // A1 — the day turns: the colour of the hour over the scene, then the lights (the marks below stay as by day)
+    dayDraw(R, s, now, t);
     // marks above buildings: what a home lacks, workers short, a full yard
     const sc = clamp(Math.round(R.hw / 34 * 8) / 8, 0.75, 1.25), sel = ui.sel;
     R.bubbles = [];
@@ -9012,6 +10021,8 @@ const ISO = (() => {
       R.bubbles.push({ x: p[0], y: p[1] - 4 - 16 * sc, id: b.id, home: b.type === 'casita', need: b.type === 'casita' ? (b.lacks[0] || b.wants[0]) : '', warn: m.warn });
     }
     spaceMarks(R, s, ui, t);
+    // A3 (commissions): the main commission's glowing places or dotted line, and a stage ritual's gathering
+    comOverlay(R, s, ui, t);
     // M4: the Money layer: every building's monthly number, homes one tag a street block
     if (ui.money) for (const q of moneyTags(R, s)) {
       const p = P(q.x, q.y, q.z);
@@ -9041,6 +10052,68 @@ const ISO = (() => {
     R.stats.frames++; R.stats.ms = R.stats.ms ? R.stats.ms * 0.9 + ms * 0.1 : ms; R.stats.last = ms;
     R.stats.hist.push(ms); if (R.stats.hist.length > 240) R.stats.hist.shift();
     sprEvict(R); uiEvict(R);
+  }
+  // ---------- A3: commissions (glowing places, dotted lines) and the stage ritual's gathering ----------
+  // ui.com: { spots: [{ x, y, w, h }], line: [tile], label, faded, glowB: building id } from ui/commissions_ui.js.
+  // Glowing: a pulsing gold lot with a bouncing arrow (the first iPad version's glowing spots). Faded (she has done this
+  // kind of thing twice): a quiet dotted outline, no arrow: offered, not imposed.
+  function comOverlay(R, s, ui, t) {
+    const cm = ui.com, g = R.ctx;
+    if (cm && !ui.money) {
+      const faded = !!cm.faded, pulse = 0.5 + 0.5 * Math.sin(t * 3.2);
+      for (const sp of cm.spots || []) {
+        if (faded) diamond(R, sp.x + 0.06, sp.y + 0.06, sp.x + sp.w - 0.06, sp.y + sp.h - 0.06, 'rgba(255,248,222,.16)', 'rgba(255,250,236,.9)', 2.2, [6, 5]);
+        else {
+          diamond(R, sp.x - 0.08, sp.y - 0.08, sp.x + sp.w + 0.08, sp.y + sp.h + 0.08, null, 'rgba(255,214,102,' + (0.35 + 0.35 * pulse).toFixed(3) + ')', 7 + 4 * pulse);
+          diamond(R, sp.x + 0.04, sp.y + 0.04, sp.x + sp.w - 0.04, sp.y + sp.h - 0.04, 'rgba(255,220,120,' + (0.3 + 0.2 * pulse).toFixed(3) + ')', '#f2b632', 3);
+          const p = P(sp.x + sp.w / 2, sp.y + sp.h / 2, 0), y = p[1] - 30 - Math.max(sp.w, sp.h) * R.hw * 0.25 - 7 * Math.abs(Math.sin(t * 3));
+          g.beginPath(); g.moveTo(p[0], y + 14); g.lineTo(p[0] - 11, y); g.lineTo(p[0] - 4.5, y); g.lineTo(p[0] - 4.5, y - 12); g.lineTo(p[0] + 4.5, y - 12); g.lineTo(p[0] + 4.5, y); g.lineTo(p[0] + 11, y); g.closePath();
+          g.fillStyle = '#f2b632'; g.fill(); g.strokeStyle = INK; g.lineWidth = 2; g.lineJoin = 'round'; g.stroke();
+        }
+      }
+      if (cm.line && cm.line.length) {
+        const pts = cm.line.map((i) => P(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5, 0));
+        g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+        g.beginPath(); pts.forEach((q, k) => (k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])));
+        g.strokeStyle = faded ? 'rgba(255,250,236,.55)' : 'rgba(242,182,50,' + (0.35 + 0.25 * pulse).toFixed(3) + ')'; g.lineWidth = Math.max(8, R.hw * 0.42); g.stroke();
+        g.setLineDash([1, Math.max(9, R.hw * 0.5)]); g.lineDashOffset = -t * 14; g.strokeStyle = '#fffaf0'; g.lineWidth = Math.max(5, R.hw * 0.2); g.stroke();
+        g.restore();
+        const m = pts[(pts.length / 2) | 0];
+        if (cm.label) uiDraw(R, labelSprite(R, cm.label, true), m[0], m[1] - 30);
+      }
+      if (cm.glowB) {
+        const b = bById(s, cm.glowB);
+        if (b) diamond(R, b.x - 0.15, b.y - 0.15, b.x + b.w + 0.15, b.y + b.h + 0.15, 'rgba(255,220,120,' + (0.15 + 0.15 * pulse).toFixed(3) + ')', faded ? 'rgba(255,250,236,.9)' : '#f2b632', faded ? 2.2 : 4, faded ? [6, 5] : null);
+      }
+    }
+    // the airfield's ask is visible in the sky: a flying boat circles the bay with nowhere to land
+    if (cm && cm.key === 'airfield') {
+      const pr = s.b.find((o) => o.type === 'pier');
+      if (pr) {
+        const a = t * 0.35, cx = pr.x + 1, cy = pr.y + 1, wx = cx + Math.cos(a) * 5, wy = cy + Math.sin(a) * 3.5, p = P(wx, wy, 3.2);
+        if (p[0] > -80 && p[0] < R.w + 80 && p[1] > -80 && p[1] < R.h + 80) {
+          pen(R.ctx, R.ox, R.oy, R.hw, R.dpr, R.rot);
+          const dx = -Math.sin(a) * 5, dy = Math.cos(a) * 3.5, dl = Math.hypot(dx, dy) || 1;
+          paintPlane(wx, wy, 3.2, dx / dl, dy / dl);
+          if (Math.sin(a * 0.5) > 0.3) uiDraw(R, labelSprite(R, 'No place to land', false), p[0], p[1] - 34);
+        }
+      }
+    }
+    if (ui.ritual) gatherDraw(R, s, ui.ritual, t);
+  }
+  // A stage's ritual: people walk from the streets around and gather in front of the residence (or the landmark) for a
+  // few seconds, the way a town turns out for a ceremony; then they walk home.
+  function gatherDraw(R, s, rt, t) {
+    const age = (performance.now() - rt.t0) / 1000;
+    if (age < 0 || age > rt.dur) return;
+    const k = Math.min(1, age / 1.6), out = age > rt.dur - 1.6 ? (age - (rt.dur - 1.6)) / 1.6 : 0, n = rt.n || 22;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * TAU + (i % 3) * 0.21, r0 = 5 + (i % 4), r1 = 1.2 + (i % 5) * 0.35, e = k * k * (3 - 2 * k), r = r0 + (r1 - r0) * e + (r0 - r1) * out;
+      const x = rt.x + Math.cos(a) * r, y = rt.y + Math.abs(Math.sin(a)) * r * 0.9 + 0.6;
+      if (!inMap(Math.floor(x), Math.floor(y))) continue;
+      paintPerson(x, y, i * 7 + 3, Math.floor(t * 3 + i) % 2, false);
+    }
+    if (rt.label && age > 0.8) { const p = P(rt.x, rt.y - 1, 2.6); uiDraw(R, labelSprite(R, rt.label, true), p[0], p[1] - 10 - 4 * Math.sin(t * 2), Math.min(1, (age - 0.8) * 2)); }
   }
   function lockLabels(R, s) {
     const best = {}, cx = R.w / 2, cy = R.h / 2;
@@ -10262,6 +11335,8 @@ function flyAim() {
   const card = $('card').classList.contains('show') ? vis('card') : null;
   if (card) { if (card.left > w / 2) right = Math.min(right, card.left); else if (card.top > h / 3) bottom = Math.min(bottom, card.top); }
   const lower = vis('guide'); if (lower && lower.top > h / 2 && !card) bottom = Math.min(bottom, lower.top);
+  // A1+A3: the commissions' stack (or its praise) stands above Rosa's line: a glow flown to never lands under it
+  const cs = vis('comstack'); if (cs && cs.top > h / 3 && !card) bottom = Math.min(bottom, cs.top);
   return { x: right / 2, y: (top + bottom) / 2 };
 }
 
@@ -13161,6 +14236,675 @@ function moneyOpen() {
       }
     } catch (e) { /* the list must open whatever the island */ }
     return d;
+  };
+}
+
+// ---- src/ui/daytime.js
+// A1 — the day turns (13 Oct 2026; Tomáš: "From the first version she misses the clock, the time, the change of day
+// and night, the morning traffic"). A cosmetic time of day that runs on its own beside the monthly economy, as in
+// Cities: Skylines (its day and night cycle runs independently of the date): DAY_SECONDS a day at 1x, faster at 2x / 3x,
+// still when paused or on the title. The first iPad version (29 Sep) ran 3 minutes a day (MIN_PER_SEC = 8), with dawn
+// 05-07, dusk 18:30-21, people leaving home 06:30-08:00 and coming back 16:30-18:00 (docs/first-ipad/REPORT.txt §2, §4).
+// Nothing here changes the economy: the simulation never reads state.tod; the commuters are drawn only.
+// state.tod: minutes since midnight (saved with the island; an island saved before A1 opens at DAY_START).
+// The renderer (render/iso.js, the "A1" block) asks dayClock / dayDark / commutePlan.
+
+const DAY_SECONDS = 180, DAY_START = 8 * 60;
+
+function dayClock(s) {
+  if (!s) return DAY_START;
+  if (typeof s.tod !== 'number' || !isFinite(s.tod)) s.tod = DAY_START;
+  return s.tod;
+}
+
+// The clock as the top bar shows it (five-minute steps): "07:40".
+function dayHHMM(tod) { const m = Math.floor(tod / 5) * 5 % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+
+// How dark the hour is: 0 by day, 1 at night (dusk 18:30-21:00, dawn 05:00-07:00, as in the first version).
+function dayDark(tod) {
+  const h = (tod % 1440) / 60;
+  if (h < 5 || h >= 21) return 1;
+  if (h < 7) return 1 - (h - 5) / 2;
+  if (h < 18.5) return 0;
+  return (h - 18.5) / 2.5;
+}
+
+// The colour of the hour, multiplied over the map (white: no change). Keyframes: night navy, a pink dawn, a warm
+// morning, plain day, golden hour, a rose dusk, the blue hour, night again.
+const DAY_TINT = [
+  [0, [96, 112, 172]], [300, [96, 112, 172]], [345, [176, 150, 178]], [390, [244, 196, 176]], [435, [255, 232, 206]],
+  [480, [255, 255, 255]], [1050, [255, 255, 255]], [1110, [255, 226, 186]], [1160, [246, 186, 150]],
+  [1210, [196, 150, 168]], [1250, [124, 126, 180]], [1290, [96, 112, 172]], [1440, [96, 112, 172]]];
+function dayTint(tod) {
+  const m = ((tod % 1440) + 1440) % 1440;
+  for (let i = 1; i < DAY_TINT.length; i++) {
+    const [t1, c1] = DAY_TINT[i];
+    if (m > t1) continue;
+    const [t0, c0] = DAY_TINT[i - 1], u = t1 > t0 ? (m - t0) / (t1 - t0) : 0, e = u * u * (3 - 2 * u);
+    return [0, 1, 2].map((k) => Math.round(c0[k] + (c1[k] - c0[k]) * e));
+  }
+  return [255, 255, 255];
+}
+
+// ---------- the clock runs ----------
+{
+  const _frameRun = frameRun;
+  frameRun = function (now) {
+    const s = APP.state;
+    if (s && !APP.titleOn && APP.speed > 0) {
+      const dt = Math.min(0.25, (now - (APP.dayLast || now)) / 1000);
+      s.tod = (dayClock(s) + dt * APP.speed * 1440 / DAY_SECONDS) % 1440;
+    }
+    APP.dayLast = now;
+    _frameRun(now);
+    clockShow();
+  };
+}
+
+// ---------- the top bar: "March 1912 · ☀ 07:40" ----------
+function dayIcon(tod) {
+  const d = dayDark(tod);
+  // a sun by day, a sun on the horizon at dawn and dusk, a moon at night (small inline SVG in the ink colour)
+  if (d >= 0.85) return '<svg class="todi" viewBox="0 0 20 20" aria-hidden="true"><path d="M13.6 3.2a7 7 0 1 0 3.2 10.6A6 6 0 0 1 13.6 3.2z" fill="#f4dc8c" stroke="currentColor" stroke-width="1.5"/></svg>';
+  if (d > 0.05) return '<svg class="todi" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 13.5a6.5 6.5 0 0 1 13 0z" fill="#f2a05a" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 16.5h17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  return '<svg class="todi" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="4.2" fill="#f2c75a" stroke="currentColor" stroke-width="1.5"/><path d="M10 1.6v2.6M10 15.8v2.6M1.6 10h2.6M15.8 10h2.6M4 4l1.8 1.8M14.2 14.2L16 16M4 16l1.8-1.8M14.2 5.8L16 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+}
+function clockShow() {
+  const s = APP.state, el = typeof document !== 'undefined' && document.getElementById('date');
+  if (!s || !el) return;
+  const tod = dayClock(s), txt = dayHHMM(tod), ic = dayDark(tod) >= 0.85 ? 'n' : dayDark(tod) > 0.05 ? 'h' : 'd';
+  let c = el.querySelector('.tod');
+  if (!c) { c = document.createElement('i'); c.className = 'tod'; el.appendChild(c); APP.clockKey = ''; }
+  const key = txt + ic;
+  if (APP.clockKey === key) return;
+  APP.clockKey = key;
+  c.innerHTML = dayIcon(tod) + '<em>' + txt + '</em>';
+  c.setAttribute('aria-label', 'Time of day ' + txt);
+}
+// hudUpdate rewrites the date when the month changes: the clock goes back in at once
+{
+  const _hudUpdate = hudUpdate;
+  hudUpdate = function () { _hudUpdate(); clockShow(); };
+}
+
+// ---------- the music follows the light (gently: only the choice between the two calm pieces) ----------
+// At dusk and in the evening the evening piece is preferred, in the morning the dawn piece; the order of the rest
+// (town, the sea, the old pieces) is unchanged.
+{
+  const _audioPick = audioPick;
+  audioPick = function (scene) {
+    const r = _audioPick(scene), s = APP.state;
+    if (scene === 'title' || !s || (r !== 'dawn' && r !== 'evening')) return r;
+    const h = dayClock(s) / 60, want = h >= 17 || h < 3 ? 'evening' : h >= 4 && h < 10 ? 'dawn' : '';
+    if (want && want !== r && AUD.last !== want && !AUD.failed[want] && audioUrl('music/' + want + '.mp3')) return want;
+    return r;
+  };
+}
+
+// ---------- the commuters (drawn only; never saved, never part of the rules) ----------
+// From the workers the simulation counts at each workplace (jobsAssign + commuteCap: people living within
+// TR.walkToWork tiles), each workplace's workers are given homes among the nearest homes with people, and one figure
+// walks (later cycles or drives) for every few workers along the road between them: to work between 06:30 and 08:00
+// (most around 07:15), home between 16:30 and 18:00. Children walk to school at 07:20-07:55 and home at 13:30-14:10.
+// The plan is rebuilt when the island changes (state.ver) or a month passes; paths are cached per home and workplace.
+const COMMUTE = { maxFigures: 260, onScreen: 90, stepMs: 2, walk: 0.13, bike: 0.3, car: 0.5, maxMin: 70, kids: 8 };
+
+function dayHash(a, b) { let h = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+
+// The share of commuters by bicycle and by car in a year (walking before 1915; the island's first motor cars and
+// bicycles in the 1910s-20s; cars common after the war).
+function commuteModes(year) {
+  if (year < 1915) return { bike: 0, car: 0 };
+  if (year < 1930) return { bike: 0.25, car: 0.06 };
+  if (year < 1950) return { bike: 0.3, car: 0.22 };
+  return { bike: 0.2, car: 0.48 };
+}
+
+// The plan is built a little at a time (commuteStep, at most COMMUTE.stepMs a frame; a step is a workplace's homes or
+// four of its figures), so a
+// big town never stalls a frame for it (measured on the 1930 town: 26 ms for the whole plan, 91 ms with every road
+// search cold); the old plan is used until the new one is complete. It is rebuilt when the island changes (state.ver)
+// and every quarter (workers move between workplaces slowly).
+function commuteKey(s) { return s.ver + '|' + Math.floor(s.month / 3) + '|' + s.b.length; }
+const COMMUTE_EMPTY = { key: '', figs: [], kids: [], back: {}, out: {}, workers: 0, paths: new Map() };
+
+function* commuteBuild(s, key, oldPaths) {
+  const plan = { key, ver: s.ver, paths: oldPaths || new Map(), figs: [], kids: [], back: {}, out: {}, workers: 0 };
+  if (typeof roadPath !== 'function') return plan;
+  const homes = s.b.filter((b) => b.type === 'casita' && b.res > 0 && !b.build);
+  const work = s.b.filter((b) => { const d = BUILDINGS[b.type]; return d.jobs && b.workers > 0 && d.kind !== 'home'; });
+  let W = 0; for (const b of work) W += b.workers;
+  plan.workers = W;
+  if (!W || !homes.length) return plan;
+  const K = Math.max(2, Math.ceil(W / COMMUTE.maxFigures)), year = TUNE.startYear + Math.floor(s.month / 12), modes = commuteModes(year);
+  // each home sends about half its people to work (workforceOf), in figures of K workers
+  const left = {}; for (const h of homes) left[h.id] = Math.max(1, Math.round(h.res * 0.55 / K));
+  const pathOf = (w, h) => {
+    const k = h.id + '>' + w.id;
+    if (plan.paths.has(k)) return plan.paths.get(k);
+    const p = roadPath(s, w, h), out = p && p.length >= 2 ? p.slice().reverse() : null;
+    plan.paths.set(k, out);
+    return out;
+  };
+  const nearOf = (b, R) => homes.map((h) => [footDist(b, h), h]).filter((q) => q[0] <= R).sort((a, b2) => a[0] - b2[0] || a[1].id - b2[1].id).map((q) => q[1]);
+  const reach = typeof TR !== 'undefined' ? TR.walkToWork : 16;
+  for (const w of work.sort((a, b) => a.id - b.id)) {
+    if (plan.figs.length >= COMMUTE.maxFigures) break;
+    yield 1;
+    if (!bById(s, w.id)) continue;
+    let n = Math.max(1, Math.round(w.workers / K));
+    const near = nearOf(w, reach);
+    yield 1;
+    let i = 0, tries = 0;
+    while (n > 0 && near.length && tries < near.length * 3) {
+      const h = near[i % near.length]; i++; tries++;
+      if (left[h.id] <= 0 && tries < near.length) continue;
+      const path = pathOf(w, h);
+      if (!path) continue;
+      left[h.id]--; n--;
+      const k = plan.figs.length, r1 = dayHash(w.id * 31 + k, h.id), r2 = dayHash(h.id * 17 + k, w.id + 7), r3 = dayHash(k + 11, w.id * 13 + h.id);
+      const mode = path.length > 6 && r3 < modes.car ? 'car' : path.length > 4 && r3 < modes.car + modes.bike ? 'bike' : 'walk';
+      const dur = Math.min(COMMUTE.maxMin, Math.max(8, (path.length - 1) / COMMUTE[mode]));
+      // departures: a triangle 06:30-08:00 peaking near 07:10 (the long walks leave a little earlier), so the roads are
+      // fullest around 07:30; home 16:30-18:00 alike
+      const dep = 390 + 40 * (r1 + r2) - Math.min(20, dur * 0.25), ret = 990 + 45 * (r2 + dayHash(k, 3));
+      plan.figs.push({ path, mode, dep, ret, dur, home: h.id, work: w.id, v: Math.floor(r3 * 4096) });
+      plan.out[h.id] = Math.min(plan.out[h.id] || 1e9, dep);
+      plan.back[h.id] = Math.max(plan.back[h.id] || 0, ret + dur);
+      if (plan.figs.length >= COMMUTE.maxFigures) break;
+      if ((plan.figs.length & 3) === 0) yield 1;
+    }
+  }
+  // children to school: from the nearest homes with people, a few a school
+  for (const sc of s.b.filter((b) => b.type === 'school' && b.open !== false)) {
+    yield 1;
+    nearOf(sc, 10).slice(0, COMMUTE.kids).forEach((h, k) => {
+      const path = pathOf(sc, h);
+      if (!path) return;
+      const r = dayHash(sc.id * 7 + k, h.id), dur = Math.min(40, Math.max(6, (path.length - 1) / 0.18));
+      plan.kids.push({ path, dep: 440 + 30 * r - dur * 0.4, ret: 810 + 40 * dayHash(h.id, k + 5), dur, v: Math.floor(r * 4096), home: h.id });
+    });
+  }
+  return plan;
+}
+
+// Advances the plan's building for at most ms milliseconds (called once a frame); now: build it whole at once.
+function commuteStep(s, ms, now) {
+  const key = commuteKey(s);
+  if (s._cp && s._cp.key === key) return s._cp;
+  if (!s._cpB || s._cpB.key !== key) s._cpB = { key, it: commuteBuild(s, key, s._cp && s._cp.ver === s.ver ? s._cp.paths : null) };
+  const t0 = performance.now();
+  for (;;) {
+    const r = s._cpB.it.next();
+    if (r.done) { s._cp = r.value; s._cpB = null; break; }
+    if (!now && performance.now() - t0 > ms) break;
+  }
+  return s._cp || COMMUTE_EMPTY;
+}
+
+// The plan in use (never built here: the frame builds it a step at a time).
+function commutePlan(s) { return s._cp || COMMUTE_EMPTY; }
+{
+  const _frameRun2 = frameRun;
+  frameRun = function (now) { _frameRun2(now); if (APP.state && !APP.titleOn) commuteStep(APP.state, COMMUTE.stepMs); };
+}
+
+// The figures on the move at a time of day (world tile coordinates; the renderer culls and caps them).
+// Each: { x, y, dx, dy, mode: 'walk' | 'bike' | 'car' | 'kid', v, fr } — pos along the path from the time alone, so
+// pause, the speeds and a reload need no state of their own.
+function commutersAt(s, tod, each) {
+  const plan = commutePlan(s);
+  for (const f of plan.figs) {
+    let u = -1, back = false;
+    if (tod >= f.dep && tod < f.dep + f.dur) u = (tod - f.dep) / f.dur;
+    else if (tod >= f.ret && tod < f.ret + f.dur) { u = (tod - f.ret) / f.dur; back = true; }
+    if (u < 0) continue;
+    if (each(f, back ? 1 - u : u, back) === false) return;
+  }
+  for (const f of plan.kids) {
+    let u = -1, back = false;
+    if (tod >= f.dep && tod < f.dep + f.dur) u = (tod - f.dep) / f.dur;
+    else if (tod >= f.ret && tod < f.ret + f.dur) { u = (tod - f.ret) / f.dur; back = true; }
+    if (u < 0) continue;
+    if (each(Object.assign({ mode: 'kid' }, f), back ? 1 - u : u, back) === false) return;
+  }
+}
+
+// When a home's windows are lit (minutes; an evening past midnight counts on from 1440): from when its people are
+// home (the last commuter back, or between 17:30 and 18:40) until 22:00-01:00; in the morning from 05:15-06:15 until
+// its first commuter leaves (or 07:30).
+function homeLit(s, h, tod) {
+  const plan = commutePlan(s), r = dayHash(h.id * 5 + 1, 77);
+  const on = Math.min(plan.back[h.id] || (1050 + 70 * r), 1150), off = 1320 + 180 * dayHash(h.id, 91);
+  const m = tod < 300 ? tod + 1440 : tod;
+  if (m >= on && m < off) return true;
+  const mOn = 315 + 60 * dayHash(h.id, 13), mOff = Math.min(plan.out[h.id] || 450, 460);
+  return tod >= mOn && tod < mOff;
+}
+
+// For the tests and the console: what the day shows now.
+function dayState() {
+  const s = APP.state, tod = dayClock(s), plan = commuteStep(s, 0, true);
+  let moving = 0; commutersAt(s, tod, () => { moving++; });
+  return { tod, clock: dayHHMM(tod), dark: +dayDark(tod).toFixed(2), tint: dayTint(tod), figures: plan.figs.length, kids: plan.kids.length,
+    workers: plan.workers, moving, drawn: APP.R && APP.R.stats ? APP.R.stats.day || null : null };
+}
+
+// ---- src/ui/commissions_ui.js
+// A3 (13 Oct 2026): what she sees of the commissions (sim/commissions.js) and the stage ritual. PSYCHOLOGY2.md §2-3.
+// - The main commission: Rosa's line in the asker's voice (their initials in Rosa's circle), its places glowing on the
+//   map (render/iso.js comOverlay). A tap on a glowing place builds there; a tap on the dotted line lays it.
+// - The stack (#comstack): the others (at most three in all) at the left edge above Rosa's line, a face and one line
+//   each; a tap makes one the main one and takes the view there. Praise takes the stack's place for a few seconds.
+// - The to-do list: a section "Asked of you" with the same commissions (Show, and the button that arms the tool).
+// - The ritual at each stage: the view flies to the residence, the town gathers in front of it, confetti, the stage
+//   sound and the anthem (audio.js already plays them), a photo of her own island (the map canvas, 480 px JPEG), then
+//   the Gazette page (the stage card with the photo, the year, the people and one line from Rosa). The photo goes into
+//   the Album (kept beside the save, at most 12); the greeting on return shows the last photo.
+
+const ALBUM_MAX = 12, ALBUM_W = 480;
+const COM_STAGE_LINE = ['',
+  'Fifty people and a full plate in every home. Now cane, rum and a ship that takes it.',
+  'A town! Streets with names, a church bell, rum on its way to Havana.',
+  'A city: paved streets, coffee in the cafés, and the planters ask for a railway.',
+  'A port city. Steamers at the quay, and soon the flying boats.',
+  'The capital of the island. Nobody who landed with us at that pier believed it.'];
+
+// ---------- the map's part: APP.ui.com ----------
+function comUiUpdate() {
+  const s = APP.state;
+  const q = s && !APP.titleOn && !APP.ui.ritual ? comMain(s) : null;
+  if (!q) { APP.ui.com = null; return; }
+  const def = BUILDINGS[q.tool], key = q.key + '|' + s.ver + '|' + q.sv + '|' + (q.faded ? 1 : 0);
+  if (APP.ui.com && APP.ui.com.k === key) return;
+  let label = '';
+  const line = q.line && q.line.length ? q.line : q.road && q.road.length ? q.road : null;
+  if (q.line && q.line.length) {
+    const cost = q.tool === 'rail' ? railPlan(s, q.line).cost : roadPlan(s, q.line, q.tool === 'paved' ? 2 : 1).cost;
+    label = 'Tap to lay it · ' + money$(cost) + (q.tool === 'rail' && q.gift ? ' (they pay ' + money$(q.gift) + ')' : '');
+  } else if (line) label = 'Road first · tap it · ' + money$(roadPlan(s, line, 1).cost);
+  APP.ui.com = { k: key, key: q.key, spots: def ? q.spots.map(([x, y]) => ({ x, y, w: def.w, h: def.h })) : [], line, label, faded: !!q.faded, glowB: q.glowB || q.move || 0 };
+}
+
+// A tap on a glowing place builds the asked building there; on the dotted line, lays the line.
+function comTapHit(sx, sy) {
+  const s = APP.state, cm = APP.ui.com, q = comMain(s);
+  if (!cm || !q || cm.key !== q.key) return null;
+  const toolOk = APP.ui.tool === 'look' || APP.ui.tool === q.tool || (q.tool === 'paved' && APP.ui.tool === 'road');
+  if (!toolOk) return null;
+  // a building drawn under the finger (a roof over the glowing lot behind it) opens as before (Q1: a tap never builds
+  // what she did not mean); with the asked tool armed (Rosa's button) the lot under the finger is built
+  if (APP.ui.tool === 'look' && renderPick(APP.R, APP.view, s, sx, sy)) return null;
+  const t = screenToTile(APP.R, APP.view, sx, sy), tx = Math.floor(t.x), ty = Math.floor(t.y);
+  const sp = cm.spots.find((p) => tx >= p.x && tx < p.x + p.w && ty >= p.y && ty < p.y + p.h);
+  if (sp) return { q, sp };
+  if (cm.line && cm.line.some((i) => Math.abs(i % MAP_W + 0.5 - t.x) <= 0.9 && Math.abs(((i / MAP_W) | 0) + 0.5 - t.y) <= 0.9)) return { q, line: true };
+  return null;
+}
+
+function comBuildAt(q, sp) {
+  const s = APP.state;
+  // the spot at the end of the dotted road: the road is laid first, then the building (or the home moves first)
+  if (q.road && q.road.length && s.money >= q.road.length * TUNE.roadCost + BUILDINGS[q.tool].cost) placeRoad(s, q.road, 1);
+  if (q.move && s.money >= BUILDINGS[q.tool].cost) openWay(s, q.moveFor || q.tool);
+  const r = placeBuilding(s, q.tool, sp.x, sp.y);
+  if (r.ok) {
+    APP.ui.ghost = null;
+    floaterAdd(sp.x + sp.w / 2, sp.y + sp.h / 2, '−$' + BUILDINGS[q.tool].cost.toLocaleString('en-US'), '#c0392b', false, r.b && r.b.id);
+    guideIntro(s); comTick(s); guideRender();
+    return true;
+  }
+  if (APP.ui.tool !== q.tool) toolSet(q.tool);
+  APP.ui.ghost = { type: q.tool, x: sp.x, y: sp.y, why: r.why };
+  return false;
+}
+
+function comLayUi(q) {
+  const s = APP.state, r = comLay(s, q), ln = q.line && q.line.length ? q.line : q.road || [];
+  if (r.built) {
+    const i = ln.length ? ln[(ln.length / 2) | 0] : tileIdx(q.spots[0] ? q.spots[0][0] : 0, q.spots[0] ? q.spots[0][1] : 0);
+    floaterAdd(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5, '−' + money$(r.cost || 0), '#c0392b');
+    comTick(s); guideRender();
+  } else toastShow(r.why || 'Not enough money yet: the line waits for you.');
+  return r.built > 0;
+}
+
+{
+  const _tap = tapAt;
+  tapAt = function (sx, sy) {
+    const h = comTapHit(sx, sy);
+    if (h && h.sp) { comBuildAt(h.q, h.sp); return; }
+    if (h && h.line) { comLayUi(h.q); return; }
+    return _tap.apply(this, arguments);
+  };
+}
+
+// A1+A3 (13 Oct 2026): a tap ON a glowing place with the asked tool armed always builds. Q1's guard ignores an armed
+// tap within a finger's width (UI_NEAR) of a control, because Safari may send the click to the button the finger also
+// covered (after the finger lifted). For a tap on a glow that only the margin stopped (no control touched, none under
+// the finger, none that just went away), the build waits COM_TAP_WAIT ms for that click: a click on a control in the
+// meantime means the finger was meant for the control and nothing is built; otherwise the glowing lot is built.
+const COM_TAP_WAIT = 180;
+{
+  const _tb = tapBlocked;
+  tapBlocked = function (gesture, p, pointerType) {
+    const blocked = _tb.apply(this, arguments);
+    const tool = APP.ui.tool;
+    if (!blocked || tool === 'look' || !BUILDINGS[tool] || pointerType === 'mouse') return blocked;
+    if (gesture.ui || (APP.uiTouchT || 0) > gesture.t0 || uiNearAt(gesture.x0, gesture.y0, 0) || uiNearAt(p.x, p.y, 0)) return true;
+    const h = comTapHit(p.x, p.y), h0 = comTapHit(gesture.x0, gesture.y0);
+    if (!h || !h.sp || !h0 || !h0.sp) return true;
+    const t0 = gesture.t0, key = h.q.key, x = p.x, y = p.y;
+    clearTimeout(APP.comTapWait);
+    APP.comTapWait = setTimeout(() => {
+      APP.comTapWait = 0;
+      if ((APP.uiClickT || 0) > t0 || (APP.uiTouchT || 0) > t0 || APP.ui.tool !== tool) return;
+      const h2 = comTapHit(x, y);
+      if (h2 && h2.sp && h2.q.key === key) { APP.comTapLate = (APP.comTapLate || 0) + 1; tapAt(x, y); }
+    }, COM_TAP_WAIT);
+    return true;
+  };
+}
+
+// Rosa's button on a line commission lays the line (the view goes there first); on a building one it arms the tool.
+{
+  const _ga = guideAct;
+  guideAct = function () {
+    const m = guideMsg(), q = comOfMsg(m);
+    if (q && q.move && m !== APP.ui.hint && performance.now() - (APP.guideT || 0) >= 900) {
+      const o = bById(APP.state, q.move);
+      if (o) cameraFlyTo(o.x + 0.5, o.y + 0.5);
+      comLayUi(q);
+      return;
+    }
+    const ln = q && (q.line && q.line.length ? q.line : q.road && q.road.length ? q.road : null);
+    if (ln && m !== APP.ui.hint && performance.now() - (APP.guideT || 0) >= 900) {
+      const i = ln[(ln.length / 2) | 0];
+      cardClose();
+      cameraFlyTo(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5);
+      comLayUi(q);
+      return;
+    }
+    return _ga.apply(this, arguments);
+  };
+}
+
+// ---------- Rosa's line in the asker's voice ----------
+function comOfMsg(m) {
+  if (!m || !m.key || !m.key.startsWith('com-')) return null;
+  const k = m.key.slice(4);
+  return (comState(APP.state).list.find((q) => q.key === k)) || null;
+}
+{
+  const _gr = guideRender;
+  guideRender = function () {
+    const r = _gr.apply(this, arguments);
+    const w = document.querySelector('#guide .who'), q = comOfMsg(guideMsg());
+    if (w) {
+      const t = q ? q.who.ini : 'R';
+      if (w.textContent !== t) w.textContent = t;
+      w.style.background = q ? q.who.col : '';
+      w.style.color = q ? '#fff7ea' : '';
+      w.classList.toggle('com', !!q);
+      $('guide').classList.toggle('com', !!q);
+    }
+    comStackRender();
+    return r;
+  };
+}
+
+// ---------- the stack at the edge ----------
+function comShort(q) {
+  const what = q.res ? 'the residence' : q.tool === 'rail' ? 'a railway' : q.tool === 'paved' ? 'paving' : q.tool === 'road' ? 'a road' : q.tool === 'tram' ? 'a tram line' : BUILDINGS[q.tool] ? comA(q.tool) : 'help';
+  return (/^The planters/.test(q.who.name) ? 'ask for ' : 'asks for ') + what + (q.need > 1 ? ' (' + Math.max(0, comCount(APP.state, q) - q.base) + ' of ' + q.need + ')' : '');
+}
+
+function comStackRender() {
+  const el = $('comstack');
+  if (!el || !APP.state) return;
+  const s = APP.state, now = performance.now();
+  if (APP.comPraise && now < APP.comPraise.until) {
+    const k = 'p|' + APP.comPraise.text;
+    if (el.dataset.k !== k) {
+      el.dataset.k = k;
+      el.innerHTML = '<div class="cpraise"><span class="cface" style="background:' + APP.comPraise.col + '">' + esc(APP.comPraise.ini) + '</span><span class="ct">' + esc(APP.comPraise.text) + '</span></div>';
+    }
+    el.classList.add('show');
+    comStackPlace();
+    return;
+  }
+  const list = comState(s).list, m = guideMsg(), voiced = m && m.key && m.key.startsWith('com-') && $('guide').classList.contains('show') ? m.key.slice(4) : '';
+  const main = comMain(s), rows = list.filter((q) => q.key !== voiced).slice(0, 3);
+  const k = rows.map((q) => q.key + (q === main ? '*' : '') + comShort(q) + q.who.name).join('|');
+  const hide = !rows.length || APP.titleOn || APP.ui.ritual || document.body.classList.contains('todoing') || ($('sheet') && $('sheet').classList.contains('show')) ||
+    ($('greet') && $('greet').classList.contains('show')) || (window.innerWidth <= 900 && APP.ui.sel);
+  if (hide) { if (el.classList.contains('show')) uiGone(el); el.classList.remove('show'); return; }
+  if (el.dataset.k !== k) {
+    el.dataset.k = k;
+    el.innerHTML = rows.map((q) => '<button class="cchip' + (q === main ? ' main' : '') + '" data-k="' + q.key + '" aria-label="' + esc(q.who.name + ' ' + comShort(q)) + '"><span class="cface" style="background:' + q.who.col + '">' + esc(q.who.ini) + '</span>' +
+      '<span class="ct"><b>' + esc(q.who.name) + '</b> ' + esc(comShort(q)) + '</span></button>').join('');
+  }
+  el.classList.add('show');
+  comStackPlace();
+}
+
+// Left edge, just above Rosa's line (or above the build bar when she is quiet).
+function comStackPlace() {
+  const el = $('comstack'), g = $('guide'), lw = $('lower'), ins = safeInsets();
+  const gr = g && g.classList.contains('show') ? g.getBoundingClientRect() : null;
+  const top = gr && gr.height ? gr.top : lw.getBoundingClientRect().bottom;
+  el.style.left = Math.round((gr && gr.height ? gr.left : 10 + ins.l)) + 'px';
+  el.style.bottom = Math.round(window.innerHeight - top + 8) + 'px';
+}
+
+function comStackClick(e) {
+  const b = e.target.closest && e.target.closest('.cchip');
+  if (!b) return;
+  const s = APP.state, k = b.dataset.k;
+  if (!comPick(s, k)) return;
+  // her pick is said now, even over a problem line (she chose it)
+  const q = comMain(s);
+  s.guide.snooze['com-' + k] = 0;
+  if (s.guide.msg && !s.guide.msg.key.startsWith('com-')) s.guide.msg = null;
+  comGuide(s);
+  comUiUpdate(); guideRender();
+  const at = q && (q.spots[0] || (q.line && q.line.length ? [q.line[0] % MAP_W, (q.line[0] / MAP_W) | 0] : q.near));
+  if (q && q.select) { const b2 = bById(s, q.select); if (b2) cameraFlyTo(b2.x + b2.w / 2, b2.y + b2.h / 2, null, b2.id); }
+  else if (at) cameraFlyTo(at[0] + 0.5, at[1] + 0.5);
+}
+
+// ---------- praise when a commission is done; new ones arrive quietly (the stack and Rosa show them) ----------
+function comEvents(evs) {
+  for (const e of evs) {
+    if (e.kind !== 'com' || e.what !== 'done') continue;
+    APP.comPraise = { text: e.text, ini: e.who.ini, col: e.who.col, until: performance.now() + 4500 };
+    if (e.gift && e.at) floaterAdd(e.at[0] + 0.5, e.at[1] + 0.5, '+' + money$(e.gift), '#2e8b3e', true);
+    try { audioCue('levelup'); } catch (err) { /* no sound */ }
+    APP.comPraiseT = setTimeout(() => { APP.comPraise = null; const el = $('comstack'); if (el) el.dataset.k = ''; comStackRender(); }, 4600);
+  }
+}
+{
+  const _eh = eventsHandle;
+  eventsHandle = function () {
+    const evs = APP.state && APP.state.ev ? APP.state.ev.slice() : [];
+    const r = _eh.apply(this, arguments);
+    comEvents(evs);
+    return r;
+  };
+  const _hu = hudUpdate;
+  hudUpdate = function () { const r = _hu.apply(this, arguments); comUiUpdate(); comStackRender(); return r; };
+  const _hi = hudInit;
+  hudInit = function () {
+    const r = _hi.apply(this, arguments);
+    if (!$('comstack')) {
+      const el = document.createElement('div');
+      el.id = 'comstack'; el.setAttribute('role', 'group'); el.setAttribute('aria-label', 'Asked of you');
+      document.body.appendChild(el);
+      el.addEventListener('click', comStackClick);
+      // a click that reaches a control (also the one Safari sends after a finger lifted beside it): see COM_TAP_WAIT
+      document.addEventListener('click', (e) => { if (e.target && e.target.id !== 'map' && e.target.closest && e.target.closest(UI_SEL)) APP.uiClickT = performance.now(); }, true);
+      const cv = document.createElement('canvas');
+      cv.id = 'confetti';
+      document.body.appendChild(cv);
+    }
+    return r;
+  };
+}
+
+// ---------- the to-do list: "Asked of you" ----------
+{
+  const _ti = todoInit;
+  todoInit = function () {
+    const had = APP.todoInited, r = _ti.apply(this, arguments);
+    if (had || !$('todo')) return r;
+    const now = $('tdNow'), h = now && now.previousElementSibling;
+    if (h) {
+      h.insertAdjacentHTML('beforebegin', '<h5 id="tdComH">Asked of you</h5><div id="tdCom"></div>');
+      $('tdCom').addEventListener('click', (e) => {
+        const b = e.target.closest && e.target.closest('button');
+        if (!b) return;
+        const s = APP.state, k = b.dataset.com;
+        if (b.classList.contains('album')) { albumOpen(); return; }
+        if (!k || !comPick(s, k)) return;
+        const q = comMain(s);
+        s.guide.snooze['com-' + k] = 0;
+        if (s.guide.msg && !s.guide.msg.key.startsWith('com-')) s.guide.msg = null;
+        comGuide(s); comUiUpdate(); guideRender();
+        todoClose();
+        const at = q.spots[0] || (q.line && q.line.length ? [q.line[0] % MAP_W, (q.line[0] / MAP_W) | 0] : q.near);
+        if (q.select) { const o = bById(s, q.select); if (o) cameraFlyTo(o.x + o.w / 2, o.y + o.h / 2, null, o.id); return; }
+        if (at) cameraFlyTo(at[0] + 0.5, at[1] + 0.5);
+        if (b.classList.contains('arm') && q.tool) toolSet(q.tool);
+      });
+    }
+    const head = $('todo').querySelector('.h');
+    if (head) head.insertAdjacentHTML('afterend', '<button class="talbum" id="todoAlbum">' + iconSvg('log') + 'Album</button>');
+    const ab = $('todoAlbum');
+    if (ab) ab.addEventListener('click', () => albumOpen());
+    return r;
+  };
+  const _tr = todoRefresh;
+  todoRefresh = function (s, force) {
+    const r = _tr.apply(this, arguments);
+    const el = $('tdCom');
+    if (!el || !$('todo').classList.contains('show')) return r;
+    const list = comState(s).list, main = comMain(s);
+    const html = list.length ? list.map((q) => '<div class="row crow' + (q === main ? ' main' : '') + '"><span class="cface" style="background:' + q.who.col + '">' + esc(q.who.ini) + '</span>' +
+      '<span class="lbl"><b>' + esc(q.who.name) + '</b> ' + esc(comShort(q)) + '<small>' + esc(q.ask) + '</small></span><span class="bs">' +
+      '<button class="show" data-com="' + q.key + '">Show</button>' + (q.tool ? '<button class="fix arm" data-com="' + q.key + '">' + esc(q.tool === 'rail' ? 'Railway' : toolLabel(q.tool)) + '</button>' : '') + '</span></div>').join('') :
+      '<p class="empty">Nobody asks for anything right now. The islanders will come to you when they need something.</p>';
+    if (el.dataset.h !== html && !uiHeld('todo')) { el.dataset.h = html; el.innerHTML = html; }
+    return r;
+  };
+}
+
+// ---------- the album (photos beside the save: SAVE_KEY + '-album', the island's albumId) ----------
+function albumGet() {
+  const s = APP.state;
+  try {
+    const o = JSON.parse(storeGet(SAVE_KEY + '-album') || 'null');
+    if (o && o.id === s.albumId && Array.isArray(o.photos)) return o.photos;
+  } catch (e) { /* unreadable: an empty album */ }
+  return [];
+}
+
+function albumAdd(p) {
+  const s = APP.state;
+  if (!s.albumId) s.albumId = 'a' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+  let photos = albumGet().concat([p]);
+  if (photos.length > ALBUM_MAX) photos = photos.slice(-ALBUM_MAX);
+  // storage full: the oldest photos make room (the island's save always comes first)
+  while (photos.length && !storeSet(SAVE_KEY + '-album', JSON.stringify({ id: s.albumId, photos }))) photos.shift();
+  const c = comState(s);
+  c.album = (c.album || []).concat([{ stage: p.stage, m: p.m, pop: p.pop }]).slice(-ALBUM_MAX);
+  return photos.length;
+}
+
+function albumOpen() {
+  const photos = albumGet();
+  todoClose();
+  const figs = photos.slice().reverse().map((p) => '<figure><img alt="" src="' + p.img + '"><figcaption><b>' + esc(STAGES[p.stage] ? STAGES[p.stage].name : '') + ' · ' + esc(dateLabel(p.m)) + '</b>' +
+    '<span>' + esc(plural(p.pop, 'person', 'people')) + '</span><i>' + esc(p.line || '') + '</i></figcaption></figure>').join('');
+  sheetOpen('<h2>Album</h2><p class="sub">A photograph of your island at every new stage.</p><div class="album">' + (figs || '<p class="empty">The first photo is taken when Isla Nueva becomes a village.</p>') + '</div>');
+}
+
+{
+  const _lo = logOpen;
+  logOpen = function () {
+    const r = _lo.apply(this, arguments);
+    const h = $('sheet').querySelector('h2');
+    if (h && !$('logAlbum')) { h.insertAdjacentHTML('afterend', '<button class="talbum" id="logAlbum">' + iconSvg('log') + 'Album</button>'); $('logAlbum').addEventListener('click', () => { sheetClose(); albumOpen(); }); }
+    return r;
+  };
+  // the greeting on her return shows the last photo
+  const _go = greetOpen;
+  greetOpen = function () {
+    const r = _go.apply(this, arguments);
+    const p = albumGet().slice(-1)[0], el = $('greet');
+    if (p && el && !el.querySelector('.gphoto')) el.querySelector('h2').insertAdjacentHTML('beforebegin', '<img class="gphoto" alt="" src="' + p.img + '">');
+    return r;
+  };
+}
+
+// ---------- the ritual at each stage ----------
+function comSnap() {
+  try {
+    // every photo 480 x 360 (4:3), cut from the middle of the screen (a phone's tall screen gives the middle band)
+    const cv = $('map'), w = ALBUM_W, h = Math.round(ALBUM_W * 0.75), W = cv.width, H = cv.height;
+    const sw = Math.min(W, H / 0.75), sh = sw * 0.75, sx = (W - sw) / 2, sy = Math.max(0, (H - sh) / 2);
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(cv, sx, sy, sw, sh, 0, 0, w, h);
+    return c.toDataURL('image/jpeg', 0.72);
+  } catch (e) { return ''; }
+}
+
+function confettiRun() {
+  const cv = $('confetti');
+  if (!cv) return;
+  const W = window.innerWidth, H = window.innerHeight, d = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = W * d; cv.height = H * d;
+  cv.classList.add('show');
+  const g = cv.getContext('2d'), cols = ['#df684c', '#eab33e', '#2e9a91', '#2f7a45', '#f8eed6', '#c0567a'], P = [];
+  for (let k = 0; k < 160; k++) P.push({ x: Math.random() * W, y: k < 60 ? Math.random() * H * 0.45 : -20 - Math.random() * H * 0.7, vy: 1.6 + Math.random() * 2.6, vx: -1 + Math.random() * 2, a: Math.random() * 6, c: cols[k % cols.length], w: 6 + Math.random() * 5 });
+  const t0 = performance.now();
+  const step = (now) => {
+    g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, W, H);
+    for (const p of P) { p.y += p.vy; p.x += p.vx + Math.sin(p.a) * 0.6; p.a += 0.09; g.save(); g.translate(p.x, p.y); g.rotate(p.a); g.fillStyle = p.c; g.fillRect(-p.w / 2, -2.5, p.w, 5); g.strokeStyle = 'rgba(58,42,31,.5)'; g.lineWidth = 0.8; g.strokeRect(-p.w / 2, -2.5, p.w, 5); g.restore(); }
+    if (now - t0 < 4200) requestAnimationFrame(step); else { g.clearRect(0, 0, W, H); cv.classList.remove('show'); }
+  };
+  requestAnimationFrame(step);
+}
+
+{
+  const _sc = stageCardOpen;
+  stageCardOpen = function (stage) {
+    const s = APP.state, prev = APP.speed, res = s.b.find((b) => b.type === 'residence');
+    speedSet(0);
+    cardClose();
+    if (APP.ui.tool !== 'look') toolSet('look');
+    if (res) cameraFlyTo(res.x + res.w / 2, res.y + res.h / 2 + 1.5, Math.max(APP.view.z, 30));
+    APP.ui.ritual = { x: res ? res.x + res.w / 2 : 0, y: res ? res.y + res.h : 0, t0: performance.now(), dur: 7.5, n: Math.min(36, 18 + 4 * stage), label: 'Isla Nueva · ' + STAGES[stage].name + '!' };
+    APP.ui.com = null;
+    confettiRun();
+    const line = COM_STAGE_LINE[stage] || '';
+    setTimeout(() => {
+      // the photo of her own island at this moment, the gathering in front of the residence
+      const img = comSnap();
+      if (img) albumAdd({ img, stage, m: s.month, pop: popCount(s), line });
+      speedSet(prev);
+      _sc.call(this, stage);
+      const card = $('stagecard');
+      if (card) {
+        card.insertAdjacentHTML('afterbegin', '<div class="gz"><div class="gzh">The Isla Nueva Gazette</div><div class="gzd">' + esc(dateLabel(s.month)) + ' · ' + esc(plural(popCount(s), 'person', 'people')) + '</div>' +
+          (img ? '<img class="gzp" alt="Your island today" src="' + img + '">' : '') + '<p class="gzr"><b>Rosa:</b> “' + esc(line) + '”</p></div>');
+        const go = $('stageGo');
+        if (go) go.insertAdjacentHTML('beforebegin', '<button class="talbum" id="stageAlbum">' + iconSvg('log') + 'Album</button>');
+        const ab = $('stageAlbum');
+        if (ab) ab.addEventListener('click', () => { sheetClose(); albumOpen(); });
+      }
+      setTimeout(() => { APP.ui.ritual = null; comUiUpdate(); }, 5800);
+    }, 1700);
   };
 }
 
