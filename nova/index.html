@@ -688,6 +688,23 @@ body.titled #gzslip, body.titled #gazette { display: none !important; }
 @media (max-width: 600px) { #pill .blk ~ .sav { display: none; } }
 /* a phone: two faces in the stack at most (the money offer may be a fourth ask; the to-do list has them all) */
 @media (max-width: 600px) { #comstack .cchip:nth-child(n+3) { display: none; } }
+/* A4: the family on a home's card (its name, where from and since when, who does what, how they feel) */
+#card .fam { margin: 6px 0 8px; padding: 9px 11px 10px; border-radius: 12px; background: #f6e9cc; border: 1.5px solid rgba(58, 42, 31, 0.24); }
+#card .fam .fn { font: italic 700 22px/1.15 var(--serif); color: #7a3a22; }
+#card .fam .fo { font-size: 13.5px; color: var(--ink2); margin-top: 2px; line-height: 1.3; }
+#card .fam .fp { font-size: 14.5px; margin-top: 6px; line-height: 1.35; }
+#card .fam .fm { font-size: 14px; font-weight: 700; margin-top: 6px; display: flex; gap: 7px; align-items: baseline; line-height: 1.3; }
+#card .fam .fm i { flex: none; width: 11px; height: 11px; border-radius: 50%; background: #5f9a4a; box-shadow: inset 0 0 0 1.5px var(--ink); transform: translateY(1px); }
+#card .fam .fm.mid i { background: #e0b04a; } #card .fam .fm.bad i { background: #d9653f; }
+#card .fam .fm.bad span { color: #8a2f1b; }
+#card .fam .fx { font-size: 13px; color: var(--ink2); margin-top: 5px; line-height: 1.3; }
+#card .fam.empty { background: var(--paper2); }
+#greet .famg { margin: 10px 0 0; font: italic 600 16px/1.3 var(--serif); color: #7a3a22; }
+@media (max-width: 600px) {
+  #card .fam { padding: 7px 10px 8px; margin: 4px 0 6px; } #card .fam .fn { font-size: 19px; }
+  #card .fam .fo { font-size: 12.5px; } #card .fam .fp { font-size: 13.5px; margin-top: 3px; } #card .fam .fm { font-size: 13.5px; margin-top: 4px; }
+  #card .fam .fx { display: none; }
+}
 </style>
 </head>
 <body>
@@ -7354,6 +7371,757 @@ function a8Close(s, id) {
   };
 }
 
+// ---- src/sim/families.js
+// A4 (13 Oct 2026): families with names. PSYCHOLOGY2.md §2.6: "People with names, in her language. Families she
+// welcomed by name come back in commissions, complain, thank, protest"; the first iPad day's named families (Yılmaz,
+// Kováč, Santos…; first-ipad/analysis/REPORT.txt point 5); playtest 4: the named commissions were the engine of the
+// evening ("Ayşe Kaya — she will smile").
+// - Every home holds one or more households (a family): a surname, the place they came from, the month they landed, how
+//   many they are. First names, who is a child, what each one does and how they feel are worked out from that and from
+//   the island as it is (nothing of it is stored twice).
+// - The names follow the simulation, never the other way round: the boat, the tents, the rent, a home stepping down move
+//   people (people.js, unchanged); every such move goes through walkersSpawn, so the names move with them (who landed,
+//   who moved in from the tents, who packed). Nothing here changes money, people, happiness or the pace, and it never
+//   draws from state.rng: its own hash of the island's seed and the family's number.
+// - Commissions from people are asked by a family living on the island (or waiting in tents, or, before anybody lives
+//   here, on the first boat): the family nearest the place it asks for. Departures, the Gazette, Rosa's lines and the
+//   greeting name them.
+// State (saved with the island, migrated on load: every home of an older island gets its family, deterministically from
+// the seed and the order of its buildings): state.fam = { v, k (the next family's number), h: { homeId: [rec] },
+//   w: [rec] (waiting at the pier, oldest first, like state.waitQ), nx: [rec] (the next boats' families, named before
+//   they land), ev: [event] (the last ones, for the greeting), yrs: { year: { in, out, up } } (for the Gazette), ask:
+//   [the last askers' surnames] }.  rec = [number, people, month landed, group, surname, place].
+// Sources for the groups, the names and the migrations behind them: docs/research/families.md.
+
+// The groups: surnames, first names (men, women) and home places ([label, until year, label after, …]).
+const FAM_GROUPS = {
+  canary: { sur: ['Hernández', 'Rodríguez', 'Pérez', 'González', 'Díaz', 'Santana', 'Cabrera', 'Expósito', 'Febles', 'Brito', 'Perdomo', 'Acosta', 'Quintero', 'Betancourt', 'Padrón', 'Alemán', 'Armas', 'Medina'],
+    m: ['José', 'Manuel', 'Antonio', 'Francisco', 'Juan', 'Domingo', 'Pedro', 'Agustín', 'Cristóbal', 'Salvador'],
+    f: ['María', 'Candelaria', 'Dolores', 'Josefa', 'Carmen', 'Pino', 'Concepción', 'Rosario', 'Inés', 'Antonia'],
+    pl: [['La Palma, Canary Islands'], ['Tenerife, Canary Islands'], ['Gran Canaria, Canary Islands'], ['Lanzarote, Canary Islands'], ['La Gomera, Canary Islands'], ['El Hierro, Canary Islands']] },
+  galicia: { sur: ['Fernández', 'López', 'Otero', 'Castro', 'Varela', 'Pereira', 'Rey', 'Vázquez', 'Souto', 'Iglesias', 'Lorenzo', 'Seoane', 'Bouza', 'Rivera', 'Novo', 'Carballo', 'Pazos', 'Losada'],
+    m: ['José', 'Manuel', 'Ramón', 'Jesús', 'Benito', 'Andrés', 'Juan', 'Antonio', 'Severino', 'Camilo'],
+    f: ['María', 'Carmen', 'Dolores', 'Josefa', 'Pilar', 'Rosa', 'Manuela', 'Teresa', 'Lucía', 'Benita'],
+    pl: [['Lugo, Galicia'], ['Orense, Galicia'], ['La Coruña, Galicia'], ['Pontevedra, Galicia'], ['Vigo, Galicia'], ['Betanzos, Galicia']] },
+  asturias: { sur: ['Menéndez', 'Álvarez', 'Suárez', 'García', 'Prieto', 'Cueto', 'Llano', 'Rubio', 'Gutiérrez', 'Martínez', 'Valdés', 'Fernández'],
+    m: ['José', 'Manuel', 'Ramón', 'Celestino', 'Faustino', 'Pedro', 'Luis', 'Jesús'],
+    f: ['María', 'Carmen', 'Covadonga', 'Josefa', 'Pilar', 'Rosa', 'Amparo', 'Lucía'],
+    pl: [['Llanes, Asturias'], ['Gijón, Asturias'], ['Avilés, Asturias'], ['Oviedo, Asturias'], ['Cangas, Asturias']] },
+  cuba: { sur: ['Santos', 'Mendoza', 'Torres', 'Ortiz', 'Ramos', 'Figueroa', 'Cruz', 'Reyes', 'Sosa', 'Rivero', 'Fajardo', 'Quesada', 'Ochoa', 'Toledo', 'Valdés', 'Delgado', 'Herrera', 'Morales'],
+    m: ['José', 'Juan', 'Ramón', 'Rafael', 'Pedro', 'Luis', 'Ignacio', 'Tomás', 'Andrés', 'Julio'],
+    f: ['María', 'Caridad', 'Mercedes', 'Rosa', 'Ana', 'Isabel', 'Lucía', 'Ofelia', 'Teresa', 'Juana'],
+    pl: [['Matanzas, Cuba'], ['Santiago de Cuba'], ['Cienfuegos, Cuba'], ['Pinar del Río, Cuba'], ['Camagüey, Cuba'], ['Havana'], ['Ponce, Puerto Rico'], ['Mayagüez, Puerto Rico']] },
+  tr: { sur: ['Yılmaz', 'Kaya', 'Demir', 'Şahin', 'Çelik', 'Aydın', 'Özdemir', 'Öztürk', 'Arslan', 'Doğan', 'Kılıç', 'Yıldız', 'Koç', 'Aksoy', 'Polat', 'Tekin', 'Karaca', 'Uysal'],
+    m: ['Mehmet', 'Ahmet', 'Mustafa', 'Ali', 'Hasan', 'Hüseyin', 'İbrahim', 'Osman', 'Yusuf', 'Halil', 'Rıza', 'Salih'],
+    f: ['Ayşe', 'Fatma', 'Emine', 'Hatice', 'Zeynep', 'Elif', 'Meryem', 'Hanife', 'Şerife', 'Zehra', 'Havva', 'Nazife'],
+    pl: [['Mersin, Ottoman Empire', 1923, 'Mersin, Turkey'], ['Adana, Ottoman Empire', 1923, 'Adana, Turkey'], ['Trabzon, Ottoman Empire', 1923, 'Trabzon, Turkey'],
+      ['Rize, Ottoman Empire', 1923, 'Rize, Turkey'], ['Harput, Ottoman Empire', 1923, 'Harput, Turkey'], ['Sivas, Ottoman Empire', 1923, 'Sivas, Turkey'],
+      ['Smyrna, Ottoman Empire', 1923, 'Izmir, Turkey'], ['Bursa, Ottoman Empire', 1923, 'Bursa, Turkey'], ['Constantinople, Ottoman Empire', 1923, 'Istanbul, Turkey']] },
+  lev: { sur: ['Haddad', 'Khoury', 'Nasser', 'Saab', 'Abboud', 'Saade', 'Chediak', 'Bichara', 'Farah', 'Hanna', 'Maluf', 'Harb', 'Sarkis', 'Daher', 'Kattán'],
+    m: ['Elías', 'Jorge', 'Salim', 'Yusef', 'Habib', 'Khalil', 'Nicolás', 'Miguel', 'Antonio', 'Butros'],
+    f: ['Mariam', 'Salma', 'Najla', 'Wadia', 'Laila', 'Rosa', 'Adela', 'Julia', 'Nazira', 'Sofía'],
+    pl: [['Zahle, Mount Lebanon'], ['Bsharri, Mount Lebanon'], ['Beirut, Ottoman Syria', 1920, 'Beirut, Lebanon'], ['Tripoli, Ottoman Syria', 1920, 'Tripoli, Lebanon'],
+      ['Damascus, Ottoman Syria', 1920, 'Damascus, Syria'], ['Homs, Ottoman Syria', 1920, 'Homs, Syria'], ['Bethlehem, Ottoman Palestine', 1920, 'Bethlehem, Palestine']] },
+  sep: { sur: ['Behar', 'Levy', 'Franco', 'Hasson', 'Eskenazi', 'Benardete', 'Alhadeff', 'Romano', 'Algazi', 'Toledano', 'Mitrani', 'Habif', 'Benveniste'],
+    m: ['Isaac', 'Jacob', 'Moisés', 'Abraham', 'Salomón', 'David', 'Samuel', 'Alberto', 'Rafael'],
+    f: ['Rebeca', 'Sara', 'Raquel', 'Esther', 'Reina', 'Sol', 'Estrella', 'Luna', 'Victoria'],
+    pl: [['Silivri, Ottoman Empire', 1923, 'Silivri, Turkey'], ['Constantinople, Ottoman Empire', 1923, 'Istanbul, Turkey'], ['Smyrna, Ottoman Empire', 1923, 'Izmir, Turkey'],
+      ['Edirne, Ottoman Empire', 1923, 'Edirne, Turkey'], ['Salonica, Ottoman Empire', 1912, 'Salonica, Greece']] },
+  sk: { sur: ['Kováč', 'Novák', 'Hudák', 'Baláž', 'Mikuš', 'Kollár', 'Lukáč', 'Polák', 'Bartoš', 'Šimko', 'Kriško', 'Sloboda', 'Ondruš', 'Krajčí', 'Horváth', 'Hlavatý'],
+    m: ['Ján', 'Jozef', 'Štefan', 'Michal', 'Andrej', 'Pavol', 'Martin', 'Juraj', 'Matej', 'Ondrej'],
+    f: ['Mária', 'Anna', 'Zuzana', 'Katarína', 'Alžbeta', 'Helena', 'Margita', 'Terézia', 'Veronika', 'Jana'],
+    pl: ['Orava', 'Spiš', 'Šariš', 'Zemplín', 'Liptov', 'Trenčín', 'Kysuce'].map((p) => [p + ', Austria-Hungary', 1918, p + ', Czechoslovakia', 1939, p + ', Slovakia', 1945, p + ', Czechoslovakia']) },
+  cz: { sur: ['Dvořák', 'Svoboda', 'Novotný', 'Černý', 'Procházka', 'Kučera', 'Veselý', 'Horák', 'Marek', 'Pokorný'],
+    m: ['Josef', 'Jan', 'Václav', 'František', 'Karel', 'Antonín', 'Jaroslav'],
+    f: ['Marie', 'Anna', 'Božena', 'Ludmila', 'Františka', 'Růžena', 'Věra'],
+    pl: ['Plzeň', 'Brno', 'Tábor', 'Olomouc', 'Písek'].map((p) => [p + ', Austria-Hungary', 1918, p + ', Czechoslovakia']) },
+  hu: { sur: ['Nagy', 'Kovács', 'Tóth', 'Szabó', 'Varga', 'Molnár', 'Farkas', 'Balogh', 'Takács', 'Horváth'],
+    m: ['József', 'János', 'István', 'László', 'Ferenc', 'Sándor', 'Imre'],
+    f: ['Mária', 'Erzsébet', 'Ilona', 'Katalin', 'Julianna', 'Margit', 'Rozália'],
+    pl: [['Debrecen, Hungary'], ['Miskolc, Hungary'], ['Szeged, Hungary'], ['Pécs, Hungary'], ['Budapest']] },
+  it: { sur: ['Rossi', 'Esposito', 'Russo', 'Ferrari', 'Colombo', 'Ricci', 'Greco', 'Bruno', 'Gallo', 'Conti', 'De Luca', 'Marino', 'Lombardi', 'Barbieri'],
+    m: ['Giuseppe', 'Giovanni', 'Antonio', 'Francesco', 'Salvatore', 'Luigi', 'Vincenzo'],
+    f: ['Maria', 'Rosa', 'Giuseppina', 'Angela', 'Carmela', 'Teresa', 'Concetta'],
+    pl: [['Genoa, Italy'], ['Naples, Italy'], ['Calabria, Italy'], ['Palermo, Sicily'], ['Lucca, Italy'], ['Basilicata, Italy']] },
+  jm: { sur: ['Campbell', 'Brown', 'Williams', 'Thompson', 'Clarke', 'Reid', 'McKenzie', 'Grant', 'Morgan', 'Bailey', 'Francis', 'Lewis'],
+    m: ['George', 'James', 'Samuel', 'Joseph', 'Albert', 'Charles', 'Henry'],
+    f: ['Mary', 'Louise', 'Edith', 'Ivy', 'Gladys', 'Ethel', 'Rose'],
+    pl: [['Kingston, Jamaica'], ['Montego Bay, Jamaica'], ['St Ann, Jamaica'], ['Westmoreland, Jamaica'], ['Manchester, Jamaica'], ['Barbados'], ['Grenada']] },
+  ht: { sur: ['Pierre', 'Joseph', 'Jean-Baptiste', 'Louis', 'Charles', 'Saint-Fleur', 'Désir', 'Dorvil', 'Étienne', 'Augustin', 'Baptiste', 'Moïse'],
+    m: ['Jean', 'Pierre', 'Joseph', 'Louis', 'Dieudonné', 'Antoine', 'Lucien'],
+    f: ['Marie', 'Anne', 'Rose', 'Claire', 'Lucienne', 'Mathilde', 'Célestine'],
+    pl: [['Les Cayes, Haiti'], ['Jacmel, Haiti'], ['Jérémie, Haiti'], ['Cap-Haïtien, Haiti'], ['Port-de-Paix, Haiti']] },
+};
+// Who comes when (shares of a hundred families by the year they land). Spain (the Canaries, Galicia, Asturias) and the
+// island-born first; the Ottoman lands, Central Europe and Italy throughout; Jamaica and Haiti from 1913 (cane cutters).
+// A fictional island: the shares are the game's (Turkish and Slovak families are more frequent than on any real
+// Caribbean island), the order and the dates are history's (docs/research/families.md).
+const FAM_ERAS = [
+  [1913, { canary: 18, galicia: 16, asturias: 8, cuba: 20, tr: 14, lev: 6, sep: 2, sk: 8, cz: 1, hu: 3, it: 4, jm: 0, ht: 0 }],
+  [1931, { canary: 15, galicia: 14, asturias: 6, cuba: 17, tr: 13, lev: 6, sep: 3, sk: 7, cz: 2, hu: 3, it: 4, jm: 5, ht: 5 }],
+  [1946, { canary: 9, galicia: 9, asturias: 4, cuba: 30, tr: 14, lev: 6, sep: 4, sk: 7, cz: 3, hu: 4, it: 5, jm: 3, ht: 2 }],
+  [1e9, { canary: 8, galicia: 8, asturias: 3, cuba: 35, tr: 13, lev: 5, sep: 2, sk: 7, cz: 3, hu: 5, it: 6, jm: 3, ht: 2 }],
+];
+// The first three families of an island: a Turkish one, a Spanish-speaking one and a Slovak one (the first iPad
+// version's Rosa: "welcome the Yılmaz and Kováč families").
+const FAM_FIRST = ['tr', 'es', 'sk'];
+// A family's size when it lands with a group bigger than one house (and the waiting families at the pier): about four.
+const FAM_SIZES = [2, 3, 3, 4, 4, 4, 5, 5, 6];
+const FAM_KEEP = 40;
+// What a worker does, by the workplace (cards: "Mehmet cuts cane · Ayşe keeps a stall at the market").
+const FAM_DO = { fishing: 'fishes', grove: 'picks fruit at the grove', market: 'keeps a stall at the market', cane: 'cuts cane', distillery: 'works at the rum distillery',
+  bakery: 'bakes bread', chapel: 'keeps the chapel', harbor: 'works at the harbor', school: 'teaches at the school', clinic: 'nurses at the clinic', tobacco: 'grows tobacco',
+  cigars: 'rolls cigars', lumber: 'cuts timber', sawmill: 'works at the sawmill', finca: 'picks coffee', roastery: 'roasts coffee', ranch: 'herds cattle', butcher: 'is a butcher',
+  central: 'works at the sugar central', park: 'tends the park', quay: 'works on the quay', cannery: 'works at the cannery', lighthouse: 'keeps the lighthouse',
+  cathedral: 'works at the cathedral', opera: 'works at the opera', waterworks: 'works at the water works', power: 'works at the power station', hospital: 'nurses at the hospital',
+  university: 'teaches at the university' };
+// Names and words never stop the island: an error here is counted (sim_test checks it stays 0) and the game goes on.
+const FAM_ERRORS = [];
+function famErr(e) { if (FAM_ERRORS.length < 20) FAM_ERRORS.push(String(e && e.stack || e)); }
+
+// A small integer hash of the island's seed and a family's number (never state.rng: the names change nothing).
+function famHash(a, b, c) {
+  let h = 2166136261 ^ (a | 0);
+  for (const x of [b | 0, c | 0, 0x5bd1e995]) { h = Math.imul(h ^ x, 16777619); h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); h ^= h >>> 15; }
+  return h >>> 0;
+}
+
+function famState(s) {
+  if (!s.fam || typeof s.fam !== 'object' || !s.fam.h || !Array.isArray(s.fam.w)) famInit(s);
+  const F = s.fam;
+  if (!Array.isArray(F.nx)) F.nx = [];
+  if (!Array.isArray(F.ev)) F.ev = [];
+  if (!F.yrs || typeof F.yrs !== 'object') F.yrs = {};
+  if (!Array.isArray(F.ask)) F.ask = [];
+  return F;
+}
+
+// A new island, or an island played before A4: every home with people gets its family (landed when the home was
+// built), every group waiting at the pier its own; in the order of the island's buildings, so a second load of the
+// same save gives the same names.
+function famInit(s) {
+  s.fam = { v: 1, k: 1, h: {}, w: [], nx: [], ev: [], yrs: {}, ask: [] };
+  for (const h of s.b) if (h.type === 'casita' && h.res > 0) s.fam.h[h.id] = famSplit(s, h.res, h.built || 0);
+  for (const g of s.waitQ || []) if (g.n > 0) s.fam.w.push(...famSplit(s, g.n, g.m || 0));
+  return s.fam;
+}
+
+function famYear(m) { return TUNE.startYear + Math.floor((m || 0) / 12); }
+
+// Surnames in use now (homes, the pier, the next boat): a new family takes another one while the group has one left.
+function famUsed(s) {
+  const F = s.fam, u = new Set();
+  for (const id in F.h) for (const r of F.h[id]) u.add(r[4]);
+  for (const r of F.w) u.add(r[4]);
+  for (const r of F.nx) u.add(r[4]);
+  return u;
+}
+
+function famGroupFor(s, fid, y) {
+  if (fid <= FAM_FIRST.length) { const g = FAM_FIRST[fid - 1]; return g === 'es' ? ['canary', 'galicia', 'cuba'][(s.seed >>> 0) % 3] : g; }
+  const W = (FAM_ERAS.find((e) => y < e[0]) || FAM_ERAS[FAM_ERAS.length - 1])[1];
+  const tot = Object.values(W).reduce((a, v) => a + v, 0);
+  let r = famHash(s.seed, fid, 3) % tot;
+  for (const g in W) { if (r < W[g]) return g; r -= W[g]; }
+  return 'cuba';
+}
+
+// A new family (its number, group, surname and place); n people, landed in month m (also: families being made now).
+function famNew(s, m, n, also) {
+  const F = s.fam, fid = F.k++, g = famGroupFor(s, fid, famYear(m)), G = FAM_GROUPS[g], used = famUsed(s);
+  for (const r of also || []) used.add(r[4]);
+  let si = famHash(s.seed, fid, 1) % G.sur.length;
+  for (let k = 0; k < G.sur.length && used.has(G.sur[si]); k++) si = (si + 1) % G.sur.length;
+  return [fid, n, m, g, G.sur[si], famHash(s.seed, fid, 2) % G.pl.length];
+}
+
+function famPlanSize(s, fid) { return FAM_SIZES[famHash(s.seed, fid, 4) % FAM_SIZES.length]; }
+
+// n people landing together in month m: one family up to six, else families of about four.
+function famSplit(s, n, m) {
+  if (n <= 6) return [famNew(s, m, n)];
+  const k = Math.ceil(n / 6), out = [];
+  for (let i = 0; i < k; i++) out.push(famNew(s, m, Math.floor(n / k) + (i < n % k ? 1 : 0), out));
+  return out;
+}
+
+// The next boats' families, named before they land (the boatman names the first ones).
+function famManifest(s, n) {
+  const F = famState(s);
+  while (F.nx.length < n) F.nx.push(famNew(s, s.month, 0));
+  return F.nx.slice(0, n);
+}
+
+function famSum(list) { let n = 0; for (const r of list || []) n += r[1]; return n; }
+
+// ---------- what a family is ----------
+function famPlace(r) {
+  const G = FAM_GROUPS[r[3]] || FAM_GROUPS.cuba, e = G.pl[r[5] % G.pl.length] || G.pl[0], y = famYear(r[2]);
+  let lab = e[0];
+  for (let i = 1; i + 1 < e.length; i += 2) if (y >= e[i]) lab = e[i + 1];
+  return lab;
+}
+function famShortPlace(r) { return famPlace(r).split(',')[0]; }
+function famName(r) { return 'the ' + r[4] + ' family'; }
+function famTitle(r) { return 'The ' + r[4] + ' family'; }
+
+// Who is who in a household: two parents and their children; a single person; from seven a grandparent, from nine two
+// couples. The first names come from its number (a family keeps its names as it grows).
+function famPeople(s, r) {
+  const fid = r[0], n = Math.max(1, r[1]), G = FAM_GROUPS[r[3]] || FAM_GROUPS.cuba, out = [], used = new Set();
+  const pick = (sex, k) => {
+    const L = sex === 'f' ? G.f : G.m;
+    let i = famHash(s.seed, fid, 10 + k) % L.length;
+    for (let j = 0; j < L.length && used.has(L[i]); j++) i = (i + 1) % L.length;
+    used.add(L[i]);
+    return L[i];
+  };
+  const h = famHash(s.seed, fid, 5);
+  if (n === 1) { const sex = h % 3 ? 'm' : 'f'; out.push({ nm: pick(sex, 0), sex, role: 'adult', age: 19 + h % 26 }); return out; }
+  const mum = 22 + (h >> 5) % 20;
+  out.push({ nm: pick('m', 0), sex: 'm', role: 'adult', age: mum + 1 + (h >> 10) % 6 });
+  out.push({ nm: pick('f', 1), sex: 'f', role: 'adult', age: mum });
+  let left = n - 2;
+  if (n >= 9) { out.push({ nm: pick('m', 2), sex: 'm', role: 'adult', age: 21 + (h >> 9) % 14 }, { nm: pick('f', 3), sex: 'f', role: 'adult', age: 20 + (h >> 13) % 14 }); left -= 2; }
+  if (n >= 7) { const sx = (h >> 17) % 2 ? 'f' : 'm'; out.push({ nm: pick(sx, 4), sex: sx, role: 'elder', age: 60 + (h >> 18) % 15 }); left--; }
+  let age = Math.min(mum - 17, 2 + (h >> 3) % 15);
+  for (let k = 0; k < left; k++) {
+    const hk = famHash(s.seed, fid, 30 + k), sx = hk % 2 ? 'f' : 'm';
+    out.push({ nm: pick(sx, 5 + k), sex: sx, role: 'kid', age: Math.max(0, age) });
+    age -= 1 + (hk >> 3) % 4;
+  }
+  return out;
+}
+
+// Who in a household works (half of the people, as the island counts them: workforceOf): the adults, then the children
+// of thirteen and over, eldest first (they cut cane and rolled cigars at that age then); a grandparent does not.
+function famWorkerList(s, r, people) {
+  const P = people || famPeople(s, r), kids = P.filter((p) => p.role === 'kid' && p.age >= 13).sort((a, b) => b.age - a.age);
+  return P.filter((p) => p.role === 'adult').concat(kids).slice(0, Math.max(1, Math.ceil(r[1] / 2)));
+}
+
+// Who works where (for the cards only): each home's workers take the nearest workplaces with places left, oldest
+// homes first; as many as the island's workforce; those the jobs do not reach look for work (state.jobless).
+// { homeId: { jobs: [[type, n]], look, home } }; worked out again when the island or its workers change.
+function famJobs(s) {
+  const pop = popCount(s), key = s.month + '|' + s.ver + '|' + pop + '|' + s.jobless + '|' + s.b.length;
+  if (s._famJobs && s._famJobs.key === key) return s._famJobs.map;
+  const F = famState(s), map = {};
+  const places = s.b.filter((b) => BUILDINGS[b.type] && BUILDINGS[b.type].jobs && b.workers > 0).map((b) => ({ t: b.type, left: b.workers, x: b.x + b.w / 2, y: b.y + b.h / 2 }));
+  let force = workforceOf(pop);
+  for (const h of s.b.filter((o) => o.type === 'casita' && o.res > 0).sort((a, b) => a.id - b.id)) {
+    const o = map[h.id] = { jobs: [], look: 0, home: 0 };
+    let need = 0;
+    for (const r of F.h[h.id] || []) need += famWorkerList(s, r).length;
+    const work = Math.min(need, force);
+    o.home = need - work; force -= work;
+    let left = work;
+    while (left > 0) {
+      let best = null, bd = 1e9;
+      for (const p of places) if (p.left > 0) { const d = Math.abs(p.x - h.x - 0.5) + Math.abs(p.y - h.y - 0.5); if (d < bd) { bd = d; best = p; } }
+      if (!best) { o.look += left; break; }
+      const k = Math.min(left, best.left);
+      best.left -= k; left -= k;
+      const j = o.jobs.find((x) => x[0] === best.t);
+      if (j) j[1] += k; else o.jobs.push([best.t, k]);
+    }
+  }
+  s._famJobs = { key, map };
+  return map;
+}
+
+// The families of a home, made to agree with its people (an island changed outside the hooks: a test, an old save).
+function famOf(s, h) {
+  const F = famState(s);
+  if (!h || h.type !== 'casita') return [];
+  const list = F.h[h.id] || [], d = h.res - famSum(list);
+  if (d > 0) { F.h[h.id] = list.concat(famSplit(s, d, s.month)); return F.h[h.id]; }
+  if (d < 0) { let k = -d; while (k > 0 && list.length) { const r = list[list.length - 1]; if (r[1] <= k) { k -= r[1]; list.pop(); } else { r[1] -= k; k = 0; } } }
+  if (!list.length) { delete F.h[h.id]; return []; }
+  F.h[h.id] = list;
+  return list;
+}
+
+// The whole island checked once a month: homes removed, people changed outside the hooks, the pier.
+function famCheck(s) {
+  const F = famState(s), homes = {};
+  for (const h of s.b) if (h.type === 'casita') { homes[h.id] = 1; if (h.res !== famSum(F.h[h.id])) famOf(s, h); }
+  for (const id in F.h) if (!homes[id]) delete F.h[id];
+  famWaitSync(s);
+}
+
+// The pier's families agree with state.waiting (the oldest first, as state.waitQ).
+function famWaitSync(s) {
+  const F = famState(s), want = s.waiting || 0;
+  let have = famSum(F.w);
+  while (have > want && F.w.length) { const r = F.w[0]; const k = Math.min(r[1], have - want); r[1] -= k; have -= k; if (r[1] <= 0) F.w.shift(); }
+  if (have < want) { const q = s.waitQ || [], m = q.length ? q[q.length - 1].m : s.month; F.w.push(...famSplit(s, want - have, m)); }
+}
+
+// ---------- the moves (every change of a home's people goes through walkersSpawn) ----------
+// A batch collects one call's moves for its log lines (peopleMonth, waitHouse); famWhyNow says why people leave.
+let famBatch = null, famWhyNow = '', famLabM = -1, famLabN = 0;
+
+function famNote(s, kind, r, n, extra) {
+  const F = s.fam, y = famYear(s.month);
+  const e = Object.assign({ m: s.month, k: kind, s: r[4], g: r[3], p: famShortPlace(r), n }, extra || {});
+  F.ev.push(e);
+  if (F.ev.length > FAM_KEEP) F.ev.splice(0, F.ev.length - FAM_KEEP);
+  const Y = F.yrs[y] || (F.yrs[y] = { in: [], out: [], up: [] }), L = Y[kind === 'up' ? 'up' : kind === 'out' ? 'out' : 'in'];
+  if (L.length < 30) L.push(e);
+  for (const k in F.yrs) if (+k < y - 1) delete F.yrs[k];
+  if (famBatch && famBatch.s === s) famBatch[kind === 'out' ? 'out' : kind === 'up' ? 'up' : 'in'].push(e);
+}
+
+// Settlers from the boat into a home: the next named families from the manifest (one up to six people, else about
+// four each); one or two more for a family already there are its relatives (the chain migration of the time).
+function famArrive(s, h, k) {
+  const F = famState(s);
+  famOf(s, { id: h.id, type: h.type, res: h.res - k });
+  const list = F.h[h.id] || (F.h[h.id] = []), out = [];
+  const last = list[list.length - 1];
+  if (last && k <= 2 && last[1] + k <= 7) { last[1] += k; famNote(s, 'join', last, k); return out; }
+  let left = k;
+  while (left > 0) {
+    const r = F.nx.length ? F.nx.shift() : famNew(s, s.month, 0);
+    const n = left <= 6 ? left : Math.min(left, famPlanSize(s, r[0]));
+    r[1] = n; r[2] = s.month;
+    list.push(r); out.push(r); left -= n;
+    famNote(s, 'in', r, n);
+    // (a family that asked from the boat lives here now: its home glows)
+    famWhoMoved(s, r[0], h.id);
+  }
+  return out;
+}
+
+// From the tents into a home: the families who waited longest; a family bigger than the beds sends some ahead, the
+// rest wait on (under their own number, the same name).
+function famFromTents(s, h, k) {
+  const F = famState(s);
+  famOf(s, { id: h.id, type: h.type, res: h.res - k });
+  const list = F.h[h.id] || (F.h[h.id] = []), out = [];
+  if (famSum(F.w) < k) F.w.unshift(...famSplit(s, k - famSum(F.w), (s.waitQ && s.waitQ[0] ? s.waitQ[0].m : s.month)));
+  let left = k;
+  while (left > 0 && F.w.length) {
+    const r = F.w[0];
+    if (r[1] <= left) { F.w.shift(); list.push(r); out.push({ r, n: r[1], all: true }); left -= r[1]; }
+    else {
+      const part = r.slice(); part[1] = left; r[1] -= left; r[0] = F.k++;
+      list.push(part); out.push({ r: part, n: left, all: false }); left = 0;
+    }
+  }
+  for (const o of out) { famNote(s, 'tent', o.r, o.n, { all: o.all }); famWhoMoved(s, o.r[0], h.id); }
+  return out;
+}
+
+// k people leave a home: a family of that size whole, else the smallest ones whole and the last one in part.
+// (when walkersSpawn is called the home has already lost them, except a home stepping down, which loses them after)
+function famLeave(s, h, k, why) {
+  const F = famState(s), list = famOf(s, { id: h.id, type: h.type, res: why === 'down' ? h.res : h.res + k }).slice(), out = [];
+  let left = k;
+  const ex = list.findIndex((r) => r[1] === left);
+  if (ex >= 0) { out.push({ r: list[ex], n: left, all: true }); list.splice(ex, 1); left = 0; }
+  while (left > 0 && list.length) {
+    let i = 0;
+    for (let j = 1; j < list.length; j++) if (list[j][1] < list[i][1]) i = j;
+    const r = list[i];
+    if (r[1] <= left) { list.splice(i, 1); out.push({ r, n: r[1], all: true }); left -= r[1]; }
+    else { r[1] -= left; out.push({ r, n: left, all: false }); left = 0; }
+  }
+  if (!list.length) delete F.h[h.id]; else F.h[h.id] = list;
+  for (const o of out) { famNote(s, 'out', o.r, o.n, { why, all: o.all, id: h.id }); if (o.all) famWhoGone(s, o.r[0]); }
+  return out;
+}
+
+// The families who waited too long sail away (the oldest, from the front of the pier).
+function famSail(s, n) {
+  const F = famState(s), out = [];
+  let left = n;
+  while (left > 0 && F.w.length) {
+    const r = F.w[0], k = Math.min(r[1], left);
+    out.push({ r, n: k, all: k === r[1] });
+    r[1] -= k; left -= k;
+    if (r[1] <= 0) { F.w.shift(); famWhoGone(s, r[0]); }
+  }
+  for (const o of out) famNote(s, 'out', o.r, o.n, { why: 'sail', all: o.all });
+  return out;
+}
+
+// The boat's families with no bed: the next named families (the boatman's) put up their tents.
+function famWaitAdd(s, n) {
+  const F = famState(s), add = [];
+  let left = n;
+  while (left > 0) {
+    const r = F.nx.length ? F.nx.shift() : famNew(s, s.month, 0);
+    const k = left <= 6 ? left : Math.min(left, famPlanSize(s, r[0]));
+    r[1] = k; r[2] = s.month; add.push(r); left -= k;
+  }
+  F.w.push(...add);
+  for (const r of add) famNote(s, 'wait', r, r[1]);
+  return add;
+}
+
+// Part of a family: "One of the Kaya family leaves", "3 of the Kaya family move in".
+function famSome(n, r, one, many) { return (n === 1 ? 'One' : n) + ' of ' + famName(r) + ' ' + (n === 1 ? one : many); }
+
+// "the Yılmaz family", "the Yılmaz and Novák families", "the Yılmaz, Novák and 3 more families".
+function famList(names, max) {
+  const u = [...new Set(names)], k = max || 3;
+  if (!u.length) return '';
+  if (u.length === 1) return 'the ' + u[0] + ' family';
+  if (u.length <= k) return 'the ' + listAnd(u) + ' families';
+  return 'the ' + u.slice(0, k - 1).join(', ') + ' and ' + (u.length - k + 1) + ' more families';
+}
+
+function famOnWalk(s, h, k, arriving, tent, w0) {
+  if (!h || h.type !== 'casita' || !(k > 0)) return;
+  famState(s);
+  if (arriving && tent) {
+    const out = famFromTents(s, h, k);
+    if (out.length) simEvent(s, { kind: 'fam', what: 'in', id: h.id, text: out[0].all ? famTitle(out[0].r) + ' moves in' : famSome(out[0].n, out[0].r, 'moves in', 'move in') });
+    return;
+  }
+  if (arriving) {
+    const out = famArrive(s, h, k);
+    if (out.length) simEvent(s, { kind: 'fam', what: 'in', id: h.id, text: famTitle(out[0]) + ' moves in', boat: 1 });
+    return;
+  }
+  const why = famWhyNow || (s.lastMoves && s.lastMoves.rentLeft !== undefined ? 'rent' : 'happy');
+  const out = famLeave(s, h, k, why);
+  if (!out.length) return;
+  const o = out[0], text = o.all ? famTitle(o.r) + ' leaves' : famSome(o.n, o.r, 'leaves', 'leave');
+  simEvent(s, { kind: 'fam', what: 'out', id: h.id, text, why });
+  // their name walks with the suitcases (two families a month at most, so a rent month is not a cloud of names)
+  if (famLabM !== s.month) { famLabM = s.month; famLabN = 0; }
+  if (s.walk && s.walk.length > w0 && famLabN < 2) { s.walk[w0].fam = o.all ? famTitle(o.r) : 'The ' + o.r[4] + 's'; famLabN++; }
+}
+
+// ---------- what the cards and the map say ----------
+function famDo(t) { return FAM_DO[t] || 'works at the ' + (BUILDINGS[t] ? BUILDINGS[t].name.toLowerCase() : t); }
+
+// One line of who does what: "Mehmet cuts cane · Ayşe keeps a stall at the market · Elif and Ali at school · little
+// Can". pool: the home's jobs (famJobs), taken by its families in turn.
+function famPeopleLine(s, h, r, pool) {
+  const P = famPeople(s, r), parts = [], school = homeHas(s, h, 'school'), work = famWorkerList(s, r, P);
+  for (const a of work) {
+    let t;
+    if (pool && pool.jobs.length) { const j = pool.jobs[0]; t = famDo(j[0]); if (--j[1] <= 0) pool.jobs.shift(); }
+    else if (pool && pool.look > 0) { pool.look--; t = 'looks for work'; }
+    else t = 'keeps the house';
+    if (parts.length < 3) parts.push(a.nm + ' ' + t);
+  }
+  for (const a of P.filter((p) => p.role === 'adult' && !work.includes(p))) if (parts.length < 3) parts.push(a.nm + ' keeps the house');
+  const kids = P.filter((p) => p.role === 'kid' && !work.includes(p)), big = kids.filter((p) => p.age >= 6).map((p) => p.nm), small = kids.filter((p) => p.age < 6).map((p) => p.nm);
+  const few = (L) => L.length <= 2 ? listAnd(L) : L.slice(0, 2).join(', ') + ' and ' + (L.length - 2) + ' more';
+  if (big.length) parts.push(few(big) + (school ? ' at school' : big.length === 1 ? ' helps at home' : ' help at home'));
+  if (small.length) parts.push((small.length === 1 ? 'little ' : 'the little ones ') + few(small));
+  const el = P.find((p) => p.role === 'elder');
+  if (el) parts.push((el.sex === 'f' ? 'grandmother ' : 'grandfather ') + el.nm);
+  return parts.join(' · ');
+}
+
+// How the home feels, in one line from what the island does to it (its needs, the rent, the wages, prices, happiness).
+// { t: 'good' | 'mid' | 'bad', text }
+// (what the home lacks now, as its card's needs line shows it; a family that just landed is not unhappy yet)
+function famMood(s, h, r) {
+  if (!h || !h.res) return null;
+  const miss = (h.miss || []).length ? h.miss : homeMissing(s, h, h.level), lv = LEVELS[h.level], nx = LEVELS[h.level + 1];
+  if (s.happy < TUNE.happyLeave) return { t: 'bad', text: 'Thinking of leaving: the island’s happiness is ' + s.happy + '.' };
+  if (s.lev && s.lev.rent === 'high') return { t: 'bad', text: 'Worried about the rent: it is high.' };
+  if (miss.length && h.level > 1 && h.down) return { t: 'bad', text: 'Worried: no ' + NEED_NAMES[miss[0]].replace(/^an? /, '') + ', and the house may step down.' };
+  if (miss.length && r && r[2] >= s.month - 1) return { t: 'mid', text: 'Just arrived. They need ' + NEED_NAMES[miss[0]] + ' first.' };
+  if (miss.length) return { t: 'bad', text: 'Unhappy: they lack ' + NEED_NAMES[miss[0]] + '.' };
+  if (s.lev && s.lev.wages === 'low') return { t: 'mid', text: 'Getting by: wages are low.' };
+  const dear = typeof LOCAL_GOODS !== 'undefined' && typeof priceOf === 'function' ? LOCAL_GOODS.find((g) => priceOf(s, g) === 'dear' && LEVELS[h.level].needs.includes(g)) : '';
+  if (dear) return { t: 'mid', text: 'Grumbling: ' + NEED_NAMES[dear] + ' is dear.' };
+  if (h.build && nx) return { t: 'good', text: 'Excited: the scaffolding is up for their ' + nx.name + '.' };
+  if (h.ready && nx) return { t: 'good', text: 'Hopeful: ready to move up to a ' + nx.name + '.' };
+  if (nx && nx.stage <= s.stage && (h.missNext || []).length) return { t: 'mid', text: 'Content. For a ' + nx.name + ' they want ' + NEED_NAMES[h.missNext[0]] + '.' };
+  return { t: 'good', text: nx ? 'Happy here.' : 'Proud of their ' + lv.name + '.' };
+}
+
+// The label over the tents: "The Yılmaz family, 5, waits" / "The Yılmaz, Novák and 2 more families wait".
+function famTentText(s) {
+  if (!s.waiting) return '';
+  famWaitSync(s);
+  const w = s.fam.w;
+  if (!w.length) return '';
+  if (w.length === 1) return famTitle(w[0]) + ', ' + w[0][1] + ', waits';
+  return famList(w.map((r) => r[4])).replace(/^the/, 'The') + ' wait';
+}
+
+// ---------- the commissions: a family living on the island asks ----------
+const FAM_FORMS = { fam: 1, mr: 1, mrs: 1, first: 1, dr: 1 };
+
+// Every household that could ask, with where it lives: homes (the main family of each), the pier, the next boat.
+function famAskers(s, where) {
+  const F = famState(s), out = [];
+  if (where !== 'wait') for (const h of s.b) if (h.type === 'casita' && h.res > 0) { const l = famOf(s, h); if (l.length) out.push({ r: l[0], home: h.id, x: h.x + 0.5, y: h.y + 0.5 }); }
+  return out;
+}
+
+function famPickAsker(s, at, where, form) {
+  const F = famState(s), recent = new Set(F.ask.slice(-4));
+  const fits = (r) => { const p = famPeople(s, r); return form === 'mr' || form === 'dr' ? p.some((x) => x.sex === 'm' && x.role === 'adult') : form === 'mrs' || form === 'first' ? p.some((x) => x.sex === 'f' && x.role === 'adult') : true; };
+  if (where === 'wait' && F.w.length) return { r: F.w[0], home: 0, tent: 1 };
+  const homes = famAskers(s, where);
+  if (homes.length) {
+    const c = at || [MAP_W / 2, MAP_H / 2];
+    homes.sort((a, b) => (Math.abs(a.x - c[0]) + Math.abs(a.y - c[1])) - (Math.abs(b.x - c[0]) + Math.abs(b.y - c[1])) || a.home - b.home);
+    return homes.find((o) => !recent.has(o.r[4]) && fits(o.r)) || homes.find((o) => fits(o.r)) || homes[0];
+  }
+  if (F.w.length) return { r: F.w[0], home: 0, tent: 1 };
+  return { r: famManifest(s, 1)[0], home: 0, boat: 1 };
+}
+
+// The asker's name in the commission's form ("The Kaya family", "Mr Kaya", "Ayşe Kaya", "Dr Kaya").
+function famWhoOf(s, pick, form) {
+  const r = pick.r, p = famPeople(s, r[1] > 0 ? r : Object.assign(r.slice(), { 1: 2 })), sur = r[4];
+  const man = p.find((x) => x.sex === 'm' && x.role === 'adult'), wom = p.find((x) => x.sex === 'f' && x.role === 'adult');
+  let name = famTitle(r), ini = sur[0];
+  // (a form with nobody to fit it, a single woman asked as "Mr", takes her first name)
+  if ((form === 'mr' && !man) || (form === 'mrs' && !wom)) form = 'first';
+  if (form === 'mr') name = 'Mr ' + sur;
+  else if (form === 'mrs') name = 'Mrs ' + sur;
+  else if (form === 'dr') name = 'Dr ' + sur;
+  else if (form === 'first') { const f = (wom || man || p[0]).nm; name = f + ' ' + sur; ini = f[0] + sur[0]; }
+  return { name, ini, sur, fid: r[0], home: pick.home || 0, tent: pick.tent || 0, boat: pick.boat || 0 };
+}
+
+function famAskerSet(s, q, who) {
+  const w = COM_WHO[who] || COM_WHO.family, F = famState(s);
+  if (q.key === 'road1') {
+    // the boatman names the first boats' families (they land one boat after another)
+    const L = famManifest(s, 3).map((r) => r[4]);
+    q.ask = q.ask.replace(/^The first families land this month\./, 'The first families come on this boat and the next: ' + famList(L) + '.');
+  }
+  if (!FAM_FORMS[w.form] || who === 'boatman') return;
+  const at = q.near || (q.spots && q.spots[0]) || null;
+  const pick = famPickAsker(s, at, who === 'pier' ? 'wait' : 'home', w.form);
+  if (!pick || !pick.r) return;
+  q.who = Object.assign({}, q.who, famWhoOf(s, pick, w.form));
+  F.ask.push(q.who.sur);
+  if (F.ask.length > 8) F.ask.shift();
+}
+
+// An island from before A4: its open asks were voiced by A3's names; a family living on the island says them now.
+function famRevoice(s) {
+  for (const q of (s.com && s.com.list) || []) {
+    const w = q.who, n = (w && w.name) || '';
+    if (!w || w.fid || /boatman|parish/.test(w.role || '')) continue;
+    const form = /^Mr /.test(n) ? 'mr' : /^Mrs /.test(n) ? 'mrs' : /^Dr /.test(n) ? 'dr' : /^The .* family$/.test(n) ? 'fam' : /^(The |Father )/.test(n) ? '' : 'first';
+    if (!form) continue;
+    const pick = famPickAsker(s, q.near || (q.spots && q.spots[0]) || null, /at the pier/.test(w.role || '') ? 'wait' : 'home', form);
+    if (pick && pick.r) q.who = Object.assign({}, w, famWhoOf(s, pick, form));
+  }
+}
+
+// A family that asked moved from the tents into a home: its home glows from now on.
+function famWhoMoved(s, fid, homeId) {
+  for (const q of (s.com && s.com.list) || []) if (q.who && q.who.fid === fid) { q.who.home = homeId; q.who.tent = 0; q.who.boat = 0; }
+}
+// A family that asked left the island: the next family nearest the place asks instead (the ask stays).
+function famWhoGone(s, fid) {
+  for (const q of (s.com && s.com.list) || []) {
+    if (!q.who || q.who.fid !== fid) continue;
+    const form = q.who.name.startsWith('Mr ') ? 'mr' : q.who.name.startsWith('Mrs ') ? 'mrs' : q.who.name.startsWith('Dr ') ? 'dr' : q.who.name.startsWith('The ') ? 'fam' : 'first';
+    const pick = famPickAsker(s, q.near || (q.spots && q.spots[0]) || null, 'home', form);
+    if (pick && pick.r && pick.r[0] !== fid) q.who = Object.assign({}, q.who, famWhoOf(s, pick, form));
+  }
+}
+
+// ---------- words: the log, Rosa, the Gazette ----------
+// The month's people lines name them (peopleMonth's lines, in the order it says them).
+function famLogText(s, text) {
+  const B = famBatch, mv = s.lastMoves || {};
+  let m;
+  if ((m = /^(\d+) settlers? arrived\.$/.exec(text)) && B) {
+    const fresh = B.in.filter((e) => e.k === 'in').map((e) => e.s), rel = B.in.filter((e) => e.k === 'join').map((e) => e.s);
+    const parts = [];
+    if (fresh.length) parts.push(famList(fresh));
+    if (rel.length) parts.push('relatives of ' + famList(rel));
+    return parts.length ? text.replace(/\.$/, ': ' + parts.join(' and ') + '.') : text;
+  }
+  if (/sailed away again:/.test(text) && mv.sailed && !B.sailed) {
+    B.sailed = 1;
+    const out = famSail(s, mv.sailed);
+    return out.length ? text.replace(/ again:/, ' again (' + famList(out.map((o) => o.r[4])) + '):') : text;
+  }
+  if ((m = /^\d+ settlers? waits? at the pier: no free home/.exec(text)) && mv.waiting && !B.waited) {
+    B.waited = 1;
+    const add = famWaitAdd(s, mv.waiting);
+    if (add.length === 1) return text.replace(/^\d+ settlers? waits?/, famTitle(add[0]) + ', ' + add[0][1] + ', waits');
+    return text.replace(/ at the pier:/, ' at the pier (' + famList(add.map((r) => r[4])) + '):');
+  }
+  if ((m = /^(\d+) (?:person|people) left the island(: the rent is high| \(happiness \d+\))\.$/.exec(text)) && B) {
+    const why = /rent/.test(m[2]) ? 'rent' : 'happy', out = B.out.filter((e) => e.why === why);
+    if (!out.length) return text;
+    const who = out.length === 1 && !out[0].all ? (out[0].n === 1 ? 'one' : out[0].n) + ' of the ' + out[0].s + ' family' : (out.every((e) => !e.all) ? 'some of ' : '') + famList(out.map((e) => e.s));
+    return who.replace(/^./, (c) => c.toUpperCase()) + ' sailed away: ' + (why === 'rent' ? 'the rent is high' : 'happiness is ' + s.happy) + ' (' + m[1] + ' ' + (m[1] === '1' ? 'person' : 'people') + ' left the island).';
+  }
+  return text;
+}
+
+// Rosa's lines that are about families: the pier, the sailed, the first ready home, the rent protest.
+function famSayFix(s, m) {
+  if (!m || !m.text || !s.fam) return m;
+  const F = s.fam;
+  if (m.key === 'waiting' && F.w.length) return Object.assign({}, m, { text: m.text.replace(/ at the pier in tents:/, ' at the pier in tents (' + famList(F.w.map((r) => r[4])) + '):') });
+  if (m.key === 'sailed') {
+    const out = F.ev.filter((e) => e.k === 'out' && e.why === 'sail' && e.m >= s.month - 1);
+    if (out.length) return Object.assign({}, m, { text: m.text.replace(/ sailed away:/, ' sailed away (' + famList(out.map((e) => e.s)) + '):') });
+  }
+  if (m.key === 'hint-ready' && m.act && m.act.select) {
+    const h = bById(s, m.act.select), l = h ? famOf(s, h) : [];
+    if (l.length) return Object.assign({}, m, { text: m.text.replace(/^This home has/, 'The ' + l[0][4] + ' family’s home has') });
+  }
+  if (m.key === 'protest' && /Families pack their suitcases/.test(m.text)) {
+    const e = F.ev.slice().reverse().find((x) => x.k === 'out' && x.why === 'rent' && x.m >= s.month - 2);
+    if (e) return Object.assign({}, m, { text: m.text.replace('Families pack their suitcases', 'Families pack their suitcases (' + famList([e.s]) + ' left this month)') });
+  }
+  return m;
+}
+
+// The Gazette's page: the year's new families by name, a family that moved up, and those who sailed away (and why).
+const FAM_WHY = { rent: 'the rent', happy: 'unhappy', sail: 'no roof', down: 'no room', removed: 'home pulled down' };
+function famGazette(s, Y, g) {
+  const F = s.fam, yr = F && F.yrs[Y.y];
+  if (!yr || !g || !Array.isArray(g.items)) return g;
+  const items = [];
+  const fresh = [];
+  for (const e of yr.in) if ((e.k === 'in' || e.k === 'wait') && !fresh.some((x) => x.s === e.s)) fresh.push(e);
+  const up = yr.up.filter((e) => e.lv >= 3).slice(-1)[0] || yr.up.slice(-1)[0];
+  if (fresh.length || up) {
+    const named = fresh.slice(0, 2).map((e) => 'the ' + e.s + ' family from ' + e.p);
+    let t = fresh.length ? 'Welcome: ' + named.join(' and ') + (fresh.length > 2 ? ', and ' + (fresh.length - 2) + ' more ' + (fresh.length - 2 === 1 ? 'family' : 'families') : '') + '.' : '';
+    if (up) t += (t ? ' ' : '') + 'The ' + up.s + ' family’s home became a ' + LEVELS[up.lv].name + '.';
+    items.push({ icon: 'home', text: t, id: up && up.id && bById(s, up.id) ? up.id : 0 });
+  }
+  const gone = [];
+  for (const e of yr.out) if (e.all && !gone.some((x) => x.s === e.s)) gone.push(e);
+  if (gone.length) {
+    const by = {};
+    for (const e of gone) (by[e.why] = by[e.why] || []).push(e.s);
+    const parts = Object.keys(by).sort((a, b) => by[b].length - by[a].length).slice(0, 2).map((w) => famList(by[w], 2) + ' (' + (FAM_WHY[w] || w) + ')');
+    items.push({ icon: 'home', warn: 1, text: 'Sailed away: ' + parts.join(', ') + '.' });
+  }
+  if (!items.length) return g;
+  // at most six items: "no workshop lost money" makes room first; then the families' two lines become one
+  if (g.items.length + items.length > 6) { const k = g.items.findIndex((it) => it.icon === 'check'); if (k >= 0) g.items.splice(k, 1); }
+  if (g.items.length + items.length > 6 && items.length === 2) {
+    const a = items[0].text.replace(/ The \S+ family’s home became a \w+\.$/, ''), b = items[1].text;
+    items.splice(0, 2, { icon: 'home', text: a + ' ' + b });
+  }
+  let at = g.items.findIndex((it) => / arrived/.test(it.text));
+  at = at < 0 ? g.items.length : at + 1;
+  g.items.splice(at, 0, ...items);
+  // (still too many: the last item that is not the families' goes)
+  while (g.items.length > 6) { let k = g.items.length - 1; while (k > 0 && items.includes(g.items[k])) k--; g.items.splice(k, 1); }
+  return g;
+}
+
+// ---------- wrappers (families.js loads after offers.js: the commissions are final here) ----------
+{
+  const _ws = walkersSpawn;
+  walkersSpawn = function (state, h, n, arriving, tent) {
+    const w0 = state.walk ? state.walk.length : 0;
+    const r = _ws.apply(this, arguments);
+    try { famOnWalk(state, h, n, arriving, tent, w0); } catch (e) { famErr(e); }
+    return r;
+  };
+  const _hm = homeMonth;
+  homeMonth = function (state, h) {
+    famWhyNow = 'down';
+    try { return _hm.apply(this, arguments); } finally { famWhyNow = ''; }
+  };
+  const _pm = peopleMonth;
+  peopleMonth = function (state) {
+    try { famState(state); } catch (e) { famErr(e); }
+    const prev = famBatch;
+    famBatch = { s: state, in: [], out: [], up: [] };
+    try { return _pm.apply(this, arguments); } finally {
+      try {
+        const mv = state.lastMoves || {};
+        if (mv.sailed && !famBatch.sailed) famSail(state, mv.sailed);
+        if (mv.waiting && !famBatch.waited) famWaitAdd(state, mv.waiting);
+        famWaitSync(state);
+      } catch (e) { famErr(e); }
+      famBatch = prev;
+    }
+  };
+  const _wh = waitHouse;
+  waitHouse = function (state) {
+    const own = !famBatch;
+    if (own) famBatch = { s: state, in: [], out: [], up: [] };
+    try {
+      const r = _wh.apply(this, arguments);
+      if (own && r) {
+        const t = famBatch.in.filter((e) => e.k === 'tent');
+        if (t.length) simLog(state, (t.length === 1 && !t[0].all ? (t[0].n === 1 ? 'one' : t[0].n) + ' of the ' + t[0].s + ' family' : famList(t.map((e) => e.s))).replace(/^./, (c) => c.toUpperCase()) + ' moved in from the tents at the pier.');
+        famWaitSync(state);
+      }
+      return r;
+    } finally { if (own) famBatch = null; }
+  };
+  const _sl = simLog;
+  simLog = function (state, text, at) {
+    if (famBatch && famBatch.s === state && typeof text === 'string') { try { text = famLogText(state, text); } catch (e) { famErr(e); } }
+    return _sl.call(this, state, text, at);
+  };
+  const _se = simEvent;
+  simEvent = function (state, e) {
+    if (e && e.kind === 'levelup') {
+      try {
+        const h = bById(state, e.id), l = h ? famOf(state, h) : [];
+        if (l.length) { e.fam = famTitle(l[0]); famNote(state, 'up', l[0], l[0][1], { lv: e.level, id: e.id }); }
+      } catch (err) { famErr(err); }
+    }
+    return _se.apply(this, arguments);
+  };
+  const _rm = removeAt;
+  removeAt = function (state, x, y) {
+    const b = bAt(state, x, y), had = b && b.type === 'casita' && state.fam ? (state.fam.h[b.id] || []).slice() : [];
+    const r = _rm.apply(this, arguments);
+    if (had.length && r && r.b) { try { for (const f of had) { famNote(state, 'out', f, f[1], { why: 'removed', all: true }); famWhoGone(state, f[0]); } delete state.fam.h[b.id]; } catch (e) { famErr(e); } }
+    return r;
+  };
+  const _me = monthEnd;
+  monthEnd = function (state) {
+    const r = _me.apply(this, arguments);
+    try { famCheck(state); } catch (e) { famErr(e); }
+    return r;
+  };
+  const _cm = comMake;
+  comMake = function (s, T, r) {
+    const q = _cm.apply(this, arguments);
+    try { famAskerSet(s, q, (r && r.who) || T.who); } catch (e) { famErr(e); }
+    return q;
+  };
+  const _gw = guideWay;
+  guideWay = function (s, m) {
+    const r = _gw.apply(this, arguments);
+    try { return famSayFix(s, r); } catch (e) { famErr(e); return r; }
+  };
+  const _gz = gazetteMake;
+  gazetteMake = function (state, Y) {
+    const g = _gz.apply(this, arguments);
+    try { famGazette(state, Y, g); } catch (e) { famErr(e); }
+    return g;
+  };
+  const _ng = newGame;
+  newGame = function () {
+    const s = _ng.apply(this, arguments);
+    try { famState(s); famManifest(s, 3); } catch (e) { famErr(e); }
+    return s;
+  };
+  const _lg = loadGame;
+  loadGame = function (obj) {
+    const s = _lg.apply(this, arguments);
+    try { const fresh = !s.fam; famState(s); famCheck(s); if (fresh) famRevoice(s); } catch (e) { famErr(e); }
+    return s;
+  };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -12815,6 +13583,8 @@ const ISO = (() => {
     spaceMarks(R, s, ui, t);
     // A3 (commissions): the main commission's glowing places or dotted line, and a stage ritual's gathering
     comOverlay(R, s, ui, t);
+    // A4: the families' names on the map (the tents, the suitcases, one of them at the door of a tapped home)
+    famMarks(R, s, ui, t, now);
     // M4: the Money layer: every building's monthly number, homes one tag a street block
     if (ui.money) for (const q of moneyTags(R, s)) {
       const p = P(q.x, q.y, q.z);
@@ -12826,12 +13596,12 @@ const ISO = (() => {
     // payday floaters; one that would sit on top of another already drawn this frame is skipped (no label clouds)
     const fDrawn = [];
     for (const f of ui.floaters || []) {
-      const age = (now - f.t0) / 1600;
+      const age = (now - f.t0) / (f.dur || 1600);
       if (age < 0 || age > 1) continue;
       // over the roof of its building (block 5); a floater without one (a road, a removed building) over its tile
       const fb = f.id ? bById(s, f.id) : null;
       const p = fb ? P(fb.x + fb.w / 2, fb.y + fb.h / 2, bubbleZ(fb) + 0.25) : P(f.x, f.y, 0.6);
-      const fy = p[1] - age * 34;
+      const fy = p[1] - age * 34 + (f.dy || 0);
       if (!f.big && fDrawn.some(q => Math.abs(q[0] - p[0]) < 64 && Math.abs(q[1] - fy) < 22)) continue;
       fDrawn.push([p[0], fy]);
       uiDraw(R, floaterSprite(R, f.text, f.color, f.big), p[0], fy, 1 - age * age);
@@ -12884,6 +13654,17 @@ const ISO = (() => {
         const x = i % MAP_W, y = (i / MAP_W) | 0;
         diamond(R, x + 0.08, y + 0.08, x + 0.92, y + 0.92, 'rgba(255,214,102,' + (0.22 + 0.18 * pulse).toFixed(3) + ')', '#fffaf0', 2.4, [5, 4]);
       }
+      // A4: the home of the family who asks glows softly (cream, not the gold of a place to build), its name over it
+      const fb = cm.famB && !(cm.spots || []).some((sp) => sp.x === (bById(s, cm.famB) || {}).x && sp.y === (bById(s, cm.famB) || {}).y) ? bById(s, cm.famB) : null;
+      if (fb) {
+        const soft = 0.5 + 0.5 * Math.sin(t * 2);
+        diamond(R, fb.x - 0.12, fb.y - 0.12, fb.x + fb.w + 0.12, fb.y + fb.h + 0.12, 'rgba(255,246,220,' + (0.16 + 0.12 * soft).toFixed(3) + ')', 'rgba(255,250,236,' + (0.7 + 0.3 * soft).toFixed(3) + ')', 3, [7, 4]);
+        // (its nameplate in front of the house, under its lowest corner: above the roof it sat among the bubbles, and
+        // on a phone under the round map buttons where the view flies a place to)
+        const cs = [[fb.x, fb.y], [fb.x + fb.w, fb.y], [fb.x, fb.y + fb.h], [fb.x + fb.w, fb.y + fb.h]].map((c) => P(c[0], c[1], 0));
+        const qx = (Math.min(...cs.map((c) => c[0])) + Math.max(...cs.map((c) => c[0]))) / 2, qy = Math.max(...cs.map((c) => c[1]));
+        if (cm.famName && qx > -100 && qx < R.w + 100 && qy > -40 && qy < R.h) { const sp = famTagSprite(R, cm.famName); uiDraw(R, sp, qx, qy + 8 + sp.h); }
+      }
     }
     // the airfield's ask is visible in the sky: a flying boat circles the bay with nowhere to land
     if (cm && cm.key === 'airfield') {
@@ -12899,6 +13680,55 @@ const ISO = (() => {
       }
     }
     if (ui.ritual) gatherDraw(R, s, ui.ritual, t);
+  }
+  // ---------- A4: families by name (sim/families.js, ui/families_ui.js) ----------
+  // A small name tag (cream, a house mark): the asker's home, a family at its door.
+  function famTagSprite(R, text) {
+    const key = 'fam|' + text + '|' + R.dpr;
+    let sp = uiGet(R, key);
+    if (sp) return sp;
+    const d = R.dpr, font = 'italic 700 14px Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif';
+    const meas = measCtx(); meas.font = font;
+    const tw = meas.measureText(text).width + 30, h = 24, W = tw + 6, H = h + 8;
+    const c = canvasNew(W * d, H * d), g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+    g.save(); g.shadowColor = 'rgba(40,25,10,.28)'; g.shadowOffsetY = 1.5 * d; g.shadowBlur = 2.5 * d;
+    rrPath(g, 3, 2, tw, h, h / 2); g.fillStyle = '#fbf3df'; g.fill(); g.restore();
+    rrPath(g, 3, 2, tw, h, h / 2); g.strokeStyle = '#7a3a22'; g.lineWidth = 1.6; g.stroke();
+    g.beginPath(); g.moveTo(11, 15); g.lineTo(16.5, 9.5); g.lineTo(22, 15); g.lineTo(22, 20); g.lineTo(11, 20); g.closePath(); g.fillStyle = '#df684c'; g.fill(); g.strokeStyle = INK; g.lineWidth = 1; g.stroke();
+    g.font = font; g.fillStyle = '#5a2a18'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(text, 27, 2 + h / 2 + 0.5);
+    sp = { c, ax: W / 2, ay: H, w: W, h: H };
+    uiPut(R, key, sp);
+    return sp;
+  }
+  function famMarks(R, s, ui, t, now) {
+    if (ui.money || (typeof APP !== 'undefined' && (APP.titleOn || APP.ui.ritual)) || typeof famTentText !== 'function') return;
+    // the tents: who waits
+    const ts = tentSpots(s);
+    if (ts.length) {
+      const text = famTentText(s);
+      let x = 0, y = 0;
+      for (const p of ts) { x += p[0] + 0.5; y += p[1] + 0.5; }
+      const q = P(x / ts.length, y / ts.length, 1.1);
+      if (text && q[0] > -200 && q[0] < R.w + 200 && q[1] > 0 && q[1] < R.h + 40) uiDraw(R, labelSprite(R, text, true), q[0], q[1] - 26);
+    }
+    // a family leaving: its name walks with the suitcases (the first of them carries it)
+    for (const w of s.walk || []) {
+      if (!w.fam || w.pos < 0) continue;
+      const [x, y] = pathAt(w.path, Math.min(w.path.length - 1, w.pos)), q = P(x, y, 0);
+      if (q[0] < -100 || q[0] > R.w + 100 || q[1] < -20 || q[1] > R.h + 40) continue;
+      uiDraw(R, floaterSprite(R, w.fam, '#b23a26', false), q[0], q[1] - 30 * S, Math.min(1, (w.path.length - 1 - w.pos) / 2));
+    }
+    // a tapped home: one of its family steps out of the door for a few seconds, with a name
+    const ft = ui.famTap;
+    if (ft) {
+      const age = (now - ft.t0) / 1000, b = bById(s, ft.id);
+      if (!b || age > 3.4) { ui.famTap = null; return; }
+      const vb = bVBox(R, b), wq = localWorld(R, b, (vb[2] - vb[0]) / 2 + 0.15, vb[3] - vb[1] + 0.32 * Math.min(1, age * 2));
+      pen(R.ctx, R.ox, R.oy, R.hw, R.dpr, R.rot);
+      paintPerson(wq[0], wq[1], ft.v, Math.floor(age * 4) % 2 && age < 0.6 ? 1 : 0, false);
+      const q = P(wq[0], wq[1], 0), a = age < 0.3 ? age / 0.3 : age > 2.9 ? Math.max(0, (3.4 - age) / 0.5) : 1;
+      uiDraw(R, famTagSprite(R, ft.name), q[0], q[1] - 34 * S, a);
+    }
   }
   // A stage's ritual: people walk from the streets around and gather in front of the residence (or the landmark) for a
   // few seconds, the way a town turns out for a ceremony; then they walk home.
@@ -13385,6 +14215,9 @@ function toastInit() {
   el.addEventListener('click', (e) => {
     const c = APP.toastCur;
     if (!c) return;
+    // A4 (the families smoke at 390): a notice raised by a tap on the map can appear under that finger before the
+    // browser sends the tap's click; that click closed it at once. A click in its first 400 ms is not hers for it.
+    if (performance.now() - (c.t0 || 0) < 400) return;
     if (e.target.closest('.tx')) { toastClose(); return; }
     if (e.target.closest('.tshow')) { const a = { at: c.at, id: c.id }; toastClose(); showPlace(a); }
   });
@@ -18852,6 +19685,186 @@ function dateFit() {
       }
     }
     return _ga.apply(this, arguments);
+  };
+}
+
+// ---- src/ui/families_ui.js
+// A4 (13 Oct 2026): what she sees of the families (sim/families.js).
+// - The home card: the family (its name big, where they came from and since when, who does what, their mood in one
+//   line, the other families of a big home); an empty home says who comes next.
+// - The pier card names the families in the tents; the map labels the tents ("The Yılmaz family, 5, waits").
+// - A family moving in is a floater over its home ("The Demir family moves in"); a family leaving one too, and its name
+//   walks with the suitcases to the pier (iso.js famMarks); a home that moves up names them ("The Kaya family’s House!").
+// - The asker of the main commission: its home glows softly with its nameplate in front (iso.js comOverlay).
+// - The greeting names a few families: who came, who moved up, who left; and the family still waiting for its ask.
+// - A tap on a home: one of its family stands at the door for a moment, with a name (iso.js famMarks).
+
+const FAM_FLOAT_MS = 3200;
+
+function famCardHtml(s, h) {
+  const list = famOf(s, h);
+  if (!list.length) {
+    const next = s.waiting && s.fam.w.length ? famTitle(s.fam.w[0]) + ' waits at the pier: they move in as soon as it has a bed.' :
+      'Empty: ' + famName(famManifest(s, 1)[0]) + ' moves in with the next boat.';
+    return '<div class="fam empty"><div class="fo">' + esc(next) + '</div></div>';
+  }
+  const r = list[0], jobs = famJobs(s)[h.id] || { jobs: [], look: 0, home: 0 };
+  const pool = { jobs: jobs.jobs.map((j) => j.slice()), look: jobs.look, home: jobs.home };
+  const mood = famMood(s, h, r);
+  let html = '<div class="fam"><div class="fn">' + esc(famTitle(r)) + '</div>' +
+    '<div class="fo">' + esc(plural(r[1], 'person', 'people') + ' · from ' + famPlace(r) + ' · here since ' + famYear(r[2])) + '</div>' +
+    '<div class="fp">' + esc(famPeopleLine(s, h, r, pool)) + '</div>';
+  if (mood) html += '<div class="fm ' + mood.t + '"><i></i><span>' + esc(mood.text) + '</span></div>';
+  if (list.length > 1) {
+    const more = list.slice(1, 3).map((o) => famName(o) + ' (' + o[1] + ', from ' + famShortPlace(o) + ')');
+    html += '<div class="fx">' + esc('With ' + listAnd(more) + (list.length > 3 ? ' and ' + (list.length - 3) + ' more families' : '') + '.') + '</div>';
+  }
+  return html + '</div>';
+}
+
+// The pier: who waits in the tents, by name.
+function famPierText(s) {
+  famWaitSync(s);
+  const w = s.fam.w;
+  if (!w.length) return '';
+  const names = w.slice(0, 3).map((r) => famName(r) + ' (' + r[1] + ', from ' + famShortPlace(r) + ')');
+  return (listAnd(names) + (w.length > 3 ? ' and ' + (w.length - 3) + ' more families' : '')).replace(/^the/, 'The') + (w.length === 1 && w[0][1] > 0 ? ' waits' : ' wait');
+}
+
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    let html = _ch.apply(this, arguments);
+    try {
+      if (b && b.type === 'casita') {
+        const f = famCardHtml(s, b), at = html.indexOf('<div class="line"><span>Needs');
+        html = at >= 0 ? html.slice(0, at) + f + html.slice(at) : html + f;
+      } else if (b && b.type === 'pier' && s.waiting) {
+        const t = famPierText(s);
+        if (t) html = html.replace(/\d+ settlers? waits? here in tents:/, esc(t) + ' here in tents:');
+      }
+    } catch (e) { famErr(e); }
+    return html;
+  };
+}
+
+// ---------- events: moving in, leaving, moving up ----------
+function famEvents(evs) {
+  let nin = 0, nout = 0;
+  for (const e of evs) {
+    if (e.kind !== 'fam') continue;
+    const b = e.id && bById(APP.state, e.id);
+    if (!b) continue;
+    if (e.what === 'in' && nin++ >= 4) continue;
+    if (e.what === 'out' && nout++ >= 3) continue;
+    // (a second line over the same home stands above the first: a family leaving and another moving in, a level)
+    const now = performance.now(), on = (APP.ui.floaters || []).filter((x) => x.id === b.id && now - x.t0 < (x.dur || 1600) * 0.8 && (x.big || x.dur)).length;
+    floaterAdd(b.x + 0.5, b.y + 0.5, e.text, e.what === 'out' ? '#b23a26' : '#167a7a', true, b.id);
+    const f = APP.ui.floaters[APP.ui.floaters.length - 1];
+    if (f) { f.dur = FAM_FLOAT_MS; f.dy = -24 - 28 * on; }
+  }
+}
+{
+  const _eh = eventsHandle;
+  eventsHandle = function () {
+    const s = APP.state, evs = s && s.ev ? s.ev.slice() : [], fl = APP.ui.floaters || [], n0 = fl.length;
+    const ups = evs.filter((e) => e.kind === 'levelup' && e.fam);
+    APP.famUp = ups.length ? ups[0].fam : '';
+    let r;
+    try { r = _eh.apply(this, arguments); } finally { APP.famUp = ''; }
+    try {
+      // the floater over a home that moved up names its family: "The Kaya family’s House!"
+      for (const e of ups) {
+        const f = (APP.ui.floaters || []).slice(Math.max(0, n0 - 2)).find((x) => x.id === e.id && x.text === LEVELS[e.level].name + '!');
+        if (f) { f.text = e.fam + '’s ' + LEVELS[e.level].name + '!'; f.dur = 2800; }
+      }
+      famEvents(evs);
+    } catch (e) { famErr(e); }
+    return r;
+  };
+  const _ts = toastShow;
+  toastShow = function (text) {
+    if (APP.famUp && typeof text === 'string' && /^A home became a /.test(text)) arguments[0] = text.replace(/^A home/, APP.famUp + '’s home');
+    return _ts.apply(this, arguments);
+  };
+}
+
+// ---------- the asker's home glows softly (iso.js comOverlay) ----------
+{
+  const _cu = comUiUpdate;
+  comUiUpdate = function () {
+    const r = _cu.apply(this, arguments);
+    const s = APP.state, cm = APP.ui.com;
+    if (cm && s) {
+      const q = comMain(s), id = q && q.who && q.who.home;
+      const b = id && bById(s, id);
+      cm.famB = b && b.type === 'casita' && b.res > 0 ? id : 0;
+      cm.famName = cm.famB ? 'The ' + q.who.sur + ' family' : '';
+    }
+    return r;
+  };
+}
+
+// A landscape card (the right side) never reaches down over the build bar: a home's card is taller with its family,
+// and a long card scrolls above the bar instead of covering its right end (at 1180 x 820 the bar reaches under it).
+function famCardFit() {
+  const c = $('card'), bar = $('bar');
+  if (!c || !bar || window.innerWidth <= 900 || !c.classList.contains('show')) return;
+  c.style.maxHeight = '';
+  const r = c.getBoundingClientRect(), q = bar.getBoundingClientRect();
+  if (q.height && r.left < q.right - 1 && q.left < r.right - 1 && r.bottom > q.top - 8) {
+    const m = Math.max(240, q.top - 10 - r.top);
+    c.style.maxHeight = m + 'px';
+    if ((parseFloat(c.style.minHeight) || 0) > m) c.style.minHeight = m + 'px';
+  }
+}
+window.addEventListener('resize', () => { try { famCardFit(); } catch (e) { famErr(e); } });
+
+// ---------- a tap on a home: one of the family at the door ----------
+{
+  const _co = cardOpen;
+  cardOpen = function (id) {
+    const r = _co.apply(this, arguments);
+    try { famCardFit(); } catch (e) { famErr(e); }
+    try {
+      const s = APP.state, b = s && bById(s, id), list = b && b.type === 'casita' ? famOf(s, b) : [];
+      if (list.length) {
+        const k = (APP.famTapK = (APP.famTapK || 0) + 1), P = famPeople(s, list[0]), p = P[k % P.length];
+        APP.ui.famTap = { id: b.id, t0: performance.now(), v: (list[0][0] * 5 + k) % 7, name: p.nm + ' ' + list[0][4] };
+      }
+    } catch (e) { famErr(e); }
+    return r;
+  };
+}
+
+// ---------- the greeting: a few families by name ----------
+{
+  const _gc = greetChanges;
+  greetChanges = function (s) {
+    const out = _gc.apply(this, arguments);
+    try {
+      const a = s.sess, F = s.fam;
+      if (!a || !F || typeof a.m !== 'number' || a.m >= s.month) return out;
+      const ev = F.ev.filter((e) => e.m >= a.m), fresh = [...new Set(ev.filter((e) => e.k === 'in' || e.k === 'wait').map((e) => e.s))];
+      if (fresh.length) out.push(famList(fresh) + ' came to the island');
+      const up = ev.filter((e) => e.k === 'up').sort((x, y) => y.lv - x.lv)[0];
+      if (up) out.push('the ' + up.s + ' family’s home became a ' + LEVELS[up.lv].name);
+      const gone = [...new Set(ev.filter((e) => e.k === 'out' && e.all).map((e) => e.s))];
+      if (gone.length) out.push(famList(gone) + ' sailed away');
+    } catch (e) { famErr(e); }
+    return out;
+  };
+  const _go = greetOpen;
+  greetOpen = function () {
+    const r = _go.apply(this, arguments);
+    try {
+      const s = APP.state, el = $('greet'), q = s && comMain(s);
+      if (el && q && q.who && q.who.fid && !el.querySelector('.famg')) {
+        const at = el.querySelector('.loop') || el.querySelector('.btns');
+        if (at) at.insertAdjacentHTML('beforebegin', '<p class="famg">' + esc(q.who.name + ' still ' + comShort(q) + '.') + '</p>');
+      }
+    } catch (e) { famErr(e); }
+    return r;
   };
 }
 
