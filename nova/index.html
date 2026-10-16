@@ -121,6 +121,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #receipt .rows { display: none; margin-top: 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
 #receipt.open .rows { display: block; }
 #receipt .row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+#receipt .row span:last-child { white-space: nowrap; }
 #receipt .row.sub { color: var(--ink2); }
 #receipt .row.sum { border-top: 2px dotted rgba(58, 42, 31, 0.35); margin-top: 4px; padding-top: 4px; font-weight: 800; }
 .pos { color: var(--green); } .neg { color: var(--red); }
@@ -142,6 +143,16 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #done { position: fixed; z-index: 5; display: none; min-height: 56px; min-width: 104px; padding: 0 18px; border-radius: 14px; align-items: center; justify-content: center;
   gap: 6px; background: var(--teal); color: #fff7ea; font-weight: 800; font-size: 17px; border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink), 0 8px 18px rgba(30, 20, 10, 0.2); }
 body.armed #done { display: flex; }
+/* A13: Turn: the armed building a quarter turn; beside Done and beside the ghost (placed by turnPlace, ui/turn_ui.js) */
+.turnbtn { position: fixed; z-index: 5; display: none; width: 56px; height: 56px; border-radius: 50%; padding: 0; background: var(--paper); color: var(--ink);
+  border: 2px solid var(--ink); flex-direction: column; align-items: center; justify-content: center; gap: 0; font-weight: 800; font-size: 11px; line-height: 1;
+  box-shadow: 0 3px 0 var(--ink), 0 8px 18px rgba(30, 20, 10, 0.2); }
+.turnbtn .ic { width: 28px; height: 28px; fill: #7a604b; stroke: var(--ink); stroke-width: 0.9px; paint-order: stroke; stroke-linejoin: round; }
+.turnbtn:active { background: var(--paper2); transform: translateY(1px); }
+#turnG { width: 48px; height: 48px; box-shadow: 0 2px 0 var(--ink), 0 6px 14px rgba(30, 20, 10, 0.18); }
+#turnG span { display: none; }
+body.turnable #turnB, body.turnable #turnG.show { display: flex; }
+body.titled .turnbtn { display: none !important; }
 body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + var(--sb)); }
 #guide.fresh { animation: guideIn 0.6s ease-out; }
 #guide.fresh .act { animation: actWait 0.9s steps(1, end); }
@@ -720,6 +731,9 @@ body.titled #gzslip, body.titled #gazette { display: none !important; }
 #pill .sav b { color: var(--ink); }
 /* a phone: the pill already has its blocker's line and button: the saving line waits (the money panel says it too) */
 @media (max-width: 600px) { #pill .blk ~ .sav { display: none; } }
+/* (A12 + turning: the plans' longer button words beside the blocker's text left it a column five words wide, six lines
+   tall on a phone: a third of the screen. The text takes the line, the button goes under it when both do not fit) */
+@media (max-width: 600px) { #pill .blk { flex-wrap: wrap; row-gap: 4px; } }
 /* a phone: two faces in the stack at most (the money offer may be a fourth ask; the to-do list has them all) */
 @media (max-width: 600px) { #comstack .cchip:nth-child(n+3) { display: none; } }
 /* A4: the family on a home's card (its name, where from and since when, who does what, how they feel) */
@@ -3912,7 +3926,10 @@ function newGame(seed) {
   };
   for (const i of map.stub) state.road[i] = 1;
   state.b.push(newBuilding(state, 'pier', map.pier.x, map.pier.y));
-  state.b.push(Object.assign(newBuilding(state, 'residence', map.residence.x, map.residence.y), { level: 0 }));
+  // A12: on a new island she places the residence herself (sim/free.js: the hill is a suggestion); without A12 it
+  // stands on the hill as before
+  state.seatAt = [map.residence.x, map.residence.y];
+  if (!(typeof freeSeatOwn === 'function' && freeSeatOwn())) state.b.push(Object.assign(newBuilding(state, 'residence', map.residence.x, map.residence.y), { level: 0 }));
   homeCountsUpdate(state);
   guideIntro(state);
   return state;
@@ -9190,9 +9207,26 @@ function steadyView(state, b, fn) {
   } finally { b.blocked = keep.blocked; b.workers = keep.workers; b.stock = keep.stock; }
 }
 
+// The yard's cause, steady too (A11 + A12 + turning together, 16 Oct 2026: the notes smoke saw a grove's card change 3
+// times in 10 s at 3x, Tomáš's "every second the state changes"). Its state held (yard full), but its line read the
+// cart live: "its cart takes a long road" while the cart was on its way, "makes more fruit than the island eats" while
+// it stood at home, and Rosa's button with it (a market near it, or a home). A long trip (longCart: over 14 tiles) now
+// counts for STEADY.dwell ticks after the cart was last seen on one. Not saved (state._longCart).
+function steadyCarts(state) {
+  const T = state._longCart || (state._longCart = {}), now = state.tick || 0;
+  for (const c of state.carts || []) if (c.st !== 'idle' && c.path && c.path.length > 14) T[c.home] = { t: now, path: c.path };
+}
+
 {
   const _st = simTick;
-  simTick = function (state) { const r = _st.apply(this, arguments); steadyTick(state); return r; };
+  simTick = function (state) { const r = _st.apply(this, arguments); steadyTick(state); steadyCarts(state); return r; };
+  const _lc = longCart;
+  longCart = function (s, b) {
+    const c = _lc.apply(this, arguments);
+    if (c || !s || !b) return c;
+    const r = s._longCart && s._longCart[b.id];
+    return r && (s.tick || 0) - r.t < STEADY.dwell && r.path && r.path.length > 14 ? { home: b.id, st: 'away', path: r.path } : null;
+  };
   // the roof tag of a stopped workshop that loses money (A8): its steady state, not this tick's
   if (typeof lossOf === 'function') {
     const _lo = lossOf;
@@ -9736,6 +9770,1071 @@ function harborExpand(state, b, lv) {
   }
 }
 
+// A11 (16 Oct 2026): the harbor's level asks keep their plan. commissions.js's comRespot works an ask's lots out again
+// whenever the island changes and set its plan to null, so the 'landmark' and 'ships' asks lost the glowing harbor the
+// moment they were made and fell back to a new quay's (or harbor's) lot; on a coast lined with homes there was none
+// ("no spot for a steamship quay … new land opens at Capital", and Capital needs the quay): herplay seed 1902 held the
+// quay's $45,000 for 14 game years and could not build it. An ask made before keeps its old lot until it is worked out
+// again here. Rosa's landmark line names the harbor's level too (a glowing harbor, [Show], one tap).
+{
+  const _cr = comRespot;
+  comRespot = function (s, q) {
+    if (q && q.sv !== s.ver && !q.plan && (q.key === 'landmark' || q.key === 'ships') && (q.tool === 'quay' || q.tool === 'harbor')) {
+      try {
+        const T = COMMISSIONS.find((t) => t.key === q.key), r = T ? T.when(s) : null;
+        if (r && r.plan && r.plan.kind === 'hbx') { q.plan = r.plan; q.glowB = r.glowB; q.select = r.select; q.near = r.near; }
+      } catch (e) { /* the ask as it was */ }
+    }
+    if (q && q.plan && q.plan.kind === 'hbx' && typeof planOf === 'function') {
+      if (q.sv === s.ver) return;
+      if (planOf(s, q.plan)) { q.sv = s.ver; q.spots = []; q.road = null; q.move = 0; return; }
+    }
+    return _cr.apply(this, arguments);
+  };
+  const G = GUIDE_PROBLEMS.find((p) => p.key === 'landmark');
+  if (G) {
+    const _ck = G.check;
+    G.check = function (s) {
+      const m = _ck.apply(this, arguments);
+      if (!m || !m.act || m.act.tool !== 'quay' || typeof A8_KINDS === 'undefined') return m;
+      const hb = hbBest(s), nx = hb ? hbNext(s, hb).find((o) => o.lv === 3) : null;
+      if (!nx) return m;
+      return { text: 'Everything is ready for ' + stageConds(s).next.name + ' but its landmark: the harbor becomes a steamship quay, ' + money$(nx.cost) + '. Tap the glowing harbor.',
+        btn: 'Show', act: { plan: { kind: 'hbx', id: hb.id, lv: 3 }, select: hb.id, at: [hb.x, hb.y] } };
+    };
+  }
+}
+
+// ---- src/sim/scarce.js
+// A11 (16 Oct 2026): money that stays short at her pace. Tomáš (12 Oct): "She can build very quickly because she has a
+// lot of money; it is only 1918 and everything is already filling up"; earlier: "after ~10 game years the budget only
+// rises, she can build anything … the game loses its meaning". Playtest 5 and tests/herplay.js (a player who plays
+// like her: 1x, 2x, then 3x; every home, upgrade and offer the screen asks for, never the desk) measured the cause
+// (DESIGN.md §32): at 3x a payday comes every 6.7 s, nine a minute of her time, and every investment pays itself back
+// in a few of her minutes; from the Capital on (her minute ~41) the money offers sat for two years each under Rosa's
+// routine lines, their price counted against every face of the stack, and a full island had nothing left to buy.
+// Four rules, each visible:
+// 1. A bigger town costs more per person (Brecht's law: a city's spending per head rises with its size): from Town on
+//    the town services' rate per person (A5, by stage) grows by SCARCE.perK × (people / 1,000)^SCARCE.pow dollars
+//    ($1.20 at 1,000 people, $4.80 at 2,000: a linear $1.20 per 1,000 left a full island's payday at $5,900 and $1.27M
+//    piled up by her minute 120 in herplay seed 1902). The
+//    receipt's "Town services" line, the residence's card, the stage card and the Gazette give the two parts. The size
+//    share never takes more than SCARCE.room of what the month would leave without it (smoothed over the last paydays,
+//    state.svcRoom, and never more than the last month left): a big town's paydays stay modest and never turn red because of it (the herplay runs that let it
+//    take everything spiralled into the red for 60 of her minutes: DESIGN §32).
+// 2. Builders are paid wages: an upgrade's price follows the stage's wage (TUNE.stageWage) from Town on, so a Villa,
+//    a Townhouse and a Mansion cost more as the island's wages rise (the button, Rosa, the pill read it at use time).
+// 3. A money offer counts against it only what she is about to pay for (the main ask, the pill's blocker, the next
+//    landmark) and keeps SCARCE.keep paydays in hand (from Town on); "Saving for X" never shows while the treasury
+//    holds X (at every stage).
+// 4. A rich offer that has waited SCARCE.speakAfter months becomes the first ask and Rosa says it over her routine
+//    lines (food, input, the yard, waiting families, needs), so big offers dent the treasury when they come (from Town).
+// 5. The landmark's fund: from Town on, SCARCE.fund of every positive payday is set aside for the next stage's landmark
+//    (the residence's level, the steamship quay, then the palace) while the treasury and the fund together cannot pay
+//    for it; the payday they can, the fund comes back to the treasury and Rosa's landmark line builds it. A player who
+//    spends every payday (playtest 5, herplay) still gets there (the fund never takes the last payday's own money, and
+//    comes back the payday the treasury is in the red): without it herplay sat at Port city for 56 of her minutes
+//    with the quay at "$6,356 of $45,000" (DESIGN §32). The receipt says what was set aside and how far it is, the pill
+//    counts the fund ("$16,594 of $45,000, $9,000 set aside"), the Town's stage card says the rule.
+// 6. Works may use the next stage's land; homes wait for it. Land opens by stage (map.js regions), so a town that
+//    filled its land with homes before the works its next home level needs (slower money: more Casitas per works)
+//    could not reach the stage that opens more land: the scripted reasonable player sat at City with 190 Casitas,
+//    Townhouses lacking coffee, no lot and no plan for a roastery and $1.6M for good; another run opened Port city with
+//    no lot for an airfield or a cannery. From Town on, every building but a home may stand on the next stage's land;
+//    homes, the quarters' streets and their lots keep to the stage's own land (the home tool and the card say
+//    "Land opens at X for homes").
+// 7. No red for good: tighter money made a thin month a trap (herplay seed 7 at Port city: makers' wages above what
+//    the town earned, the treasury −$170,000 to −$726,000 by minute 120, nothing bought; Rosa's red line says "shut
+//    it down", but a player who never opens a card does not). After SCARCE.redShut red paydays in a row with the
+//    treasury below zero, or SCARCE.redShut thin paydays (under 5 % of what came in), the council shuts every maker
+//    whose yard is full (its goods are not taken), keeping one of each kind; in the red, else the workshop or works that
+//    lost the most (never a market, a service, a harbor or a home); the log, the receipt and Rosa say which and what
+//    they cost; she reopens them on their cards. From Town on.
+// TUNE.a11Off: the rules before A11 (tests that rebuild an earlier module's scenario).
+
+const SCARCE = {
+  perK: 1.2,          // $ a person a month more for the town services, for every 1,000 people above `from` (from Town on)
+  pow: 2,             // ... times (people / 1,000) ^ (pow - 1): $1.20 a person at 1,000 people, $4.80 at 2,000
+  from: 0,            // people a town keeps at the stage's own rate
+  room: 0.65,         // the size share takes at most this share of what the month would leave without it
+  fromStage: 2,       // Town
+  upPow: 1,           // an upgrade's price × (the stage's wage / Village's wage) ^ upPow, from Town on
+  keep: 4,            // paydays a money offer leaves in hand (A8: 4)
+  speakAfter: 3,      // months a rich offer waits before Rosa says it over her routine lines
+  asks: 1, voice: 1,  // rules 3 and 4 on (tests switch them off one at a time)
+  fund: 0.25,         // the share of a positive payday set aside for the next landmark (0: rule 5 off)
+  land: 1,            // rule 6 on
+  redShut: 3,         // red paydays in a row (the treasury below zero) before the council shuts the worst loss (0: off)
+  thin: 0.05,         // a payday under this share of what came in is thin: 3 in a row stand down the full-yard makers
+};
+const SCARCE_UP = TUNE.upgradeCost.slice();      // the table's own upgrade prices (Village's)
+// Rosa's routine lines a long-waiting rich offer may speak over (never a loss, a strike, the red, a step down)
+const SCARCE_ROUTINE = /^(food|input|waiting|needs|goal|yard|workers|jobs|unhappy|ships|beds|grow|hint-payday|hint-stage)$/;
+
+function a11On() { return !TUNE.a11Off; }
+
+// The size share of the services' rate: SCARCE.perK × people / 1,000 (cents), from Town on; 0 before.
+function scarceSize(state, people) {
+  if (!a11On() || state.stage < SCARCE.fromStage) return 0;
+  const k = Math.max(0, (people === undefined ? popCount(state) : people) - SCARCE.from) / 1000;
+  return Math.round(100 * SCARCE.perK * Math.pow(k, SCARCE.pow)) / 100;
+}
+// What the month would leave without the size share (smoothed at payday; an old island starts from its last payday).
+function scarceRoom(state) {
+  // (the smoothed room, but never more than the last month left: a bad month lowers the size share at once)
+  if (state.svcRoom !== undefined) return state.svcLast !== undefined ? Math.min(state.svcRoom, state.svcLast) : state.svcRoom;
+  const r = state.lastReceipt;
+  return r ? Math.max(0, r.result) : 0;
+}
+// The size share actually charged: the law's, held to SCARCE.room of what the month would leave. { size, law, held }
+function scarceShare(state) {
+  const law = scarceSize(state);
+  if (!law) return { size: 0, law: 0, held: false };
+  const pop = Math.max(1, popCount(state)), cap = Math.floor(100 * SCARCE.room * Math.max(0, scarceRoom(state)) / pop) / 100;
+  return cap < law ? { size: cap, law, held: true } : { size: law, law, held: false };
+}
+
+// The builders' wage factor for upgrades at this stage (1 before Town).
+function scarceUpF(state) {
+  if (!a11On() || state.stage < SCARCE.fromStage) return 1;
+  const w = TUNE.stageWage, k = Math.min(state.stage, w.length - 1);
+  return Math.pow(w[k] / w[1], SCARCE.upPow);
+}
+
+// What one open ask would cost her now (A8's rule for one ask), or 0.
+function scarceAskCost(s, q) {
+  try {
+    const p = q.plan ? planOf(s, q.plan) : null;
+    if (p) return p.cost;
+    if (q.res && RESIDENCE[q.res]) return RESIDENCE[q.res].cost;
+    if (BUILDINGS[q.tool]) return BUILDINGS[q.tool].cost * Math.max(1, (q.need || 1) - Math.max(0, comCount(s, q) - q.base));
+    if (q.line && q.line.length) return q.line.length * (q.tool === 'paved' ? TUNE.pavedCost : TUNE.roadCost);
+  } catch (e) { /* an ask without a price */ }
+  return 0;
+}
+
+// 7. A red payday in a red treasury: count it; after SCARCE.redShut in a row, the council shuts what is paid for
+// nothing first: every maker whose yard is full (its goods are not taken: the markets are full) and lost money, food
+// makers too, keeping one of each kind open; else the workshop or works that lost the most (never a market, a food
+// maker that delivers, a service, a harbor or a home). (Herplay seed 7, Port city: 22 of 32 fruit groves stood with
+// full yards after families sailed away, $4,900 a month in wages for fruit nobody took; the red grew for 60 minutes.)
+function scarceRedShut(s, r) {
+  if (!SCARCE.redShut || TUNE.a11Off || s.stage < SCARCE.fromStage) return;
+  s.redRun = s.money < 0 && r.result < 0 ? (s.redRun || 0) + 1 : 0;
+  // (a thin payday: under SCARCE.thin of what came in; full-yard makers are stood down after SCARCE.redShut of them)
+  s.thinRun = r.result < SCARCE.thin * Math.max(0, r.rent + r.exports) ? (s.thinRun || 0) + 1 : 0;
+  if (s.redRun < SCARCE.redShut && s.thinRun < SCARCE.redShut) return;
+  const rows = r.lines.filter((l) => l.n < 0).map((l) => ({ l, b: bById(s, l.id) }))
+    .filter((o) => o.b && o.b.open !== false && BUILDINGS[o.b.type].kind === 'producer');
+  let pick = rows.filter((o) => o.b.blocked === 'yard');
+  const keep = {};
+  for (const b of s.b) if (b.open !== false && BUILDINGS[b.type].kind === 'producer') keep[b.type] = (keep[b.type] || 0) + 1;
+  pick = pick.sort((a, c) => a.l.n - c.l.n).filter((o) => keep[o.b.type]-- > 1);
+  if (!pick.length && s.redRun >= SCARCE.redShut) pick = rows.filter((o) => closable(o.b)).sort((a, c) => a.l.n - c.l.n).slice(0, 1);
+  s.thinRun = 0;
+  if (!pick.length) return;
+  for (const o of pick) o.b.open = false;
+  s.ver++;
+  s.redRun = 0;
+  const red = s.money < 0;
+  const kinds = [...new Set(pick.map((o) => o.b.type))], n = pick.reduce((a, o) => a + o.l.n, 0);
+  const name = kinds.length === 1 ? (pick.length > 1 ? pick.length + ' ' + BUILDINGS[kinds[0]].name.toLowerCase() + 's' : 'the ' + BUILDINGS[kinds[0]].name.toLowerCase()) : pick.length + ' workplaces (' + kinds.map((t) => BUILDINGS[t].name.toLowerCase()).join(', ') + ')';
+  const why = pick.every((o) => o.b.blocked === 'yard') ? (pick.length > 1 ? ' whose yards were full' : ' whose yard was full') : '';
+  const head = red ? 'The treasury was in the red for ' + SCARCE.redShut + ' months' : SCARCE.redShut + ' paydays in a row kept under ' + Math.round(100 * SCARCE.thin) + ' % of what came in';
+  r.shut = { id: pick[0].b.id, name, n, why, head };
+  s.shutSay = { id: pick[0].b.id, name, n, why, head, m: s.month };
+  simLog(s, head + ': the council shut ' + name + why + ', ' + money$(-n) + ' a month in wages and upkeep. Reopen on the card when the money is back.', [pick[0].b.x, pick[0].b.y]);
+}
+
+// 6. From Town on (rule 6 on): the next stage's land is open for works.
+function scarceLandOn(s) { return !!(SCARCE.land && !TUNE.a11Off && s.stage >= SCARCE.fromStage && s.stage + 1 < STAGES.length); }
+
+// 5. The next big wish the fund saves for: { k, what, cost } or null (before Town, when it stands, after the palace).
+function scarceWish(s) {
+  if (!a11On() || !SCARCE.fund || s.stage < SCARCE.fromStage) return null;
+  const sc = stageConds(s);
+  if (!sc.next) return null;
+  if (sc.next.goal) return s.palace ? null : { k: 'palace', what: 'the Governor\'s palace', cost: TUNE.palaceCost };
+  const L = sc.next.landmark, c = sc.conds.find((o) => o.landmark);
+  if (!L || !c || c.ok) return null;
+  if (L.res) return { k: 'res' + L.res, what: 'the ' + RESIDENCE[L.res].name, cost: RESIDENCE[L.res].cost };
+  let cost = BUILDINGS[L.b].cost;
+  if (L.b === 'quay' && typeof hbBest === 'function') { const hb = hbBest(s), nx = hb ? hbNext(s, hb).find((o) => o.lv === 3) : null; if (nx) cost = nx.cost; }
+  return { k: L.b, what: 'the ' + BUILDINGS[L.b].name.toLowerCase(), cost };
+}
+function scarceFundOf(s) { return s.fund || (s.fund = { k: '', what: '', n: 0 }); }
+function scarceFundN(s) { return s.fund ? s.fund.n || 0 : 0; }
+// At payday (after it): set aside, or give back. Notes what it did on the receipt (r.fund).
+function scarceFundPay(s, r) {
+  const w = scarceWish(s), F = s.fund;
+  if (!w && !(F && F.n)) return;
+  const f = scarceFundOf(s);
+  // back to the treasury: the wish changed (built, or the next one), the two pay for it, or the treasury is in the red
+  if (f.n && (!w || w.k !== f.k || s.money + f.n >= w.cost || s.money < 0)) {
+    const red = s.money < 0 && !!w && w.k === f.k && s.money + f.n < w.cost;
+    s.money += f.n;
+    r.fund = { back: f.n, what: f.what, cost: w && w.k === f.k && !red ? w.cost : 0, red };
+    f.n = 0;
+    // the treasury pays for it now: Rosa says so (GUIDE_PROBLEMS 'fund')
+    if (r.fund.cost) f.ready = w.k;
+  }
+  if (f.ready && (!w || w.k !== f.ready)) f.ready = '';
+  if (!w) { f.k = ''; f.what = ''; return; }
+  f.k = w.k; f.what = w.what;
+  if (r.fund || s.money + f.n >= w.cost || r.result <= 0) return;
+  // (never from the last payday's own money: the treasury keeps at least one payday)
+  const put = Math.min(Math.round(SCARCE.fund * r.result), Math.max(0, Math.round(s.money - r.result)));
+  if (put <= 0) return;
+  s.money -= put; f.n += put;
+  r.fund = { put, what: w.what, have: f.n, cost: w.cost };
+}
+
+{
+  // 6. the next stage's land is open for every building but homes (not while a home, a quarter's street or a home's lot
+  // is planned or placed)
+  const _to = tileOpenAt;
+  tileOpenAt = function (state, i) { return _to.apply(this, arguments) || (scarceLandOn(state) && !state._homeLand && state.region[i] <= state.stage + 1); };
+  const home = (t) => !!(BUILDINGS[t] && BUILDINGS[t].kind === 'home');
+  const homeOnly = (name, isHome) => {
+    const f = globalThis[name];
+    if (typeof f !== 'function') return null;
+    return function (state) {
+      if (!state || !scarceLandOn(state) || !isHome(arguments)) return f.apply(this, arguments);
+      state._homeLand = (state._homeLand || 0) + 1;
+      try { return f.apply(this, arguments); } finally { state._homeLand--; }
+    };
+  };
+  const byType = (a) => home(a[1]), always = () => true;
+  { const w = homeOnly('canPlace', byType); if (w) canPlace = function (state, type) { const r = w.apply(this, arguments); return r && home(type) && /^Land opens at /.test(r) && scarceLandOn(state) ? r + ' for homes' : r; }; }
+  { const w = homeOnly('fitAnchors', byType); if (w) fitAnchors = w; }
+  { const w = homeOnly('comSpots', byType); if (w) comSpots = w; }
+  { const w = homeOnly('landPlan', byType); if (w) landPlan = w; }
+  { const w = homeOnly('landPlanHome', always); if (w) landPlanHome = w; }
+  { const w = homeOnly('isleLotTile', always); if (w) isleLotTile = w; }
+  { const w = homeOnly('quarterStreets', always); if (w) quarterStreets = w; }
+  { const w = homeOnly('quarterWays', always); if (w) quarterWays = w; }
+  { const w = homeOnly('isleFarWays', always); if (w) isleFarWays = w; }
+  { const w = homeOnly('quarterTrial', always); if (w) quarterTrial = w; }
+  { const w = homeOnly('quarterBuild', always); if (w) quarterBuild = w; }
+  { const w = homeOnly('quarterPlanOf', always); if (w) quarterPlanOf = w; }
+  // 1. the services' rate: the stage's share and the size share
+  const _ts = townServices;
+  townServices = function (state) {
+    const r = _ts.apply(this, arguments);
+    const sh = scarceShare(state), size = sh.size;
+    if (!size) return Object.assign(r, { base: r.rate, size: 0, law: sh.law, held: sh.held });
+    const pop = popCount(state), base = r.rate, rate = Math.round((base + size) * 100) / 100, people = Math.round(pop * rate);
+    return { streets: r.streets, people, rate, n: r.streets + people, base, size, law: sh.law, held: sh.held };
+  };
+  // 2. upgrades follow the builders' wage (prices are mutated in place and read at use time, like A5's)
+  const _pa = pricesApply;
+  pricesApply = function (state) {
+    const r = _pa.apply(this, arguments);
+    const f = scarceUpF(state);
+    for (let i = 0; i < SCARCE_UP.length; i++) TUNE.upgradeCost[i] = Math.round(SCARCE_UP[i] * f / 50) * 50;
+    return r;
+  };
+  // the big things (A5) cost months of what the town keeps: A5's town-month less the services' size share (smoothed at
+  // payday like A5's income, saved with the island; an old island gets it at its next payday)
+  const _pm = purseMonth;
+  purseMonth = function (state, r) {
+    if (a11On()) { const v = Math.round(popCount(state) * townServices(state).size); state.svcSize = state.svcSize ? Math.round((1 - PURSE.ema) * state.svcSize + PURSE.ema * v) : v; }
+    return _pm.apply(this, arguments);
+  };
+  const _tm = townMonth;
+  townMonth = function (state) {
+    const m = _tm.apply(this, arguments);
+    if (!a11On() || TUNE.a5Off || !state.svcSize) return m;
+    return Math.max(500, 0.5 * m, m - state.svcSize);
+  };
+  // 3. a money offer: what she is about to pay for, not every face of the stack
+  const _oa = offerAsks;
+  offerAsks = function (s, k) {
+    if (!a11On() || !SCARCE.asks || s.stage < SCARCE.fromStage) return _oa.apply(this, arguments);
+    const c = simCache(s);
+    if (c.a11asksM !== s.month + '|' + s.money) {
+      c.a11asksM = s.month + '|' + s.money;
+      let n = 0, lm = null;
+      const list = comState(s).list, main = comMain(s);
+      if (main && main.key !== 'offer') n += scarceAskCost(s, main);
+      try {
+        const k2 = !list.some((q) => q.key === 'need') ? goalBlocker(s) : null;
+        if (k2 && k2.ready) n += upgradeAllInfo(s).cost;
+        else if (k2 && k2.tool) { const d = pillPlan(s, k2), p = d ? planOf(s, d) : null; n += p ? p.cost : BUILDINGS[k2.tool] ? BUILDINGS[k2.tool].cost : 0; }
+        const sc = stageConds(s), cl = sc.conds.find((x) => x.landmark && !x.ok);
+        if (cl && sc.next && sc.next.landmark && !list.some((q) => q.key === 'landmark')) {
+          const L = sc.next.landmark;
+          lm = L.res ? { k: 'res', cost: RESIDENCE[L.res].cost } : { k: L.b, cost: BUILDINGS[L.b].cost };
+        }
+      } catch (e) { /* the main ask alone */ }
+      c.a11asks = { n, lm };
+    }
+    const a = c.a11asks;
+    return a.n + (a.lm && a.lm.k !== k ? a.lm.cost : 0);
+  };
+  const _ok = offerKeep;
+  offerKeep = function (s) {
+    if (!a11On() || s.stage < SCARCE.fromStage) return _ok.apply(this, arguments);
+    const r = s.lastReceipt, v = r ? r.result : 0;
+    return Math.max(OFFER.keepMin, SCARCE.keep * Math.max(0, v)) + (v < 0 ? 12 * -v : 0);
+  };
+  // "Saving for X" only while the treasury does not hold X (then the offer comes, or the thing has no place yet)
+  const _os = offerSaving;
+  offerSaving = function (s) {
+    const r = _os.apply(this, arguments);
+    if (!r || !a11On()) return r;
+    return s.money >= r.cost ? null : r;
+  };
+  // 4. a rich offer that waited: the first ask, and Rosa says it over her routine lines
+  const _ct = comTick;
+  comTick = function (s) {
+    const r = _ct.apply(this, arguments);
+    if (!a11On() || TUNE.comOff || !SCARCE.voice || s.stage < SCARCE.fromStage) return r;
+    const c = comState(s), q = c.list.find((o) => o.key === 'offer');
+    if (q && q.rich && !q.loud && s.month - (q.m0 || 0) >= SCARCE.speakAfter) {
+      q.loud = 1; q.p = 0.5; c.list.sort((a, b) => a.p - b.p);
+      const g = s.guide;
+      if (g && g.msg && SCARCE_ROUTINE.test(g.msg.key)) g.msg = null;
+      comGuide(s);
+    }
+    return r;
+  };
+  const _gm = guideMonth;
+  guideMonth = function (state) {
+    const r = _gm.apply(this, arguments);
+    // the fund's line is said once (the pill and the residence's card keep the price in view)
+    if (state.fund && state.fund.ready && state.guide.msg && state.guide.msg.key === 'fund') state.fund.ready = '';
+    if (!a11On() || TUNE.comOff) return r;
+    const g = state.guide, q = comState(state).list.find((o) => o.key === 'offer');
+    if (q && q.loud && g.msg && SCARCE_ROUTINE.test(g.msg.key) && !(g.snooze['com-offer'] > state.month)) { g.msg = null; comGuide(state); }
+    return r;
+  };
+}
+
+// Rosa, the payday the fund came back and the treasury pays for the wish: build it (one tap), before her routine lines.
+// (Spent on something else, the line goes and the fund starts again.)
+function scarceFundPlan(s, w) {
+  if (w.k === 'palace') return { kind: 'res', k: 'palace' };
+  if (/^res\d$/.test(w.k)) return { kind: 'res', k: +w.k.slice(3) };
+  if (w.k === 'quay' && typeof hbBest === 'function') { const hb = hbBest(s); if (hb && hbNext(s, hb).some((o) => o.lv === 3)) return { kind: 'hbx', id: hb.id, lv: 3 }; }
+  return null;
+}
+{
+  // (after the urgent lines and the protest, before the routine ones: the first routine line is 'food')
+  const k = GUIDE_PROBLEMS.findIndex((p) => p.key === 'food');
+  // (before the red line: it says what the council did about the red)
+  GUIDE_PROBLEMS.splice(0, 0, { key: 'shut', now: true, check(s) {
+    const o = s.shutSay;
+    if (!o || !a11On() || s.month - o.m > 1) return null;
+    s.shutSay = null;
+    return { text: (o.head || 'The treasury was in the red for ' + SCARCE.redShut + ' months') + ': the council shut ' + o.name + (o.why || '') + ', ' + money$(-o.n) + ' a month in wages and upkeep. Reopen on the card when the money is back.', btn: 'Show', act: { select: o.id } };
+  } });
+  GUIDE_PROBLEMS.splice(k < 0 ? GUIDE_PROBLEMS.length : k, 0, { key: 'fund', now: true, check(s) {
+    const f = s.fund;
+    if (!f || !f.ready || !a11On()) return null;
+    const w = scarceWish(s);
+    if (!w || w.k !== f.ready || s.money < w.cost) return null;
+    const d = scarceFundPlan(s, w);
+    let p = null;
+    try { p = d && typeof planOf === 'function' ? planOf(s, d) : null; } catch (e) { p = null; }
+    const text = 'The fund for ' + w.what + ' is back: the treasury holds its ' + money$(w.cost) + '.';
+    if (p) return { text: text + ' Build it now?', btn: 'Build it', act: { plan: d, at: p.at || null } };
+    return { text: text + (w.k === 'quay' ? '' : ' Build it on the residence\'s card.'), btn: w.k === 'quay' ? toolLabel('quay') : 'Residence', act: w.k === 'quay' ? { tool: 'quay' } : { select: (s.b.find((b) => b.type === 'residence') || {}).id } };
+  } });
+}
+
+// ---------- what she sees: the receipt, the stage card, the Gazette ----------
+{
+  // the pill: the landmark's (or the palace's) progress counts the fund
+  const _sc = stageConds;
+  stageConds = function (state) {
+    const r = _sc.apply(this, arguments), n = scarceFundN(state);
+    if (!n || !a11On()) return r;
+    const lm = r.next && r.next.goal ? r.conds[0] : r.conds.find((c) => c.landmark && !c.ok);
+    if (lm && !lm.ok) lm.label = lm.label.replace(/−?\$[\d,]+( of | \/ )/, (x, sep) => money$(Math.max(0, state.money) + n) + sep) + ' (' + money$(n) + ' set aside)';
+    return r;
+  };
+  // the receipt's services line names the rate a person and the people it is for
+  const _rl = receiptLines;
+  receiptLines = function (state, r) {
+    const lines = _rl.apply(this, arguments);
+    if (!a11On()) return lines;
+    const sv = townServices(state);
+    if (sv.size || sv.held) for (const l of lines) if (l[0] === SERVICES_LABEL) l[0] = 'Town services · $' + sv.rate.toFixed(2) + ' a person (' + popCount(state).toLocaleString('en-US') + ' people' + (sv.held ? ', size share capped' : '') + ')';
+    return lines;
+  };
+  // the stage card: the services grow faster than the town, the builders' wages raise the upgrades
+  const _so = stageOpens;
+  stageOpens = function (stage) {
+    const list = _so.apply(this, arguments);
+    if (!a11On() || stage !== SCARCE.fromStage) return list;
+    const at = (n) => '$' + (SCARCE.perK * Math.pow(n / 1000, SCARCE.pow)).toFixed(2);
+    list.push('From now on a bigger town costs more per person: the town services cost ' + at(1000) + ' a person more at 1,000 people, ' + at(2000) + ' at 2,000 (police, water and lamps for a crowded town), never more than ' + Math.round(100 * SCARCE.room) + ' % of what the month would leave');
+    const w = TUNE.stageWage, f = Math.pow(w[stage] / w[1], SCARCE.upPow);
+    if (SCARCE.land) list.push('Workshops, works and services may stand on the next stage\'s land; homes wait until it opens');
+    if (SCARCE.fund) list.push((SCARCE.fund === 0.25 ? 'A quarter' : Math.round(100 * SCARCE.fund) + ' %') + ' of every payday is set aside for the next landmark; it comes back to the treasury the payday the two together pay for it');
+    list.push('Builders are paid town wages: an upgrade costs ×' + f.toFixed(2) + ' of a Village\'s (a Villa ' + money$(Math.round(SCARCE_UP[2] * f / 50) * 50) + '), and more at each stage as wages rise');
+    return list;
+  };
+  // the Gazette: the year's town services, when the town's size adds to them
+  const _pr = paydayRun;
+  paydayRun = function (state) {
+    const r = _pr.apply(this, arguments);
+    if (a11On() && r.services) { const Y = gzOf(state); Y.svc = (Y.svc || 0) + r.services; }
+    // 5. the landmark's fund; 7. no red for good
+    if (a11On()) { scarceFundPay(state, r); scarceRedShut(state, r); }
+    // what this month would have left without the size share (smoothed like A5's income)
+    if (a11On() && state.stage >= SCARCE.fromStage) {
+      const pre = r.result + Math.round(popCount(state) * (townServices(state).size || 0));
+      state.svcRoom = state.svcRoom === undefined ? Math.max(0, pre) : Math.round((1 - PURSE.ema) * state.svcRoom + PURSE.ema * pre);
+      state.svcLast = pre;
+    }
+    return r;
+  };
+  const _gz = gazetteMake;
+  gazetteMake = function (state, Y) {
+    const g = _gz.apply(this, arguments);
+    const sv = a11On() ? townServices(state) : null;
+    // (after the year's own news, when the page has room: the families and the firsts come first)
+    if (sv && sv.size && Y.svc && g.items.length < 6) {
+      g.items.push({ icon: 'coin', text: 'Town services cost ' + money$(Y.svc) + ' this year: $' + sv.rate.toFixed(2) + ' a person now, $' + sv.size.toFixed(2) + ' of it because ' + popCount(state).toLocaleString('en-US') + ' people need more police, water and lamps each.' });
+    }
+    return g;
+  };
+}
+
+// ---- src/sim/free.js
+// A12 (16 Oct 2026, Tomáš 08:39: "What is this, that instead of tents houses appear? I don't want houses appearing
+// there that I don't approve. I also didn't like that even the first road I must draw along the line — I want to plan
+// the town completely on my own. And not only the houses but also the governor's seat."; his screenshots of 14 Oct:
+// "Stopped · −$190 a month" tags over each other; "the harbor will grow, so even a small harbor can have 4×4 tiles …
+// marked as just a plot with a fence"). DESIGN.md §33.
+// The principle: she plans; the game advises. Asks, Rosa, the pill and the glowing lots and dotted lines are
+// suggestions. Nothing is built, moved, cleared or shut unless she chose the place, or tapped a button whose label
+// names exactly what happens (its place glows before the tap: "Lay this street · $1,250"). Every ask is met by her own
+// placement anywhere that meets its real condition.
+// 1. No buildings she did not place: A10's new quarter is a suggested street (the dotted road into open land with its
+//    lots lit); its button lays the street only; the ask counts the homes she builds anywhere by a road until the
+//    families are housed. The far town the same (its road; the market and the homes are hers). Every plan's label and
+//    button say exactly what one tap builds, moves or clears (A7's land and room plans, A8's pairs and lots, A10's
+//    railway pair, A9's harbor levels). A tap on a glowing lot never moves a home by itself. A11's rule 7 asks
+//    ("The council asks: shut them? [Shut them · +$X a month] [Show]") and never shuts by itself.
+// 2. The first road and the first homes are hers: Mr Ortiz's road is any road she draws that joins the pier; the homes
+//    count anywhere by a road; the dotted line and the lit lots stay, worded as an example.
+// 3. The governor's seat: on a new island she places the hut herself (sim.js leaves it out; the low hill glows, and
+//    so do two lots near the pier); everything that refers to the residence works wherever it stands. Old saves keep it.
+// 4. The harbor's plot: a new harbor (and a new quay) takes a fenced 4 × 4 plot (render/iso.js draws the pier, the
+//    shed and the empty yard inside the fence); A9's levels fill it. Old harbors take the plot around them when it is
+//    free, else keep their lot.
+// 5. Roof tags that would overlap merge or stack (render/iso.js).
+// TUNE.a12Off: the rules before A12 (the plot stays 4 × 4); NOVA_NO_A12 leaves this file out.
+
+const FREE = {
+  plot: 4,          // a harbor's (and a quay's) fenced plot: 4 x 4 tiles
+  roadMin: 3,       // the first road: at least 3 tiles of her own joined to the pier
+  shutKeep: 3,      // the council's ask stands this many months (then asked again after 3 more red paydays)
+};
+function a12On() { return !TUNE.a12Off; }
+// sim.js newGame: whether she places the residence herself (A12) or it stands on the hill as before
+function freeSeatOwn() { return a12On(); }
+function freeHasSeat(s) { return s.b.some((b) => b.type === 'residence'); }
+
+// ---------- 4. the harbor's plot (defs; the old harbors at load, below) ----------
+// (a square fits every coast without turning the building: the coast runs along any of the four sides)
+BUILDINGS.harbor.w = BUILDINGS.harbor.h = FREE.plot;
+BUILDINGS.quay.w = BUILDINGS.quay.h = FREE.plot;
+
+// ---------- 3. the governor's seat ----------
+{
+  const _cp = canPlace;
+  canPlace = function (state, type, x, y, opts) {
+    if (type !== 'residence' || !a12On()) return _cp.apply(this, arguments);
+    if (freeHasSeat(state)) return 'The governor’s hut stands already';
+    const def = BUILDINGS.residence, occ = occMap(state);
+    for (let ty = y; ty < y + def.h; ty++) for (let tx = x; tx < x + def.w; tx++) {
+      if (!inMap(tx, ty)) return 'Off the island';
+      const i = tileIdx(tx, ty), t = state.terrain[i];
+      if (t === SEA) return 'Cannot build on the sea';
+      if (!tileOpenAt(state, i)) return 'Land opens at ' + regionStageName(state, i);
+      if (occ[i] || state.road[i]) return 'Something is in the way';
+      if (t === FOREST) return 'Forest in the way';
+      if (t === BEACH) return 'Too sandy: build on grass';
+    }
+    return '';
+  };
+  const _pb = placeBuilding;
+  placeBuilding = function (state, type, x, y) {
+    const r = _pb.apply(this, arguments);
+    if (r.ok && type === 'residence') {
+      r.b.level = state.palace ? STAGES.length : state.res || 0;
+      simLog(state, 'The governor’s hut stands where you chose.', [x + 1, y + 1]);
+    }
+    return r;
+  };
+  // the residence's levels wait for the hut
+  const _rw = resWhy;
+  resWhy = function (state) { return a12On() && !freeHasSeat(state) ? 'Place the governor’s hut first' : _rw.apply(this, arguments); };
+  const _pw = palaceWhy;
+  palaceWhy = function (state) { return a12On() && !freeHasSeat(state) ? 'Place the governor’s hut first' : _pw.apply(this, arguments); };
+}
+// The governor's office asks first: where the hut stands (the low hill and two lots near the pier glow).
+COMMISSIONS.push({ key: 'seat', chain: 0.5, who: 'governor', when(s) {
+  if (!a12On() || freeHasSeat(s)) return null;
+  return { tool: 'residence', need: 1, near: s.seatAt || comPierAt(s),
+    ask: 'Where shall the governor’s hut stand? You choose its lot, anywhere on the open land: the low hill by the pier is one place, the glowing lots are free.',
+    praise: 'The governor’s hut stands where you chose. The town will grow around it.' };
+} });
+{
+  // its lots: the hill first (where the hut stood before A12), then the free lots nearest the pier
+  const _cr = comRespot;
+  comRespot = function (s, q) {
+    _cr.apply(this, arguments);
+    if (!q || q.key !== 'seat' || !a12On() || q.seatV === s.ver) return;
+    q.seatV = s.ver; q.plan = null; q.road = null; q.move = 0;
+    const hill = s.seatAt && canPlace(s, 'residence', s.seatAt[0], s.seatAt[1], { free: true }) === '' ? [s.seatAt] : [];
+    const rest = comSpots(s, 'residence', comPierAt(s), 4).filter((p) => !hill.length || Math.abs(p[0] - hill[0][0]) > 2 || Math.abs(p[1] - hill[0][1]) > 2);
+    q.spots = hill.concat(rest).slice(0, 3);
+  };
+}
+
+// ---------- 2. the first road and the first homes are hers ----------
+// The tiles of her own road (not the pier's stub) joined to the pier.
+function freePierRoad(s) {
+  const pier = s.b.find((b) => b.type === 'pier');
+  if (!pier) return s.road.reduce((a, v) => a + (v ? 1 : 0), 0) - s.stub.length;
+  const net = roadNets(s), on = new Set(bNets(s, pier));
+  for (const i of s.stub) if (net[i]) on.add(net[i]);
+  let n = 0;
+  for (let i = 0; i < s.road.length; i++) if (s.road[i] && on.has(net[i]) && !s.stub.includes(i)) n++;
+  return n;
+}
+{
+  const T = COMMISSIONS.find((t) => t.key === 'road1'), _w = T.when;
+  T.when = function (s) {
+    if (!a12On()) return _w.apply(this, arguments);
+    if (freePierRoad(s) >= FREE.roadMin) return null;
+    return { tool: 'road', line: comPierLine(s),
+      ask: 'The first families land this month. A road from the pier into the island, please, the way you like it: drag it from the pier, for example along the dotted line.',
+      praise: 'A fine road. The carts can roll.' };
+  };
+  const H = COMMISSIONS.find((t) => t.key === 'homes3'), _h = H.when;
+  H.when = function (s) {
+    const r = _h.apply(this, arguments);
+    if (r && a12On()) r.ask = 'We are three families. Three homes by a road, wherever you like: the glowing lots are free.';
+    return r;
+  };
+  const I0 = GUIDE_INTRO.find((o) => o.key === 'i-road');
+  if (I0) {
+    const _d = I0.done;
+    I0.text = 'Draw a road from the pier: drag along the ground, any way you like.';
+    I0.done = function (s) { return a12On() ? freePierRoad(s) >= FREE.roadMin : _d.apply(this, arguments); };
+  }
+  const I1 = GUIDE_INTRO.find((o) => o.key === 'i-homes');
+  if (I1) I1.text = 'Build three homes by the road, wherever you like. Settlers come at the end of the month.';
+  const _cd = comIsDone;
+  comIsDone = function (s, q) {
+    if (a12On() && q && q.key === 'road1') return freePierRoad(s) >= FREE.roadMin;
+    return _cd.apply(this, arguments);
+  };
+}
+
+// ---------- 1. exact words for every plan: what one tap builds, moves or clears ----------
+function freeShort(t) { const d = BUILDINGS[t]; return d ? (d.short || d.name).toLowerCase() : t; }
+function freeCap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+// The plan's words: btn true for a button (short, no price), else the map's label with its price.
+function freeExact(p, btn) {
+  const $ = btn ? '' : ' · ' + money$(p.cost), mv = (p.moves || []).length, cl = (p.clear || []).length;
+  if (p.kind === 'land') {
+    const parts = [];
+    if (mv) parts.push('move ' + plural(mv, 'home', 'homes'));
+    if (cl && !btn) parts.push('clear ' + plural(cl, 'forest tile', 'forest tiles'));
+    else if (cl) parts.push('clear');
+    parts.push(btn ? (mv || cl ? 'lay road' : 'lay the road') : 'lay this road');
+    if (p.build) parts.push(btn ? 'build ' + freeShort(p.type) : 'build ' + comA(p.type) + ' at its end');
+    return freeCap(parts.join(', ')) + $;
+  }
+  if (p.kind === 'room') return (btn ? 'Move ' + plural((p.ids || []).length, 'home', 'homes') + ', build ' + freeShort(p.type) : 'Move ' + plural((p.ids || []).length, 'home', 'homes') + ', build ' + comA(p.type) + ' here') + $;
+  if (p.kind === 'pave' || (p.kind === 'line' && p.road === 2)) return (btn ? 'Pave the road' : 'Pave this road') + $;
+  if (p.kind === 'tram') return (btn ? 'Lay the tram line' : 'Lay this tram line') + $;
+  if (p.kind === 'join' || p.kind === 'line') return (btn ? 'Lay the road' : 'Lay this road') + $;
+  if (p.kind === 'pair') return 'Build ' + freeShort(p.works) + ' + ' + freeShort(p.type) + (btn ? '' : ' here') + $;
+  if (p.kind === 'lot') return 'Build ' + (btn ? freeShort(p.type) : comA(p.type) + ' here') + $;
+  if (p.kind === 'res') return 'Build the ' + p.name + $;
+  if (p.kind === 'railpair') return (btn ? 'Build central + railway' : 'Build a sugar central and its railway') + $;
+  if (p.kind === 'quarter') return (p.far ? (btn ? 'Lay the road there' : 'Lay the road to the far coast') : btn ? 'Lay the street' : 'Lay this street') + $;
+  if (p.kind === 'hbx') return 'Build the ' + String(p.name || '').toLowerCase() + $;
+  return '';
+}
+{
+  const _pl = planLabel;
+  planLabel = function (p) { const t = p && a12On() ? freeExact(p, false) : ''; return t || _pl.apply(this, arguments); };
+  const _pb = planBtn;
+  planBtn = function (p) {
+    // ([Upgrade all · $X] says what it does already)
+    if (!p || !a12On() || p.kind === 'upgrade') return _pb.apply(this, arguments);
+    return freeExact(p, true) || _pb.apply(this, arguments);
+  };
+}
+// The map's words for a dotted line that is not a plan (the ask's own line, the road before a lot).
+function freeLineLabel(t) {
+  if (!t || !a12On()) return t;
+  return t.replace(/^Tap to lay the tram line · /, 'Lay this tram line · ').replace(/^Road first · tap it · /, 'Lay this road, then build here · ')
+    .replace(/^Tap to lay it · (\$[\d,]+) \(they pay/, 'Lay this railway · $1 (they pay').replace(/^Tap to lay it · /, 'Lay this road · ');
+}
+{
+  const _so = screenOverlay;
+  screenOverlay = function (s, hint) {
+    const ov = _so.apply(this, arguments);
+    if (ov && ov.label && a12On()) ov.label = freeLineLabel(ov.label);
+    return ov;
+  };
+  // a tap on a glowing lot builds there and nothing else: the home in the way moves only on its own button
+  const _cb = comBuild;
+  comBuild = function (s, q, sp) {
+    if (!a12On() || !q || !q.move) return _cb.apply(this, arguments);
+    const mv = q.move;
+    q.move = 0;
+    try { return _cb.apply(this, arguments); } finally { q.move = mv; }
+  };
+  // Rosa's buttons on an ask say what one tap does
+  const _cg = comGuide;
+  comGuide = function (s) {
+    // (the council's ask is about the red: her pick from the stack yields to it, as it does to the red line)
+    const c = s.com, held = c && c.pickAt !== undefined && s.guide.msg && s.guide.msg.key === 'shutask' ? c.pickAt : undefined;
+    if (held !== undefined) c.pickAt = undefined;
+    try { _cg.apply(this, arguments); } finally { if (held !== undefined) c.pickAt = held; }
+    if (!a12On()) return;
+    const m = s.guide.msg, q = m && m.key && m.key.startsWith('com-') ? comState(s).list.find((o) => 'com-' + o.key === m.key) : null;
+    if (!q || q.res || (q.plan && planOf(s, q.plan))) return;
+    if (q.move) {
+      const b = bById(s, q.move), c = (typeof moveCost === 'function' && b ? moveCost(b) : 0);
+      m.btn = 'Move the home' + (c ? ' · ' + money$(c) : '');
+    } else if ((q.line && q.line.length) || (q.road && q.road.length)) {
+      m.btn = q.tool === 'rail' ? 'Lay the railway' : q.tool === 'tram' ? 'Lay the tram line' : q.tool === 'paved' ? 'Pave the road' : 'Lay the road';
+    }
+  };
+}
+
+// ---------- 1. the new quarter: a suggested street; the homes are hers ----------
+function freeHomesSince(s, id0) { return s.b.filter((b) => b.type === 'casita' && b.id >= (id0 || 0)); }
+// The street's own price (the forest on it cleared, its new tiles laid): what its button lays.
+function freeStreetCost(s, p) { return (p.clear || []).length * clearTileCost(s) + (p.path || []).filter((i) => !s.road[i]).length * TUNE.roadCost; }
+// A quarter of homes she built, recorded and named (the street's sign, the Gazette, the families moving in).
+function freeQuarterRecord(s, homes, far) {
+  if (!homes.length || !isleOn()) return null;
+  const I = isleState(s), mid = homesAt(homes);
+  if (far) return null;
+  const name = isleStreetName(I.quarters.filter((o) => !o.far).length), ids = homes.map((h) => h.id);
+  I.quarters.push({ m: s.month, name, n: ids.length, at: mid, ids, own: 1 });
+  simLog(s, 'A new quarter: ' + name + ', ' + plural(ids.length, 'home', 'homes') + ' you built for the families from the pier.', [mid[0] + 0.5, mid[1] + 0.5]);
+  simEvent(s, { kind: 'quarter', name, at: mid, ids, cost: 0 });
+  return name;
+}
+if (typeof ISLE !== 'undefined') {
+  // the plan's price is the street's; the homes are counted, not built
+  const _po = planOf;
+  planOf = function (s, d) {
+    const p = _po.apply(this, arguments);
+    if (p && p.kind === 'quarter' && a12On() && !p.a12) {
+      p.a12 = 1;
+      p.homeCost = p.n * BUILDINGS.casita.cost + (p.mk ? BUILDINGS.market.cost : 0);
+      p.cost = freeStreetCost(s, p);
+      p.lay = (p.path || []).filter((i) => !s.road[i]).length;
+    }
+    return p;
+  };
+  const _pr = planRun;
+  planRun = function (s, d) {
+    if (!d || d.kind !== 'quarter' || !a12On()) return _pr.apply(this, arguments);
+    const p = planOf(s, d);
+    if (!p) return { ok: false, why: 'Nothing to do here now' };
+    if (s.money < p.cost) return { ok: false, poor: true, cost: p.cost, why: 'Not enough money yet (' + money$(p.cost) + ')' };
+    const m0 = s.money;
+    for (const i of p.clear || []) s.terrain[i] = GRASS;
+    if ((p.clear || []).length) { s.money -= p.clear.length * clearTileCost(s); s.tver = (s.tver || 0) + 1; }
+    let laid = 0;
+    for (const i of p.path) if (!s.road[i]) { s.road[i] = 1; s.money -= TUNE.roadCost; laid++; }
+    s.ver++;
+    const end = p.path[p.path.length - 1], at = p.far ? [end % MAP_W, (end / MAP_W) | 0] : landMid(p.path), cost = m0 - s.money;
+    const I = isleState(s);
+    if (p.far) I.farRoad = { m: s.month, end: at, path: p.path.slice() };
+    simLog(s, (p.far ? 'The road to the far coast is laid: ' : 'A new street is laid: ') + plural(laid, 'tile', 'tiles') + (p.clear.length ? ', ' + plural(p.clear.length, 'forest tile', 'forest tiles') + ' cleared' : '') + ', ' + money$(cost) + '. Its lots wait for the homes you place.', [at[0] + 0.5, at[1] + 0.5]);
+    // the asks that suggested it now light the lots by the new street (the homes are hers to place)
+    for (const q of comState(s).list) {
+      const qd = q.plan || (q.step && q.step.plan);
+      if (!qd || qd.kind !== 'quarter' || !!qd.far !== !!p.far) continue;
+      q.plan = null; q.near = at; q.sv = -1; q.road = null; q.move = 0;
+      if (q.step) q.step = Object.assign({}, q.step, { plan: null, tool: p.far ? 'market' : 'casita', near: at, need: p.far ? 1 : q.step.need || 1 });
+      if (p.far) { q.tool = 'market'; q.need = 1; q.base = countType(s, 'market'); }
+    }
+    return { ok: true, cost, at, laid };
+  };
+  const _ps = planSay;
+  planSay = function (s, p) {
+    if (!p || p.kind !== 'quarter' || !a12On()) return _ps.apply(this, arguments);
+    if (p.far) return 'One way: the dotted road to the far coast (' + money$(p.cost) + ', one tap lays it), its market and homes on the lit lots — or your own road and lots there.';
+    return '[Lay the street] lays only its road (' + money$(p.cost) + '); the homes are yours to place (' + money$(BUILDINGS.casita.cost) + ' each).';
+  };
+  // A10's rule as before: the quarter is asked when she could pay for the street and its homes (the plan's price is
+  // the street's now; the homes are hers)
+  const _qa = quarterAsk;
+  quarterAsk = function (s, near) {
+    if (!a12On()) return _qa.apply(this, arguments);
+    for (const n of [ISLE.quarterMax, ISLE.quarterMin]) {
+      const d = { kind: 'quarter', near: near || waitAt(s) || comPierAt(s), n }, p = planOf(s, d);
+      if (p && p.n >= n && s.money >= p.cost + (p.homeCost || 0)) return { d, p };
+    }
+    return null;
+  };
+  // the families' ask: homes, counted wherever she builds them by a road, until the families are housed
+  const Q = COMMISSIONS.find((t) => t.key === 'quarter');
+  if (Q) {
+    const _w = Q.when;
+    Q.when = function (s) {
+      const r = _w.apply(this, arguments);
+      if (!r || !a12On()) return r;
+      const p = planOf(s, r.plan), n = p ? p.n : ISLE.quarterMin;
+      r.need = n;
+      r.ask = s.waiting + ' of us sleep in tents at the pier. ' + n + ' homes by a road and we all move in: for example a new street along the dotted line, or wherever you like.';
+      return r;
+    };
+  }
+  const _cm = comMake;
+  comMake = function (s, T, r) {
+    const q = _cm.apply(this, arguments);
+    if (!a12On() || !q) return q;
+    const qd = q.plan || (q.step && q.step.plan);
+    if (T.key === 'quarter' || (T.key === 'isle' && ((qd && qd.kind === 'quarter') || (q.step && q.step.need > 1)))) {
+      q.id0 = s.nextId;
+      if (T.key === 'quarter') { q.need = r.need || ISLE.quarterMin; q.base = countType(s, 'casita'); }
+      if (T.key === 'isle') { const p = qd && qd.kind === 'quarter' ? planOf(s, qd) : null; q.a12n = p && !p.far ? p.n : q.step && q.step.need > 1 ? q.step.need : 0; }
+    }
+    return q;
+  };
+  const _cd = comIsDone;
+  comIsDone = function (s, q) {
+    if (!a12On() || !q || q.key !== 'quarter') return _cd.apply(this, arguments);
+    const n = freeHomesSince(s, q.id0).length;
+    return n >= (q.need || ISLE.quarterMin) || (n >= 1 && !(s.waiting > 0));
+  };
+  const _cgn = comGone;
+  comGone = function (s, q) {
+    if (!a12On() || !q || q.key !== 'quarter') return _cgn.apply(this, arguments);
+    // (a street that no longer fits: the ask lights the lots by the roads instead)
+    if (q.plan && !planOf(s, q.plan)) { q.plan = null; q.sv = -1; }
+    return !(s.waiting > 0) && !freeHomesSince(s, q.id0).length;
+  };
+  const _cf = comFinish;
+  comFinish = function (s, q) {
+    if (a12On() && q && q.key === 'quarter') freeQuarterRecord(s, freeHomesSince(s, q.id0), false);
+    return _cf.apply(this, arguments);
+  };
+  // the census's (and the record's) homes: counted the same way; the quarter is recorded when they stand
+  const _gs = isleGrowStep;
+  isleGrowStep = function (s) {
+    const r = _gs.apply(this, arguments);
+    if (r && r.k === 'quarter' && a12On()) {
+      const p = planOf(s, r.plan);
+      r.ask = r.ask.replace(/A new street with \d+ homes, and the boats fill them\./, (p ? p.n : ISLE.quarterMin) + ' more homes and the boats fill them: for example a new street along the dotted line, or wherever you like by a road.');
+    }
+    return r;
+  };
+  const _sd = isleStepDone;
+  isleStepDone = function (s, q) {
+    if (!a12On() || !q || !q.step || !q.a12n) return _sd.apply(this, arguments);
+    const homes = freeHomesSince(s, q.id0);
+    if (q.step.k === 'farhomes') return !!isleState(s).town2;
+    if (homes.length < q.a12n) return false;
+    if (q.step.k === 'quarter' && !q.rec) { q.rec = 1; freeQuarterRecord(s, homes, false); }
+    return true;
+  };
+}
+
+// ---------- 1. the far town: her road, her market, her homes ----------
+// The second town stands when a market built since the goal began has ISLE.townHomes homes built since in its reach,
+// ISLE.farGap tiles or more from every home that stood before.
+function freeFarCheck(s) {
+  const I = isleState(s);
+  if (I.town2 || I.farId0 === undefined) return !!I.town2;
+  const old = s.b.filter((b) => b.type === 'casita' && b.id < I.farId0), young = freeHomesSince(s, I.farId0);
+  for (const mk of s.b.filter((b) => b.type === 'market' && b.id >= I.farId0)) {
+    if (old.some((h) => Math.max(Math.abs(h.x - mk.x - 1), Math.abs(h.y - mk.y - 1)) < ISLE.farGap)) continue;
+    const ids = young.filter((h) => footDist(mk, h) <= TUNE.marketReach).map((h) => h.id);
+    if (ids.length < ISLE.townHomes) continue;
+    const name = ISLE_TOWNS[(s.seed || 0) % ISLE_TOWNS.length], at = [mk.x + 1, mk.y + 1];
+    I.town2 = { m: s.month, name, at, ids, mk: mk.id };
+    I.quarters.push({ m: s.month, name, n: ids.length, at, ids, far: 1, own: 1 });
+    simLog(s, name + ' is founded on the far coast: your market and ' + plural(ids.length, 'home', 'homes') + '. The boats bring ' + ISLE.town2Boat + ' more settlers a month.', [at[0] + 0.5, at[1] + 0.5]);
+    simEvent(s, { kind: 'quarter', name, at, ids, far: 1, cost: 0 });
+    s.ver++;
+    return true;
+  }
+  return false;
+}
+// Her market on the far coast (built since the goal began, 7+ tiles from the old homes), or null.
+function freeFarMarket(s) {
+  const I = isleState(s), old = s.b.filter((b) => b.type === 'casita' && b.id < (I.farId0 || 0));
+  return s.b.find((mk) => mk.type === 'market' && mk.id >= (I.farId0 || 0) && !old.some((h) => Math.max(Math.abs(h.x - mk.x - 1), Math.abs(h.y - mk.y - 1)) < ISLE.farGap)) || null;
+}
+if (typeof ISLE_GOALS !== 'undefined') {
+  const G2 = ISLE_GOALS.find((g) => g.id === 'town2');
+  if (G2) {
+    const _st = G2.step, _dn = G2.done;
+    G2.done = function (s) { return a12On() ? freeFarCheck(s) : _dn.apply(this, arguments); };
+    G2.step = function (s) {
+      if (!a12On()) return _st.apply(this, arguments);
+      const I = isleState(s), name = ISLE_TOWNS[(s.seed || 0) % ISLE_TOWNS.length];
+      if (I.farId0 === undefined) I.farId0 = s.nextId;
+      const mk = freeFarMarket(s);
+      if (mk) {
+        const have = freeHomesSince(s, I.farId0).filter((h) => footDist(mk, h) <= TUNE.marketReach).length;
+        return { k: 'farhomes', who: 'governor', tool: 'casita', need: Math.max(1, ISLE.townHomes - have), near: [mk.x + 1, mk.y + 1], joy: 1,
+          ask: name + ' has its market. Homes within its reach, ' + ISLE.townHomes + ' in all (' + have + ' so far), wherever you like there.',
+          praise: name + ' has its first street: the boats bring ' + ISLE.town2Boat + ' more settlers a month now.' };
+      }
+      if (I.farRoad) return { k: 'farmk', who: 'governor', tool: 'market', need: 1, near: I.farRoad.end, joy: 0,
+        ask: 'The road to the far coast is there. A market by it (anywhere ' + ISLE.farGap + ' tiles or more from the old town), and ' + name + ' can begin.', praise: name + ' has its market.' };
+      const r = _st.apply(this, arguments);
+      if (r) r.ask = 'The far coast is good land with water, and nobody lives there yet. A second town, ' + name + ': a road there, a market and ' + ISLE.townHomes + ' homes, where you like on that coast (the dotted road and its lit lots are one way); the boats will land families there too.';
+      return r;
+    };
+  }
+}
+
+// ---------- 1. A11's rule 7: the council asks; it never shuts by itself ----------
+if (typeof scarceRedShut === 'function') {
+  const _rs = scarceRedShut;
+  scarceRedShut = function (s, r) {
+    if (!a12On()) return _rs.apply(this, arguments);
+    const open = new Set(s.b.filter((b) => b.open !== false).map((b) => b.id)), n0 = s.log.length;
+    _rs.apply(this, arguments);
+    if (!r.shut) return;
+    // what the council would have shut, open again: it is her choice
+    const ids = s.b.filter((b) => open.has(b.id) && b.open === false).map((b) => b.id);
+    for (const id of ids) bById(s, id).open = true;
+    if (s.log.length > n0 && /the council shut/.test(s.log[s.log.length - 1].text)) s.log.pop();
+    const o = r.shut;
+    delete r.shut;
+    s.shutSay = null;
+    if (!ids.length) return;
+    s.shutAsk = { ids, name: o.name, n: o.n, why: o.why, head: o.head, m: s.month };
+    r.shutAsk = { name: o.name, n: o.n, ids };
+    const b = bById(s, ids[0]);
+    simLog(s, o.head + ': the council asks to shut ' + o.name + o.why + ' (' + money$(-o.n) + ' a month in wages and upkeep). Your choice: Rosa has the button.', b ? [b.x, b.y] : undefined);
+  };
+}
+// What the council's ask would save now (the ones still open), and those ids.
+function freeShutNow(s) {
+  const a = s.shutAsk;
+  if (!a || !a12On() || s.month - a.m > FREE.shutKeep) return null;
+  const ids = a.ids.filter((id) => { const b = bById(s, id); return b && b.open !== false; });
+  if (!ids.length) return null;
+  const save = ids.reduce((t, id) => t + closeSaves(s, bById(s, id)), 0);
+  return { ids, save };
+}
+// Her [Shut them]: those workplaces shut (no wages, half the upkeep), reopened on their cards.
+function freeShut(s) {
+  const w = freeShutNow(s);
+  if (!w) return false;
+  for (const id of w.ids) bById(s, id).open = false;
+  jobsAssign(s); s.ver++;
+  const a = s.shutAsk;
+  simLog(s, 'Shut on your word: ' + a.name + ', +' + money$(w.save) + ' a month. Reopen them on their cards when the money is back.', [bById(s, w.ids[0]).x, bById(s, w.ids[0]).y]);
+  s.shutAsk = null;
+  if (s.guide.msg && s.guide.msg.key === 'shutask') s.guide.msg = null;
+  return true;
+}
+{
+  const _gs = guideSay;
+  guideSay = function (state, msg) {
+    const c = state.com;
+    if (!msg || msg.key !== 'shutask' || !c || c.pickAt === undefined) return _gs.apply(this, arguments);
+    const p = c.pickAt;
+    c.pickAt = undefined;
+    try { return _gs.apply(this, arguments); } finally { c.pickAt = p; }
+  };
+}
+GUIDE_PROBLEMS.splice(0, 0, { key: 'shutask', now: true, check(s) {
+  const w = freeShutNow(s), a = s.shutAsk;
+  if (!w || s.month - a.m > 1) return null;
+  const b = bById(s, w.ids[0]);
+  return { text: a.head + ': ' + a.name + a.why + ' cost ' + money$(-a.n) + ' a month in wages and upkeep. The council asks: shut ' + (w.ids.length > 1 ? 'them' : 'it') + ' for now? You can reopen ' + (w.ids.length > 1 ? 'them' : 'it') + ' on the card.',
+    btn: 'Shut ' + (w.ids.length > 1 ? 'them' : 'it') + ' · +' + money$(w.save) + ' a month', act: { shut: w.ids.slice(), select: w.ids[0], at: b ? [b.x, b.y] : undefined } };
+} });
+{
+  const _sr = screenRosa;
+  screenRosa = function (s, m, arm) {
+    if (m && m.act && m.act.shut && a12On()) return freeShut(s) ? true : false;
+    return _sr.apply(this, arguments);
+  };
+}
+
+// ---------- 4. old harbors: the plot around them when it is free ----------
+// A 4 x 4 plot covering harbor b's old lot that fits (b lifted off), nearest its old corner; null when none.
+function freePlotSpot(s, b) {
+  const W = FREE.plot;
+  if (!b || BUILDINGS[b.type].kind !== 'harbor' || (b.w >= W && b.h >= W)) return null;
+  const keepB = s.b, keepVer = s.ver, keepC = s._c, out = [];
+  s.b = keepB.filter((o) => o !== b); s.ver = -1 - keepVer;
+  try {
+    for (let dy = 0; dy <= W - b.h; dy++) for (let dx = 0; dx <= W - b.w; dx++) {
+      const x = b.x - dx, y = b.y - dy;
+      if (canPlace(s, b.type, x, y, { free: true }) === '') out.push({ x, y, w: W, h: W, d: dx + dy });
+    }
+  } finally { s.b = keepB; s.ver = keepVer; s._c = keepC; }
+  out.sort((a, c) => a.d - c.d);
+  return out[0] || null;
+}
+function freePlotMigrate(s) {
+  if (!s || !Array.isArray(s.b) || s.plotMv) return s;
+  s.plotMv = 1;
+  for (const b of s.b) {
+    if (!BUILDINGS[b.type] || BUILDINGS[b.type].kind !== 'harbor' || b.w >= FREE.plot) continue;
+    const g = freePlotSpot(s, b);
+    if (!g) { b.oldPlot = 1; continue; }
+    worksGrow(s, b, g);
+    simLog(s, 'The ' + (b.type === 'quay' ? 'steamship quay' : 'harbor') + ' has its fenced plot now, ' + FREE.plot + ' × ' + FREE.plot + ': its levels fill it.', [g.x + 2, g.y + 2]);
+  }
+  return s;
+}
+{
+  const _load = loadGame;
+  loadGame = function (obj) { return freePlotMigrate(_load.apply(this, arguments)); };
+  const _ng = newGame;
+  newGame = function (seed) { const s = _ng.apply(this, arguments); s.plotMv = 1; return s; };
+}
+
+// ---- src/sim/turn.js
+// A13 (16 Oct 2026, Tomáš: "I would also like to be able to rotate all buildings before I build them"): turning a
+// building before it is placed (and when it is moved). DESIGN.md §34.
+// - b.f: the building's turn, 0..3 quarter turns clockwise (as ⟳ turns the island). Saved with the building (the save
+//   is the state as plain JSON); absent means 0, so every island saved before keeps its buildings exactly as they were.
+// - A turn by an odd number of quarters swaps a non-square footprint (a 3 x 2 hall stands 2 x 3, a 2 x 3 field 3 x 2):
+//   b.w and b.h are the turned lot, as every rule already reads them. A square lot keeps its tiles.
+// - Nothing else in the rules changes: every building still takes a road on any side (as before), makes, sells and
+//   costs the same, so a turn never hides a cost. The look turns (render/iso.js), and the ghost says which side faces
+//   the street.
+// - While a type is placed turned, its definition is a turned copy for the call (turnDo): canPlace, newBuilding and
+//   every wrapper that reads def.w / def.h see the turned lot. The call gets a cache of its own (the lots that fit
+//   differ), so nothing worked out for the turned lot is kept for the plain one.
+
+// The turn of a building (0 when it was never turned).
+function bFace(b) { return b && b.f ? b.f & 3 : 0; }
+
+// True when turn f swaps the footprint of the type (odd turn, non-square lot).
+function turnSwaps(type, f) { const d = BUILDINGS[type]; return !!d && (f & 1) === 1 && d.w !== d.h; }
+
+// The lot of the type turned by f: { w, h }.
+function turnFoot(type, f) {
+  const d = BUILDINGS[type];
+  if (!d) return { w: 1, h: 1 };
+  if (TURN_NOW && TURN_NOW.type === type) { const b = TURN_NOW.base; return turnSwaps0(b, f) ? { w: b.h, h: b.w } : { w: b.w, h: b.h }; }
+  return turnSwaps(type, f) ? { w: d.h, h: d.w } : { w: d.w, h: d.h };
+}
+function turnSwaps0(d, f) { return !!d && (f & 1) === 1 && d.w !== d.h; }
+
+// The turned call now running ({ type, f, base }), and the turn a map tap places with ({ type, f }; set by the UI).
+let TURN_NOW = null, TURN_ARM = null;
+
+// The turn asked for the type now: the running turned call's, then the tap's; null when none was asked.
+function turnFOf(type) {
+  if (TURN_NOW && TURN_NOW.type === type) return TURN_NOW.f;
+  if (TURN_ARM && TURN_ARM.type === type) return TURN_ARM.f;
+  return null;
+}
+
+// Runs fn with the type turned by f: for an odd turn of a non-square lot BUILDINGS[type] is a turned copy (w, h
+// swapped) and the state's caches are the turned ones; otherwise fn runs as it is. Nested calls for the same type run
+// inside the one turn.
+function turnDo(state, type, f, fn) {
+  f = (f | 0) & 3;
+  if (TURN_NOW && TURN_NOW.type === type) return fn();
+  const d = BUILDINGS[type];
+  if (!d) return fn();
+  const was = TURN_NOW;
+  if (!turnSwaps(type, f)) { TURN_NOW = { type, f, base: d }; try { return fn(); } finally { TURN_NOW = was; } }
+  const keepC = state ? state._c : null;
+  BUILDINGS[type] = Object.assign({}, d, { w: d.h, h: d.w });
+  TURN_NOW = { type, f, base: d };
+  if (state) state._c = state._cT && state._cT.ver === state.ver ? state._cT : null;
+  try { return fn(); } finally {
+    BUILDINGS[type] = d;
+    TURN_NOW = was;
+    if (state) { state._cT = state._c; state._c = keepC; }
+  }
+}
+
+// canPlace for the type turned by f.
+function turnCanPlace(state, type, x, y, f, opts) { return turnDo(state, type, f, () => canPlace(state, type, x, y, opts)); }
+
+// Placing: placeBuilding(state, type, x, y, f) or a map tap's turn (TURN_ARM). The new building keeps its turn.
+{
+  const _pb = placeBuilding;
+  placeBuilding = function (state, type, x, y, f) {
+    const ff = typeof f === 'number' ? f & 3 : (turnFOf(type) || 0);
+    if (!ff) return _pb.call(this, state, type, x, y);
+    const r = turnDo(state, type, ff, () => _pb.call(this, state, type, x, y));
+    if (r && r.ok && r.b) r.b.f = ff;
+    return r;
+  };
+}
+
+// A works on its full lot turned is not an old works (sim/works.js: an old works is smaller than its lot).
+// The building's own turn decides (not a turned call running for its type).
+{
+  const _wo = worksOld;
+  worksOld = function (b) {
+    const inCall = !!(b && TURN_NOW && TURN_NOW.type === b.type);
+    if (!b || (!inCall && !(bFace(b) & 1))) return _wo.apply(this, arguments);
+    const d = inCall ? TURN_NOW.base : BUILDINGS[b.type];
+    if (!d || !WORKS_BIG.includes(b.type)) return false;
+    const T = turnSwaps0(d, bFace(b)), W = T ? d.h : d.w, H = T ? d.w : d.h;
+    return b.w < W || b.h < H || b.w * b.h < d.w * d.h;
+  };
+}
+
+// Moving (ui/move.js): the building may be turned on the way (the Turn button while it is lifted), even on its own
+// lot. The turn asked (turnFOf) or the building's own; every check runs with its lot turned so.
+function turnMoveF(b) { const f = turnFOf(b.type); return f === null ? bFace(b) : f; }
+{
+  const _why = moveWhy;
+  moveWhy = function (state, b, x, y, opts) {
+    const f = turnMoveF(b);
+    // the same lot turned another way is a move too (it stands there turned)
+    if (b && x === b.x && y === b.y && f !== bFace(b)) {
+      const def = BUILDINGS[b.type];
+      if (!def || def.kind === 'fixed' || def.project || b.wip) return 'Cannot be moved';
+      const keepB = state.b, keepVer = state.ver, keepC = state._c;
+      let why = '';
+      state.b = keepB.filter((o) => o !== b); state.ver = -1 - keepVer;
+      try { why = turnCanPlace(state, b.type, x, y, f, { free: true }); } finally { state.b = keepB; state.ver = keepVer; state._c = keepC; }
+      if (why) return why;
+      if (!(opts && opts.free) && state.money < moveCost(b)) return 'Not enough money (' + money$(moveCost(b)) + ')';
+      return '';
+    }
+    return turnDo(state, b.type, f, () => _why.call(this, state, b, x, y, opts));
+  };
+  const _spots = moveSpots;
+  moveSpots = function (state, b) {
+    const f = turnMoveF(b);
+    const out = turnDo(state, b.type, f, () => _spots.call(this, state, b));
+    // its own lot, turned another way
+    if (f !== bFace(b) && moveWhy(state, b, b.x, b.y, { free: true }) === '') out.push([b.x, b.y]);
+    return out;
+  };
+  const _mb = moveBuilding;
+  moveBuilding = function (state, b, x, y) {
+    const f = turnMoveF(b), f0 = bFace(b);
+    const r = turnDo(state, b.type, f, () => _mb.call(this, state, b, x, y));
+    // the full lot as turned (an old works was rebuilt at full size by works.js); an unturned move stays as before
+    if (r && r.ok) {
+      const ft = turnFoot(b.type, f);
+      if (f !== f0 || b.w !== ft.w || b.h !== ft.h) { b.w = ft.w; b.h = ft.h; if (f) b.f = f; else delete b.f; state.ver++; }
+    }
+    return r;
+  };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -10265,8 +11364,15 @@ const ISO = (() => {
   // sprite the mode its key names ('^' first: from above).
   const KT = 1.4, ZT = 0.2;
   let TOP = false, TT = 44.8;
+  // A13 (a building's own turn, sim/turn.js, DESIGN.md §34): TX paints a sprite transposed (every point x <-> y), the
+  // one change of a plan that keeps the painters' back-to-front order (u + v stays). The primitives that light or
+  // shade by face (walls, roofs, boxes, shadows, face text) redo themselves in the transposed frame, so lit faces stay
+  // lit and shadows fall to the lower right; the faces they return are in the painter's own frame. Set only while a
+  // turned square building's sprite is painted (bTX).
+  let TX = false;
   function pen(c, x0, y0, h, dpr, r) { ctx = c; ox = x0; oy = y0; hw = h; hh = h / 2; zs = h * ZS; S = h / 44; LW = Math.max(0.6, 1.1 * S); DP = dpr; PR = r ? ROTM[r] : null; TT = h * KT; }
   function P(x, y, z) {
+    if (TX) { const t = x; x = y; y = t; }
     if (PR) { const u = PR[0] * x + PR[1] * y + PR[4]; y = PR[2] * x + PR[3] * y + PR[5]; x = u; }
     if (TOP) return [ox + x * TT, oy + y * TT - (z || 0) * TT * ZT];
     return [ox + (x - y) * hw, oy + (x + y) * hh - (z || 0) * zs];
@@ -10300,6 +11406,10 @@ const ISO = (() => {
   }
   // A vertical face: origin o (3D), horizontal unit direction a; s runs along a, t up.
   function Fc(o, a) { return { o, a }; }
+  // A13: a face made in the transposed frame, given back in the painter's frame (TX)
+  function fcT(f) { return { o: [f.o[1], f.o[0], f.o[2]], a: [f.a[1], f.a[0]] }; }
+  // A13: a primitive run once more with x <-> y swapped and TX off (its points then land where TX puts them)
+  function txRun(fn) { TX = false; try { return fn(); } finally { TX = true; } }
   function fp(f, s, t) { return P(f.o[0] + f.a[0] * s, f.o[1] + f.a[1] * s, f.o[2] + t); }
   function fq(f, s0, s1, t0, t1) { return [fp(f, s0, t0), fp(f, s1, t0), fp(f, s1, t1), fp(f, s0, t1)]; }
   function farch(f, s, t0, w, h, n) {
@@ -10309,6 +11419,8 @@ const ISO = (() => {
   }
   function fdisc(f, s, t, r, n) { const p = []; n = n || 18; for (let k = 0; k < n; k++) { const a = k / n * TAU; p.push(fp(f, s + Math.cos(a) * r, t + Math.sin(a) * r)); } return p; }
   function walls(x, y, w, d, z0, h, col, noHatch) {
+    // A13: the painter's front face (+y) is the transposed box's lower-right face, with that face's colour
+    if (TX) { const r = txRun(() => walls(y, x, d, w, z0, h, col, noHatch)); return { fl: fcT(r.fr), fr: fcT(r.fl), L: r.R, R: r.L, cS: r.col, col: r.cS }; }
     const fl = Fc([x, y + d, z0], [1, 0]), fr = Fc([x + w, y + d, z0], [0, -1]);
     const L = fq(fl, 0, w, 0, h), Rr = fq(fr, 0, d, 0, h), cS = sh(col);
     poly(L, col); poly(Rr, cS);
@@ -10331,6 +11443,7 @@ const ISO = (() => {
     }
   }
   function hipRoof(x, y, w, d, z, rh, o, col, opt) {
+    if (TX) return txRun(() => hipRoof(y, x, d, w, z, rh, o, col, opt));
     opt = opt || {};
     const x0 = x - o, y0 = y - o, x1 = x + w + o, y1 = y + d + o, ww = x1 - x0, dd = y1 - y0, zr = z + rh;
     const E0 = P(x0, y0, z), E1 = P(x1, y0, z), E2 = P(x1, y1, z), E3 = P(x0, y1, z);
@@ -10356,6 +11469,7 @@ const ISO = (() => {
     return { R1, R2, top: Math.min(R1[1], R2[1]) };
   }
   function gableY(x, y, w, d, z, rh, o, col, wallCol) {
+    if (TX) return txRun(() => gableX(y, x, d, w, z, rh, o, col, wallCol));
     const x0 = x - o, x1 = x + w + o, y0 = y - o, y1 = y + d + o, xm = x + w / 2, zr = z + rh;
     const E0 = P(x0, y0, z), E1 = P(x1, y0, z), E2 = P(x1, y1, z), E3 = P(x0, y1, z), R1 = P(xm, y0, zr), R2 = P(xm, y1, zr);
     poly([E0, E3, R2, R1], lt(col, 0.14), ln(col));
@@ -10366,6 +11480,7 @@ const ISO = (() => {
   }
   function gableX(x, y, w, d, z, rh, o, col, wallCol, opt) {
     opt = opt || {};
+    if (TX) { const r = txRun(() => gableY(y, x, d, w, z, rh, o, col, wallCol)); if (opt.gable) opt.gable(r.g); return r; }
     const x0 = x - o, x1 = x + w + o, y0 = y - o, y1 = y + d + o, ym = y + d / 2, zr = z + rh;
     const E0 = P(x0, y0, z), E1 = P(x1, y0, z), E2 = P(x1, y1, z), E3 = P(x0, y1, z), R1 = P(x0, ym, zr), R2 = P(x1, ym, zr);
     poly([E0, E1, R2, R1], lt(col, 0.14), ln(col));
@@ -10373,6 +11488,7 @@ const ISO = (() => {
     if (opt.gable) opt.gable(g);
     poly([E3, E2, R2, R1], col); roofTex(E3, E2, R1, R2, col, opt.rows || 5, opt.cols === undefined ? Math.round(w * 9) : opt.cols); poly([E3, E2, R2, R1], null, ln(col));
     pline([E2, R2, E1], dk(col, 0.3), 2.2 * S); seg(R1, R2, dk(col, 0.35), 1.5 * S);
+    return { g, ridge: [R1, R2] };
   }
   function roofAny(type, x, y, w, d, z, rh, o, col, wallCol, opt) {
     if (type === 'gx') gableX(x, y, w, d, z, rh, o, col, wallCol, opt);
@@ -10409,12 +11525,15 @@ const ISO = (() => {
     const k = fp(f, s + w * 0.3, h * 0.45); circ(k[0], k[1], 0.8 * S, '#e9c46a');
   }
   function faceText(f, s, t, txt, size, col) {
-    const p = fp(f, s, t), ex = [(f.a[0] - f.a[1]) * hw, (f.a[0] + f.a[1]) * hh];
+    const a = TX ? [f.a[1], f.a[0]] : f.a, p = fp(f, s, t), ex = [(a[0] - a[1]) * hw, (a[0] + a[1]) * hh];
+    // A13: a face a painter made itself reads right to left when transposed: the words still read left to right
+    if (TX && ex[0] < 0) { ex[0] = -ex[0]; ex[1] = -ex[1]; }
     ctx.save(); ctx.setTransform(DP * ex[0] / 100, DP * ex[1] / 100, 0, DP * zs / 100, DP * p[0], DP * p[1]);
     ctx.font = '700 ' + size + 'px Georgia, "DejaVu Serif", serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = col; ctx.fillText(txt, 0, 0); ctx.restore();
   }
   function obox(cx, cy, fx, fy, len, wid, z0, h, col) {
+    if (TX) return txRun(() => obox(cy, cx, fy, fx, len, wid, z0, h, col));
     const sx = -fy, sy = fx, hl = len / 2, hd = wid / 2;
     const c = (a, b, z) => P(cx + fx * a * hl + sx * b * hd, cy + fy * a * hl + sy * b * hd, z);
     const sides = [
@@ -10457,6 +11576,7 @@ const ISO = (() => {
     ctx.fillStyle = '#000'; ctx.fill(); ctx.restore();
   }
   function boxShadow(x0, y0, x1, y1, h) {
+    if (TX) return txRun(() => boxShadow(y0, x0, y1, x1, h));
     // A2, from above: the sun still from the upper left, a shorter shadow toward the lower right (heights read, nothing hidden)
     if (TOP) {
       const dx = 0.2 * h + 0.04, dy = 0.12 * h + 0.03;
@@ -10469,6 +11589,7 @@ const ISO = (() => {
     softPoly(pts, 'rgba(37,28,56,0.3)', 2.5 * S + 1);
   }
   function blobShadow(x, y, r) {
+    if (TX) return txRun(() => blobShadow(y, x, r));
     if (TOP) { const c = P(x + r * 0.45, y + r * 0.3, 0); ell(c[0], c[1], r * TT * 0.95, r * TT * 0.8, 'rgba(37,28,56,0.16)'); return; }
     const c = P(x + r * 0.9, y - r * 0.2, 0); ell(c[0], c[1], r * hw * 1.25, r * hh * 1.25, 'rgba(37,28,56,0.16)');
   }
@@ -11122,8 +12243,9 @@ const ISO = (() => {
   // A9 (note 4): a harbor's levels on the map. The longer pier: a plank jetty on posts reaching out over the water from
   // the sea side, with bollards and a lamp; the second berth: a second jetty at the other end and a derrick (a mast with
   // its boom over the water) between them, and crates on the deck. (The steamship quay is the quay's own picture.)
-  function paintHarborLv(def, lv, sea) {
-    const W = def.w, H = def.h, e = sea || [0, 1], wood = '#b88c5a', out = 0.95;
+  // (A12: o.out the jetty's reach over the water, o.crates false leaves the deck's crates out: the plot's yard has its own)
+  function paintHarborLv(def, lv, sea, o) {
+    const W = def.w, H = def.h, e = sea || [0, 1], wood = '#b88c5a', out = (o && o.out) || 0.95;
     // (u along the sea edge, v out over the water) -> tile coordinates
     const at = (u, v) => (e[1] > 0 ? [u, H + v] : e[1] < 0 ? [u, -v] : e[0] > 0 ? [W + v, u] : [-v, u]);
     const len = e[1] ? W : H;
@@ -11149,10 +12271,50 @@ const ISO = (() => {
     seg(P(m[0], m[1], 0.45), bt, '#2f2a28', 2.4 * S); seg(P(m[0], m[1], 0.45), bt, '#8a6a45', 1.2 * S);
     seg(b1, bt, INK, 0.7 * S); seg(bt, P(tip[0], tip[1], 0.45), '#3a3532', 0.8 * S);
     // crates waiting on the deck
-    for (const [u, v, c] of [[0.25, -0.35, '#c9a06a'], [0.45, -0.3, '#a8784a'], [len - 0.3, -0.35, '#c9a06a']]) { const q = at(u, v); obox(q[0], q[1], 1, 0, 0.18, 0.18, 0.06, 0.16, c); }
+    if (!(o && o.crates === false)) for (const [u, v, c] of [[0.25, -0.35, '#c9a06a'], [0.45, -0.3, '#a8784a'], [len - 0.3, -0.35, '#c9a06a']]) { const q = at(u, v); obox(q[0], q[1], 1, 0, 0.18, 0.18, 0.06, 0.16, c); }
+  }
+  // A12 (Tomáš, 16 Oct: "even a small harbor can have 4×4 tiles … marked as just a plot with a fence"): the harbor's
+  // fenced plot. In the sea frame (a along the coast, d inland from the sea edge, both 0..4): the shed by the water at
+  // a 0-2, d 0-2 with a short pier out over the water at a 2; the yard of packed earth behind; a post-and-rail fence
+  // round the three land sides, the gate in the middle of the inland side. The levels fill it: Longer pier (the pier
+  // reaches far out, crates and barrels in the yard), Second berth (a second jetty, the derrick, a second shed inland).
+  // The goods wait in the yard (harborSlots). The steamship quay paints the whole plot in stone (paintQuay).
+  function plotAt(def, e, a, d) { const W = def.w, H = def.h; return e[1] > 0 ? [a, H - d] : e[1] < 0 ? [a, d] : e[0] > 0 ? [W - d, a] : [d, a]; }
+  // paints fn() with the view's local origin moved to (du, dv)
+  function atShift(du, dv, fn) { const a0 = ox, b0 = oy, q = P(du, dv, 0), o = P(0, 0, 0); ox += q[0] - o[0]; oy += q[1] - o[1]; try { fn(); } finally { ox = a0; oy = b0; } }
+  function plotRect(def, e, a0, d0, a1, d1) { const p = plotAt(def, e, a0, d0), q = plotAt(def, e, a1, d1); return [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.abs(q[0] - p[0]), Math.abs(q[1] - p[1])]; }
+  const PLOT_SLOTS = [[2.5, 2.4], [3.1, 2.4], [3.6, 2.4], [2.5, 3.05], [3.1, 3.05], [3.6, 3.05], [3.05, 3.6]];
+  function paintHarborPlot(def, lv, sea) {
+    const W = def.w, H = def.h, e = sea || [0, 1], L = e[1] ? W : H, D = e[1] ? H : W, at = (a, d) => plotAt(def, e, a, d);
+    groundPatch(0.04, 0.04, W - 0.04, H - 0.04, '#cdb58a', ln('#cdb58a'));
+    // ruts of the carts from the gate to the shed's door
+    ctx.beginPath();
+    for (const k of [-0.12, 0.12]) { const p0 = at(L / 2 + k, D - 0.1), p1 = at(L / 2 + k, 1.2), a = P(p0[0], p0[1]), b = P(p1[0], p1[1]); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+    ctx.strokeStyle = 'rgba(120,90,55,.35)'; ctx.lineWidth = 1.4 * S; ctx.stroke();
+    // the fence's runs (sea frame), back ones before the sheds, front ones after
+    const runs = [[[0.06, 0.1], [0.06, D - 0.06]], [[L - 0.06, 0.1], [L - 0.06, D - 0.06]], [[0.06, D - 0.06], [L * 0.4, D - 0.06]], [[L * 0.6, D - 0.06], [L - 0.06, D - 0.06]]];
+    const fence = (r) => {
+      const p0 = at(r[0][0], r[0][1]), p1 = at(r[1][0], r[1][1]), len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), n = Math.max(1, Math.round(len / 0.45));
+      for (const z of [0.13, 0.27]) seg(P(p0[0], p0[1], z), P(p1[0], p1[1], z), '#6e5236', 1.3 * S);
+      for (let k = 0; k <= n; k++) { const x = p0[0] + (p1[0] - p0[0]) * k / n, y = p0[1] + (p1[1] - p0[1]) * k / n; seg(P(x, y, 0), P(x, y, 0.34), '#4f3a26', 2 * S); }
+    };
+    const mid = (r) => { const p = at((r[0][0] + r[1][0]) / 2, (r[0][1] + r[1][1]) / 2); return p[0] + p[1]; };
+    const back = runs.filter((r) => mid(r) < (W + H) / 2), front = runs.filter((r) => mid(r) >= (W + H) / 2);
+    for (const r of back) fence(r);
+    // the pier over the water (short at first, far out from Longer pier; the second jetty and the derrick at Second berth)
+    paintHarborLv(def, Math.max(1, lv), e, { out: lv >= 1 ? 1.3 : 0.6, crates: false });
+    const r1 = plotRect(def, e, 0, 0, 2, 2);
+    atShift(r1[0], r1[1], () => paintHarbor({ w: 2, h: 2 }));
+    if (lv >= 2) { const r2 = plotRect(def, e, 0.15, 2.15, 1.85, 3.85); atShift(r2[0], r2[1], () => paintHarbor({ w: 1.7, h: 1.7 })); }
+    if (lv >= 1) for (const [a, d, c, h] of [[2.55, 1.05, '#c9a06a', 0.18], [2.85, 1.05, '#a8784a', 0.18], [2.7, 1.05, '#b88c5a', 0.36], [3.3, 1.2, '#8a6a45', 0.2], [3.55, 1.2, '#8a6a45', 0.2], [3.42, 1.5, '#c9a06a', 0.18]]) { const q = at(a, d); obox(q[0], q[1], 1, 0, 0.22, 0.22, h > 0.3 ? 0.18 : 0.02, 0.17, c); }
+    for (const r of front) fence(r);
   }
   const HARBOR_SLOTS = [[0.4, 1.6], [0.86, 1.62], [1.32, 1.64], [1.72, 1.3], [1.72, 0.86]];
-  function harborSlots(def) { return def.w >= 3 ? QUAY_SLOTS : HARBOR_SLOTS; }
+  function harborSlots(def, sea) {
+    // A12: a harbor's plot keeps its goods in the yard
+    if (def.w >= 4 && !(def.ships > 1)) { const e = sea || [0, 1]; return PLOT_SLOTS.map(([a, d]) => plotAt(def, e, a, d)); }
+    return def.w >= 3 ? QUAY_SLOTS : HARBOR_SLOTS;
+  }
 
   // ---------- huts: fishing (with a boat) or lumber ----------
   function paintBoat(x, y, fx, fy, len, bm) {
@@ -11294,7 +12456,7 @@ const ISO = (() => {
   }
 
   // ---------- block 3 helpers: outward points on a face, iron balconies, columns, balustrades, flat roofs ----------
-  function fpo(f, s, t, o) { return P(f.o[0] + f.a[0] * s - f.a[1] * o, f.o[1] + f.a[1] * s + f.a[0] * o, f.o[2] + t); }
+  function fpo(f, s, t, o) { if (TX) o = -o; return P(f.o[0] + f.a[0] * s - f.a[1] * o, f.o[1] + f.a[1] * s + f.a[0] * o, f.o[2] + t); }
   function ironBalcony(f, s0, s1, t, o, lit) {
     const slab = lit ? '#8a7a68' : sh('#8a7a68');
     poly([fpo(f, s0, t, 0), fpo(f, s1, t, 0), fpo(f, s1, t, o), fpo(f, s0, t, o)], slab, ln(slab), 0.7 * S);
@@ -12003,6 +13165,8 @@ const ISO = (() => {
       }
       if (hit) { const v = rotDir(r || 0, dx, dy); out.push([v[0] || 0, v[1] || 0]); }
     }
+    // A13: a turned (TX) cannery has its front on the view's +u side: the sea there first, in the painter's frame
+    if (SPR_TX) { const q = out.find((v) => v[0] > 0) || out.find((v) => v[1] > 0) || out[0] || null; return q && [q[1], q[0]]; }
     return out.find((v) => v[1] > 0) || out.find((v) => v[0] > 0) || out[0] || null;
   }
   // The cigar factory, 3 x 2: a long two-storey hall with rows of tall windows (light for the rollers), a tiled hip
@@ -12945,6 +14109,8 @@ const ISO = (() => {
   }
   function sprite(R, base, foot, H, paint) {
     if (TOP && base.charCodeAt(0) !== 94) base = '^' + base;
+    // A13: a turned square building's look (bTX): its own key, painted transposed
+    if (SPR_TX) { base += '|t'; const p0 = paint; paint = () => { TX = true; try { p0(); } finally { TX = false; } }; }
     let m = R.spr.get(base);
     if (!m) { m = new Map(); R.spr.set(base, m); }
     let sp = m.get(R.B);
@@ -13298,7 +14464,9 @@ const ISO = (() => {
   // (view -u) puts it on the +v face, none on the +u face (the rule of turn 0, applied in view coordinates).
   function homeFace(s, b, r) {
     const dv = unrotDir(r || 0, 0, 1), du = unrotDir(r || 0, 1, 0);
-    return isRoad(s, b.x + dv[0], b.y + dv[1]) ? 'y' : isRoad(s, b.x + du[0], b.y + du[1]) ? 'x' : isRoad(s, b.x - du[0], b.y - du[1]) ? 'y' : 'x';
+    const f = isRoad(s, b.x + dv[0], b.y + dv[1]) ? 'y' : isRoad(s, b.x + du[0], b.y + du[1]) ? 'x' : isRoad(s, b.x - du[0], b.y - du[1]) ? 'y' : 'x';
+    // A13: a home turned a quarter shows its door on the other face
+    return b.f & 1 ? (f === 'y' ? 'x' : 'y') : f;
   }
   // A home's look in a turn: a gable keeps its ridge along the same world axis (gx and gy swap on odd turns).
   function homeLookR(v, r) { const lk = homeLook(v); if (r & 1) lk.roofType = lk.roofType === 'gx' ? 'gy' : lk.roofType === 'gy' ? 'gx' : lk.roofType; return lk; }
@@ -13315,13 +14483,24 @@ const ISO = (() => {
   function bDef(b) {
     const d = BUILDINGS[b.type];
     if (!d || !b.w || (b.w === d.w && b.h === d.h)) return d;
+    // A13: a building turned a quarter stands on its full lot turned (w and h swapped), painted as for the next turn
+    if (b.w === d.h && b.h === d.w && (b.f & 1)) return viewDef(d, 1);
     const k = b.type + '|' + b.w + 'x' + b.h;
     let v = BDEF.get(k);
     if (!v) { v = Object.assign({}, d, { w: b.w, h: b.h, old: 1 }); BDEF.set(k, v); }
     return v;
   }
+  // A13: a square building (not a home: its door and roof turn instead) turned an odd number of quarters is painted
+  // transposed (TX): its front moves from the lower-left face to the lower-right one; a half turn looks as none.
+  function bTX(b) { if (!b || !(b.f & 1)) return false; const d = bDef(b); return !!d && d.w === d.h && d.kind !== 'home' && bArt(d) !== 'pier'; }
+  // A view-local point of the painted layout for building b ([u, v] inside its view box): swapped for a TX sprite.
+  function txPt(b, q) { return bTX(b) ? [q[1], q[0]] : q; }
   // The sea side of a building in view (a world [dx, dy] turned), or null.
-  function seaView(s, b, r) { const q = seaSide(s, b); if (!q) return null; const v = rotDir(r || 0, q[0], q[1]); return [v[0] || 0, v[1] || 0]; }
+  function seaView(s, b, r) { const q = seaSide(s, b); if (!q) return null; const v = rotDir(r || 0, q[0], q[1]); return SPR_TX ? [v[1] || 0, v[0] || 0] : [v[0] || 0, v[1] || 0]; }
+  // A11 + A12 + turning together: the sea side in the painted layout of building b. A turned harbor's plot is painted
+  // transposed with its sea transposed (seaView under SPR_TX), so the shed stays by the water; its yard's slots (the
+  // piles, where the flying goods start) are laid out the same way before txPt turns them, else they land on the shed
+  function seaLay(s, b, r) { const v = seaView(s, b, r); return v && !SPR_TX && bTX(b) ? [v[1], v[0]] : v; }
   // A building's view box [u0, v0, u1, v1] in the renderer's turn, and a point of its painted (view-local) layout in world.
   function bVBox(R, b) { return vbox(R.rot || 0, b.x, b.y, b.x + b.w, b.y + b.h); }
   function localWorld(R, b, lx, ly) { const q = bVBox(R, b); return unrotPt(R.rot || 0, q[0] + lx, q[1] + ly); }
@@ -13333,7 +14512,7 @@ const ISO = (() => {
   // building's roof; four people a tile, so a bigger crowd spills along the street. With no free ground within 3 tiles,
   // the lawn just under the door as before. At night every third one holds a lantern.
   function protestSpots(R, s, b) {
-    const r = R.rot || 0, key = s.ver + '|' + b.id + '|' + b.x + ',' + b.y + '|' + r + (TOP ? 't' : '');
+    const r = R.rot || 0, tx = bTX(b), key = s.ver + '|' + b.id + '|' + b.x + ',' + b.y + '|' + r + (TOP ? 't' : '') + (tx ? 'x' : '');
     if (R.protestKey === key) return R.protestSpots;
     const occ = occMap(s), vb = bVBox(R, b), du = (vb[0] + vb[2]) / 2, cand = [];
     const tileAt = (u, v) => { const w = unrotPt(r, u + 0.5, v + 0.5), x = Math.floor(w[0]), y = Math.floor(w[1]); return x < 0 || y < 0 || x >= MAP_W || y >= MAP_H ? -1 : tileIdx(x, y); };
@@ -13346,9 +14525,11 @@ const ISO = (() => {
       const tt = s.terrain[i];
       if (occ[i] || tt === SEA || tt === FOREST) continue;
       // nearest the door (the middle of the house's lower side) first; beside the house a little later, behind it last
-      const behind = v < vb[1] || (!TOP && u < vb[0] && v < vb[3]) ? 3 : v < vb[3] ? 0.5 : 0;
+      // (A13: a turned residence has its door on the lower-right side: the same order, the tile seen transposed)
+      const su = tx ? vb[0] + v - vb[1] : u, sv = tx ? vb[1] + u - vb[0] : v;
+      const behind = sv < vb[1] || (!TOP && su < vb[0] && sv < vb[3]) ? 3 : sv < vb[3] ? 0.5 : 0;
       const hid = !TOP && (hides(u + 1, v) || hides(u, v + 1) || hides(u + 1, v + 1)) ? 2.5 : 0;
-      cand.push({ u, v, d: behind + hid + Math.hypot(u + 0.5 - du, v + 0.5 - vb[3]) });
+      cand.push({ u, v, d: behind + hid + Math.hypot(su + 0.5 - du, sv + 0.5 - vb[3]) });
     }
     cand.sort((a, c) => a.d - c.d);
     // one group: each next tile is the best one touching the tiles already taken (if any touches)
@@ -13363,7 +14544,7 @@ const ISO = (() => {
     for (const c of pick) for (const [lu, lv] of LOC) { const w = unrotPt(r, c.u + lu, c.v + lv); slots.push([w[0], w[1], c.u + lu, c.v + lv]); }
     if (!slots.length) {
       const W = vb[2] - vb[0], H = vb[3] - vb[1];
-      for (let k = 0; k < 18; k++) { const row = Math.floor(k / 6), col = k % 6, lu = -0.35 + (col + (row % 2) * 0.5) * (W + 0.7) / 6, lv = H + 0.3 + row * 0.42, w = localWorld(R, b, lu, lv); slots.push([w[0], w[1], vb[0] + lu, vb[1] + lv]); }
+      for (let k = 0; k < 18; k++) { const row = Math.floor(k / 6), col = k % 6, [lu, lv] = txPt(b, [-0.35 + (col + (row % 2) * 0.5) * (W + 0.7) / 6, H + 0.3 + row * 0.42]), w = localWorld(R, b, lu, lv); slots.push([w[0], w[1], vb[0] + lu, vb[1] + lv]); }
     }
     R.protestKey = key; R.protestSpots = slots;
     return slots;
@@ -13447,11 +14628,19 @@ const ISO = (() => {
     if (b.id && sp) (R.lastSpr || (R.lastSpr = new Map())).set(lk, sp);
     return sp;
   }
+  // A13: true while the sprite of a turned square building is looked up (sprite() keys it and paints it transposed)
+  let SPR_TX = false;
   function bSpriteOf(R, s, b) {
+    if (!bTX(b)) return bSpriteOf0(R, s, b);
+    SPR_TX = true;
+    try { return bSpriteOf0(R, s, b); } finally { SPR_TX = false; }
+  }
+  function bSpriteOf0(R, s, b) {
     const def = bDef(b), art = bArt(def), H = bHeight(b) + 0.35, r = R.rot || 0, vd = viewDef(def, r), foot = [vd.w, vd.h];
     // sprite keys name what is painted (face, roof, footprint, sea side): a look shared by two turns is one sprite
     if (art === 'home') {
-      const v = Math.floor(h2(b.x * 7 + 3, b.y * 13 + 5) * 4096), face = homeFace(s, b, r), empty = !b.res, lv = b.level || 1, lk = homeLookR(v, r);
+      // A13: a home turned a quarter has its door on the other face it shows and its gable ridge across
+      const t1 = b.f & 1, v = Math.floor(h2(b.x * 7 + 3, b.y * 13 + 5) * 4096), face = homeFace(s, b, r), empty = !b.res, lv = b.level || 1, lk = homeLookR(v, r + t1);
       return sprite(R, 'home|' + lv + '|' + v + '|' + face + '|' + (empty ? 1 : 0) + '|' + lk.roofType, [1, 1], H, () => paintHome(lv, lk, face, empty));
     }
     if (def.deco) return sprite(R, 'deco|' + def.deco, foot, H, () => paintDeco(vd));
@@ -13464,6 +14653,8 @@ const ISO = (() => {
     if (art === 'workshop' && def.makes === 'tins' && bigWorks(def)) { const sea = cannerySea(s, b, r); return sprite(R, 'ws|cannery|' + (sea ? sea.join(',') : '-'), foot, H, () => paintCanneryBig(vd, sea)); }
     if (art === 'workshop') return sprite(R, 'ws|' + b.type + '|' + vd.w + 'x' + vd.h, foot, H, () => workshopPaint(vd));
     if (art === 'civic') { const sea = def.gives === 'light' ? seaView(s, b, r) : null; return sprite(R, 'civic|' + b.type + '|' + (sea ? sea.join(',') : '-') + '|' + vd.w + 'x' + vd.h, foot, H, () => paintCivic(vd, sea)); }
+    // A12: a harbor on its fenced 4 x 4 plot (an old one on its 2 x 2 lot as before)
+    if (art === 'harbor' && def.w >= 4 && !(def.ships > 1)) { const lv = typeof hbLevel === 'function' ? Math.max(0, hbLevel(s, b)) : 0, sea = seaView(s, b, r); return sprite(R, 'hplot|' + lv + '|' + (sea ? sea.join(',') : '-') + '|' + vd.w, [foot[0], foot[1], 1.5, 1.5], H, () => paintHarborPlot(vd, lv, sea)); }
     if (art === 'harbor' && def.ships > 1) { const sea = seaView(s, b, r); return sprite(R, 'quay|' + b.type + '|' + (sea ? sea.join(',') : '-'), foot, H, () => paintQuay(vd, sea)); }
     if (art === 'market') return sprite(R, 'market|' + def.w, foot, H, () => paintMarket(vd));
     if (art === 'harbor') {
@@ -13497,12 +14688,14 @@ const ISO = (() => {
       for (const g in MARKET_SLOTS) { const n = Math.floor(b.stock[g] || 0); if (n > 0) out.push([g, Math.min(6, n), MARKET_SLOTS[g][0], MARKET_SLOTS[g][1]]); }
     } else if (def.kind === 'harbor') {
       let k = 0;
-      const SL = harborSlots(def);
+      const SL = harborSlots(def, seaLay(s, b, r || 0));
       for (const g of Object.keys(b.stock).sort()) { const n = Math.floor(b.stock[g] || 0); if (n > 0 && k < SL.length - 1) { out.push([g, Math.min(12, n), SL[k][0], SL[k][1], n]); k++; } }
       const f = Math.floor(b.flour || 0); if (f > 0) out.push(['flour', Math.min(6, f), SL[SL.length - 1][0], SL[SL.length - 1][1]]);
     }
     return out.filter((p) => p[1] > 0);
   }
+  // A13: a turned square building keeps its piles where its transposed layout has them
+  { const _ps = pileSpots; pileSpots = function (s, b, r) { const o = _ps(s, b, r); return bTX(b) ? o.map((p) => [p[0], p[1], p[3], p[2]].concat(p.slice(4))) : o; }; }
   function pileSprite(R, good, n) {
     return sprite(R, 'pile|' + good + '|' + n, [0.3, 0.3, 0.3, 0.3], 0.9, () => paintPile(good, n));
   }
@@ -13749,7 +14942,7 @@ const ISO = (() => {
         goods.forEach((g, gi) => {
           const drop = Math.floor(prev[g] || 0) - Math.floor(cur[b.id][g] || 0); if (drop <= 0) return;
           val += drop * (typeof exportPrice === 'function' ? exportPrice(s, g) : GOODS[g].price);
-          const SL = harborSlots(def), slot = SL[Math.min(gi, SL.length - 2)];
+          const SL = harborSlots(bDef(b), seaLay(s, b, R.rot || 0)), slot = txPt(b, SL[Math.min(gi, SL.length - 2)]);
           const w0 = localWorld(R, b, slot[0], slot[1]);
           for (let i = 0; i < Math.min(4, drop); i++) (R.flying || (R.flying = [])).push({ good: g, x0: w0[0], y0: w0[1], to: b.id, t0: now + (n++) * 130 / k, dur: 900 / k });
         });
@@ -14509,8 +15702,8 @@ const ISO = (() => {
       for (let i = 0; i < nn && st.drawn < cap; i++) {
         const r = h2(b.id * 11 + i, 3), from = 400 + 70 * r, to = 690 - 50 * h2(b.id + i, 9);
         if (tod < from || tod >= to) continue;
-        const front = i % 2 === 0, lu = front ? 0.25 + (vw - 0.5) * h2(i, b.id) : vw - 0.12, lv = front ? vh - 0.12 : 0.25 + (vh - 0.5) * h2(b.id, i);
-        const w = localWorld(R, b, lu, lv);
+        const front = i % 2 === 0, lu0 = front ? 0.25 + (vw - 0.5) * h2(i, b.id) : vw - 0.12, lv0 = front ? vh - 0.12 : 0.25 + (vh - 0.5) * h2(b.id, i);
+        const [lu, lv] = txPt(b, [lu0, lv0]), w = localWorld(R, b, lu, lv);
         if (!onScr(w[0], w[1])) continue;
         out.push({ k: 'walk', x: w[0], y: w[1], v: (b.id + i * 5) % 12, leaving: false, fr: go ? (Math.floor(now / 900) + i) % 2 : 0 });
         st.drawn++; st.shoppers++;
@@ -14522,7 +15715,7 @@ const ISO = (() => {
   // their ways end on) from 07:10, more and more, and go in at the whistle at 08:00; at 17:00 they come out through it
   // in a crowd and set off home. Works of 12 workers or more (not on strike: the pickets stand there then).
   function worksGates(R, s) {
-    const plan = typeof commutePlan === 'function' ? commutePlan(s) : null, key = (plan ? plan.key : '') + '|' + s.ver;
+    const plan = typeof commutePlan === 'function' ? commutePlan(s) : null, key = (plan ? plan.key : '') + '|' + s.ver + '|' + (R.rot || 0);
     if (R.gates && R.gates.key === key) return R.gates.list;
     const ends = {};
     if (plan) for (const f of plan.figs) { const e = f.path[f.path.length - 1]; const m = ends[f.work] || (ends[f.work] = {}); m[e] = (m[e] || 0) + 1; }
@@ -14533,8 +15726,22 @@ const ISO = (() => {
       const ent = bEntrances(s, b);
       if (!ent.length) continue;
       const m = ends[b.id] || {};
-      let g = ent[0];
-      for (const e of ent) if ((m[e] || 0) > (m[g] || 0)) g = e;
+      // A13: a turned square works (bTX) opens its gate on the side its painted gate now faces when a road is there
+      // (the central's gate posts move from the lower-right side to the lower-left one, the others' yards the other way)
+      // (a street there that joins the street the shift comes along: the same road network)
+      let pick = ent;
+      if (bTX(b)) {
+        let g0 = ent[0];
+        for (const e of ent) if ((m[e] || 0) > (m[g0] || 0)) g0 = e;
+        const vb = bVBox(R, b), lowerLeft = d.makes === 'sugar', net = roadNets(s);
+        const side = ent.filter((e) => { const q = rotPt(R.rot || 0, e % MAP_W + 0.5, ((e / MAP_W) | 0) + 0.5); return net[e] === net[g0] && (lowerLeft ? q[1] > vb[3] : q[0] > vb[2]); });
+        // nearest the painted gate first (the central's posts by the siding's end, the others' yard in the middle)
+        const gp = lowerLeft ? [vb[0] + (vb[2] - vb[0]) * 0.86, vb[3]] : [vb[2], (vb[1] + vb[3]) / 2];
+        const far = (e) => { const q = rotPt(R.rot || 0, e % MAP_W + 0.5, ((e / MAP_W) | 0) + 0.5); return Math.hypot(q[0] - gp[0], q[1] - gp[1]); };
+        if (side.length) pick = side.sort((a, c) => far(a) - far(c));
+      }
+      let g = pick[0];
+      for (const e of pick) if ((m[e] || 0) > (m[g] || 0)) g = e;
       const gx = g % MAP_W, gy = (g / MAP_W) | 0;
       // the side of the lot the gate opens onto: from the road tile toward the building
       const ix = gx < b.x ? 1 : gx >= b.x + b.w ? -1 : 0, iy = gy < b.y ? 1 : gy >= b.y + b.h ? -1 : 0;
@@ -14937,7 +16144,7 @@ const ISO = (() => {
     if (TOP) return null;
     const gh = ui.ghost;
     if (gh && gh.type && BUILDINGS[gh.type]) {
-      const def = BUILDINGS[gh.type], q = vbox(R.rot || 0, gh.x, gh.y, gh.x + def.w, gh.y + def.h);
+      const def = ghostFoot(gh), q = vbox(R.rot || 0, gh.x, gh.y, gh.x + def.w, gh.y + def.h);
       return { u0: q[0], v0: q[1], u1: q[2], v1: q[3], h: bHeight({ type: gh.type, level: 1 }), i: -1 };
     }
     if (ui.sel && R.orderIdx && R.orderIdx.has(ui.sel)) return R.order[R.orderIdx.get(ui.sel)] || null;
@@ -14989,7 +16196,7 @@ const ISO = (() => {
     for (const q of dyn) if (q.k === 'loco') puffDraw(R, q, t);
   }
   function smokeDraw(R, ob, t) {
-    const b = ob.b, g = R.ctx, def = viewDef(bDef(b), R.rot || 0), c = chimneyTop(def), base = PV(ob.u0 + c[0], ob.v0 + c[1], c[2] + 0.02), sc = R.hw / 44, k = c[3] || 1;
+    const b = ob.b, g = R.ctx, def = viewDef(bDef(b), R.rot || 0), c0 = chimneyTop(def), c = bTX(b) ? [c0[1], c0[0]].concat(c0.slice(2)) : c0, base = PV(ob.u0 + c[0], ob.v0 + c[1], c[2] + 0.02), sc = R.hw / 44, k = c[3] || 1;
     for (let i = 0; i < 7; i++) {
       const life = 5, age = ((t + i * life / 7 + b.id * 0.37) % life) / life;
       const x = base[0] + age * 34 * sc + Math.sin(age * 5 + i) * 2.5 * sc, y = base[1] - age * 56 * sc, r = (3 + age * 10) * sc * k, a = (1 - age) * 0.7 * Math.min(1, age * 6);
@@ -15034,7 +16241,7 @@ const ISO = (() => {
     R.stats.snaps = (R.stats.snaps || 0) + 1;
     main.setTransform(1, 0, 0, 1, 0, 0); main.drawImage(c, -GM * d, -GM * d);
   }
-  function snapUiKey(ui) { return (ui.tool && ui.tool !== 'look' ? 'grid' : '') + '|' + (ui.space ? ui.space.key : '') + '|' + (trLayerOn() ? 'tr' : '') + '|' + (ui.sel || '') + '|' + (ui.ghost && ui.ghost.type ? ui.ghost.type + ui.ghost.x + ',' + ui.ghost.y : ''); }
+  function snapUiKey(ui) { return (ui.tool && ui.tool !== 'look' ? 'grid' : '') + '|' + (ui.space ? ui.space.key : '') + '|' + (trLayerOn() ? 'tr' : '') + '|' + (ui.sel || '') + '|' + (ui.ghost && ui.ghost.type ? ui.ghost.type + ui.ghost.x + ',' + ui.ghost.y + '/' + ghostF(ui.ghost) : ''); }
   // ---------- the turn (docs/ROTATION.md): four 90° steps, each animated in TURN_MS ----------
   const TURN_MS = 450;
   // The iso spin about the screen centre (device px): the ground plane turns by th as the island does (M Rot M^-1).
@@ -15221,28 +16428,31 @@ const ISO = (() => {
     // marks above buildings: what a home lacks, workers short, a full yard
     const sc = clamp(Math.round(R.hw / 34 * 8) / 8, 0.75, 1.25), sel = ui.sel;
     R.bubbles = [];
+    // A12: the roof tags (stopped, closed, on strike, being built) are drawn after the loop, merged or stacked
+    const tags = [];
     for (const ob of R.order) {
       if (ob.k !== 'b' || !onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1)) continue;
       const b = ob.b, m = ui.money ? null : bubbleOf(s, b, R.hw);
-      if (b.open === false) { const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) * 0.6); uiDraw(R, labelSprite(R, 'Closed', true), p[0], p[1]); }
+      if (b.open === false) { const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) * 0.6); tags.push({ k: 'closed', x: p[0], y: p[1], n: 1 }); }
       // M4: a strike: workers outside the gate with placards, and the word over the roof
       if (b.strike) {
         const vb = bVBox(R, b);
-        for (let k = 0; k < 5; k++) { const wq = localWorld(R, b, 0.2 + k * (vb[2] - vb[0] - 0.3) / 5, vb[3] - vb[1] + 0.35 + (k % 2) * 0.25), fx = wq[0], fy = wq[1]; paintPerson(fx, fy, k + b.id, Math.floor(t * 2 + k) % 2, false); const q = P(fx, fy, 0); seg([q[0] + 3 * S, q[1] - 10 * S], [q[0] + 3 * S, q[1] - 24 * S], '#6b4a2e', 1.2 * S); poly([[q[0] - 3 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 22 * S], [q[0] - 3 * S, q[1] - 22 * S]], '#fbf3df', INK, 0.8 * S); }
-        const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) + 0.5); uiDraw(R, labelSprite(R, 'On strike', false), p[0], p[1] - 6);
+        for (let k = 0; k < 5; k++) { const lq = txPt(b, [0.2 + k * (vb[2] - vb[0] - 0.3) / 5, vb[3] - vb[1] + 0.35 + (k % 2) * 0.25]), wq = localWorld(R, b, lq[0], lq[1]), fx = wq[0], fy = wq[1]; paintPerson(fx, fy, k + b.id, Math.floor(t * 2 + k) % 2, false); const q = P(fx, fy, 0); seg([q[0] + 3 * S, q[1] - 10 * S], [q[0] + 3 * S, q[1] - 24 * S], '#6b4a2e', 1.2 * S); poly([[q[0] - 3 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 30 * S], [q[0] + 9 * S, q[1] - 22 * S], [q[0] - 3 * S, q[1] - 22 * S]], '#fbf3df', INK, 0.8 * S); }
+        const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) + 0.5); tags.push({ k: 'strike', x: p[0], y: p[1] - 6, n: 1 });
       }
       // A5: the crowd at the residence (rent high or wages low)
       if (b.type === 'residence' && s.unrest && s.unrest.crowd) protestDraw(R, s, b, t);
-      if (b.wip && !ui.money) { const p = P(b.x + b.w / 2, b.y + b.h / 2, 2.9); uiDraw(R, labelSprite(R, 'Being built · ' + Math.round(100 * projectDone(b)) + ' %', true), p[0], p[1]); }
+      if (b.wip && !ui.money) { const p = P(b.x + b.w / 2, b.y + b.h / 2, 2.9); tags.push({ k: 'wip', x: p[0], y: p[1], text: 'Being built · ' + Math.round(100 * projectDone(b)) + ' %' }); }
       // A8: a workshop that stopped and lost money last month has its loss on its roof, above its bubble
       const ls = !ui.money && typeof lossOf === 'function' ? lossOf(s, b) : null;
-      if (ls) { const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b)); uiDraw(R, moneyTagSprite(R, ls.text, false, false), p[0], p[1] - (m ? 4 + 41 * (m.warn ? sc * 0.92 : sc * 0.8) + 14 : 12)); }
+      if (ls) { const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b)); tags.push({ k: 'loss', x: p[0], y: p[1] - (m ? 4 + 41 * (m.warn ? sc * 0.92 : sc * 0.8) + 14 : 12), n: 1, v: ls.n, text: ls.text }); }
       if (!m) continue;
       const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b));
       if (p[0] < -40 || p[0] > R.w + 40 || p[1] < -40 || p[1] > R.h + 60) continue;
       uiDraw(R, bubbleSprite(R, m.icon, m.warn, m.text, m.warn ? sc * 0.92 : sc * 0.8), p[0], p[1] - 4 + Math.sin(t * 2.2 + b.id) * 1.5);
       R.bubbles.push({ x: p[0], y: p[1] - 4 - 16 * sc, id: b.id, home: b.type === 'casita', need: b.type === 'casita' ? (b.lacks[0] || b.wants[0]) : '', warn: m.warn });
     }
+    tagsDraw(R, tags);
     spaceMarks(R, s, ui, t);
     // A3 (commissions): the main commission's glowing places or dotted line, and a stage ritual's gathering
     comOverlay(R, s, ui, t);
@@ -15279,6 +16489,54 @@ const ISO = (() => {
     R.stats.frames++; R.stats.ms = R.stats.ms ? R.stats.ms * 0.9 + ms * 0.1 : ms; R.stats.last = ms;
     R.stats.hist.push(ms); if (R.stats.hist.length > 240) R.stats.hist.shift();
     sprEvict(R); uiEvict(R);
+  }
+  // A12 (Tomáš's screenshots of 14 Oct: "Stoppe|Stopped · −$217…" one over the other): roof tags that would overlap are
+  // one tag ("3 stopped · −$590 a month", "Closed · 4"): tags of a kind whose boxes touch merge (at their middle, the
+  // highest one's height); then any tag over one already placed moves up above it.
+  function tagSprite(R, q) {
+    if (q.k === 'loss') return moneyTagSprite(R, q.n > 1 ? q.n + ' stopped · ' + money$(q.v) + ' a month' : q.text, false, false);
+    if (q.k === 'closed') return labelSprite(R, q.n > 1 ? 'Closed · ' + q.n : 'Closed', true);
+    if (q.k === 'strike') return labelSprite(R, q.n > 1 ? 'On strike · ' + q.n : 'On strike', false);
+    return labelSprite(R, q.text, true);
+  }
+  function tagBox(sp, q, pad) { return [q.x - sp.ax - pad, q.y - sp.ay - pad, q.x - sp.ax + sp.w + pad, q.y - sp.ay + sp.h + pad]; }
+  function tagHit(a, b) { return a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]; }
+  function tagsMerge(R, tags) {
+    let list = tags.slice();
+    for (let pass = 0; pass < 6; pass++) {
+      let merged = false;
+      const out = [];
+      for (const q of list) {
+        const sq = tagSprite(R, q);
+        const o = sq === HOLD ? null : out.find((r) => r.k === q.k && r.k !== 'wip' && tagHit(tagBox(sq, q, 2), tagBox(tagSprite(R, r), r, 2)));
+        if (!o) { out.push(Object.assign({}, q)); continue; }
+        const n = o.n + q.n;
+        o.x = (o.x * o.n + q.x * q.n) / n; o.y = Math.min(o.y, q.y); o.v = (o.v || 0) + (q.v || 0); o.n = n;
+        merged = true;
+      }
+      list = out;
+      if (!merged) break;
+    }
+    return list;
+  }
+  function tagsDraw(R, tags) {
+    if (!tags.length) { R.tags = []; R.tagBoxes = []; return; }
+    const list = tagsMerge(R, tags).sort((a, b) => b.y - a.y), placed = [];
+    for (const q of list) {
+      const sp = tagSprite(R, q);
+      if (sp === HOLD) continue;
+      let box = tagBox(sp, q, 1);
+      for (let k = 0; k < 8; k++) {
+        const hit = placed.find((p) => tagHit(box, p));
+        if (!hit) break;
+        q.y -= box[3] - hit[1] + 1;
+        box = tagBox(sp, q, 1);
+      }
+      placed.push(box);
+      uiDraw(R, sp, q.x, q.y);
+    }
+    R.tags = list.map((q) => ({ k: q.k, n: q.n, x: q.x, y: q.y }));
+    R.tagBoxes = placed;
   }
   // ---------- A3: commissions (glowing places, dotted lines) and the stage ritual's gathering ----------
   // ui.com: { spots: [{ x, y, w, h }], line: [tile], label, faded, glowB: building id } from ui/commissions_ui.js.
@@ -15531,13 +16789,14 @@ const ISO = (() => {
       uiDraw(R, labelSprite(R, r.why || (gh.armed ? 'Tap again to remove · +$' + r.refund : 'Remove · +$' + r.refund), !r.why), p[0], p[1] - 16);
       return;
     }
-    const def = BUILDINGS[gh.type];
+    // A13: the ghost stands turned as the Turn button left it (ui/turn_ui.js), its lot turned with it
+    const def = ghostFoot(gh), gf = ghostF(gh);
     // M9: the ghost of a building being moved looks like it (its level) and says what the move costs
     const mvb = ui.move && ui.move.type === gh.type ? bById(s, ui.move.id) : null;
     diamond(R, gh.x, gh.y, gh.x + def.w, gh.y + def.h, gh.why ? 'rgba(196,85,63,.42)' : 'rgba(120,205,95,.5)', '#fbf3df', 4.5);
     diamond(R, gh.x, gh.y, gh.x + def.w, gh.y + def.h, null, gh.why ? '#a33a28' : '#2e7a3e', 2.2, [7, 4]);
     if (!gh.why) {
-      const fake = { id: 0, type: gh.type, x: gh.x, y: gh.y, w: def.w, h: def.h, level: mvb ? mvb.level || 1 : def.kind === 'residence' ? 0 : 1, res: 1, open: true, stock: {}, inp: {}, yard: 0 };
+      const fake = { id: 0, type: gh.type, x: gh.x, y: gh.y, w: def.w, h: def.h, f: gf, level: mvb ? mvb.level || 1 : def.kind === 'residence' || gh.type === 'residence' ? 0 : 1, res: 1, open: true, stock: {}, inp: {}, yard: 0 };
       const q = vbox(R.rot || 0, gh.x, gh.y, gh.x + def.w, gh.y + def.h), p = PV(q[0], q[1], 0);
       sprDraw(R, bSprite(R, s, fake), p[0], p[1], 0.7 + 0.12 * Math.sin(t * 4));
     }
@@ -15548,7 +16807,39 @@ const ISO = (() => {
     if (gh.held && !gh.why) text = (mvb ? 'Tap to move · ' : 'Tap to build · ') + text.replace(/^Move here · /, '');
     const p = P(gh.x + def.w / 2, gh.y + def.h / 2, bHeight({ type: gh.type, level: mvb ? mvb.level || 1 : 1 }) * 0.8 + 0.3);
     uiDraw(R, labelSprite(R, text, !gh.why), p[0], p[1] - 14);
+    // A13: which side faces the street (the Turn button turns it), under the lot's front corner
+    const fw = def.kind === 'deco' ? '' : turnWords(R, s, { id: 0, type: gh.type, x: gh.x, y: gh.y, w: def.w, h: def.h, f: gf, level: 1 });
+    if (fw) { const vq = vbox(R.rot || 0, gh.x, gh.y, gh.x + def.w, gh.y + def.h), lo = TOP ? PV((vq[0] + vq[2]) / 2, vq[3], 0) : PV(vq[2], vq[3], 0); uiDraw(R, labelSprite(R, fw, !gh.why), lo[0], lo[1] + 26); R.stats.turnWords = fw; }
   }
+  // A13: the ghost's turn (the Turn button's, ui/turn_ui.js) and its lot turned so (a turned copy of the def for w, h)
+  function ghostF(gh) { return typeof turnArmF === 'function' ? turnArmF(gh.type) : 0; }
+  function ghostFoot(gh) {
+    const d = BUILDINGS[gh.type], t = turnFoot(gh.type, ghostF(gh));
+    return t.w === d.w && t.h === d.h ? d : Object.assign({}, d, { w: t.w, h: t.h });
+  }
+  // A13: the words for the side a building's front shows (the ghost's line): the lower-left face ("on the left"; from
+  // above: "below") or the lower-right one ("on the right"), and whether a street runs along that side.
+  function turnWords(R, s, b) {
+    const d = bDef(b), art = bArt(d), r = R.rot || 0, vb = bVBox(R, b);
+    let side;
+    if (art === 'home') side = homeFace(s, b, r) === 'y' ? 'v' : 'u';
+    else if (d.w !== d.h) side = vb[2] - vb[0] >= vb[3] - vb[1] ? 'v' : 'u';
+    else side = bTX(b) ? 'u' : 'v';
+    // a street along a side of the view box: +v (lower left), +u (lower right), -v and -u (behind)
+    const roadAt = (k) => {
+      const along = k === 'v' || k === '-v', n = along ? vb[2] - vb[0] : vb[3] - vb[1];
+      for (let t = 0; t < n; t++) {
+        const u = along ? vb[0] + t : k === 'u' ? vb[2] : vb[0] - 1, v = along ? (k === 'v' ? vb[3] : vb[1] - 1) : vb[1] + t, w = unrotPt(r, u + 0.5, v + 0.5);
+        if (isRoad(s, Math.floor(w[0]), Math.floor(w[1]))) return true;
+      }
+      return false;
+    };
+    const name = (k) => (TOP ? { v: 'below', u: 'on the right', '-v': 'above', '-u': 'on the left' } : { v: 'on the left', u: 'on the right', '-v': 'behind', '-u': 'behind' })[k];
+    if (roadAt(side)) return 'faces the street ' + name(side);
+    const other = ['v', 'u', '-v', '-u'].find((k) => k !== side && roadAt(k));
+    return 'front ' + name(side) + (other ? ' · the street is ' + name(other) : '');
+  }
+
   function create(canvas) {
     return {
       canvas, ctx: canvas.getContext('2d'), dpr: 0, w: 0, h: 0, B: 0, prevB: 0, hw: 32, ox: 0, oy: 0,
@@ -17168,7 +18459,9 @@ function snapFoot(type, sx, sy) {
 function reachPicture(s, b) {
   const def = BUILDINGS[b.type];
   if (!def || !(def.kind === 'market' || def.kind === 'service' || def.kind === 'deco') || def.gives === 'light') return null;
-  const R = bReach(def), foot = { x: b.x, y: b.y, w: def.w, h: def.h };
+  // A13: a building's own lot (turned or not); a ghost's lot as the Turn button left it
+  const ft = b.w ? { w: b.w, h: b.h } : typeof turnArmF === 'function' ? turnFoot(b.type, turnArmF(b.type)) : def;
+  const R = bReach(def), foot = { x: b.x, y: b.y, w: ft.w, h: ft.h };
   const homes = [];
   for (const h of s.b) {
     if (h.type !== 'casita') continue;
@@ -17178,7 +18471,7 @@ function reachPicture(s, b) {
     if (st === 'in' && needsRoad(def) && !roadJoined(s, foot, h)) st = 'cut';
     homes.push({ id: h.id, x: h.x, y: h.y, st, d });
   }
-  return { x0: b.x - R, y0: b.y - R, x1: b.x + def.w + R, y1: b.y + def.h + R, homes, R, deco: def.kind === 'deco', name: def.name };
+  return { x0: b.x - R, y0: b.y - R, x1: b.x + ft.w + R, y1: b.y + ft.h + R, homes, R, deco: def.kind === 'deco', name: def.name };
 }
 
 // Road tiles of the given network ids.
@@ -17257,7 +18550,7 @@ function spaceUpdate() {
   const g = ui.ghost && ui.ghost.type ? ui.ghost : null;
   const src = g ? { type: g.type, x: g.x, y: g.y } : (ui.sel ? bById(s, ui.sel) : null);
   const rp = src && reachPicture(s, src);
-  if (rp) { out.reach = rp; out.key += '|r' + src.type + src.x + ',' + src.y + ':' + s.ver; }
+  if (rp) { out.reach = rp; out.key += '|r' + src.type + src.x + ',' + src.y + ':' + s.ver + (g && typeof turnArmF === 'function' ? '/' + turnArmF(g.type) : ''); }
   if (ui.roadShow) {
     const rs = roadsPicture(s, ui.roadShow);
     if (rs) { out.roads = rs; out.key += '|s' + ui.roadShow + ':' + s.ver; } else ui.roadShow = 0;
@@ -20850,7 +22143,7 @@ function deskPricesHtml(s, pv) {
     let add = '';
     if (b.type === 'residence') {
       const sv = townServices(s);
-      add = '<p class="why">Town services: ' + money$(sv.n) + ' a month' + (sv.rate ? ' ($' + sv.rate.toFixed(2) + ' a person: police, lamps, sweeping, water' + (sv.streets ? '; streets ' + money$(sv.streets) : '') + ')' : sv.streets ? ' (streets)' : ' (from Village on: $' + PURSE.perPerson[1].toFixed(2) + ' a person)') + '. It grows with the people.</p>';
+      add = '<p class="why">Town services: ' + money$(sv.n) + ' a month' + (sv.rate ? ' ($' + sv.rate.toFixed(2) + ' a person' + (sv.size ? ', $' + sv.base.toFixed(2) + ' for a ' + STAGES[s.stage].name + ' and $' + sv.size.toFixed(2) + ' more because ' + popCount(s).toLocaleString('en-US') + ' people need more each' + (sv.held ? ', held to ' + Math.round(100 * SCARCE.room) + ' % of what the month would leave' : '') : '') + ': police, lamps, sweeping, water' + (sv.streets ? '; streets ' + money$(sv.streets) : '') + ')' : sv.streets ? ' (streets)' : ' (from Village on: $' + PURSE.perPerson[1].toFixed(2) + ' a person)') + '. It grows with the people.</p>';
       const u = s.unrest;
       if (u && u.crowd && unrestWhy(s)) add += '<p class="note">A crowd of ' + u.crowd + ' with placards: ' + esc(unrestText(s)) + '. Happiness ' + unrestHappy(s) + '.</p>';
     } else if ((def.makes && LOCAL_GOODS.includes(goodNeed(def.makes))) || def.kind === 'market') {
@@ -21647,7 +22940,9 @@ function islePlaceBox() {
   const cm = APP.ui.com;
   if (!cm || !APP.R || !APP.view) return null;
   const pts = [];
-  const lots = (cm.lots && cm.lots.length ? cm.lots : cm.spots) || [];
+  // (a plan's lots are one place; an ask's lit spots without a plan are choices far apart: the first, where Rosa's
+  // Show and the stack fly, is the place, or the middle of them all may put it under Rosa's line)
+  const lots = (cm.lots && cm.lots.length ? cm.lots : (cm.spots || []).slice(0, 1)) || [];
   for (const l of lots.slice(0, 12)) for (const [x, y] of [[l.x, l.y], [l.x + l.w, l.y], [l.x, l.y + l.h], [l.x + l.w, l.y + l.h]]) pts.push(tileToScreen(APP.R, APP.view, x, y));
   // its price label where the map draws it (above the lots' arrows), about as wide as its text
   if (cm.label && cm.labelAt) { const c = tileToScreen(APP.R, APP.view, cm.labelAt.x, cm.labelAt.y), hw = Math.min(160, cm.label.length * 3.4), y = c.y - (cm.labelAt.lift || 30); pts.push({ x: c.x - hw, y: y - 18 }, { x: c.x + hw, y: y + 18 }); }
@@ -22061,6 +23356,297 @@ function canneryHtml(s, b) {
     };
   }
 }
+
+// ---- src/ui/scarce_ui.js
+// A11: what she sees of the rules in sim/scarce.js on the cards and the receipt (the stage card, the receipt's services
+// line, the pill and the Gazette are written there; the desk's prices in ui/gazette.js).
+{
+  // a ready home's card: the upgrade's price follows the builders' wages
+  const _uh = upgradeHtml;
+  upgradeHtml = function (s, b) {
+    const h = _uh.apply(this, arguments);
+    const f = h && a11On() ? scarceUpF(s) : 1;
+    if (f <= 1) return h;
+    const note = '<p class="why">' + esc('Builders are paid ' + STAGES[s.stage].name + ' wages: an upgrade costs ×' + f.toFixed(2) + ' of a Village\'s.') + '</p>';
+    return h.replace('<div class="btns">', note + '<div class="btns">');
+  };
+  // the residence's card: the landmark's fund
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!h || !b || b.type !== 'residence' || !a11On()) return h;
+    // (the services' two parts are on the card already: ui/gazette.js's price line)
+    let add = '';
+    const f = s.fund, w = scarceWish(s);
+    if (f && f.n && w) add += '<p class="why">' + esc('Set aside for ' + w.what + ': ' + money$(f.n) + ' (with the treasury ' + money$(Math.max(0, s.money) + f.n) + ' of ' + money$(w.cost) + '). ' + Math.round(100 * SCARCE.fund) + ' % of every payday until the two pay for it.') + '</p>';
+    if (!add) return h;
+    return h.includes('<div class="btns">') ? h.replace('<div class="btns">', add + '<div class="btns">') : h + add;
+  };
+  // the receipt: what the fund took or gave back, under the result
+  const _rs = receiptShow;
+  receiptShow = function (r) {
+    const out = _rs.apply(this, arguments);
+    const f = r && r.fund, rows = f && a11On() ? $('receipt').querySelector('.rows') : null;
+    if (rows) {
+      const label = f.put ? 'Set aside for ' + f.what + ' · ' + money$(f.have) + ' of ' + money$(f.cost) : 'The fund for ' + f.what + ' back' + (f.cost ? ': it can be built' : f.red ? ': the treasury was in the red' : '');
+      const n = f.put ? -f.put : f.back;
+      rows.insertAdjacentHTML('beforeend', '<div class="row sub fund"><span>' + esc(label) + '</span><span class="' + (n < 0 ? 'neg' : 'pos') + '">' + fmtSigned(n) + '</span></div>');
+    }
+    const x = r && r.shut && a11On() ? $('receipt').querySelector('.rows') : null;
+    if (x) x.insertAdjacentHTML('beforeend', '<div class="row sub shut"><span>' + esc('Shut by the council (the red): ' + r.shut.name) + '</span><span class="neg">' + fmtSigned(r.shut.n) + '</span></div>');
+    return out;
+  };
+}
+
+// ---- src/ui/free_ui.js
+// A12 (16 Oct 2026): what she sees of sim/free.js. The governor's hut on the Homes tab until it stands (its lot is
+// hers); Rosa's [Shut them · +$X a month] for the council's ask; the receipt names the ask; the map's labels say what
+// one tap lays or builds. DESIGN.md §33.
+{
+  // the governor's hut: a button on the Homes tab while it does not stand (free: the governor brought it)
+  const _ba = barToolsAll;
+  barToolsAll = function (s, group) {
+    const t = _ba.apply(this, arguments);
+    if (group === 'homes' && a12On() && !freeHasSeat(s)) t.unshift({ id: 'residence', name: "Governor's hut", icon: 'home', cost: 'free', price: 0 });
+    return t;
+  };
+  const _bg = barGroupOf;
+  barGroupOf = function (tool) { return tool === 'residence' ? 'homes' : _bg.apply(this, arguments); };
+  // after the hut stands: the tool goes back to looking, the bar loses its button
+  const _tap = tapAt;
+  tapAt = function () {
+    const had = APP.state && freeHasSeat(APP.state);
+    const r = _tap.apply(this, arguments);
+    if (APP.state && !had && freeHasSeat(APP.state)) { if (APP.ui.tool === 'residence') toolSet('look'); barBuild(); comTick(APP.state); guideRender(); }
+    return r;
+  };
+  // (the hut is free: no "−$0" over it)
+  const _fa = floaterAdd;
+  floaterAdd = function (x, y, text) { if (text === '−$0' || text === '-$0') return; return _fa.apply(this, arguments); };
+  // a tap on a glowing lot builds there and nothing else: a home in the way moves only on Rosa's [Move the home]
+  const _cb = comBuildAt;
+  comBuildAt = function (q, sp) {
+    if (!a12On() || !q || !q.move) return _cb.apply(this, arguments);
+    const mv = q.move;
+    q.move = 0;
+    try { return _cb.apply(this, arguments); } finally { q.move = mv; }
+  };
+  // the map's label over an ask's own dotted line says what one tap lays
+  const _cu = comUiUpdate;
+  comUiUpdate = function () {
+    const r = _cu.apply(this, arguments);
+    if (APP.ui.com && APP.ui.com.label) APP.ui.com.label = freeLineLabel(APP.ui.com.label);
+    return r;
+  };
+  // the council's ask: Rosa's [Shut them] shuts exactly those (Show flies to the first)
+  const _ga = guideAct;
+  guideAct = function () {
+    const m = guideMsg();
+    if (m && m.act && m.act.shut && a12On() && performance.now() - (APP.guideT || 0) >= 900) {
+      const s = APP.state, b = bById(s, m.act.shut[0]), w = freeShutNow(s);
+      if (freeShut(s)) {
+        if (b) floaterAdd(b.x + b.w / 2, b.y + b.h / 2, '+' + money$(w ? w.save : 0) + ' a month', '#2e8b3e', false, b.id);
+        s.guide.msg = null;
+        guideRender(); hudUpdate();
+      }
+      return;
+    }
+    return _ga.apply(this, arguments);
+  };
+  // the receipt: the council's ask (nothing was shut)
+  const _rs = receiptShow;
+  receiptShow = function (r) {
+    const out = _rs.apply(this, arguments);
+    const x = r && r.shutAsk && a12On() ? $('receipt').querySelector('.rows') : null;
+    if (x) x.insertAdjacentHTML('beforeend', '<div class="row sub shut"><span>' + esc('The council asks to shut ' + r.shutAsk.name + ' (' + money$(-r.shutAsk.n) + ' a month): your choice') + '</span><span></span></div>');
+    return out;
+  };
+}
+
+// ---- src/ui/turn_ui.js
+// A13 (16 Oct 2026, Tomáš: "I would also like to be able to rotate all buildings before I build them, so I can turn
+// them"): the Turn button. While a building tool is armed (or a building is lifted by Move) a round Turn button stands
+// beside Done and a second one beside the ghost; a tap turns the ghost a quarter turn (clockwise, as ⟳ turns the
+// island): a non-square lot swaps (3 x 2 <-> 2 x 3), the front moves to the other face she sees, a home's door and
+// roof turn. It never builds (a control: Q1's rule keeps a tap beside it off the map). The turn chosen is kept for
+// the next building of the same kind this session (a row of homes faces one way). Desktop: R. The rules: sim/turn.js;
+// the look: render/iso.js (TX, bTX); DESIGN.md §34.
+
+// The building type the Turn button turns now (the armed building tool, or the building being moved), else ''.
+function turnArmType() { const t = APP.ui && APP.ui.tool; return t && BUILDINGS[t] ? t : ''; }
+
+// The turn the ghost of a type stands in: the move's (from the building's own), else the one chosen this session.
+function turnArmF(type) {
+  const ui = APP.ui;
+  if (!ui || !type || ui.tool !== type) return 0;
+  const mv = ui.move;
+  if (mv && mv.type === type) {
+    if (mv.f === undefined) mv.f = bFace(bById(APP.state, mv.id));
+    return mv.f;
+  }
+  return (APP.turnF && APP.turnF[type]) || 0;
+}
+
+function turnMoving(type) { const mv = APP.ui && APP.ui.move; return !!(mv && mv.type === type && APP.ui.tool === type); }
+
+// Runs fn for the armed type as turned: the turned lot (sim/turn.js turnDo) and lit tiles of its own (APP.spots kept
+// apart while the lot is turned). Unturned (and not moving): fn as before.
+function turnUi(s, type, fn) {
+  if (TURN_NOW && TURN_NOW.type === type) return fn();
+  const f = turnArmF(type);
+  if (!f && !turnMoving(type)) return fn();
+  if (!turnSwaps(type, f)) return turnDo(s, type, f, fn);
+  const keep = APP.spots;
+  APP.spots = APP.spotsT || {};
+  try { return turnDo(s, type, f, fn); } finally { APP.spotsT = APP.spots; APP.spots = keep; }
+}
+
+{ const _sf = spotsFor; spotsFor = function (s, type) { const a = arguments; return turnUi(s, type, () => _sf.apply(this, a)); }; }
+{ const _snap = snapFoot; snapFoot = function (type) { const a = arguments; return turnUi(APP.state, type, () => _snap.apply(this, a)); }; }
+// a tap on the map places (or moves) the armed building as turned
+{ const _tap = tapAt; tapAt = function () {
+  const type = turnArmType(), a = arguments;
+  if (!type || (!turnArmF(type) && !turnMoving(type))) return _tap.apply(this, a);
+  const was = TURN_ARM;
+  TURN_ARM = { type, f: turnArmF(type) };
+  try { return turnUi(APP.state, type, () => _tap.apply(this, a)); } finally { TURN_ARM = was; }
+}; }
+
+// One quarter turn of the armed building. The ghost stays where it stood (its middle), snapped again for its new lot.
+function turnTap() {
+  const type = turnArmType();
+  if (!type) return false;
+  const f0 = turnArmF(type), f = (f0 + 1) & 3, mv = APP.ui.move;
+  if (turnMoving(type)) { mv.f = f; mv.sp = null; } else (APP.turnF || (APP.turnF = {}))[type] = f;
+  APP.turns = (APP.turns || 0) + 1;
+  const g = APP.ui.ghost;
+  if (g && g.type === type && APP.R) {
+    const d0 = turnFoot(type, f0), p = tileToScreen(APP.R, APP.view, g.x + d0.w / 2, g.y + d0.h / 2);
+    ghostUpdate(p.x, p.y, g.held);
+  }
+  try { audioCue('tap'); } catch (e) { /* no sound */ }
+  turnPlace();
+  return true;
+}
+
+const TURN_ICON = '<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M6.5 12.2l5.5-3 5.5 3v5.6l-5.5 3-5.5-3z" fill="#f2c75a"/><path d="M12 15.2v5.6l5.5-3v-5.6z" fill="#d9a13c"/><path d="M6.5 12.2l5.5 3 5.5-3-5.5-3z" fill="#c75a3c"/><path d="M19.6 8.4A8.6 8.6 0 0 0 4.9 6.3" fill="none" stroke-width="1.9"/><path d="M3.4 3.2l1.1 5.1 4.9-1.6z"/></svg>';
+
+function turnInit() {
+  if ($('turnB')) return;
+  for (const [id, cls] of [['turnB', 'turnbtn'], ['turnG', 'turnbtn turng']]) {
+    const b = document.createElement('button');
+    b.id = id; b.className = cls; b.type = 'button';
+    b.setAttribute('aria-label', 'Turn the building a quarter turn');
+    b.title = 'Turn (R)';
+    b.innerHTML = TURN_ICON + '<span>Turn</span>';
+    b.addEventListener('click', (e) => { e.stopPropagation(); turnTap(); });
+    document.body.appendChild(b);
+  }
+  window.addEventListener('keydown', (e) => {
+    if (APP.titleOn || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target && e.target.tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA') return;
+    if ((e.key === 'r' || e.key === 'R') && turnArmType()) { turnTap(); e.preventDefault(); }
+  });
+}
+{ const _ri = rotInit; rotInit = function () { const r = _ri.apply(this, arguments); turnInit(); return r; }; }
+
+// Every frame (with rotPlace): the buttons show while a building tool is armed. The first sits beside Done (to its
+// right, else above it); the second beside the ghost's lot on the map (right of it, else left), hidden while a finger
+// is on the map and wherever it would cover a panel.
+function turnRect(id) { const e = $(id); if (!e) return null; const st = getComputedStyle(e); if (st.display === 'none' || st.visibility === 'hidden') return null; const r = e.getBoundingClientRect(); return r.width && r.height ? r : null; }
+function turnPlace() {
+  const a = $('turnB'), g = $('turnG');
+  if (!a || !g) return;
+  const on = !!turnArmType() && !APP.titleOn && !document.body.classList.contains('titled');
+  document.body.classList.toggle('turnable', on);
+  if (!on) { APP.turnKey = ''; APP.turnK0 = ''; return; }
+  // the boxes are measured when the ghost, the view or the screen changed, else 4 times a second (cheap frames)
+  const gh0 = APP.ui.ghost, v = APP.view, now = performance.now();
+  const k0 = APP.ui.tool + '|' + turnArmF(APP.ui.tool) + '|' + (gh0 ? gh0.x + ',' + gh0.y : '') + '|' + v.cx.toFixed(2) + ',' + v.cy.toFixed(2) + ',' + v.z.toFixed(1) + ',' + v.rot + ',' + !!v.top + '|' + !!APP.gesturing + '|' + window.innerWidth + 'x' + window.innerHeight;
+  if (k0 === APP.turnK0 && now - (APP.turnT || 0) < 250) return;
+  APP.turnK0 = k0; APP.turnT = now;
+  const ins = safeInsets(), gap = 10, W = window.innerWidth, H = window.innerHeight, S = a.offsetWidth || 56, done = turnRect('done');
+  const panels = ['top', 'pill', 'bar', 'guide', 'card', 'done', 'rotbtns', 'toast', 'receipt', 'todo', 'glance', 'trlegend'].map(turnRect).filter(Boolean);
+  const free = (x, y, n, pad) => x >= ins.l + 4 && y >= ins.t + 4 && x + n <= W - ins.r - 4 && y + n <= H - 4 && !panels.some((r) => x < r.right + pad && x + n > r.left - pad && y < r.bottom + pad && y + n > r.top - pad);
+  // beside Done: right of it, else left of it, else above it (the first spot clear of the panels)
+  let ax = W - ins.r - gap - S, ay = H - S - gap - (ins.b || 0);
+  if (done) {
+    const yc = done.top + (done.height - S) / 2, cand = [[done.right + gap, yc], [done.left - gap - S, yc], [done.right - S, done.top - gap - S]];
+    const c = cand.find(([x, y]) => free(x, y, S, 4)) || cand[2];
+    ax = c[0]; ay = c[1];
+  }
+  // beside the ghost: right of its lot at half its height on the ground, else left of it
+  let gx = -1, gy = -1;
+  const gh = APP.ui.ghost, SG = g.offsetWidth || 48;
+  if (gh && gh.type && APP.R && !APP.gesturing) {
+    const ft = turnFoot(gh.type, turnArmF(gh.type)), cs = [[0, 0], [ft.w, 0], [0, ft.h], [ft.w, ft.h]].map(([dx, dy]) => tileToScreen(APP.R, APP.view, gh.x + dx, gh.y + dy));
+    const x0 = Math.min(...cs.map((p) => p.x)), x1 = Math.max(...cs.map((p) => p.x)), ym = (Math.min(...cs.map((p) => p.y)) + Math.max(...cs.map((p) => p.y))) / 2;
+    panels.push({ left: ax, right: ax + S, top: ay, bottom: ay + S });
+    for (const x of [x1 + 12, x0 - 12 - SG]) if (free(x, ym - SG / 2, SG, 8)) { gx = x; gy = ym - SG / 2; break; }
+  }
+  const key = Math.round(ax) + ',' + Math.round(ay) + '|' + Math.round(gx) + ',' + Math.round(gy);
+  if (key === APP.turnKey) return;
+  APP.turnKey = key;
+  a.style.left = Math.round(ax) + 'px'; a.style.top = Math.round(ay) + 'px';
+  if (gx < 0) { if (g.classList.contains('show')) uiGone(g); g.classList.remove('show'); }
+  else { g.classList.add('show'); g.style.left = Math.round(gx) + 'px'; g.style.top = Math.round(gy) + 'px'; }
+}
+{ const _rp = rotPlace; rotPlace = function () { const r = _rp.apply(this, arguments); turnPlace(); return r; }; }
+
+// A11 + A12 + turning together (16 Oct 2026): the lit lots follow the armed facing. With the asked kind armed and
+// turned so that its lot swaps (a field, a hall, a project), the ask's overlay is worked out for the turned lot, as a
+// tap there builds it (the tap runs turned: tapAt above): a plan's lots by the plan itself (offers_ui), an ask's own
+// lit spots refitted (the turned lot over the same middle, else one tile beside it; a spot the turned lot cannot take
+// goes dark). Disarmed or turned back: the lots as planned. The ghost's line says which side faces the street.
+function turnComKey() {
+  const t = turnArmType(), f = t ? turnArmF(t) : 0;
+  return t && turnSwaps(t, f) ? t + ':' + f : '';
+}
+function turnRefit(s, type, spots) {
+  const d = BUILDINGS[type], out = [], seen = {};
+  for (const l of spots) {
+    // (l is the planned lot's corner with the turned size: its middle is that of the lot as planned)
+    const cx = l.x + d.h / 2, cy = l.y + d.w / 2, c = [];
+    for (const ox of [Math.floor(cx - d.w / 2), Math.ceil(cx - d.w / 2)]) for (const oy of [Math.floor(cy - d.h / 2), Math.ceil(cy - d.h / 2)]) c.push([ox, oy]);
+    c.push([l.x, l.y]);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) c.push([c[0][0] + dx, c[0][1] + dy]);
+    const ok = c.find(([x, y]) => !canPlace(s, type, x, y, { free: true }));
+    if (ok && !seen[ok + '']) { seen[ok + ''] = 1; out.push({ x: ok[0], y: ok[1], w: d.w, h: d.h }); }
+  }
+  return out;
+}
+{
+  const _cu = comUiUpdate;
+  comUiUpdate = function () {
+    const tk = turnComKey(), a = arguments;
+    if (tk !== (APP.turnComK || '')) { APP.turnComK = tk; APP.ui.com = null; }
+    const s = APP.state, q = tk && s && !APP.titleOn && !APP.ui.ritual ? comMain(s) : null, type = tk.split(':')[0];
+    if (!q || !turnComMine(type)) return _cu.apply(this, a);
+    return turnUi(s, type, () => {
+      const was = APP.ui.com, r = _cu.apply(this, a), cm = APP.ui.com;
+      if (cm && cm !== was && !cm.plan && q.tool === type && cm.spots && cm.spots.length) cm.spots = turnRefit(s, type, cm.spots);
+      return r;
+    });
+  };
+}
+// Rosa's button for that ask builds what the glow shows (turned), as a tap on the lit lot does
+function turnComMine(type) {
+  const s = APP.state, q = s ? comMain(s) : null, pl = q && q.plan ? q.plan : null;
+  return !!q && (q.tool === type || (!!pl && (pl.a === type || pl.b === type || pl.type === type)));
+}
+{
+  const _ga = guideAct;
+  guideAct = function () {
+    const tk = turnComKey(), type = tk.split(':')[0], a = arguments;
+    if (!tk || !turnComMine(type)) return _ga.apply(this, a);
+    const was = TURN_ARM;
+    TURN_ARM = { type, f: turnArmF(type) };
+    try { return turnUi(APP.state, type, () => _ga.apply(this, a)); } finally { TURN_ARM = was; }
+  };
+}
+// (the overlay is worked out again when she turns the armed kind: the hud's next update reads the new key)
+{ const _tt = turnTap; turnTap = function () { const r = _tt.apply(this, arguments); try { hudUpdate(); } catch (e) { /* the next frame */ } return r; }; }
 
 // ---- src/ui/main.js
 // The app: load or start an island, run the clock (pause / 1x / 2x / 3x), turn sim events into what she sees, autosave.
