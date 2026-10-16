@@ -10835,6 +10835,1190 @@ function turnMoveF(b) { const f = turnFOf(b.type); return f === null ? bFace(b) 
   };
 }
 
+// ---- src/sim/rail.js
+// A14 (16 Oct 2026, Tomáš after Tugba's evening, with screenshots of 1929 and 1937: "why can a railway now be built on a
+// road? The railway must be much more sophisticated, and the businesses must somehow bring their goods to the railway
+// station: a conveyor or a van, and some warehouse; or the station right at the business and the railway connects
+// automatically; 'equip this business or this farm with a siding'; at the station a warehouse, a conveyor brings it from
+// the company, from the farm, and then the railway takes it to the harbor or wherever it is needed").
+// A railway that works like a railway: track on its own ground (level crossings where it crosses a street), stations
+// with a goods shed, vans and conveyors that bring the goods to the station, sidings to a works' gate, freight trains on
+// a timetable that take the goods to the works that use them and to the harbor. Rules and numbers: DESIGN.md §35;
+// sources: docs/research/railway.md. Extends transport.js (M5's cane railway) by wrapping; nothing it did is lost:
+// a field or works within TR.railNear tiles of the track has its siding already (M5's "fields beside the track").
+// UI: ui/rail_ui.js; art: render/iso.js ("A14").
+
+Object.assign(TR, {
+  trainCap: 48,           // loads a train: an engine and six wagons of eight
+  trainWagons: 6,
+  trainSpeed: 2,          // tiles a tick on the track (a dirt-road cart 0.6, paved 1.2): about 7 tiles a day
+  trainRest: 8,           // ticks the train waits at each end of its line (loading, the engine runs round)
+  trainStop: 4,           // ticks it stops at each station on the way
+  trainLen: 4.4,          // tiles the engine and its wagons cover (the crossing is shut while they are on it)
+  trainTrip: 30,          // $ a run that carries goods: coal, water and the crew
+  stationStage: 3,        // City, with the railway
+  whCap: 80,              // loads the goods shed holds
+  vanReach: 24,           // road tiles a works' carts go to a station (farther: the road all the way)
+  beltMax: 5, beltCost: 300, beltUpkeep: 6, beltRate: 40, // a conveyor: tiles, $ a tile, $ a tile a month, loads a month
+  sidingMax: 26,          // tiles of a siding the card offers
+});
+
+BUILDINGS.station = { name: 'Railway station', short: 'Station', kind: 'depot', w: 2, h: 3, cost: 4000, jobs: 3, stage: TR.stationStage, icon: 'station', art: 'station', color: '#c9a86b', group: 'roads' };
+BUILD_ORDER.push('station');
+
+function rlOn(s) { return (s.rail || []).length > 0; }
+function rlState(s) {
+  if (!s.rl || typeof s.rl !== 'object') s.rl = { v: 1, run: [], belts: [], mo: {}, last: {}, runs: 0, seen: {} };
+  const R = s.rl;
+  if (!R.run) R.run = []; if (!R.belts) R.belts = []; if (!R.mo) R.mo = {}; if (!R.last) R.last = {}; if (!R.seen) R.seen = {};
+  return R;
+}
+function rlDays(ticks) { return Math.max(1, Math.round(ticks * 30 / TUNE.ticksPerMonth)); }
+function rlXY(i) { return [i % MAP_W, (i / MAP_W) | 0]; }
+
+// ---------- 1. track on its own ground: level crossings ----------
+// has(x, y): track there; rd(x, y): a street there. A tile with both is a level crossing when the track runs straight
+// through it along one axis (track on both sides, none across), the street runs across it (street on both sides), and at
+// most two such tiles lie in a row (an avenue's two carriageways). Otherwise the track runs along the street.
+function rlCrossAxis(has, rd, x, y) {
+  for (const ax of ['x', 'y']) {
+    const dx = ax === 'x' ? 1 : 0, dy = ax === 'x' ? 0 : 1;
+    if (!(has(x - dx, y - dy) && has(x + dx, y + dy)) || has(x - dy, y - dx) || has(x + dy, y + dx)) continue;
+    if (!(rd(x - dy, y - dx) && rd(x + dy, y + dx))) continue;
+    let run = 1;
+    for (const k of [-1, 1]) for (let j = 1; j <= 2; j++) { const tx = x + k * j * dx, ty = y + k * j * dy; if (has(tx, ty) && rd(tx, ty)) run++; else break; }
+    if (run <= 2) return ax;
+  }
+  return '';
+}
+function rlHasFn(s, extra) { const set = railSet(s), on = rlOn(s); return (x, y) => inMap(x, y) && ((on && set[tileIdx(x, y)] === 1) || (!!extra && extra.has(tileIdx(x, y)))); }
+function rlRdFn(s, extra) { return (x, y) => inMap(x, y) && (s.road[tileIdx(x, y)] > 0 || (!!extra && extra.has(tileIdx(x, y)))); }
+
+// Every track tile on a street: { cross: { tile: 'x' | 'y' }, old: [tiles of track along a street] } (cached).
+function rlCrossInfo(s) {
+  const c = simCache(s);
+  if (c.rlX) return c.rlX;
+  const out = { cross: {}, old: [], n: 0 };
+  if (rlOn(s)) {
+    const has = rlHasFn(s), rd = rlRdFn(s);
+    for (const i of s.rail) {
+      if (!s.road[i]) continue;
+      const [x, y] = rlXY(i), a = rlCrossAxis(has, rd, x, y);
+      if (a) { out.cross[i] = a; out.n++; } else out.old.push(i);
+    }
+  }
+  return (c.rlX = out);
+}
+function rlCrossAt(s, i) { return rlOn(s) && s.road[i] > 0 && railAt(s, i) ? rlCrossInfo(s).cross[i] || '' : ''; }
+
+// The first index of an ordered stroke where the track would run along a street or end on one (tool 'rail'), or a road
+// along the track (tool 'road'): the stroke is cut there. -1: all of it may be laid.
+function rlStrokeCut(s, tiles, tool) {
+  if (!tiles || !tiles.length || !rlOn(s) && tool !== 'rail') return -1;
+  const rail = tool === 'rail';
+  if (rail ? !tiles.some((i) => s.road[i] > 0 && !railAt(s, i)) : !tiles.some((i) => railAt(s, i) && !s.road[i])) return -1;
+  for (let n = tiles.length; n > 0;) {
+    const part = tiles.slice(0, n), set = new Set(part), has = rlHasFn(s, rail ? set : null), rd = rlRdFn(s, rail ? null : set);
+    let k = -1;
+    for (let j = 0; j < n; j++) {
+      const i = part[j], both = rail ? s.road[i] > 0 && !railAt(s, i) : railAt(s, i) && !s.road[i];
+      if (!both) continue;
+      const [x, y] = rlXY(i);
+      if (!rlCrossAxis(has, rd, x, y)) { k = j; break; }
+    }
+    if (k < 0) return n === tiles.length ? -1 : n;
+    n = k;
+  }
+  return 0;
+}
+function rlCutWhy(tool, last) {
+  if (tool === 'rail') return last ? 'Carry the track across the street: it crosses a street straight, at a level crossing' : 'The track crosses a street straight across, never along it';
+  return last ? 'Carry the road across the track: it crosses the railway straight' : 'A road crosses the railway straight across, never along it';
+}
+{
+  const _rp = railPlan;
+  railPlan = function (state, tiles) {
+    const k = rlStrokeCut(state, tiles, 'rail');
+    if (k < 0) return _rp(state, tiles);
+    const p = _rp(state, tiles.slice(0, k)), why = rlCutWhy('rail', k === tiles.length - 1 || tiles.slice(k + 1).every((i) => state.road[i]));
+    for (const i of tiles.slice(k)) if (!railAt(state, i) && !p.bad.some((b) => b.i === i)) p.bad.push({ i, why });
+    return p;
+  };
+  const _rdp = roadPlan;
+  roadPlan = function (state, tiles, kind) {
+    const k = rlOn(state) ? rlStrokeCut(state, tiles, 'road') : -1;
+    if (k < 0) return _rdp(state, tiles, kind);
+    const p = _rdp(state, tiles.slice(0, k), kind), why = rlCutWhy('road', k === tiles.length - 1);
+    for (const i of tiles.slice(k)) if (!state.road[i] && !p.bad.some((b) => b.i === i)) p.bad.push({ i, why });
+    return p;
+  };
+}
+
+// A straight line's next tile for the planners (the planters' railway, the central's pair): '' free land, 'x' a
+// street the line may cross straight, else why not.
+function rlLineWhy(s, x, y, dx, dy) {
+  const w = railWhy(s, x, y);
+  if (w) return w;
+  if (!s.road[tileIdx(x, y)]) return '';
+  const rd = rlRdFn(s), has = rlHasFn(s);
+  return rd(x - dy, y - dx) && rd(x + dy, y + dx) && !has(x - dy, y - dx) && !has(x + dy, y + dx) ? 'x' : 'A street runs there';
+}
+// A line cut before a street it would run along, and with no street at its end.
+function rlLineTrim(s, line) {
+  if (!line || !line.length) return line;
+  const k = rlStrokeCut(s, line, 'rail');
+  let out = k < 0 ? line.slice() : line.slice(0, k);
+  while (out.length && s.road[out[out.length - 1]]) out.pop();
+  return out;
+}
+
+// The way for new track from `starts` (free tiles) to a goal, over open land, crossing streets only straight
+// (a crossing counts 3 tiles): the tiles in order from the start, the goal tile last (not included when it is track).
+// goal(i): true for a tile that ends the way. Free: no building, road, sea, forest or closed land; not in `avoid`.
+function rlRoute(s, starts, goal, avoid, max) {
+  const n = MAP_W * MAP_H, dist = new Float64Array(n).fill(Infinity), prev = new Int32Array(n).fill(-1), mid = new Map(), h = [];
+  const rd = rlRdFn(s), has = rlHasFn(s);
+  const free = (x, y) => inMap(x, y) && !avoid.has(tileIdx(x, y)) && !railWhy(s, x, y) && !s.road[tileIdx(x, y)] && !railAt(s, tileIdx(x, y)) && !beltAt(s, tileIdx(x, y));
+  const across = (tx, ty, dx, dy) => inMap(tx, ty) && s.road[tileIdx(tx, ty)] > 0 && !railAt(s, tileIdx(tx, ty)) && !avoid.has(tileIdx(tx, ty)) && !railWhy(s, tx, ty) &&
+    rd(tx - dy, ty - dx) && rd(tx + dy, ty + dx) && !has(tx - dy, ty - dx) && !has(tx + dy, ty + dx);
+  // the tiles in order, from the start to t (a jump over a street puts the street's tiles in between)
+  const back = (t, tail) => { const out = tail.slice(); for (let k = t; k >= 0; k = prev[k]) { out.push(k); const m = mid.get(k); if (m) for (let q = m.length - 1; q >= 0; q--) out.push(m[q]); } return out.reverse(); };
+  for (const i of starts) { const [x, y] = rlXY(i); if (free(x, y) && dist[i] > 1) { dist[i] = 1; heapPush(h, 1, i); } }
+  while (h.length) {
+    const [d, i] = heapPop(h);
+    if (d > dist[i] || d > (max || 40)) continue;
+    const [x, y] = rlXY(i);
+    for (const [dx, dy] of DIRS4) {
+      const jx = x + dx, jy = y + dy;
+      if (!inMap(jx, jy)) continue;
+      const j = tileIdx(jx, jy);
+      if (goal(j) && !s.road[j]) return back(i, [j]);
+      if (free(jx, jy)) { if (d + 1 < dist[j]) { dist[j] = d + 1; prev[j] = i; mid.delete(j); heapPush(h, d + 1, j); } continue; }
+      // a street: straight across it (one tile, or an avenue's two), onto free land or onto the goal beyond
+      if (!across(jx, jy, dx, dy)) continue;
+      const mids = [j];
+      let kx = jx + dx, ky = jy + dy;
+      if (across(kx, ky, dx, dy)) { mids.push(tileIdx(kx, ky)); kx += dx; ky += dy; }
+      if (!inMap(kx, ky)) continue;
+      const k = tileIdx(kx, ky);
+      if (goal(k) && !s.road[k]) return back(i, [k].concat(mids.slice().reverse()));
+      if (!free(kx, ky)) continue;
+      const c = 1 + 2 * mids.length;
+      if (d + c < dist[k]) { dist[k] = d + c; prev[k] = i; mid.set(k, mids); heapPush(h, d + c, k); }
+    }
+  }
+  return null;
+}
+
+// ---------- 2. the stations and their goods sheds ----------
+function stationsOf(s) { return s.b.filter((b) => b.type === 'station'); }
+// The track beside a station: the tiles along its long sides (and its ends), at a distance of one.
+function stationTrack(s, b) {
+  const out = [];
+  for (let y = b.y - 1; y <= b.y + b.h; y++) for (let x = b.x - 1; x <= b.x + b.w; x++) {
+    const side = (x === b.x - 1 || x === b.x + b.w) !== (y === b.y - 1 || y === b.y + b.h);
+    if (side && inMap(x, y) && railAt(s, tileIdx(x, y))) out.push(tileIdx(x, y));
+  }
+  return out;
+}
+// Which side of the station the track runs along: [dx, dy] (world), or null.
+function stationSide(s, b) {
+  const long = b.w >= b.h ? 'x' : 'y', cnt = (dx, dy) => { let n = 0; const L = dx ? b.h : b.w; for (let k = 0; k < L; k++) { const x = dx ? (dx > 0 ? b.x + b.w : b.x - 1) : b.x + k, y = dy ? (dy > 0 ? b.y + b.h : b.y - 1) : b.y + k; if (inMap(x, y) && railAt(s, tileIdx(x, y))) n++; } return n; };
+  const sides = long === 'y' ? [[1, 0], [-1, 0]] : [[0, 1], [0, -1]];
+  let best = null, bn = 0;
+  for (const [dx, dy] of sides) { const n = cnt(dx, dy); if (n > bn) { bn = n; best = [dx, dy]; } }
+  return bn >= 2 ? best : null;
+}
+function whUsed(st) { let n = 0; for (const g in st.stock || {}) n += st.stock[g]; for (const g in st.incoming || {}) n += st.incoming[g]; return n; }
+// Loads of g the goods shed takes now: room, if its line has a works, a market or the harbor that takes g.
+function whRoom(s, st, g) {
+  if (!st || !st.open || !(st.workers > 0)) return 0;
+  const L = rlLineOfB(s, st);
+  if (!L || !rlLineTakes(s, L, g)) return 0;
+  return Math.max(0, TR.whCap - whUsed(st));
+}
+function rlWhAdd(st, g, from, n) {
+  if (!st.wh) st.wh = {};
+  const w = st.wh[g] || (st.wh[g] = {});
+  w[from] = (w[from] || 0) + n;
+}
+{
+  const _nb = newBuilding;
+  newBuilding = function (state, type, x, y) {
+    const b = _nb.apply(this, arguments);
+    if (BUILDINGS[type] && BUILDINGS[type].kind === 'depot') Object.assign(b, { stock: {}, incoming: {}, wh: {} });
+    return b;
+  };
+  const _cp = canPlace;
+  canPlace = function (state, type, x, y, opts) {
+    const why = _cp.apply(this, arguments);
+    if (why) return why;
+    const def = BUILDINGS[type];
+    if (type === 'station' && !stationSide(state, { x, y, w: def.w, h: def.h })) return 'Must stand beside the railway, along a long side';
+    if (def && rlState0(state)) for (let ty = y; ty < y + def.h; ty++) for (let tx = x; tx < x + def.w; tx++) if (beltAt(state, tileIdx(tx, ty))) return 'A conveyor is in the way';
+    return '';
+  };
+}
+function rlState0(s) { return !!(s.rl && s.rl.belts && s.rl.belts.length); }
+
+// ---------- the lines: what is on each ----------
+{
+  const _rl = railLines;
+  railLines = function (state) {
+    const c = simCache(state);
+    if (c.rail && c.rail.a14) return c.rail;
+    const r = _rl(state);
+    for (const L of r.lines) {
+      L.key = Math.min(...L.tiles);
+      L.set = new Set(L.tiles);
+      const near = (b) => L.tiles.some((i) => footDist(b, tile1(i)) <= TR.railNear);
+      // the sidings: every maker within the track's reach (M5's fields first, in their order)
+      const others = state.b.filter((b) => { const d = BUILDINGS[b.type]; return d.kind === 'producer' && d.makes && !railField(d) && near(b); }).map((b) => b.id);
+      L.makers = L.fields.concat(others);
+      L.stations = state.b.filter((b) => b.type === 'station' && L.tiles.some((i) => footDist(b, tile1(i)) <= 1)).map((b) => b.id);
+    }
+    r.a14 = 1;
+    return r;
+  };
+}
+function rlLineOfB(s, b) {
+  if (!rlOn(s) || !b) return null;
+  const L = railLines(s).lines;
+  if (b.type === 'station') return L.find((l) => l.stations.includes(b.id)) || null;
+  return L.find((l) => l.makers.includes(b.id) || l.takers.includes(b.id)) || null;
+}
+// The line whose train loads at this maker's gate (it has a siding), or null.
+function rlMakerLine(s, b) { return rlOn(s) ? railLines(s).lines.find((l) => l.makers.includes(b.id)) || null : null; }
+function rlTakerCls(s, d, g) {
+  const def = BUILDINGS[d.type], k = def.kind;
+  if (k === 'market') return 0;
+  if (k === 'harbor') return 2;
+  return GOODS[g] && GOODS[g].food && !(def.takes && def.takes[g] !== undefined) ? 0 : 1;
+}
+function rlCould(s, d, g) {
+  const def = BUILDINGS[d.type];
+  return (def.uses && def.uses[g] !== undefined) || (def.takes && def.takes[g] !== undefined) || (def.kind === 'market' && NEED_GOODS.includes(goodNeed(g))) || (def.kind === 'harbor' && !!s.exp[g]);
+}
+function rlLineTakes(s, L, g) { return L.takers.some((id) => { const d = bById(s, id); return d && rlCould(s, d, g); }); }
+// The line's takers of g with room now, in the train's order (markets, works, the harbor).
+function rlTakersFor(s, L, g) {
+  return L.takers.map((id) => bById(s, id)).filter((d) => d && rlCould(s, d, g))
+    .sort((a, b) => rlTakerCls(s, a, g) - rlTakerCls(s, b, g) || a.id - b.id);
+}
+
+// Track distance (tiles) along a line from a building's nearest track tile: { at, dist: Map tile -> tiles } (cached).
+function rlTrackFrom(s, L, b) {
+  const c = simCache(s);
+  if (!c.rlTd) c.rlTd = {};
+  const key = L.key + ':' + b.id;
+  if (c.rlTd[key]) return c.rlTd[key];
+  let at = L.tiles[0], bd = Infinity;
+  for (const i of L.tiles) { const d = footDist(b, tile1(i)); if (d < bd || (d === bd && i < at)) { bd = d; at = i; } }
+  const dist = new Map([[at, 0]]), q = [at];
+  for (let h = 0; h < q.length; h++) { const [x, y] = rlXY(q[h]); for (const [dx, dy] of DIRS4) { const j = tileIdx(x + dx, y + dy); if (inMap(x + dx, y + dy) && L.set.has(j) && !dist.has(j)) { dist.set(j, dist.get(q[h]) + 1); q.push(j); } } }
+  return (c.rlTd[key] = { at, dist });
+}
+function rlTrackTiles(s, L, a, b) {
+  const f = rlTrackFrom(s, L, a), t = rlTrackFrom(s, L, b);
+  return f.dist.get(t.at) !== undefined ? f.dist.get(t.at) : L.tiles.length;
+}
+// Ticks a load rides from a to b on line L.
+function rlRideTicks(s, L, a, b) { return Math.ceil(rlTrackTiles(s, L, a, b) / TR.trainSpeed) + 1; }
+// Road ticks from a to b (the fastest way, as the carts drive), Infinity when no road joins them.
+function rlRoadTicks(s, a, b) {
+  const { dist } = routeTree(s, a);
+  let best = Infinity;
+  for (const e of bEntrances(s, b)) if (dist[e] < best) best = dist[e];
+  return best;
+}
+
+// ---------- 3. getting the goods to the train: vans, the siding at the gate ----------
+// A producer's goods: to a station within TR.vanReach road tiles when the train gets them to a taker of the same
+// standing (markets, works, the harbor) sooner than the road does; a maker with a siding waits for the train when the
+// train is the quicker way to the taker its carts would drive to.
+function rlByRail(s, src, g, best) {
+  const own = rlMakerLine(s, src);
+  if (own) {
+    for (const d of rlTakersFor(s, own, g)) {
+      if (Math.floor(roomFor(s, d, g) + 1e-9) < 1) continue;
+      const cls = rlTakerCls(s, d, g);
+      if (best && cls > best.cls) break;
+      const via = TR.railTrip / 2 + rlRideTicks(s, own, src, d), road = best ? rlRoadTicks(s, src, best.d) : Infinity;
+      if (via < road) return { train: own, d, via, road };
+      break;
+    }
+    return null;
+  }
+  let alt = null;
+  for (const st of stationsOf(s)) {
+    const room = Math.floor(whRoom(s, st, g) + 1e-9);
+    if (room < 1) continue;
+    const road = rlRoadTicks(s, src, st);
+    if (!isFinite(road) || road > TR.vanReach / TUNE.cartSpeed) continue;
+    const L = rlLineOfB(s, st);
+    const d = rlTakersFor(s, L, g).find((t) => Math.floor(roomFor(s, t, g) + 1e-9) >= 1);
+    if (!d) continue;
+    const via = road + TR.railTrip / 2 + rlRideTicks(s, L, st, d);
+    if (!alt || via < alt.via) alt = { d: st, room, cls: rlTakerCls(s, d, g), dist: road, part: 0, via, to: d };
+  }
+  if (!alt) return null;
+  if (!best) return alt;
+  const direct = rlRoadTicks(s, src, best.d);
+  return alt.cls <= best.cls && alt.via < direct * 0.9 ? alt : null;
+}
+{
+  const _cf = consumerFind;
+  consumerFind = function (state, src, g) {
+    const best = _cf.apply(this, arguments);
+    if (!rlOn(state) || BUILDINGS[src.type].kind !== 'producer' || state._rlPlain) return best;
+    const r = rlByRail(state, src, g, best);
+    if (!r) return best;
+    // the train is quicker from the siding: no cart goes (the card says "by rail")
+    if (r.train) { src.byRail = state.tick; return null; }
+    return r;
+  };
+  // a producer whose goods reach the train (its siding, a station by road) is not cut off
+  const _ts = takerState;
+  takerState = function (state, b) {
+    const r = _ts.apply(this, arguments);
+    if ((r !== 'unreached' && r !== 'none') || !rlOn(state)) return r;
+    const g = BUILDINGS[b.type].makes, L = rlMakerLine(state, b);
+    if (L && rlLineTakes(state, L, g)) return 'full';
+    for (const st of stationsOf(state)) { const SL = rlLineOfB(state, st); if (SL && rlLineTakes(state, SL, g) && isFinite(rlRoadTicks(state, b, st))) return 'full'; }
+    return r;
+  };
+  // a cart unloading at the goods shed: the shed remembers whose goods they are (the train pays them on delivery)
+  const _db = deliverBook;
+  deliverBook = function (state, src, d, g, n) {
+    if (d && src && BUILDINGS[d.type].kind === 'depot') { rlWhAdd(d, g, src.id, n); src.mVan = (src.mVan || 0) + n; return; }
+    return _db.apply(this, arguments);
+  };
+}
+
+// ---------- the conveyor ----------
+function beltAt(s, i) {
+  if (!s.rl || !s.rl.belts || !s.rl.belts.length) return false;
+  const c = simCache(s);
+  if (!c.beltSet) { c.beltSet = new Uint8Array(MAP_W * MAP_H); for (const B of s.rl.belts) for (const t of B.t) c.beltSet[t] = 1; }
+  return c.beltSet[i] === 1;
+}
+function beltWhy(s, x, y) {
+  if (!inMap(x, y)) return 'Off the island';
+  const i = tileIdx(x, y), t = s.terrain[i];
+  if (t === SEA) return 'Cannot build on the sea';
+  if (t === FOREST) return 'Forest in the way';
+  if (!tileOpenAt(s, i)) return 'Land opens at ' + regionStageName(s, i);
+  if (occMap(s)[i]) return 'Something is in the way';
+  if (s.road[i]) return 'A conveyor does not cross a street';
+  if (railAt(s, i)) return 'The railway is in the way';
+  if (beltAt(s, i)) return 'A conveyor is there';
+  return '';
+}
+// A drawn conveyor: from beside a works or farm to beside a station (either way round), TR.beltMax tiles at most.
+// { add, bad, cost, a (maker id), b (station id), why }
+function beltPlan(s, tiles) {
+  const add = [], bad = [];
+  for (const i of tiles || []) { const [x, y] = rlXY(i), w = beltWhy(s, x, y); if (w) bad.push({ i, why: w }); else if (!add.includes(i)) add.push(i); }
+  const out = { add, bad, cost: add.length * TR.beltCost, a: 0, b: 0, why: '' };
+  if (!add.length) return out;
+  if (add.length > TR.beltMax) { out.why = 'A conveyor is at most ' + TR.beltMax + ' tiles'; return out; }
+  const by = (i, ok) => s.b.find((b) => ok(b) && rlEdge(b, i)) || null;
+  const maker = (b) => { const d = BUILDINGS[b.type]; return d.kind === 'producer' && !!d.makes; }, st = (b) => b.type === 'station';
+  const e0 = add[0], e1 = add[add.length - 1];
+  let A = by(e0, maker), B = by(e1, st);
+  if (!A || !B) { A = by(e1, maker); B = by(e0, st); }
+  if (!A || !B) { out.why = 'A conveyor runs from beside a works or farm to beside a station'; return out; }
+  if (!rlLineOfB(s, B)) { out.why = 'That station stands by no track'; return out; }
+  if (s.rl && s.rl.belts && s.rl.belts.some((q) => q.a === A.id)) { out.why = 'The ' + (BUILDINGS[A.type].short || BUILDINGS[A.type].name).toLowerCase() + ' has its conveyor'; return out; }
+  out.a = A.id; out.b = B.id;
+  return out;
+}
+function placeBelt(s, tiles) {
+  if (s.stage < TR.stationStage) return { built: 0, cost: 0, why: 'Opens at ' + STAGES[TR.stationStage].name };
+  const p = beltPlan(s, tiles);
+  if (p.bad.length) return { built: 0, cost: 0, why: p.bad[0].why };
+  if (p.why) return { built: 0, cost: 0, why: p.why };
+  if (!p.add.length) return { built: 0, cost: 0, why: '' };
+  if (s.money < p.cost) return { built: 0, cost: 0, why: 'Not enough money (' + money$(p.cost) + ')' };
+  s.money -= p.cost;
+  rlState(s).belts.push({ a: p.a, b: p.b, t: p.add.slice(), acc: 0, mo: 0, last: 0 });
+  s.ver++;
+  simEvent(s, { kind: 'belt', n: p.add.length });
+  return { built: p.add.length, cost: p.cost, why: '' };
+}
+// Is tile i beside building b, sharing an edge (not only a corner)?
+function rlEdge(b, i) {
+  const [x, y] = rlXY(i), inX = x >= b.x && x < b.x + b.w, inY = y >= b.y && y < b.y + b.h;
+  return (inX && (y === b.y - 1 || y === b.y + b.h)) || (inY && (x === b.x - 1 || x === b.x + b.w));
+}
+// The straight (or L) conveyor from a maker to the nearest station within TR.beltMax tiles: tiles or null (cards).
+function beltSuggest(s, b) {
+  if (!rlOn(s) || s.stage < TR.stationStage) return null;
+  let best = null;
+  for (const st of stationsOf(s)) {
+    if (footDist(b, st) > TR.beltMax + 1 || !rlLineOfB(s, st)) continue;
+    const starts = [], goal = new Set();
+    for (let y = b.y - 1; y <= b.y + b.h; y++) for (let x = b.x - 1; x <= b.x + b.w; x++) if (inMap(x, y) && rlEdge(b, tileIdx(x, y))) starts.push(tileIdx(x, y));
+    for (let y = st.y - 1; y <= st.y + st.h; y++) for (let x = st.x - 1; x <= st.x + st.w; x++) if (inMap(x, y) && rlEdge(st, tileIdx(x, y))) goal.add(tileIdx(x, y));
+    // breadth first over free tiles (a conveyor crosses nothing)
+    const prev = new Map(), q = [];
+    for (const i of starts) { const [x, y] = rlXY(i); if (!beltWhy(s, x, y)) { prev.set(i, -1); q.push(i); } }
+    let hit = -1;
+    for (let h = 0; h < q.length && hit < 0; h++) {
+      const i = q[h];
+      if (goal.has(i)) { hit = i; break; }
+      let len = 0; for (let k = i; k >= 0; k = prev.get(k)) len++;
+      if (len >= TR.beltMax) continue;
+      const [x, y] = rlXY(i);
+      for (const [dx, dy] of DIRS4) { const j = tileIdx(x + dx, y + dy); if (inMap(x + dx, y + dy) && !prev.has(j) && !beltWhy(s, x + dx, y + dy)) { prev.set(j, i); q.push(j); } }
+    }
+    if (hit < 0) continue;
+    const t = []; for (let k = hit; k >= 0; k = prev.get(k)) t.push(k);
+    t.reverse();
+    if (!best || t.length < best.t.length) best = { t, st };
+  }
+  return best;
+}
+function beltOf(s, b) { return s.rl && s.rl.belts ? s.rl.belts.find((q) => q.a === b.id) || null : null; }
+function beltTick(s) {
+  const R = s.rl;
+  if (!R || !R.belts || !R.belts.length) return;
+  for (const B of R.belts) {
+    const src = bById(s, B.a), st = bById(s, B.b);
+    if (!src || !st) continue;
+    const g = BUILDINGS[src.type].makes;
+    B.acc = Math.min(4, (B.acc || 0) + TR.beltRate / TUNE.ticksPerMonth);
+    while (B.acc >= 1 && src.yard >= 1 - 1e-9 && whRoom(s, st, g) >= 1) {
+      src.yard -= 1; B.acc -= 1;
+      st.stock[g] = (st.stock[g] || 0) + 1;
+      rlWhAdd(st, g, src.id, 1);
+      B.mo = (B.mo || 0) + 1; B.on = s.tick;
+      src.mBelt = (src.mBelt || 0) + 1;
+    }
+  }
+}
+// Taking a conveyor away (the Remove tool on one of its tiles): the whole belt, half its price back.
+{
+  const _ri = removeInfo;
+  removeInfo = function (state, x, y) {
+    if (inMap(x, y) && beltAt(state, tileIdx(x, y))) {
+      const B = state.rl.belts.find((q) => q.t.includes(tileIdx(x, y)));
+      return { belt: B, refund: Math.floor(B.t.length * TR.beltCost * TUNE.refund), what: 'conveyor' };
+    }
+    return _ri.apply(this, arguments);
+  };
+  const _ra = removeAt;
+  removeAt = function (state, x, y) {
+    const info = removeInfo(state, x, y);
+    if (info.belt) { state.rl.belts = state.rl.belts.filter((q) => q !== info.belt); state.money += info.refund; state.ver++; return info; }
+    return _ra.apply(this, arguments);
+  };
+}
+
+// ---------- 4. the freight trains ----------
+// Every TR.railTrip ticks a train leaves on each line: it loads at the sidings (the fields first, as in M5, then the
+// works) and at the stations' goods sheds, up to TR.trainCap loads, and each load arrives at its taker after the ride
+// (track tiles / TR.trainSpeed ticks). The taker's room is kept for it on the way (incoming), as for a cart.
+railRun = function (state) {
+  const R = rlState(state);
+  for (const L of railLines(state).lines) {
+    let room = TR.trainCap, moved = 0;
+    const cargo = {};
+    const ship = (from, maker, d, g, n) => {
+      d.incoming[g] = (d.incoming[g] || 0) + n;
+      R.run.push({ t: state.tick + rlRideTicks(state, L, from, d), d: d.id, g, n, m: maker, f: from.id, k: L.key });
+      cargo[g] = (cargo[g] || 0) + n; room -= n; moved += n;
+      const v = n * (BUILDINGS[d.type].kind === 'harbor' ? exportPrice(state, g) : innerPrice(g));
+      if (from.type === 'station') { from.mSent = (from.mSent || 0) + n; from.mVal = (from.mVal || 0) + v; }
+    };
+    for (const fid of L.makers) {
+      if (room < 1) break;
+      const f = bById(state, fid);
+      if (!f || !f.open) continue;
+      const g = BUILDINGS[f.type].makes;
+      for (const d of rlTakersFor(state, L, g)) {
+        const n = Math.min(Math.floor(f.yard + 1e-9), Math.floor(roomFor(state, d, g) + 1e-9), room);
+        if (n < 1) continue;
+        f.yard -= n;
+        f.mRail = (f.mRail || 0) + n;
+        ship(f, f.id, d, g, n);
+      }
+    }
+    for (const sid of L.stations) {
+      const st = bById(state, sid);
+      if (!st || !st.open || !(st.workers > 0)) continue;
+      for (const g of Object.keys(st.stock || {})) {
+        for (const d of rlTakersFor(state, L, g)) {
+          if (room < 1) break;
+          let n = Math.min(Math.floor((st.stock[g] || 0) + 1e-9), Math.floor(roomFor(state, d, g) + 1e-9), room);
+          if (n < 1) continue;
+          st.stock[g] -= n;
+          // whose goods: the oldest makers first (the shed's record), each paid on delivery
+          const w = (st.wh && st.wh[g]) || {};
+          for (const id of Object.keys(w).sort((a, b) => a - b)) {
+            if (n < 1) break;
+            const k = Math.min(n, Math.floor(w[id] + 1e-9));
+            if (k < 1) continue;
+            w[id] -= k; if (w[id] < 1e-6) delete w[id];
+            ship(st, +id, d, g, k); n -= k;
+          }
+          if (n > 0) ship(st, 0, d, g, n);
+        }
+        if ((st.stock[g] || 0) < 1e-6) delete st.stock[g];
+      }
+    }
+    L.moved = moved; L.cargo = cargo;
+    state.railMoved = (state.railMoved || 0) + moved;
+    if (moved) { R.runs = (R.runs || 0) + 1; R.mo[L.key] = (R.mo[L.key] || 0) + moved; R.cargo = R.cargo || {}; R.cargo[L.key] = cargo; }
+  }
+};
+
+// The loads on their way arrive.
+function rlArrive(state) {
+  const R = state.rl;
+  if (!R || !R.run || !R.run.length) return;
+  const keep = [];
+  for (const q of R.run) {
+    if (q.t > state.tick) { keep.push(q); continue; }
+    const d = bById(state, q.d), m = q.m ? bById(state, q.m) : null;
+    if (!d) { if (m && BUILDINGS[m.type].kind === 'producer') m.yard += q.n; continue; }
+    d.incoming[q.g] = Math.max(0, (d.incoming[q.g] || 0) - q.n);
+    if (BUILDINGS[d.type].kind === 'producer') d.inp[q.g] = (d.inp[q.g] || 0) + q.n; else d.stock[q.g] = (d.stock[q.g] || 0) + q.n;
+    if (m) deliverBook(state, m, d, q.g, q.n);
+    d.mByRail = (d.mByRail || 0) + q.n;
+    simEvent(state, { kind: 'drop', id: d.id, good: q.g, n: q.n });
+  }
+  R.run = keep;
+}
+
+// Where the train of a line is at tick T (a float): { pos (tiles along L.path), dir (+1 out, -1 back) }. It runs end to
+// end at TR.trainSpeed, stops TR.trainStop ticks at each station on its way and rests TR.trainRest at the ends. The sim
+// (carts wait at a crossing while it is on it) and the picture use the same timetable.
+function rlStops(s, L) {
+  const c = simCache(s);
+  if (!c.rlStops) c.rlStops = {};
+  if (c.rlStops[L.key]) return c.rlStops[L.key];
+  const idx = new Map(L.path.map((t, k) => [t, k])), at = [];
+  for (const sid of L.stations || []) { const st = bById(s, sid); if (!st) continue; let best = -1; for (const t of stationTrack(s, st)) if (idx.has(t)) { const k = idx.get(t); if (best < 0 || Math.abs(k - (L.path.length - 1) / 2) < Math.abs(best - (L.path.length - 1) / 2)) best = k; } if (best > 0 && best < L.path.length - 1) at.push(best); }
+  return (c.rlStops[L.key] = [...new Set(at)].sort((a, b) => a - b));
+}
+// A line is in service when something on it loads (a siding's maker, a station) and something takes (a works, a
+// market, a harbor): only then does its train run (and shut its crossings).
+function rlInService(L) { return (L.makers.length > 0 || L.stations.length > 0) && L.takers.length > 0; }
+function rlTrainAt(s, L, T) {
+  const len = L.path.length - 1;
+  if (len < 2 || !rlInService(L)) return null;
+  const stops = rlStops(s, L), v = TR.trainSpeed, legT = len / v + stops.length * TR.trainStop, cyc = 2 * (legT + TR.trainRest);
+  let u = ((T + L.key * 7) % cyc + cyc) % cyc;
+  const run = (u0, back) => {
+    // u0 ticks into a run end to end (stops on the way): the position from the run's start
+    let p = 0, t = u0;
+    const marks = back ? stops.map((k) => len - k).reverse() : stops;
+    for (const m of marks) {
+      const dt = (m - p) / v;
+      if (t < dt) return p + t * v;
+      t -= dt; p = m;
+      if (t < TR.trainStop) return p;
+      t -= TR.trainStop;
+    }
+    return Math.min(len, p + t * v);
+  };
+  if (u < TR.trainRest) return { pos: 0, dir: 1, stop: true };
+  u -= TR.trainRest;
+  if (u < legT) return { pos: run(u, false), dir: 1 };
+  u -= legT;
+  if (u < TR.trainRest) return { pos: len, dir: -1, stop: true };
+  u -= TR.trainRest;
+  return { pos: len - run(u, true), dir: -1 };
+}
+// Is the crossing at tile i shut at tick T (the train on it or about to be)?
+function rlCrossShut(s, i, T) {
+  const c = simCache(s);
+  if (!c.rlCrossLine) {
+    c.rlCrossLine = {};
+    for (const L of railLines(s).lines) L.path.forEach((t, k) => { if (rlCrossAt(s, t)) c.rlCrossLine[t] = [L, k]; });
+  }
+  const e = c.rlCrossLine[i];
+  if (!e) return false;
+  const q = rlTrainAt(s, e[0], T);
+  if (!q) return false;
+  const tail = q.pos - q.dir * TR.trainLen, lo = Math.min(q.pos, tail) - 1.2, hi = Math.max(q.pos, tail) + 1.2;
+  return e[1] >= lo && e[1] <= hi;
+}
+{
+  // a cart about to drive onto a shut crossing waits (a small delay she can see); one on it drives on
+  const _ct = cartTick;
+  cartTick = function (state, c) {
+    if (c.st !== 'idle' && c.path && rlOn(state) && rlCrossInfo(state).n) {
+      const k = Math.floor(c.pos), j = c.path[k + 1];
+      if (j !== undefined && state.road[j] && rlCrossAt(state, j) && !rlCrossAt(state, c.path[k]) && c.pos > k + 0.35 && rlCrossShut(state, j, state.tick)) { c.wait = (c.wait || 0) + 1; c.wt = state.tick; state._rlWaits = (state._rlWaits || 0) + 1; return; }
+    }
+    return _ct.apply(this, arguments);
+  };
+}
+
+// ---------- the tick, the month ----------
+{
+  const _st = simTick;
+  simTick = function (state) {
+    if (state.rl) { rlArrive(state); beltTick(state); }
+    return _st.apply(this, arguments);
+  };
+  const _tm = transportMonth;
+  transportMonth = function (state) {
+    const t = _tm.apply(this, arguments), R = state.rl;
+    t.runs = R ? R.runs || 0 : 0;
+    t.runCost = t.runs * TR.trainTrip;
+    t.beltTiles = R && R.belts ? R.belts.reduce((a, B) => a + B.t.length, 0) : 0;
+    t.beltUp = t.beltTiles * TR.beltUpkeep;
+    t.trackUp = t.rail * TR.railUpkeep;
+    t.railN -= t.runCost + t.beltUp;
+    return t;
+  };
+  const _pr = paydayRun;
+  paydayRun = function (state) {
+    const r = _pr.apply(this, arguments), R = state.rl;
+    if (R) {
+      R.runs = 0; R.last = R.mo; R.mo = {};
+      for (const B of R.belts) { B.last = B.mo || 0; B.mo = 0; }
+      for (const b of state.b) {
+        if (b.type === 'station') { b.lastSent = b.mSent || 0; b.lastVal = b.mVal || 0; b.mSent = 0; b.mVal = 0; }
+        if (b.mVan !== undefined || b.mBelt !== undefined || b.mByRail !== undefined) { b.lastVan = b.mVan || 0; b.lastBelt = b.mBelt || 0; b.lastByRail = b.mByRail || 0; b.mVan = 0; b.mBelt = 0; b.mByRail = 0; }
+      }
+    }
+    return r;
+  };
+  const _rcl = receiptLines;
+  receiptLines = function (state, r) {
+    const lines = _rcl.apply(this, arguments), t = r && r.transport;
+    if (!t || !(t.runCost || t.beltUp)) return lines;
+    const k = lines.findIndex((l) => /^Railway upkeep/.test(l[0]));
+    const text = 'Railway: track ' + money$(t.trackUp) + (t.runCost ? ', ' + plural(t.runs, 'train run', 'train runs') + ' ' + money$(t.runCost) : '') + (t.beltUp ? ', conveyors ' + money$(t.beltUp) : '');
+    if (k >= 0) lines[k] = [text, t.railN];
+    return lines;
+  };
+}
+// The line's load last month: loads carried, what its trains could carry (TR.trainCap a run, a run every TR.railTrip ticks).
+function rlLineCap() { return TR.trainCap * TUNE.ticksPerMonth / TR.railTrip; }
+function rlLineLoad(s, L) { const R = s.rl; return R && R.last ? R.last[L.key] || 0 : 0; }
+
+// ---------- 5. sidings: the card's offer, the far works' numbers ----------
+// The siding from the nearest track to a tile beside b (its loading platform): { path (from the line to b), tiles,
+// cost } or null. A maker within the track's reach has its siding already (null).
+function sidingPlan(s, b) {
+  if (!rlOn(s) || s.stage < TR.railStage) return null;
+  const c = simCache(s);
+  if (!c.rlSid) c.rlSid = {};
+  if (b.id in c.rlSid) return c.rlSid[b.id];
+  let out = null;
+  if (!s.rail.some((i) => footDist(b, tile1(i)) <= TR.railNear)) {
+    const starts = [];
+    for (let y = b.y - 1; y <= b.y + b.h; y++) for (let x = b.x - 1; x <= b.x + b.w; x++) if (inMap(x, y) && footDist(b, tile1(tileIdx(x, y))) === 1) starts.push(tileIdx(x, y));
+    // the line joins at a plain track tile (not on a crossing)
+    const p = rlRoute(s, starts, (j) => railAt(s, j) && !s.road[j], new Set(), TR.sidingMax + 6);
+    if (p) {
+      const tiles = p.filter((i) => !railAt(s, i)).reverse();
+      const plan = railPlan(s, tiles);
+      if (tiles.length && tiles.length <= TR.sidingMax && !plan.bad.length) out = { path: tiles, tiles: tiles.length, cost: plan.cost };
+    }
+  }
+  return (c.rlSid[b.id] = out);
+}
+function placeSiding(s, b) {
+  const p = sidingPlan(s, b);
+  if (!p) return { built: 0, cost: 0, why: 'No siding to lay' };
+  if (s.money < p.cost) return { built: 0, cost: 0, why: 'Not enough money (' + money$(p.cost) + ')' };
+  const r = placeRail(s, p.path);
+  if (r.built) simLog(s, 'A siding of ' + plural(r.built, 'tile', 'tiles') + ' to the ' + (BUILDINGS[b.type].short || BUILDINGS[b.type].name).toLowerCase() + ': the train loads at its gate (' + money$(r.cost) + ').', [b.x + b.w / 2, b.y + b.h / 2]);
+  return r;
+}
+
+// A producer's ways to its taker, in numbers she can read: { cart: { tiles, days, loads, makes }, rail: {...} | null }.
+// cart: the road trip its carts drive now (or would), days on the way (one way), loads a month its carts can move.
+// rail: by its siding (now or offered), or by a station within van reach: days, loads a month the line's trains
+// carry, $ a load (the line's track upkeep, the runs and the station's upkeep over its loads last month, at least the
+// coal of one run over a full train).
+function rlCompare(s, b) {
+  const def = BUILDINGS[b.type];
+  if (def.kind !== 'producer' || !def.makes) return null;
+  const g = def.makes, makes = Math.round(def.rate * outputMult(s) * 10) / 10;
+  s._rlPlain = true;
+  let best;
+  try { best = consumerFind(s, b, g); } finally { s._rlPlain = false; }
+  const out = { g, makes, cart: null, rail: null, to: best ? best.d : null };
+  if (best) {
+    const path = cartRoute(s, b, best.d), tt = path ? tripTicks(s, path) : null;
+    if (tt) {
+      const round = 2 * tt.now + 8, loads = Math.round(TUNE.cartsMax * cartLoadOf(def) * TUNE.ticksPerMonth / round);
+      out.cart = { tiles: tt.tiles, ticks: tt.now, days: rlDays(tt.now), loads, to: best.d };
+    }
+  }
+  const own = rlMakerLine(s, b), sid = own ? null : sidingPlan(s, b);
+  const cap = rlLineCap(), perLoad = (L) => { const ld = L ? rlLineLoad(s, L) : 0, tiles = L ? L.tiles.length : 0; return ld > 0 ? Math.round((tiles * TR.railUpkeep + TR.trainTrip * Math.ceil(ld / TR.trainCap)) / ld * 10) / 10 : Math.round(TR.trainTrip / TR.trainCap * 10) / 10; };
+  if (own) {
+    const d = rlTakersFor(s, own, g)[0];
+    if (d) { const ride = TR.railTrip / 2 + rlRideTicks(s, own, b, d); out.rail = { how: 'siding', ticks: ride, days: rlDays(ride), loads: cap, cost: perLoad(own), to: d, last: (b.lastRail || 0) + (b.mRail || 0) }; }
+  } else if (sid) {
+    // the siding offered: the line it joins
+    const L = railLines(s).lines.find((l) => sid.path.length && l.tiles.some((i) => { const [x, y] = rlXY(sid.path[0]); return Math.abs(i % MAP_W - x) + Math.abs(((i / MAP_W) | 0) - y) === 1; }));
+    const d = L ? rlTakersFor(s, L, g)[0] : null;
+    if (d) { const ride = TR.railTrip / 2 + Math.ceil((sid.tiles + rlTrackFromTile(s, L, sid.path[0], d)) / TR.trainSpeed) + 1; out.rail = { how: 'offer', siding: sid, ticks: ride, days: rlDays(ride), loads: cap, cost: perLoad(L), to: d }; }
+  }
+  if (!out.rail) {
+    s._rlPlain = false;
+    const alt = rlByRail(s, b, g, null);
+    if (alt && alt.d && alt.d.type === 'station') out.rail = { how: 'station', st: alt.d, ticks: alt.via, days: rlDays(alt.via), loads: cap, cost: perLoad(rlLineOfB(s, alt.d)), to: alt.to, last: (b.lastVan || 0) + (b.mVan || 0) + (b.lastBelt || 0) };
+  }
+  return out;
+}
+function rlTrackFromTile(s, L, tile, d) {
+  const t = rlTrackFrom(s, L, d);
+  let best = Infinity;
+  const [x, y] = rlXY(tile);
+  for (const [dx, dy] of DIRS4) { const j = tileIdx(x + dx, y + dy); if (inMap(x + dx, y + dy) && t.dist.has(j)) best = Math.min(best, t.dist.get(j)); }
+  return isFinite(best) ? best : L.tiles.length;
+}
+
+// The far works: makers whose carts drive TR.farTrip+ tiles to their taker and whose goods the train could take sooner
+// (a siding the card offers): the one with the longest trip first. For the planters' ask and Rosa.
+TR.farTrip = 18;
+function rlFarWorks(s) {
+  if (!rlOn(s) || s.stage < TR.railStage) return [];
+  const c = simCache(s);
+  if (c.rlFar) return c.rlFar;
+  const out = [];
+  for (const b of s.b) {
+    const def = BUILDINGS[b.type];
+    if (def.kind !== 'producer' || !def.makes || !b.open || rlMakerLine(s, b)) continue;
+    const tr = producerTrip(s, b);
+    if (!tr || tr.tiles < TR.farTrip) continue;
+    const cmp = rlCompare(s, b);
+    if (!cmp || !cmp.cart || cmp.cart.tiles < TR.farTrip || !cmp.rail || cmp.rail.how !== 'offer' || cmp.rail.ticks >= cmp.cart.ticks) continue;
+    out.push({ b, cmp });
+  }
+  out.sort((a, b) => b.cmp.cart.tiles - a.cmp.cart.tiles || a.b.id - b.b.id);
+  return (c.rlFar = out);
+}
+
+// ---------- the planners of the earlier modules: lines that cross streets, never run along them ----------
+{
+  // the planters' railway (A3) and the central's pair (A10): their straight lines stop before a street they would run along
+  const _crl = comRailLine;
+  comRailLine = function (s) {
+    const r = _crl.apply(this, arguments);
+    if (!r || !rlOn(s) && !r.line.some((i) => s.road[i])) return r;
+    const line = rlLineTrim(s, r.line);
+    return line.length >= 8 ? Object.assign({}, r, { line }) : null;
+  };
+  const _irf = isleRailFrom;
+  isleRailFrom = function (s, t, min) {
+    const r = _irf.apply(this, arguments);
+    if (!r || !r.line.some((i) => s.road[i])) return r;
+    const line = rlLineTrim(s, r.line);
+    return line.length >= 8 ? Object.assign({}, r, { line }) : null;
+  };
+  // A10's line from a walled-in mill out into open land: across the streets (before A14 it ran along them)
+  railPath = function (s) {
+    const takers = s.b.filter((b) => { const u = BUILDINGS[b.type].uses; return u && u.cane !== undefined; });
+    const occ = occMap(s), free = (x, y) => inMap(x, y) && !occ[tileIdx(x, y)] && !s.road[tileIdx(x, y)] && s.terrain[tileIdx(x, y)] !== SEA && s.terrain[tileIdx(x, y)] !== FOREST && tileOpenAt(s, tileIdx(x, y));
+    const open = (x, y) => { let n = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (free(x + dx, y + dy)) n++; return n; };
+    let best = null;
+    for (const t of takers) {
+      const starts = [];
+      for (let y = t.y - TR.railNear; y < t.y + t.h + TR.railNear; y++) for (let x = t.x - TR.railNear; x < t.x + t.w + TR.railNear; x++) if (inMap(x, y) && !railWhy(s, x, y) && !s.road[tileIdx(x, y)] && footDist(t, tile1(tileIdx(x, y))) <= TR.railNear) starts.push(tileIdx(x, y));
+      const goal = (j) => { const [x, y] = rlXY(j); return free(x, y) && footDist(t, tile1(j)) >= 4 && open(x, y) >= 18; };
+      // the start itself may already be open land 4 tiles out: then the line is that start and its run on
+      const line = rlRoute(s, starts, goal, new Set(), 40);
+      if (!line || line.length > 22) continue;
+      const a = line.length > 1 ? line[line.length - 2] : line[0], b = line[line.length - 1], dx = b % MAP_W - a % MAP_W, dy = ((b / MAP_W) | 0) - ((a / MAP_W) | 0);
+      for (let k = 1; k <= 6 && (dx || dy); k++) { const x = b % MAP_W + dx * k, y = ((b / MAP_W) | 0) + dy * k; if (!free(x, y)) break; line.push(tileIdx(x, y)); }
+      if (line.length < 8 || railPlan(s, line).bad.length) continue;
+      let score = 0;
+      for (const i of line.slice(-6)) score += open(i % MAP_W, (i / MAP_W) | 0);
+      score -= line.filter((i) => s.road[i]).length * 4;
+      if (!best || score > best.score) best = { line, t, score };
+    }
+    return best && best.score > 30 ? best : null;
+  };
+  const T = COMMISSIONS.find((q) => q.key === 'railway');
+  if (T) {
+    const _w = T.when;
+    T.when = function (s) {
+      const r = _w.apply(this, arguments);
+      if (r && r.ask) r.ask = r.ask.replace('along the street and into the valley', 'across the street and into the valley');
+      // a straight line beside the mill is cut more often now (it may not run along a street): a line from the mill that
+      // turns and crosses the streets into the valley comes before A10's sugar central with its railway ($26,800 on the
+      // scripted City, which then never laid it)
+      if (r && r.plan && r.plan.kind === 'railpair' && typeof isleOn === 'function' && isleOn()) {
+        const mills = s.b.filter((b) => { const u = BUILDINGS[b.type].uses; return u && u.cane !== undefined; }), L = mills.length ? railPath(s) : null;
+        if (L) {
+          const mill = comBName(mills[0].type);
+          return { tool: 'rail', line: L.line, near: [L.t.x, L.t.y], gift: Math.round(L.line.length * TR.railCost / 2),
+            ask: 'The valley past the ' + mill + ' is good land with no road. A railway from the ' + mill + ' across the street and into the valley (the dotted line): fields by the track need no road. We pay half.',
+            praise: 'The first train! Fields beside the track need no road now: plant cane along it.' };
+        }
+      }
+      return r;
+    };
+  }
+}
+
+// The planters' (and the works') ask for a siding when a far works' carts take too long: the dotted spur, its price;
+// done when the works is on the line. A suggestion: her own track anywhere that reaches the works counts the same.
+COMMISSIONS.push({ key: 'siding', p: 3, who: 'planters', when(s) {
+  const far = rlFarWorks(s)[0];
+  if (!far) return null;
+  const { b, cmp } = far, name = (BUILDINGS[b.type].short || BUILDINGS[b.type].name).toLowerCase(), to = cmp.cart.to ? comBName(cmp.cart.to.type) : 'the harbor';
+  return { tool: 'rail', line: cmp.rail.siding.path, near: [b.x, b.y], select: b.id, sub: String(b.id), who: railField(BUILDINGS[b.type]) ? 'planters' : 'merchant',
+    ask: 'The carts of the ' + name + ' ride ' + cmp.cart.tiles + ' tiles of road to the ' + to + ': ' + cmp.cart.days + ' days on the way. A siding from the railway to its gate (the dotted spur, ' + plural(cmp.rail.siding.tiles, 'tile', 'tiles') + '), and the train loads there: ' + cmp.rail.days + ' days.',
+    praise: 'The siding is laid: the train loads at the gate of the ' + name + '.' };
+} });
+{
+  const _cid = comIsDone;
+  comIsDone = function (s, q) {
+    if (q.key === 'siding') { const b = bById(s, +q.sub); return !b || !!rlMakerLine(s, b); }
+    return _cid.apply(this, arguments);
+  };
+  const _cg = comGone;
+  comGone = function (s, q) {
+    if (q.key === 'siding') { const b = bById(s, +q.sub); return !b || (!rlMakerLine(s, b) && !rlFarWorks(s).some((f) => f.b.id === b.id)); }
+    return _cg.apply(this, arguments);
+  };
+}
+
+// ---------- old track along a street (laid before A14): it keeps working; the game shows it and offers to relay it ----------
+// The pieces of old track along streets, each with its relay plan: { tiles (on the street), add (beside it), cost }.
+function rlOldRuns(s) {
+  const c = simCache(s);
+  if (c.rlOld) return c.rlOld;
+  const old = new Set(rlCrossInfo(s).old), runs = [], seen = new Set();
+  for (const i0 of old) {
+    if (seen.has(i0)) continue;
+    const run = [i0]; seen.add(i0);
+    for (let h = 0; h < run.length; h++) { const [x, y] = rlXY(run[h]); for (const [dx, dy] of DIRS4) { const j = tileIdx(x + dx, y + dy); if (inMap(x + dx, y + dy) && old.has(j) && !seen.has(j)) { seen.add(j); run.push(j); } } }
+    runs.push({ tiles: run, add: null, cost: 0 });
+  }
+  for (const r of runs) {
+    const set = new Set(r.tiles), nb = [];
+    for (const i of r.tiles) { const [x, y] = rlXY(i); for (const [dx, dy] of DIRS4) { const j = tileIdx(x + dx, y + dy); if (inMap(x + dx, y + dy) && railAt(s, j) && !set.has(j)) nb.push(j); } }
+    // starts beside the first neighbouring track (else beside the run's first tile); the goal: the other track it joined,
+    // else open land beside the run's far end
+    const from = nb.length ? nb[0] : r.tiles[0], starts = [];
+    const [fx, fy] = rlXY(from);
+    for (const [dx, dy] of DIRS4) { const j = tileIdx(fx + dx, fy + dy); if (inMap(fx + dx, fy + dy) && !set.has(j)) starts.push(j); }
+    const others = new Set(nb.slice(1).filter((j) => Math.abs(j % MAP_W - fx) + Math.abs(((j / MAP_W) | 0) - fy) > 2));
+    const far = r.tiles.reduce((m, i) => { const [x, y] = rlXY(i); return Math.abs(x - fx) + Math.abs(y - fy) > Math.abs(m % MAP_W - fx) + Math.abs(((m / MAP_W) | 0) - fy) ? i : m; }, r.tiles[0]);
+    const [ex, ey] = rlXY(far);
+    const goal = others.size ? (j) => others.has(j) : (j) => Math.abs(j % MAP_W - ex) + Math.abs(((j / MAP_W) | 0) - ey) === 1 && !s.road[j] && !railAt(s, j) && !railWhy(s, j % MAP_W, (j / MAP_W) | 0);
+    const p = rlRoute(s, starts, goal, set, r.tiles.length * 3 + 12);
+    if (!p) continue;
+    const add = p.filter((i) => !railAt(s, i));
+    if (!add.length) continue;
+    r.add = add;
+    r.cost = add.length * TR.railCost - Math.floor(r.tiles.length * TR.railCost * TUNE.refund);
+  }
+  return (c.rlOld = runs);
+}
+// Relay one piece (her tap on the button that names it): the old tiles come up, the new ones go down beside the street.
+function rlRelay(s, k) {
+  const r = rlOldRuns(s)[k || 0];
+  if (!r || !r.add) return { ok: false, why: 'No way beside the street' };
+  const lay = r.add.length * TR.railCost, back = Math.floor(r.tiles.length * TR.railCost * TUNE.refund);
+  if (s.money + back < lay) return { ok: false, why: 'Not enough money (' + money$(lay - back) + ')' };
+  const rm = new Set(r.tiles);
+  s.rail = s.rail.filter((i) => !rm.has(i)).concat(r.add).sort((a, b) => a - b);
+  s.money += back - lay;
+  s.ver++;
+  simLog(s, 'The old track along the street is relaid beside it: ' + plural(r.tiles.length, 'tile', 'tiles') + ' taken up, ' + plural(r.add.length, 'tile', 'tiles') + ' laid (' + money$(lay - back) + ').', rlXY(r.add[(r.add.length / 2) | 0]));
+  return { ok: true, cost: lay - back, up: r.tiles.length, laid: r.add.length };
+}
+
+// Rosa, once: the old track along a street (with Show).
+GUIDE_PROBLEMS.splice(Math.max(0, GUIDE_PROBLEMS.findIndex((p) => p.key === 'jam')), 0, { key: 'oldtrack', check(s) {
+  if (s.guide.seen.oldtrack || !rlOn(s)) return null;
+  const runs = rlOldRuns(s);
+  if (!runs.length) return null;
+  const n = runs.reduce((a, r) => a + r.tiles.length, 0), r = runs.find((q) => q.add) || runs[0], at = rlXY(r.tiles[(r.tiles.length / 2) | 0]);
+  return { text: plural(n, 'tile', 'tiles') + ' of the old railway run along the street (laid before the level crossings): trains and carts share it, and it keeps working. ' + (r.add ? 'Relay it beside the street when you like: its card on the map says what it costs.' : 'Relay it beside the street when you like: take it up with Remove and draw the line beside it.'), btn: 'Show', act: { at } };
+} });
+{
+  const _gm = guideMonth;
+  guideMonth = function (state) {
+    _gm.apply(this, arguments);
+    if (state.guide.msg && state.guide.msg.key === 'oldtrack') state.guide.seen.oldtrack = state.month + 1;
+  };
+}
+
+// ---------- a station with no lot: the step is the track (the build bar's hint, Rosa's way) ----------
+{
+  const _wf = wayFor;
+  wayFor = function (state, type) {
+    const w = _wf.apply(this, arguments);
+    return type === 'station' && w && w.step === 'none' ? { step: 'rail' } : w;
+  };
+  const _wt = wayText;
+  wayText = function (s, type) {
+    if (type === 'station') { const w = wayFor(s, type); if (w && w.step === 'rail') return { short: 'track first', text: 'A station stands beside the railway along one of its long sides, with a road beside it: lay the track past a free lot by a road first.', btn: 'Railway', act: { tool: 'rail' } }; }
+    return _wt.apply(this, arguments);
+  };
+}
+
+// ---------- old saves ----------
+// An island from before A14 keeps its track where it is (on streets too: it keeps working) and its fields by the track
+// keep their siding; works within the track's reach now load onto the train too. The log says so once.
+function rlMigrate(s) {
+  if (!s || s.rl || !rlOn(s)) return s;
+  rlState(s);
+  const old = rlCrossInfo(s).old.length, cross = rlCrossInfo(s).n;
+  s.rl.old0 = old;
+  simLog(s, 'The railway now has level crossings' + (cross ? ' (' + cross + ' on this island)' : '') + (old ? '; ' + plural(old, 'tile', 'tiles') + ' of old track run along streets and keep working' : '') + '. Fields and works beside the track have their siding.');
+  return s;
+}
+{
+  const _lg = loadGame;
+  loadGame = function (obj) { return rlMigrate(_lg.apply(this, arguments)); };
+  // the track laid by her (or a plan) starts the railway's own state
+  const _pr = placeRail;
+  placeRail = function (state, tiles) { const r = _pr.apply(this, arguments); if (r.built) rlState(state); return r; };
+}
+
+// ---- src/sim/junctions.js
+// Junctions and roundabouts (16 Oct 2026, `nova/rbt`; Tomáš: "I clearly miss making more sophisticated transport …
+// roundabouts …"). Rules and numbers: DESIGN.md §36; sources: docs/research/roundabouts.md.
+// - A junction is a road tile where three or four roads meet (an avenue's other carriageway or a road laid right beside
+//   is not a road meeting it). Its carts are counted by the side they come in from: the main road is the axis most
+//   come in along; the others cross it (or turn in) and wait for a gap in the main road both ways, so a crossing cart
+//   takes the room of two. The junction's load = its carts × (1 + the share that cross): a quiet side street changes
+//   nothing (share ~0), a crossroads where half the carts cross carries two thirds of its road.
+// - A roundabout (her tool, from Town; or one tap on the Traffic legend's offer, its price on the button): nobody
+//   crosses, every cart merges once, so the junction carries its road's full number again: × (1 + share) the carts,
+//   up to ×1.5 where half of them cross. It costs JCT.cost ($1,500; on an avenue $3,000) and JCT.upkeep a month.
+// Saved: state.rbt (tile indices), state.traffic.jx (the crossing share per junction, folded like the load) and
+// state.traffic.jxr (its copy when the month began, for the routes). Old saves: no roundabouts, shares 0 until measured.
+
+const JCT = {
+  cross: 2,              // a crossing cart counts as this many carts at a plain junction (at a roundabout: 1)
+  cost: 1500, avenueCost: 3000,
+  upkeep: 15, avenueUpkeep: 30,
+  stage: 2,              // Town
+  offer: 1.2,            // the legend and Rosa offer a roundabout where it carries at least this many times the carts
+  minCarts: 2,           // carts in a window before its crossing share is measured
+};
+
+function rbtList(state) { if (!state.rbt) state.rbt = []; return state.rbt; }
+
+// Per road change: arms[i] = 3 or 4 where roads meet (0 elsewhere), rbt[i] = 1 on a roundabout.
+function jctMap(state) {
+  const c = simCache(state);
+  if (c.jct) return c.jct;
+  const n = MAP_W * MAP_H, arms = new Uint8Array(n), rb = new Uint8Array(n), R = state.road;
+  const rd = (x, y) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && R[y * MAP_W + x] > 0;
+  const D = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  let any = 0;
+  for (let i = 0; i < n; i++) {
+    if (!R[i]) continue;
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
+    let raw = 0, arm = 0;
+    for (const [dx, dy] of D) {
+      if (!rd(x + dx, y + dy)) continue;
+      raw++;
+      // a side, not an arm: the road beside runs along with this one (both have road ahead and behind)
+      const px = -dy, py = dx;
+      if (rd(x + px, y + py) && rd(x - px, y - py) && rd(x + dx + px, y + dy + py) && rd(x + dx - px, y + dy - py)) continue;
+      arm++;
+    }
+    if (raw === 4 || arm >= 3) { arms[i] = raw; any++; }
+  }
+  for (const i of rbtList(state)) if (R[i]) rb[i] = 1;
+  return (c.jct = { arms, rb, any });
+}
+function jctAt(state, i) { return jctMap(state).arms[i] || 0; }
+function rbtAt(state, i) { return jctMap(state).rb[i] === 1; }
+
+// The share of a junction's carts that cross its main road (0 to 0.5), as measured (route: when the month began).
+function jctShare(state, i, route) {
+  const T = trState(state), m = route ? (T.jxr || T.jx) : T.jx;
+  return (m && m[i]) || 0;
+}
+// How much more the junction's carts weigh than on a plain road: 1 on a road, a roundabout or a quiet junction.
+function jctWeight(state, i, route) {
+  if (!jctAt(state, i) || rbtAt(state, i)) return 1;
+  return 1 + (JCT.cross - 1) * jctShare(state, i, route);
+}
+// What a roundabout would carry here against the junction as it is (×1 to ×1.5).
+function rbtGain(state, i) { return jctAt(state, i) && !rbtAt(state, i) ? 1 + (JCT.cross - 1) * jctShare(state, i) : 1; }
+
+{
+  const _trafficLevel = trafficLevel;
+  trafficLevel = function (state, i) { const l = _trafficLevel(state, i); return l ? l * jctWeight(state, i) : l; };
+  const _routeLevel = routeLevel;
+  routeLevel = function (state, i) { const l = _routeLevel(state, i); return l ? l * jctWeight(state, i, true) : l; };
+  // the carts coming into each junction, by the side they come in from (0 east, 1 south, 2 west, 3 north)
+  const _trTick = trTick;
+  trTick = function (state) {
+    const J = jctMap(state), T = trState(state);
+    if (J.any) {
+      if (!T.jc) T.jc = {};
+      for (const c of state.carts) {
+        if (c.st === 'idle' || !c.path) continue;
+        const i = c.path[Math.min(c.path.length - 1, Math.floor(c.pos))], p = c.lt;
+        if (p === i || !J.arms[i] || p === undefined || p < 0) continue;
+        const d = i - p, side = d === 1 ? 2 : d === -1 ? 0 : d === MAP_W ? 3 : d === -MAP_W ? 1 : -1;
+        if (side < 0) continue;
+        const o = T.jc[i] || (T.jc[i] = [0, 0, 0, 0]);
+        o[side]++;
+      }
+    }
+    _trTick(state);
+    if (state.tick % TR.window === TR.window - 1) jctFold(state);
+    if (state.mt === 0) T.jxr = Object.assign({}, T.jx || {});
+  };
+}
+
+// Each quarter month: the crossing share of every junction, half the old and half the new (as the load).
+function jctFold(state) {
+  const T = trState(state), J = jctMap(state), cnt = T.jc || {}, old = T.jx || {}, next = {};
+  for (const k in cnt) {
+    const i = +k;
+    if (!J.arms[i]) continue;
+    const o = cnt[k], tot = o[0] + o[1] + o[2] + o[3];
+    if (tot < JCT.minCarts) { if (old[k]) next[k] = old[k]; continue; }
+    const cross = Math.min(o[0] + o[2], o[1] + o[3]) / tot, v = old[k] === undefined ? cross : 0.5 * old[k] + 0.5 * cross;
+    if (v >= 0.005) next[k] = Math.round(v * 100) / 100;
+  }
+  // a junction no cart came through this window keeps half its share (it fades as its load does)
+  for (const k in old) if (!(k in next) && !(k in cnt) && J.arms[+k] && old[k] >= 0.01) next[k] = Math.round(old[k] * 50) / 100;
+  T.jx = next; T.jc = {};
+}
+
+// ---------- building a roundabout ----------
+function rbtCost(state, i) { return state.road[i] === 3 ? JCT.avenueCost : JCT.cost; }
+function rbtUpkeepOf(state, i) { return state.road[i] === 3 ? JCT.avenueUpkeep : JCT.upkeep; }
+
+// Why a roundabout cannot go on tile i ('' when it can); anyMoney: as if the treasury could pay (is it an offer?).
+function rbtWhy(state, i, anyMoney) {
+  if (i < 0 || i >= state.road.length || !state.road[i]) return 'A roundabout goes on a crossing of roads';
+  if (state.stage < JCT.stage) return 'Roundabouts open at ' + STAGES[JCT.stage].name;
+  if (rbtAt(state, i)) return 'Already a roundabout';
+  if (!jctAt(state, i)) return 'Not a crossing: a roundabout goes where three or four roads meet';
+  if ((state.tram || []).length && tramSet(state)[i]) return 'The tram line runs through this crossing';
+  if ((state.rail || []).length && railAt(state, i)) return 'The railway crosses here';
+  const x = i % MAP_W;
+  for (const j of [x + 1 < MAP_W ? i + 1 : -1, x > 0 ? i - 1 : -1, i + MAP_W, i - MAP_W]) if (j >= 0 && rbtAt(state, j)) return 'Too close to the roundabout beside it';
+  if (!anyMoney && state.money < rbtCost(state, i)) return 'Not enough money (' + money$(rbtCost(state, i)) + ')';
+  return '';
+}
+
+function placeRbt(state, i) {
+  const why = rbtWhy(state, i);
+  if (why) return { ok: false, why };
+  const cost = rbtCost(state, i);
+  state.money -= cost;
+  rbtList(state).push(i);
+  state.ver++;
+  simEvent(state, { kind: 'rbt', i });
+  return { ok: true, cost };
+}
+
+// The roundabouts that still stand on a road (a road removed takes its roundabout with it).
+function rbtTidy(state) {
+  if (!state.rbt || !state.rbt.length) return;
+  const keep = state.rbt.filter((i) => state.road[i] > 0);
+  if (keep.length !== state.rbt.length) { state.rbt = keep; state.ver++; }
+}
+
+// Remove on a roundabout takes the roundabout away first (the crossing stays); a second Remove takes the road.
+{
+  const _removeInfo = removeInfo;
+  removeInfo = function (state, x, y) {
+    const r = _removeInfo(state, x, y);
+    if (r.road !== undefined && rbtAt(state, r.road)) return { rbt: r.road, refund: Math.floor(rbtCost(state, r.road) * TUNE.refund) };
+    return r;
+  };
+  const _removeAt = removeAt;
+  removeAt = function (state, x, y) {
+    const info = removeInfo(state, x, y);
+    if (info.rbt !== undefined) {
+      state.rbt = rbtList(state).filter((i) => i !== info.rbt);
+      state.money += info.refund; state.ver++;
+      return info;
+    }
+    const r = _removeAt(state, x, y);
+    rbtTidy(state);
+    return r;
+  };
+}
+
+// ---------- money: the roundabouts' upkeep (one line on the receipt) ----------
+function rbtUpkeep(state) {
+  let n = 0;
+  for (const i of state.rbt || []) if (state.road[i]) n += rbtUpkeepOf(state, i);
+  return n;
+}
+{
+  const _paydayRun = paydayRun;
+  paydayRun = function (state) {
+    rbtTidy(state);
+    const r = _paydayRun(state), up = rbtUpkeep(state);
+    if (up) {
+      r.lines.push({ id: 0, what: 'rbt', n: -up }); r.result -= up; state.money -= up;
+      const hh = state.history[state.history.length - 1];
+      if (hh && hh.m === state.month) { hh.money = state.money; hh.result = r.result; }
+    }
+    r.rbt = up ? { n: (state.rbt || []).length, up } : null;
+    return r;
+  };
+  const _receiptLines = receiptLines;
+  receiptLines = function (state, r) {
+    const lines = _receiptLines(state, r);
+    if (!r.rbt) return lines;
+    const at = lines.findIndex((l) => l[0] === 'Wages and upkeep');
+    lines.splice(at >= 0 ? at + 1 : lines.length, 0, ['Roundabouts upkeep (' + r.rbt.n + ')', -r.rbt.up]);
+    return lines.slice(0, 11);
+  };
+}
+
+// ---------- words ----------
+// "the crossroads by the market" (4 arms), "the junction by the market" (3), "the roundabout by the market".
+function jctWord(state, i) { return rbtAt(state, i) ? 'roundabout' : jctAt(state, i) === 4 ? 'crossroads' : 'junction'; }
+{
+  const _placeName = placeName;
+  placeName = function (state, i) {
+    const r = _placeName(state, i);
+    if (!jctAt(state, i)) return r;
+    const w = jctWord(state, i);
+    return r === 'a road in town' ? 'a ' + w + ' in town' : r.replace(/^the road by/, 'the ' + w + ' by');
+  };
+}
+
+// The junction's line (the legend, Rosa, the tests): { i, level, share, gain, offer, word } or null.
+function jctInfo(state, i) {
+  if (!jctAt(state, i)) return null;
+  const share = jctShare(state, i), gain = rbtGain(state, i), level = trafficLevel(state, i);
+  const offer = !rbtAt(state, i) && level > TR.busy && gain >= JCT.offer && state.stage >= JCT.stage && !rbtWhy(state, i, true);
+  return { i, level, share, gain, offer, word: jctWord(state, i), rbt: rbtAt(state, i), cost: rbtCost(state, i) };
+}
+// "×1.4"
+function gainText(g) { return '×' + (Math.round(g * 10) / 10).toFixed(1); }
+
+// Rosa's jam line: where the worst jam is a junction a roundabout would help, she names the roundabout (her button
+// arms the tool there; the crossing is lit, she taps it to build).
+{
+  const P = GUIDE_PROBLEMS.find((p) => p.key === 'jam');
+  if (P) {
+    const _check = P.check;
+    P.check = function (s) {
+      const m = _check.call(this, s);
+      if (!m) return m;
+      const j = worstJam(s), ji = j && jctInfo(s, j.i);
+      if (!ji || !ji.offer) return m;
+      const where = placeName(s, j.i), slow = Math.round(1 / trSlowOf(j.level) * 10) / 10, part = Math.round(ji.share * 100);
+      return { text: 'Traffic jam at ' + where + ': carts there go ' + slow + '× slower; ' + part + ' % of them cross the main road and wait for a gap. A roundabout lets them merge instead: it carries ' + gainText(ji.gain) + ' the carts here, for ' + money$(ji.cost) + ' and ' + money$(rbtUpkeepOf(s, j.i)) + ' a month.',
+        btn: 'Roundabout', act: { tool: 'rbt', at: [j.i % MAP_W, (j.i / MAP_W) | 0] } };
+    };
+  }
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -13764,6 +14948,137 @@ const ISO = (() => {
       g.beginPath(); g.arc(cx + a * 0.8 + o * 0.3, cy - a * 0.5 + o, 0.022, 0, TAU); g.fillStyle = r > 0.5 ? 'rgba(120,105,85,.35)' : 'rgba(255,252,240,.5)'; g.fill();
     }
   }
+  // ---------- roundabouts (nova/rbt, DESIGN.md §36) ----------
+  // On the ground of both views: a ring road (dirt, or cobbles inside a stone kerb when paved) round a planted island
+  // with its kerb and flowers (an avenue's with a clipped hedge); a palm stands on it (objectsBuild), its lamp glows at
+  // night (dayLamps); carts go round it on their right (pathAt). The ground and the objects are rebuilt on s.ver.
+  const RBT_RO = 0.47, RBT_RI = 0.2, RBT_LANE = 0.19;
+  function rbtPaint(g, s, x0, y0, x1, y1) {
+    const L = s.rbt;
+    if (!L || !L.length) return;
+    g.lineCap = 'butt';
+    for (const i of L) {
+      const k = s.road[i];
+      if (!k) continue;
+      const x = i % MAP_W, y = (i / MAP_W) | 0;
+      if (x < x0 || x > x1 || y < y0 || y > y1) continue;
+      const cx = x + 0.5, cy = y + 0.5, Ro = RBT_RO, Ri = RBT_RI;
+      const disc = (r, col) => { g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.fillStyle = col; g.fill(); };
+      const ring = (r, col, w, dash, off) => { g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.strokeStyle = col; g.lineWidth = w; if (dash) { g.setLineDash(dash); g.lineDashOffset = off || 0; } g.stroke(); if (dash) g.setLineDash([]); };
+      const nb = [[1, 0], [0, 1], [-1, 0], [0, -1]].filter(([dx, dy]) => isRoad(s, x + dx, y + dy));
+      if (k === 1) {
+        disc(Ro + 0.05, 'rgba(110,143,69,.28)'); disc(Ro + 0.02, '#a37b4c'); disc(Ro - 0.01, '#d3aa72');
+        // cart ruts round the ring
+        ring(0.35, 'rgba(179,138,88,.6)', 0.03, [0.3, 0.2]); ring(0.29, 'rgba(226,192,139,.55)', 0.05);
+      } else {
+        disc(Ro + 0.05, '#857b6d'); disc(Ro + 0.03, '#e6dfcf'); disc(Ro, '#a89c86');
+        [0.26, 0.33, 0.4].forEach((r, n) => ring(r, ['#cfc4ad', '#ddd3be', '#cfc4ad'][n], 0.062, [0.075, 0.02], n * 0.04));
+        // a give-way line where each street meets the ring (white dashes across its lane coming in)
+        g.strokeStyle = 'rgba(255,253,246,.85)'; g.lineWidth = 0.03; g.setLineDash([0.04, 0.03]);
+        for (const [dx, dy] of nb) { const ex = cx + dx * (Ro + 0.01), ey = cy + dy * (Ro + 0.01); g.beginPath(); g.moveTo(ex, ey); g.lineTo(ex - dy * 0.24, ey + dx * 0.24); g.stroke(); }
+        g.setLineDash([]);
+      }
+      // the island: a stone kerb, grass and flowers (an avenue's island: a clipped hedge inside the kerb)
+      disc(Ri + 0.025, '#b9ab8c'); disc(Ri, '#d9cfb8'); disc(Ri - 0.03, '#7fae55');
+      if (k === 3) { ring(Ri - 0.055, '#4f8a3e', 0.05); ring(Ri - 0.055, 'rgba(160,205,110,.6)', 0.015); }
+      for (let n = 0; n < 6; n++) { const a = n / 6 * TAU + h2(x, y) * 3, r = Ri * (k === 3 ? 0.42 : 0.6); g.beginPath(); g.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 0.024, 0, TAU); g.fillStyle = ['#f2c75a', '#e0583e', '#f0a3c0'][(x + y + n) % 3]; g.fill(); }
+    }
+    g.lineCap = 'round';
+  }
+  // the palm on each island (a static object, so carts behind it go behind it)
+  function rbtObjs(s) {
+    const out = [];
+    for (const i of s.rbt || []) {
+      if (!s.road[i]) continue;
+      const x = i % MAP_W, y = (i / MAP_W) | 0, cx = x + 0.5, cy = y + 0.5;
+      out.push({ k: 'palm', v: (x * 7 + y * 13) % 100, x0: cx - 0.45, y0: cy - 0.5, x1: cx + 0.45, y1: cy + 0.5, h: 2.2 });
+    }
+    return out;
+  }
+  // The roundabouts as a set (carts' paths), rebuilt when the island changes.
+  let RBT_SET = null, RBT_VER = -1, RBT_S = null;
+  function rbtSetOf(s) {
+    if (!s.rbt || !s.rbt.length) return null;
+    if (RBT_S !== s || RBT_VER !== s.ver) { RBT_SET = new Set(s.rbt.filter((i) => s.road[i])); RBT_VER = s.ver; RBT_S = s; }
+    return RBT_SET.size ? RBT_SET : null;
+  }
+  // A cart crossing a roundabout tile (u 0..1 across it): in from the edge it comes from, onto the ring a little to its
+  // right, round the island (anticlockwise on the map: traffic keeps right), off the ring and out to the edge it leaves
+  // by. The ring's lane is RBT_LANE from the centre; the caller's lane offset (0.14 to the cart's right) puts it on the
+  // middle of the ring. Returns [x, y, dx, dy] like pathAt.
+  function rbtPathAt(c, din, dout, u) {
+    const r0 = RBT_LANE, dl = 0.55, ti = Math.atan2(-din[1], -din[0]) - dl, to = Math.atan2(dout[1], dout[0]) + dl;
+    let D = ((ti - to) % TAU + TAU) % TAU;
+    if (D < 0.3) D += TAU;
+    const E0 = [c[0] - din[0] * 0.5, c[1] - din[1] * 0.5], X1 = [c[0] + dout[0] * 0.5, c[1] + dout[1] * 0.5];
+    const Pi = [c[0] + Math.cos(ti) * r0, c[1] + Math.sin(ti) * r0], Po = [c[0] + Math.cos(to) * r0, c[1] + Math.sin(to) * r0];
+    const tan = (a) => [Math.sin(a), -Math.cos(a)];
+    const herm = (A, mA, B, mB, t, L) => {
+      const t2 = t * t, t3 = t2 * t, h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2;
+      const d00 = 6 * t2 - 6 * t, d10 = 3 * t2 - 4 * t + 1, d01 = -6 * t2 + 6 * t, d11 = 3 * t2 - 2 * t;
+      const px = h00 * A[0] + h10 * mA[0] * L + h01 * B[0] + h11 * mB[0] * L, py = h00 * A[1] + h10 * mA[1] * L + h01 * B[1] + h11 * mB[1] * L;
+      const dx = d00 * A[0] + d10 * mA[0] * L + d01 * B[0] + d11 * mB[0] * L, dy = d00 * A[1] + d10 * mA[1] * L + d01 * B[1] + d11 * mB[1] * L, l = Math.hypot(dx, dy) || 1;
+      return [px, py, dx / l, dy / l];
+    };
+    const LA = Math.hypot(Pi[0] - E0[0], Pi[1] - E0[1]), LB = r0 * D, LC = Math.hypot(X1[0] - Po[0], X1[1] - Po[1]);
+    let d = clamp(u, 0, 1) * (LA + LB + LC);
+    if (d < LA) return herm(E0, din, Pi, tan(ti), d / LA, LA);
+    d -= LA;
+    if (d < LB) { const a = ti - d / r0, tg = tan(a); return [c[0] + Math.cos(a) * r0, c[1] + Math.sin(a) * r0, tg[0], tg[1]]; }
+    return herm(Po, tan(to), X1, dout, Math.min(1, (d - LB) / (LC || 1)), LC);
+  }
+  // the ground changes under a roundabout (its chunk is painted again), and its lamp is lit at night
+  {
+    const _tc = trackCodes;
+    trackCodes = function (s) { const o = _tc(s); for (const i of s.rbt || []) if (o[i]) o[i] += 16; return o; };
+    const _dl = dayLamps;
+    dayLamps = function (s) {
+      const o = _dl(s);
+      if (s.rbt && s.rbt.length) { const has = new Set(o); for (const i of s.rbt) if (s.road[i] && !has.has(i)) o.push(i); }
+      return o;
+    };
+  }
+  // The Traffic layer: a roundabout is drawn as its ring (in its colour) with its streets from the ring outward; a busy
+  // or jammed plain junction gets a ring round it (amber, red); with the Roundabout tool armed every crossing that can
+  // take one is ringed (white, pulsing), the one she tapped or Rosa named a little thicker.
+  {
+    const _tp = trafficPaths;
+    trafficPaths = function (s, keep) {
+      const J = typeof jctMap === 'function' ? jctMap(s) : null;
+      if (!J || !J.any) return _tp(s, keep);
+      const tp = _tp(s, (x, y) => !J.rb[tileIdx(x, y)] && (!keep || keep(x, y)));
+      const tool = typeof APP !== 'undefined' && APP.ui && APP.ui.tool === 'rbt', pick = typeof APP !== 'undefined' && APP.ui ? APP.ui.trPick : -1;
+      const D = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+      tp.rings = [];
+      for (let i = 0; i < s.road.length; i++) {
+        if (!J.arms[i] && !J.rb[i]) continue;
+        const x = i % MAP_W, y = (i / MAP_W) | 0;
+        if (keep && !keep(x, y)) continue;
+        const l = trafficLevel(s, i), k = l >= TR.jam ? 2 : l > TR.busy ? 1 : 0, cx = x + 0.5, cy = y + 0.5;
+        if (J.rb[i]) {
+          tp.n++;
+          for (const P2 of [tp.arms[k], tp.all]) {
+            P2.moveTo(cx + 0.31, cy); P2.arc(cx, cy, 0.31, 0, TAU);
+            for (const [dx, dy] of D) if (isRoad(s, x + dx, y + dy)) { P2.moveTo(cx + dx * 0.31, cy + dy * 0.31); P2.lineTo(cx + dx * 0.5, cy + dy * 0.5); }
+          }
+          tp.rings.push([cx, cy, k, 1, i === pick]);
+        } else if (k > 0 || (tool && !rbtWhy(s, i, true)) || i === pick) tp.rings.push([cx, cy, k, 0, i === pick, tool && !rbtWhy(s, i, true)]);
+      }
+      return tp;
+    };
+    const _ts = trafficStroke;
+    trafficStroke = function (g, tp, t, edge) {
+      _ts(g, tp, t, edge);
+      if (!tp.rings || !tp.rings.length) return;
+      for (const [cx, cy, k, rb, pick, cand] of tp.rings) {
+        if (rb) { g.beginPath(); g.arc(cx, cy, 0.1, 0, TAU); g.fillStyle = 'rgba(255,255,255,.85)'; g.fill(); if (!pick) continue; }
+        const r = rb ? 0.5 : 0.42, w = pick ? 0.14 : 0.09;
+        g.beginPath(); g.arc(cx, cy, r, 0, TAU);
+        g.strokeStyle = 'rgba(40,28,18,.6)'; g.lineWidth = w + 0.08; g.stroke();
+        g.strokeStyle = k || !cand ? TRAFFIC_COLS[k] : 'rgba(255,255,255,' + (0.7 + 0.3 * Math.sin(t * 4)).toFixed(3) + ')'; g.lineWidth = w; g.stroke();
+      }
+    };
+  }
   function unlockedRect(s) {
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (s.region[tileIdx(x, y)] <= s.stage) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + 1); y1 = Math.max(y1, y + 1); }
@@ -13861,6 +15176,7 @@ const ISO = (() => {
     if (rd.n) roadsStroke(g, rd);
     const pv = pavedGeom((x, y) => inMap(x, y) && s.road[tileIdx(x, y)] >= 2, rx0, ry0, rx1, ry1);
     if (pv.n) pavedStroke(g, pv);
+    rbtPaint(g, s, rx0, ry0, rx1, ry1);
     // M5: avenue medians (a planted promenade between the two carriageways), tram tracks, the cane railway
     trackPaint(g, s, rx0, ry0, rx1, ry1);
     // locked land: washed, hatched, with a dashed border
@@ -14599,6 +15915,7 @@ const ISO = (() => {
     if (art === 'residence') return [1.3, 1.6, 1.7, 1.9, 1.9, 2.3, 3.0][Math.min(6, b.level || 0)];
     if (art === 'pier') return 1.3;
     if (art === 'airfield') return 1.6;
+    if (art === 'station') return 1.25;
     return 1.2;
   }
   function pickHeight(b) {
@@ -14615,6 +15932,7 @@ const ISO = (() => {
     if (art === 'hut') return 0.75;
     if (art === 'workshop') return def.w >= 2 ? 1.35 : 0.9;
     if (art === 'civic') return 1.3;
+    if (art === 'station') return 0.95;
     return 1.3;
   }
   // A square building's last sprite (another turn's look) may stand in for one frame budget at a time (sprite(): ALT).
@@ -14667,6 +15985,7 @@ const ISO = (() => {
     if (art === 'residence') { const lv = Math.min(6, b.level || 0); return sprite(R, 'res|' + lv, foot, H, () => paintResidence(lv)); }
     if (art === 'pier') return sprite(R, 'pier|' + def.w + '|' + r, [vd.w, vd.h, 0.45, 0.45], H, () => paintPier(def, r));
     if (art === 'airfield') { const sea = seaView(s, b, r); return sprite(R, 'airfield|' + (sea ? sea.join(',') : '-'), foot, H, () => paintAirfield(vd, sea)); }
+    if (art === 'station') { const side = stationView(s, b, r); return sprite(R, 'station|' + vd.w + 'x' + vd.h + '|' + (side ? side.join(',') : '-'), foot, H, () => paintStation(vd, side)); }
     return sprite(R, 'box|' + b.type + '|' + vd.w + 'x' + vd.h, foot, H, () => boxAt(0.15, 0.15, vd.w - 0.3, vd.h - 0.3, 0, 0.6, '#d9c7a4'));
   }
   // Where a building keeps its piles (local tile coordinates of each pile's centre).
@@ -14695,6 +16014,7 @@ const ISO = (() => {
     return out.filter((p) => p[1] > 0);
   }
   // A13: a turned square building keeps its piles where its transposed layout has them
+  { const _ps0 = pileSpots; pileSpots = function (s, b, r) { return b.type === 'station' ? stationPile(s, b, r) : _ps0(s, b, r); }; }
   { const _ps = pileSpots; pileSpots = function (s, b, r) { const o = _ps(s, b, r); return bTX(b) ? o.map((p) => [p[0], p[1], p[3], p[2]].concat(p.slice(4))) : o; }; }
   function pileSprite(R, good, n) {
     return sprite(R, 'pile|' + good + '|' + n, [0.3, 0.3, 0.3, 0.3], 0.9, () => paintPile(good, n));
@@ -14715,6 +16035,7 @@ const ISO = (() => {
       else if ((t === GRASS || t === HILL) && r < 0.035) list.push({ k: r < 0.018 ? 'tree' : 'bush', v: Math.floor(r * 1000), x0: x, y0: y, x1: x + 1, y1: y + 1, h: r < 0.018 ? 1.1 : 0.4 });
     }
     for (const m of medians(s)) if ((m.x + m.y) % 2 === 0) list.push({ k: 'palm', v: (m.x * 7 + m.y * 13) % 100, x0: m.cx - 0.45, y0: m.cy - 0.5, x1: m.cx + 0.45, y1: m.cy + 0.5, h: 2.2 });
+    for (const o of rbtObjs(s)) list.push(o);
     // depth is decided in view coordinates (u, v): the same sort for every turn
     for (const o of list) {
       const q = vbox(r, o.x0, o.y0, o.x1, o.y1); o.u0 = q[0]; o.v0 = q[1]; o.u1 = q[2]; o.v1 = q[3];
@@ -15160,10 +16481,10 @@ const ISO = (() => {
     return out;
   }
   // Two lines offset from the centre of each track tile (steel rails), through curves and junctions like the roads.
-  function trackGeom(has, x0, y0, x1, y1, offs) {
+  function trackGeom(has, x0, y0, x1, y1, offs, draw) {
     const core = new Path2D(), lines = offs.map(() => new Path2D()), mids = [[1, 0.5], [0.5, 1], [0, 0.5], [0.5, 0]]; let n = 0;
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      if (!has(x, y)) continue;
+      if (!has(x, y) || (draw && !draw(x, y))) continue;
       n++;
       const nb = [has(x + 1, y), has(x, y + 1), has(x - 1, y), has(x, y - 1)], cnt = nb.filter(Boolean).length, cx = x + 0.5, cy = y + 0.5, M2 = (k) => [x + mids[k][0], y + mids[k][1]];
       const pls = [];
@@ -15187,12 +16508,23 @@ const ISO = (() => {
       for (let k = 0; k < 3; k++) { const u = 0.2 + k * 0.3, px = m.ax ? m.x + u : m.cx + (k - 1) * 0.06, py = m.ax ? m.cy + (k - 1) * 0.06 : m.y + u; g.beginPath(); g.arc(px, py, 0.035, 0, TAU); g.fillStyle = ['#f2c75a', '#e0583e', '#f0a3c0'][(m.x + m.y + k) % 3]; g.fill(); }
     }
     if ((s.rail || []).length) {
-      const set = new Set(s.rail), rg = trackGeom((x, y) => inMap(x, y) && set.has(tileIdx(x, y)), x0, y0, x1, y1, [-0.085, 0.085]);
+      const set = new Set(s.rail), hasR = (x, y) => inMap(x, y) && set.has(tileIdx(x, y)), rg = trackGeom(hasR, x0, y0, x1, y1, [-0.085, 0.085]);
+      // A14: at a level crossing the street runs on: timber boards between and beside the rails, no ballast
+      const X = typeof rlCrossInfo === 'function' ? rlCrossInfo(s).cross : {}, bal = Object.keys(X).length ? trackGeom(hasR, x0, y0, x1, y1, [], (x, y) => !X[tileIdx(x, y)]) : rg;
       if (rg.n) {
-        g.strokeStyle = 'rgba(80,70,50,.35)'; g.lineWidth = 0.46; g.stroke(rg.core);
-        g.strokeStyle = '#b3a487'; g.lineWidth = 0.4; g.stroke(rg.core);
-        g.setLineDash([0.035, 0.012]); g.strokeStyle = 'rgba(140,125,100,.6)'; g.lineWidth = 0.38; g.stroke(rg.core); g.setLineDash([]);
-        g.setLineDash([0.06, 0.1]); g.lineCap = 'butt'; g.strokeStyle = '#6e4b2c'; g.lineWidth = 0.32; g.stroke(rg.core); g.setLineDash([]); g.lineCap = 'round';
+        g.strokeStyle = 'rgba(80,70,50,.35)'; g.lineWidth = 0.46; g.stroke(bal.core);
+        g.strokeStyle = '#b3a487'; g.lineWidth = 0.4; g.stroke(bal.core);
+        g.setLineDash([0.035, 0.012]); g.strokeStyle = 'rgba(140,125,100,.6)'; g.lineWidth = 0.38; g.stroke(bal.core); g.setLineDash([]);
+        g.setLineDash([0.06, 0.1]); g.lineCap = 'butt'; g.strokeStyle = '#6e4b2c'; g.lineWidth = 0.32; g.stroke(bal.core); g.setLineDash([]); g.lineCap = 'round';
+        for (const k in X) {
+          const i = +k, x = i % MAP_W, y = (i / MAP_W) | 0;
+          if (x < x0 || x > x1 || y < y0 || y > y1) continue;
+          const ax = X[k] === 'x';
+          g.beginPath(); if (ax) g.rect(x + 0.02, y + 0.5 - 0.17, 0.96, 0.34); else g.rect(x + 0.5 - 0.17, y + 0.02, 0.34, 0.96);
+          g.fillStyle = '#9a7a52'; g.fill(); g.strokeStyle = 'rgba(70,45,25,.55)'; g.lineWidth = 0.02; g.stroke();
+          g.beginPath(); for (let q = 1; q < 6; q++) { if (ax) { g.moveTo(x + q / 6, y + 0.34); g.lineTo(x + q / 6, y + 0.66); } else { g.moveTo(x + 0.34, y + q / 6); g.lineTo(x + 0.66, y + q / 6); } }
+          g.strokeStyle = 'rgba(70,45,25,.45)'; g.lineWidth = 0.012; g.stroke();
+        }
         for (const l of rg.lines) { g.strokeStyle = '#4f5257'; g.lineWidth = 0.04; g.stroke(l); g.strokeStyle = '#c9cdd2'; g.lineWidth = 0.014; g.stroke(l); }
       }
     }
@@ -15236,6 +16568,7 @@ const ISO = (() => {
     if (!trLayerOn()) return;
     tileXf(R);
     trafficStroke(R.ctx, trafficPaths(s, null), t, true);
+    rlTrafficGround(R, s);
   }
   // A6: the Traffic layer is a diagram she reads at any hour: after dusk the hour's colour (A1's tint) would sink the
   // green and amber into the dark street, so the lines are drawn again over it, as strong as the dark is deep; a stretch
@@ -15301,7 +16634,9 @@ const ISO = (() => {
         out.push({ k: 'tram', x, y, fx: f[0] || (Math.abs(h[0]) > Math.abs(h[1]) ? Math.sign(h[0]) : 0), fy: f[1] || (Math.abs(h[1]) >= Math.abs(h[0]) ? Math.sign(h[1]) : 0) });
       });
     }
-    if ((s.rail || []).length) {
+    // A14: the trains run on the line's timetable (sim time: the carts at a crossing wait for the same train)
+    if ((s.rail || []).length && typeof rlTrainAt === 'function') { const T = s.tick + frac(); rlTrains(R, s, out, T); rlItems(R, s, out, T); }
+    else if ((s.rail || []).length) {
       railLines(s).lines.forEach((L, k) => {
         if (L.path.length < 3) return;
         const len = L.path.length - 1, q = pingpong(t * 1.0 + k * 7, len, 2.5), loaded = q.dir > 0 ? 0 : 1;
@@ -15352,6 +16687,238 @@ const ISO = (() => {
     const sc = R.hw / 44, base = P(q.x + q.fx * 0.2, q.y + q.fy * 0.2, 0.6), g = R.ctx;
     for (let i = 0; i < 4; i++) { const age = ((t * 0.8 + i / 4) % 1); g.globalAlpha = (1 - age) * 0.6; circ(base[0] + age * 10 * sc, base[1] - age * 26 * sc, (2.5 + age * 6) * sc, '#f1ece4'); }
     g.globalAlpha = 1;
+  }
+  // ---------- A14: the railway that works like a railway (DESIGN.md §35; sim/rail.js) ----------
+  // The station (platform, station house with its canopy, the goods shed), level crossings (boards between the rails,
+  // the crossbucks, from 1920 barriers that drop while the train is on the crossing and a keeper's hut by a paved road),
+  // buffer stops at the ends of the track, the loading platform at a siding, conveyors with their crates, trains of an
+  // engine and six wagons showing their goods, the carts bound for a station drawn as vans from 1920.
+  function rlYear(s) { return TUNE.startYear + Math.floor((s.month || 0) / 12); }
+  // The station in its view frame (W x D, the track on side [sx, sy]): painted in a frame where the long side runs
+  // along x and the track lies at y < 0, then mapped (a turn or a mirror keeps every box a box, so walls light as ever).
+  function paintStation(def, side) {
+    const W = def.w, D = def.h, sx = side ? side[0] : 0, sy = side ? side[1] : (W >= D ? -1 : 0), along = sy !== 0 || (!sx && W >= D);
+    const m = (cx, cy) => (sy === -1 ? [cx, cy] : sy === 1 ? [cx, D - cy] : sx === -1 ? [cy, cx] : sx === 1 ? [W - cy, cx] : [cx, cy]);
+    const bx = (x0, y0, x1, y1) => { const a = m(x0, y0), b = m(x1, y1); return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])]; };
+    const LL = 3, DD = 2, parts = [];
+    poly(rrPts(0.04, 0.04, W - 0.04, D - 0.04, 0.14).map((p) => P(p[0], p[1])), '#d8c6a0', ln('#c2ab7c'), 0.8 * S);
+    // the yard before the station house: packed earth with wheel tracks
+    { const [x, y, w, d] = bx(0.08, 1.08, 1.4, 1.94); groundPatch(x, y, x + w, y + d, '#cbb487'); }
+    // the platform along the track: dressed stone, a white edge, a bench
+    parts.push([bx(0.04, 0.02, LL - 0.04, 0.44), () => {
+      const [x, y, w, d] = bx(0.04, 0.02, LL - 0.04, 0.44);
+      boxAt(x, y, w, d, 0, 0.1, '#cdbfa6');
+      const e0 = m(0.06, 0.05), e1 = m(LL - 0.06, 0.05); seg(P(e0[0], e0[1], 0.105), P(e1[0], e1[1], 0.105), '#f4eee0', 1.6 * S);
+      const b0 = m(0.3, 0.3), b1 = m(0.6, 0.3); seg(P(b0[0], b0[1], 0.2), P(b1[0], b1[1], 0.2), '#6e4b2c', 2.2 * S);
+    }]);
+    // the station house at one end: cream walls, a tiled hip roof, its name board; a canopy on iron posts over the platform
+    parts.push([bx(0.14, 0.48, 1.4, 1.06), () => {
+      const [x, y, w, d] = bx(0.14, 0.48, 1.4, 1.06);
+      boxShadow(x, y, x + w, y + d, 1.0);
+      const wv = walls(x, y, w, d, 0, 0.78, '#f0e2c2'); bands(wv, w, d, 0.78);
+      for (const s2 of [0.22, 0.62, 1.02]) if (s2 < w - 0.1) win(wv.fl, s2, 0.3, 0.15, 0.27, '#3f6f63');
+      for (const s2 of [0.18, 0.44]) if (s2 < d - 0.1) win(wv.fr, s2, 0.3, 0.13, 0.27, '#3f6f63');
+      wallsOutline(wv);
+      hipRoof(x, y, w, d, 0.78, 0.36, 0.07, '#b5523b', { rows: 4 });
+      // the name board on the long face in view (the lower-left face when the house runs along x)
+      const f = w >= d ? wv.fl : wv.fr, L = w >= d ? w : d;
+      plaque(f, L / 2, 0.64, 'STATION', 8);
+    }]);
+    parts.push([bx(0.1, 0.04, 1.5, 0.46), () => {
+      const [x, y, w, d] = bx(0.1, 0.04, 1.5, 0.46);
+      for (const cx of [0.16, 0.8, 1.44]) { const q = m(cx, 0.1); seg(P(q[0], q[1], 0.1), P(q[0], q[1], 0.62), '#3a3330', 1.5 * S); }
+      boxAt(x, y, w, d, 0.62, 0.05, '#7f8b8d');
+    }]);
+    // the goods shed at the other end, both rows deep: timber walls on a stone plinth, a corrugated iron roof, sliding
+    // doors on the faces in view, its loading side on the platform
+    parts.push([bx(1.6, 0.5, LL - 0.08, DD - 0.06), () => {
+      const [x, y, w, d] = bx(1.6, 0.5, LL - 0.08, DD - 0.06);
+      boxShadow(x, y, x + w, y + d, 0.95);
+      boxAt(x - 0.04, y - 0.04, w + 0.08, d + 0.08, 0, 0.12, '#b8ab94');
+      const wv = walls(x, y, w, d, 0.12, 0.62, '#a8794e', true);
+      ctx.save(); pth(ctx, wv.L); ctx.clip(); for (let k = 1; k < 9; k++) seg(fp(wv.fl, w * k / 9, 0.12), fp(wv.fl, w * k / 9, 0.74), rgba(dk('#a8794e', 0.35), 0.6), 0.8 * S); ctx.restore();
+      ctx.save(); pth(ctx, wv.R); ctx.clip(); for (let k = 1; k < 7; k++) seg(fp(wv.fr, d * k / 7, 0.12), fp(wv.fr, d * k / 7, 0.74), rgba(dk(wv.cS, 0.35), 0.6), 0.8 * S); ctx.restore();
+      poly(fq(wv.fl, w * 0.3, w * 0.7, 0.12, 0.62), '#6e4b2c', ln('#6e4b2c'), 0.8 * S); seg(fp(wv.fl, w * 0.5, 0.12), fp(wv.fl, w * 0.5, 0.62), '#4a3424', 0.8 * S);
+      poly(fq(wv.fr, d * 0.3, d * 0.7, 0.12, 0.6), sh('#6e4b2c'), ln('#6e4b2c'), 0.8 * S); seg(fp(wv.fr, d * 0.5, 0.12), fp(wv.fr, d * 0.5, 0.6), '#3a2a1f', 0.8 * S);
+      wallsOutline(wv);
+      roofAny(w >= d ? 'gx' : 'gy', x, y, w, d, 0.74, 0.3, 0.07, '#8f9aa0', '#a8794e', { rows: 3, cols: Math.round(Math.max(w, d) * 7) });
+      plaque(w >= d ? wv.fl : wv.fr, (w >= d ? w : d) / 2, 0.5, 'GOODS', 7);
+    }]);
+    parts.sort((a, b) => a[0][0] + a[0][1] + a[0][0] + a[0][2] + a[0][1] + a[0][3] - (b[0][0] + b[0][1] + b[0][0] + b[0][2] + b[0][1] + b[0][3]));
+    for (const p of parts) p[1]();
+  }
+  // The track side of a station in its painted frame.
+  function stationView(s, b, r) { const q = typeof stationSide === 'function' ? stationSide(s, b) : null; if (!q) return null; const v = rotDir(r || 0, q[0], q[1]); return [v[0] || 0, v[1] || 0]; }
+  // Where its goods wait: on the loading dock by the shed (view-local).
+  function stationPile(s, b, r) {
+    const def = viewDef(bDef(b), r || 0), side = stationView(s, b, r) || [0, -1], W = def.w, D = def.h, sx = side[0], sy = side[1];
+    const m = (cx, cy) => (sy === -1 ? [cx, cy] : sy === 1 ? [cx, D - cy] : sx === -1 ? [cy, cx] : [W - cy, cx]);
+    const out = [];
+    let k = 0;
+    for (const g of Object.keys(b.stock || {}).sort()) { const n = Math.floor(b.stock[g] || 0); if (n > 0 && k < 2) { const q = m(0.4 + k * 0.6, 1.55); out.push([g, Math.min(6, n), q[0], q[1], n]); k++; } }
+    return out;
+  }
+  // The pieces of the railway beside the track: crossbucks, barriers, a keeper's hut, buffer stops, loading platforms,
+  // the conveyors and their crates. (Pushed with the movers: drawn in depth with the carts and the trains.)
+  function rlItems(R, s, out, T) {
+    if (typeof rlCrossInfo !== 'function') return;
+    const X = rlCrossInfo(s), yr = rlYear(s), occ = occMap(s), has = (x, y) => inMap(x, y) && railAt(s, tileIdx(x, y));
+    for (const k in X.cross) {
+      const i = +k, x = i % MAP_W, y = (i / MAP_W) | 0, ax = X.cross[k];
+      // the track along ax: the signs stand at the street's edges on both sides of it
+      const o = ax === 'y' ? [[x + 0.12, y + 0.1, 0, 1], [x + 0.88, y + 0.9, 0, -1]] : [[x + 0.1, y + 0.88, 1, 0], [x + 0.9, y + 0.12, -1, 0]];
+      const shut = typeof rlCrossShut === 'function' && rlCrossShut(s, i, T);
+      for (const [px, py, fx, fy] of o) {
+        out.push({ k: 'xbuck', x: px, y: py });
+        if (yr >= 1920) out.push({ k: 'gate', x: px, y: py, fx, fy, shut: shut ? 1 : 0 });
+      }
+      // a keeper's hut by a paved crossing (from 1920) on a free corner
+      if (yr >= 1920 && s.road[i] >= 2) for (const [dx, dy] of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        const hx = x + dx, hy = y + dy;
+        if (!inMap(hx, hy) || s.road[tileIdx(hx, hy)] || has(hx, hy) || occ[tileIdx(hx, hy)] || s.terrain[tileIdx(hx, hy)] === SEA || s.terrain[tileIdx(hx, hy)] === FOREST) continue;
+        out.push({ k: 'xhut', x: hx + 0.5 - dx * 0.18, y: hy + 0.5 - dy * 0.18 });
+        break;
+      }
+    }
+    // buffer stops at the dead ends; a loading platform where a dead end (or the track) stops at a works or a harbor
+    for (const i of s.rail) {
+      const x = i % MAP_W, y = (i / MAP_W) | 0, nb = DIRS4.filter(([dx, dy]) => has(x + dx, y + dy));
+      if (nb.length !== 1) continue;
+      const [dx, dy] = nb[0];
+      out.push({ k: 'buffer', x: x + 0.5 - dx * 0.36, y: y + 0.5 - dy * 0.36, fx: -dx, fy: -dy });
+      for (const [ex, ey] of DIRS4) {
+        const tx = x + ex, ty = y + ey, id = inMap(tx, ty) ? occ[tileIdx(tx, ty)] : 0, b = id ? bById(s, id) : null;
+        if (!b || !(BUILDINGS[b.type].kind === 'producer' || BUILDINGS[b.type].kind === 'harbor')) continue;
+        out.push({ k: 'dock', x: x + 0.5 + ex * 0.36, y: y + 0.5 + ey * 0.36, fx: ey ? 1 : 0, fy: ey ? 0 : 1, box: [x + 0.1, y + 0.1, x + 0.9, y + 0.9] });
+        break;
+      }
+    }
+    // conveyors: a belt frame a tile, crates riding on it while it runs
+    for (const B of (s.rl && s.rl.belts) || []) {
+      const on = B.on !== undefined && s.tick - B.on < 30, n = B.t.length;
+      B.t.forEach((t, k) => {
+        const a = B.t[Math.max(0, k - (k === n - 1 ? 1 : 0))], b2 = B.t[Math.min(n - 1, k + (k === n - 1 ? 0 : 1))];
+        let dx = (b2 % MAP_W) - (a % MAP_W), dy = ((b2 / MAP_W) | 0) - ((a / MAP_W) | 0);
+        if (!dx && !dy) dx = 1;
+        out.push({ k: 'belt', x: t % MAP_W + 0.5, y: ((t / MAP_W) | 0) + 0.5, fx: Math.abs(dx) >= Math.abs(dy) ? 1 : 0, fy: Math.abs(dx) >= Math.abs(dy) ? 0 : 1 });
+      });
+      if (on) {
+        const src = bById(s, B.a), g = src ? BUILDINGS[src.type].makes : 'cane', path = B.t.slice();
+        for (let c = 0; c < n; c++) { const pos = ((T * 0.12 + c) % n); const [x, y] = pathAt(path, Math.min(n - 1.001, pos)); out.push({ k: 'bcrate', x, y, z: 0.3, good: g }); }
+      }
+    }
+  }
+  // A freight train at its place on the timetable (sim-time T): the engine and its wagons, loaded with the line's goods.
+  function rlTrains(R, s, out, T) {
+    railLines(s).lines.forEach((L) => {
+      if (L.path.length < 3) return;
+      const q = rlTrainAt(s, L, T);
+      if (!q) return;
+      const len = L.path.length - 1, cargo = (s.rl && s.rl.cargo && s.rl.cargo[L.key]) || {}, gs = Object.keys(cargo).sort((a, b) => cargo[b] - cargo[a]);
+      const moved = gs.reduce((a, g) => a + cargo[g], 0), full = moved ? Math.max(1, Math.round(TR.trainWagons * Math.min(1, moved / TR.trainCap))) : 0;
+      for (let w = 0; w <= TR.trainWagons; w++) {
+        const pos = q.dir > 0 ? q.pos - w * 0.62 : q.pos + w * 0.62;
+        if (pos < 0 || pos > len) continue;
+        const [x, y, dx, dy] = pathAt(L.path, Math.min(len - 0.001, pos)), ax = Math.abs(dx) >= Math.abs(dy), fx = ax ? Math.sign(dx * q.dir) : 0, fy = ax ? 0 : Math.sign(dy * q.dir);
+        if (w === 0) { out.push({ k: 'loco', x, y, fx, fy }); continue; }
+        const g = w <= full && gs.length ? gs[(w - 1) % gs.length] : '';
+        out.push(g === 'cane' || !g ? { k: 'wagon', x, y, fx, fy, load: g ? 1 : 0 } : { k: 'fwagon', x, y, fx, fy, good: g });
+      }
+    });
+  }
+  function paintXbuck() {
+    const b = P(0, 0, 0), tp = P(0, 0, 0.55);
+    seg(b, tp, '#f4eee0', 2 * S); seg(b, tp, ln('#f4eee0'), 0.6 * S);
+    const c = P(0, 0, 0.5), a = 6 * S;
+    for (const sg of [1, -1]) { seg([c[0] - a, c[1] - a * 0.55 * sg], [c[0] + a, c[1] + a * 0.55 * sg], INK, 3.2 * S); seg([c[0] - a, c[1] - a * 0.55 * sg], [c[0] + a, c[1] + a * 0.55 * sg], '#f6f1e4', 2 * S); }
+  }
+  function paintGate(fx, fy, shut) {
+    const b = P(0, 0, 0), tp = P(0, 0, 0.32);
+    seg(b, tp, '#3a3330', 2.4 * S);
+    const end = shut ? P(fx * 0.74, fy * 0.74, 0.3) : P(fx * 0.06, fy * 0.06, 0.95);
+    const n = 6;
+    for (let k = 0; k < n; k++) { const f0 = k / n, f1 = (k + 1) / n, p0 = [lerp(tp[0], end[0], f0), lerp(tp[1], end[1], f0)], p1 = [lerp(tp[0], end[0], f1), lerp(tp[1], end[1], f1)]; seg(p0, p1, k % 2 ? '#f4eee0' : '#c0392b', 2.6 * S); }
+    circ(tp[0], tp[1], 1.6 * S, '#3a3330');
+  }
+  function paintXhut() {
+    boxShadow(-0.17, -0.17, 0.17, 0.17, 0.5);
+    const wv = walls(-0.16, -0.16, 0.32, 0.32, 0, 0.36, '#e9dcc0'); wallsOutline(wv);
+    win(wv.fl, 0.16, 0.14, 0.1, 0.14, null);
+    hipRoof(-0.16, -0.16, 0.32, 0.32, 0.36, 0.2, 0.05, '#b5523b', { rows: 2 });
+  }
+  function paintBuffer(fx, fy) {
+    const sx = -fy, sy = fx;
+    for (const o of [-0.13, 0.13]) { const a = P(sx * o, sy * o, 0), b = P(sx * o - fx * 0.12, sy * o - fy * 0.12, 0.2); seg(a, b, '#4f5257', 2.2 * S); }
+    obox(0, 0, fx, fy, 0.06, 0.36, 0.14, 0.08, '#c0392b');
+    for (const o of [-0.1, 0.1]) { const c = P(sx * o + fx * 0.04, sy * o + fy * 0.04, 0.18); circ(c[0], c[1], 1.5 * S, '#2f2a28'); }
+  }
+  function paintDock(fx, fy) {
+    obox(0, 0, fx, fy, 0.78, 0.26, 0, 0.12, '#9a7650');
+    const sx = -fy, sy = fx;
+    for (let k = -3; k <= 3; k++) { const a = P(fx * k * 0.11 + sx * 0.12, fy * k * 0.11 + sy * 0.12, 0.122), b = P(fx * k * 0.11 - sx * 0.12, fy * k * 0.11 - sy * 0.12, 0.122); seg(a, b, 'rgba(70,45,25,.5)', 0.7 * S); }
+  }
+  function paintBelt(fx, fy) {
+    const sx = -fy, sy = fx;
+    for (const a of [-0.36, 0.36]) for (const o of [-0.12, 0.12]) { const p = P(fx * a + sx * o, fy * a + sy * o, 0), q = P(fx * a + sx * o, fy * a + sy * o, 0.24); seg(p, q, '#5b5f63', 1.6 * S); }
+    obox(0, 0, fx, fy, 1.0, 0.3, 0.22, 0.04, '#6f7478');
+    obox(0, 0, fx, fy, 1.0, 0.22, 0.26, 0.012, '#2f2a28');
+    for (let k = -4; k <= 4; k++) { const a = P(fx * k * 0.11 - sx * 0.1, fy * k * 0.11 - sy * 0.1, 0.275), b = P(fx * k * 0.11 + sx * 0.1, fy * k * 0.11 + sy * 0.1, 0.275); seg(a, b, 'rgba(255,255,255,.12)', 0.6 * S); }
+  }
+  function paintFwagon(fx, fy, good) {
+    blobShadow(0, 0, 0.24);
+    const sx = -fy, sy = fx;
+    for (const a of [-0.17, 0.17]) for (const o of [-0.1, 0.1]) { const c = P(fx * a + sx * o, fy * a + sy * o, 0.05); circ(c[0], c[1], 2.2 * S, '#2f2a28', INK, 0.6 * S); }
+    obox(0, 0, fx, fy, 0.54, 0.28, 0.06, 0.06, '#4a3a30');
+    const kind = goodKind(good);
+    if (good === 'cattle') { const tp = obox(0, 0, fx, fy, 0.5, 0.27, 0.12, 0.22, '#8a5a3c'); for (let k = -2; k <= 2; k++) seg(P(fx * k * 0.09 + sx * 0.135, fy * k * 0.09 + sy * 0.135, 0.16), P(fx * k * 0.09 + sx * 0.135, fy * k * 0.09 + sy * 0.135, 0.32), '#3a2a1f', 0.9 * S); return tp; }
+    if (good === 'sugar' || good === 'coffee' || good === 'tins' || good === 'cigars') { obox(0, 0, fx, fy, 0.5, 0.27, 0.12, 0.24, good === 'sugar' ? '#d9cdb4' : '#8a6a4a'); obox(0, 0, fx, fy, 0.54, 0.3, 0.36, 0.03, '#6f7478'); return; }
+    obox(0, 0, fx, fy, 0.5, 0.27, 0.12, 0.05, '#8a5a3c');
+    for (let k = -1; k <= 1; k++) itemDraw(kind === 'cane' ? 'crate' : kind, fx * k * 0.15, fy * k * 0.15, 0.17, good);
+  }
+  function paintVan(fx, fy, good, n) {
+    blobShadow(0, 0, 0.26);
+    const sx = -fy, sy = fx;
+    for (const a of [-0.2, 0.2]) for (const o of [-0.13, 0.13]) { const c = P(fx * a + sx * o, fy * a + sy * o, 0.07); circ(c[0], c[1], 2.4 * S, '#2a2422', INK, 0.6 * S); }
+    obox(fx * 0.2, fy * 0.2, fx, fy, 0.2, 0.26, 0.07, 0.22, '#2e5a7a');
+    obox(fx * 0.2, fy * 0.2, fx, fy, 0.14, 0.24, 0.29, 0.06, '#1f3f57');
+    obox(-fx * 0.08, -fy * 0.08, fx, fy, 0.36, 0.3, 0.07, 0.05, '#4a3a30');
+    if (good && n > 0) for (let k = 0; k < Math.min(3, n); k++) itemDraw(goodKind(good), -fx * (0.18 - k * 0.1), -fy * (0.18 - k * 0.1), 0.12, good);
+  }
+  // The offered siding and conveyor (her card is open), the old track along a street (the Traffic layer or a railway
+  // tool on; brighter for a few seconds after Show).
+  function rlOverlay(R, s, ui, t) {
+    const g = R.ctx, pv = ui.railPrev, pulse = 0.5 + 0.5 * Math.sin(t * 3.2);
+    if (pv && !ui.money) {
+      const dots = (line, col) => {
+        const pts = line.map((i) => P(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5, 0));
+        g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+        g.beginPath(); pts.forEach((q, k) => (k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); if (pts.length === 1) g.lineTo(pts[0][0] + 0.1, pts[0][1]);
+        g.strokeStyle = col.replace('A', (0.35 + 0.25 * pulse).toFixed(3)); g.lineWidth = Math.max(8, R.hw * 0.42); g.stroke();
+        g.setLineDash([1, Math.max(9, R.hw * 0.5)]); g.lineDashOffset = -t * 14; g.strokeStyle = '#fffaf0'; g.lineWidth = Math.max(5, R.hw * 0.2); g.stroke();
+        g.restore();
+        return pts;
+      };
+      const pts = (pv.line ? dots(pv.line, 'rgba(242,182,50,A)') : []).concat(pv.belt ? dots(pv.belt, 'rgba(60,150,150,A)') : []);
+      if (pts.length && pv.label) { const sp = labelSprite(R, pv.label, true), mid = (pts.length / 2) | 0, a = labelClear(R, ui, pts.map((q, k) => [Math.abs(k - mid), q[0], q[1] - 30]).sort((u, v) => u[0] - v[0]).map((u) => [u[1], u[2]]), sp); uiDraw(R, sp, a[0], a[1]); }
+    }
+    if (typeof rlCrossInfo === 'function' && rlOn(s) && (trLayerOn() || (ui.rlOldShow && performance.now() - ui.rlOldShow < 6000))) {
+      const old = rlCrossInfo(s).old, hot = ui.rlOldShow && performance.now() - ui.rlOldShow < 6000;
+      for (const i of old) { const x = i % MAP_W, y = (i / MAP_W) | 0; diamond(R, x + 0.06, y + 0.06, x + 0.94, y + 0.94, hot ? 'rgba(242,165,28,' + (0.2 + 0.25 * pulse).toFixed(3) + ')' : 'rgba(242,165,28,.18)', '#c27a12', 2.2, [6, 4]); }
+    }
+  }
+  // The Traffic layer: each line's track in the colour of its load last month (what its trains carried of what they
+  // could), dashed so it reads as track, not road.
+  function rlTrafficGround(R, s) {
+    if (typeof rlLineLoad !== 'function' || !rlOn(s)) return;
+    const g = R.ctx, cap = rlLineCap(), mids = [[1, 0.5], [0.5, 1], [0, 0.5], [0.5, 0]];
+    for (const L of railLines(s).lines) {
+      const l = rlLineLoad(s, L) / cap, k = l >= TR.jam ? 2 : l > TR.busy ? 1 : 0, p = new Path2D();
+      for (const i of L.tiles) { const x = i % MAP_W, y = (i / MAP_W) | 0; DIRS4.forEach(([dx, dy]) => { if (L.set.has(tileIdx(x + dx, y + dy)) && inMap(x + dx, y + dy)) { const q = dx === 1 ? 0 : dy === 1 ? 1 : dx === -1 ? 2 : 3; p.moveTo(x + 0.5, y + 0.5); p.lineTo(x + mids[q][0], y + mids[q][1]); } }); }
+      g.lineCap = 'butt'; g.setLineDash([0.28, 0.14]);
+      g.strokeStyle = 'rgba(40,28,18,.6)'; g.lineWidth = 0.34; g.stroke(p);
+      g.strokeStyle = TRAFFIC_COLS[k]; g.lineWidth = 0.22; g.stroke(p);
+      g.setLineDash([]); g.lineCap = 'round';
+    }
   }
   // The airfield: a mown strip with white markers, a hangar with an arched roof, the office with its windsock, and a
   // slipway into the sea for the flying boats.
@@ -15415,14 +16982,16 @@ const ISO = (() => {
   }
   // While she draws a tram line or a railway: the tiles, the blocked one, the price and what it is for.
   function trackGhost(R, s, ui, t) {
-    const tram = ui.tool === 'tram', plan = tram ? tramPlan(s, ui.stroke) : railPlan(s, ui.stroke), bad = new Set(plan.bad.map((b) => b.i));
+    const tram = ui.tool === 'tram', belt = ui.tool === 'belt', plan = tram ? tramPlan(s, ui.stroke) : belt ? beltPlan(s, ui.stroke) : railPlan(s, ui.stroke), bad = new Set(plan.bad.map((b) => b.i));
     const g = R.ctx, d = R.dpr;
     g.setTransform(d, 0, 0, d, 0, 0);
     for (const i of ui.stroke) { const x = i % MAP_W, y = (i / MAP_W) | 0; diamond(R, x + 0.1, y + 0.1, x + 0.9, y + 0.9, bad.has(i) ? 'rgba(196,85,63,.45)' : tram ? 'rgba(70,90,120,.38)' : 'rgba(120,85,50,.42)', bad.has(i) ? '#a33a28' : '#fbf3df', 1.6, [5, 3]); }
     const blk = ui.strokeBlock;
     if (blk) { const bx = blk.i % MAP_W, by = (blk.i / MAP_W) | 0; diamond(R, bx + 0.04, by + 0.04, bx + 0.96, by + 0.96, 'rgba(196,85,63,.6)', '#a33a28', 2.4); }
     const last = ui.stroke[ui.stroke.length - 1], p = P(last % MAP_W + 0.5, ((last / MAP_W) | 0) + 0.5, 0), afford = s.money >= plan.cost;
-    const text = blk ? blk.why : plan.bad.length ? plan.bad[0].why : plan.add.length ? (tram ? 'Tram line' : 'Railway') + ' · $' + plan.cost.toLocaleString('en-US') + ' · ' + plan.add.length + ' tiles' + (afford ? '' : ' · not enough money') : (tram ? 'Already tram track' : 'Already track');
+    // A14: the railway names its level crossings; a conveyor says where it runs from and to (or what it lacks)
+    const nX = !tram && !belt && typeof rlCrossInfo === 'function' ? plan.add.filter((i) => s.road[i]).length : 0;
+    const text = blk ? blk.why : plan.bad.length ? plan.bad[0].why : belt && plan.why ? plan.why : plan.add.length ? (tram ? 'Tram line' : belt ? 'Conveyor' : 'Railway') + ' · $' + plan.cost.toLocaleString('en-US') + ' · ' + plan.add.length + ' tiles' + (nX ? ' · ' + nX + (nX === 1 ? ' level crossing' : ' level crossings') : '') + (afford ? '' : ' · not enough money') : (tram ? 'Already tram track' : 'Already track');
     uiDraw(R, labelSprite(R, text, !blk && !plan.bad.length && afford), p[0], p[1] - 34);
   }
 
@@ -15648,7 +17217,7 @@ const ISO = (() => {
     commutersAt(s, tod, (f, u, back) => {
       st.moving++;
       if (st.drawn >= cap) return;
-      let [x, y, dx, dy] = pathAt(f.path, u * (f.path.length - 1));
+      let [x, y, dx, dy] = pathAt(f.path, u * (f.path.length - 1), f.mode === 'car' || f.mode === 'bike' ? rbtSetOf(s) : null, back);
       if (back) { dx = -dx; dy = -dy; }
       const fr = go ? (Math.floor(now / 190) + f.v) % 2 : 0;
       if (f.mode === 'car' || f.mode === 'bike') {
@@ -16018,13 +17587,20 @@ const ISO = (() => {
   }
   // A point along a road path at position pos (path index units), with rounded corners: within half a tile of a
   // turning tile the mover follows a quarter curve through that tile instead of its centre. Returns [x, y, dx, dy].
-  function pathAt(path, pos) {
+  function pathAt(path, pos, ring, rev) {
     const n = path.length, C = (k) => { const i = path[clamp(k, 0, n - 1)]; return [i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5]; };
     const k = Math.round(pos), u = pos - k + 0.5;
     const c = C(k), a = C(k - 1), b = C(k + 1);
     let din = k > 0 ? [c[0] - a[0], c[1] - a[1]] : [b[0] - c[0], b[1] - c[1]], dout = k < n - 1 ? [b[0] - c[0], b[1] - c[1]] : din;
     if (!din[0] && !din[1]) din = dout.slice(); if (!dout[0] && !dout[1]) dout = din.slice();
     if (!din[0] && !din[1]) return [c[0], c[1], 1, 0];
+    if (ring && k > 0 && k < n - 1 && ring.has(path[k]) && (din[0] !== -dout[0] || din[1] !== -dout[1])) {
+      // rev: the path is driven backwards (a commuter going home): round the ring the right way, the heading given
+      // along the path as the caller expects
+      if (!rev) return rbtPathAt(c, din, dout, u);
+      const q = rbtPathAt(c, [-dout[0], -dout[1]], [-din[0], -din[1]], 1 - u);
+      return [q[0], q[1], -q[2], -q[3]];
+    }
     if (din[0] === dout[0] && din[1] === dout[1]) return [c[0] + din[0] * (u - 0.5), c[1] + din[1] * (u - 0.5), din[0], din[1]];
     const p0 = [c[0] - din[0] * 0.5, c[1] - din[1] * 0.5], p2 = [c[0] + dout[0] * 0.5, c[1] + dout[1] * 0.5], v = 1 - u;
     const x = v * v * p0[0] + 2 * v * u * c[0] + u * u * p2[0], y = v * v * p0[1] + 2 * v * u * c[1] + u * u * p2[1];
@@ -16038,13 +17614,18 @@ const ISO = (() => {
   }
   function dynCollect(R, s, now) {
     const out = [], f = frac(), fr = Math.floor(now / 220) % 2;
+    let nRing = 0;
     for (const c of s.carts) {
       if (c.st === 'idle' || !c.path || c.path.length < 2) continue;
       const at = c.path[Math.min(c.path.length - 1, Math.floor(c.pos))];
-      const pos = Math.min(c.path.length - 1.001, c.pos + cartStep(s, at) * f);
-      const [x, y, dx, dy] = pathAt(c.path, pos), h = head8(dx, dy);
-      out.push({ k: 'cart', id: c.id, x: x - dy * 0.14, y: y + dx * 0.14, fx: h[0], fy: h[1], good: c.st === 'go' ? c.good : '', n: c.st === 'go' ? c.n : 0, fr, bob: Math.abs(Math.sin(now / 160 + c.id)) });
+      // A14: a cart that waited at a level crossing this tick stands (no step drawn ahead of the sim)
+      const pos = Math.min(c.path.length - 1.001, c.pos + (c.wt === s.tick - 1 ? 0 : cartStep(s, at) * f));
+      const [x, y, dx, dy] = pathAt(c.path, pos, rbtSetOf(s)), h = head8(dx, dy);
+      if (RBT_SET && RBT_S === s && RBT_SET.has(at)) nRing++;
+      const van = typeof rlYear === 'function' && rlYear(s) >= 1920 && c.dest && (bById(s, c.dest) || {}).type === 'station' && c.st === 'go';
+      out.push({ k: 'cart', van, id: c.id, x: x - dy * 0.14, y: y + dx * 0.14, fx: h[0], fy: h[1], good: c.st === 'go' ? c.good : '', n: c.st === 'go' ? c.n : 0, fr, bob: Math.abs(Math.sin(now / 160 + c.id)) });
     }
+    R.stats.rbtCarts = nRing;
     const m = shipMoor(s), sh = R.ship, docked = sh && (sh.st === 'load' || sh.st === 'moored');
     if (s.walk) for (const w of s.walk) {
       let pos = w.pos + 0.12 * f;
@@ -16105,6 +17686,16 @@ const ISO = (() => {
     if (q.k === 'loco') return sprite(R, 'loco|' + q.fx + ',' + q.fy, [0.01, 0.01, 0.9, 0.5], 1.3, () => paintLoco(q.fx, q.fy));
     if (q.k === 'wagon') return sprite(R, 'wagon|' + q.fx + ',' + q.fy + '|' + q.load, [0.01, 0.01, 0.8, 0.5], 1.0, () => paintWagon(q.fx, q.fy, q.load));
     if (q.k === 'stop') return sprite(R, 'stop', [0.01, 0.01, 0.3, 0.2], 1.0, paintStop);
+    // A14: the railway's pieces
+    if (q.k === 'fwagon') return sprite(R, 'fwagon|' + q.fx + ',' + q.fy + '|' + q.good, [0.01, 0.01, 0.8, 0.5], 1.0, () => paintFwagon(q.fx, q.fy, q.good));
+    if (q.k === 'xbuck') return sprite(R, 'xbuck', [0.01, 0.01, 0.3, 0.2], 0.9, paintXbuck);
+    if (q.k === 'gate') return sprite(R, 'gate|' + q.fx + ',' + q.fy + '|' + q.shut, [0.01, 0.01, 0.9, 0.6], 1.2, () => paintGate(q.fx, q.fy, q.shut));
+    if (q.k === 'xhut') return sprite(R, 'xhut', [0.01, 0.01, 0.4, 0.4], 0.8, paintXhut);
+    if (q.k === 'buffer') return sprite(R, 'buffer|' + q.fx + ',' + q.fy, [0.01, 0.01, 0.5, 0.4], 0.5, () => paintBuffer(q.fx, q.fy));
+    if (q.k === 'dock') return sprite(R, 'dock|' + q.fx + ',' + q.fy, [0.01, 0.01, 0.55, 0.45], 0.4, () => paintDock(q.fx, q.fy));
+    if (q.k === 'belt') return sprite(R, 'belt|' + q.fx + ',' + q.fy, [0.01, 0.01, 0.65, 0.55], 0.5, () => paintBelt(q.fx, q.fy));
+    if (q.k === 'bcrate') return sprite(R, 'bcrate|' + q.good, [0.01, 0.01, 0.3, 0.3], 0.6, () => itemDraw(goodKind(q.good), 0, 0, 0, q.good));
+    if (q.k === 'cart' && q.van) return sprite(R, 'van|' + q.fx.toFixed(2) + ',' + q.fy.toFixed(2) + '|' + q.good + '|' + Math.min(3, q.n), [0.01, 0.01, 0.9, 0.5], 1.1, () => paintVan(q.fx, q.fy, q.good, q.n));
     if (q.k === 'tent') return sprite(R, 'tent|' + q.v, [1, 1], 0.8, () => paintTent(q.v));
     if (q.k === 'cart') {
       // a turn gives every cart a new heading: its last sprite stands in while the frame's paint budget is spent
@@ -16456,6 +18047,8 @@ const ISO = (() => {
     spaceMarks(R, s, ui, t);
     // A3 (commissions): the main commission's glowing places or dotted line, and a stage ritual's gathering
     comOverlay(R, s, ui, t);
+    // A14: the siding or conveyor her card offers, the old track along a street
+    rlOverlay(R, s, ui, t);
     // A4: the families' names on the map (the tents, the suitcases, one of them at the door of a tapped home)
     famMarks(R, s, ui, t, now);
     // A10: a new quarter's street sign (two years), the far town's name (always)
@@ -16725,7 +18318,7 @@ const ISO = (() => {
   }
   function ghostDraw(R, s, ui, t) {
     const g = R.ctx, d = R.dpr, z = R.hw;
-    if (ui.stroke && ui.stroke.length && (ui.tool === 'tram' || ui.tool === 'rail')) { trackGhost(R, s, ui, t); return; }
+    if (ui.stroke && ui.stroke.length && (ui.tool === 'tram' || ui.tool === 'rail' || ui.tool === 'belt')) { trackGhost(R, s, ui, t); return; }
     if (ui.stroke && ui.stroke.length) {
       const plan = roadPlan(s, ui.stroke), bad = new Set(plan.bad.map((b) => b.i)), set = new Set(plan.kind === 3 ? avenueWiden(ui.stroke) : ui.stroke);
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
@@ -18765,7 +20358,7 @@ function inputInit(canvas) {
       return;
     }
     gesture = { kind: 'press', x0: p.x, y0: p.y, grab: screenToTile(APP.R, APP.view, p.x, p.y), moved: false, t0: performance.now() };
-    if (APP.ui.tool === 'road' || APP.ui.tool === 'tram' || APP.ui.tool === 'rail') {
+    if (APP.ui.tool === 'road' || APP.ui.tool === 'tram' || APP.ui.tool === 'rail' || APP.ui.tool === 'belt') {
       const t = tileAt(p.x, p.y);
       if (inMap(t.x, t.y)) { APP.ui.strokeA = tileIdx(t.x, t.y); APP.ui.strokeAxis = ''; strokeTo(t.x, t.y); gesture.kind = 'road'; }
     } else if (APP.ui.tool === 'remove' && unroadStart(p, gesture)) {
@@ -18841,7 +20434,8 @@ function inputInit(canvas) {
       if (st && st.length) {
         // A6: what the stroke changes can be taken back with one tap (roads_ui.js)
         const snap = roadUndoBegin(APP.state), kind = APP.state._roadKind;
-        const r = APP.ui.tool === 'tram' ? placeTram(APP.state, st) : APP.ui.tool === 'rail' ? placeRail(APP.state, st) : placeRoad(APP.state, st);
+        // A14: the conveyor is drawn like a short road (rail.js placeBelt)
+        const r = APP.ui.tool === 'tram' ? placeTram(APP.state, st) : APP.ui.tool === 'rail' ? placeRail(APP.state, st) : APP.ui.tool === 'belt' ? placeBelt(APP.state, st) : placeRoad(APP.state, st);
         if (r.built) { floaterAdd((st[st.length - 1] % MAP_W) + 0.5, ((st[st.length - 1] / MAP_W) | 0) + 0.5, '−$' + r.cost, '#c0392b'); guideIntro(APP.state); guideRender(); audioCue('road'); }
         if (r.built) roadUndoSet(APP.state, snap, 'Undo ' + (APP.ui.tool === 'tram' ? 'tram line' : APP.ui.tool === 'rail' ? 'railway' : kind === 3 && APP.state.stage >= PAVED_STAGE ? 'avenue' : kind === 2 && APP.state.stage >= PAVED_STAGE ? 'paving' : 'road'));
         if (r.why) toastShow(r.why + (r.built ? ' (built ' + r.built + ' tiles)' : ''));
@@ -23647,6 +25241,399 @@ function turnComMine(type) {
 }
 // (the overlay is worked out again when she turns the armed kind: the hud's next update reads the new key)
 { const _tt = turnTap; turnTap = function () { const r = _tt.apply(this, arguments); try { hudUpdate(); } catch (e) { /* the next frame */ } return r; }; }
+
+// ---- src/ui/rail_ui.js
+// A14 (16 Oct 2026): the railway's tools, legend and cards. Rules: src/sim/rail.js; DESIGN.md §35.
+// - The Railway tool lays track on its own ground and makes a level crossing where it crosses a street; a stroke that
+//   would run along a street stops there and says why. The Road tool crosses the track the same way.
+// - Station (a building of the Transport tab, beside the track along a long side; it turns like any building) and
+//   Conveyor (a tool: up to TR.beltMax tiles from a works or farm to a station's goods shed).
+// - The station's card: the goods shed (what waits, how much, whose), the next train, where it goes, what it sent.
+// - A works', farm's or harbor's card: by cart and by rail in days, loads a month and $ a load; "Connect with a siding ·
+//   $X" (its dotted spur glows while the card is open; one tap lays exactly those tiles) and "Conveyor to the station".
+// - The legend under the pill (the Traffic layer, a railway tool armed): the lines' loads a month against what their
+//   trains carry, the level crossings, old track along a street with its relay plan.
+
+// ---------- the tools ----------
+{
+  const tf = TR_TOOLS.traffic;
+  delete TR_TOOLS.traffic;
+  TR_TOOLS.belt = { name: 'Conveyor', icon: 'belt', stage: TR.stationStage, cost: '$' + TR.beltCost + '/tile', price: TR.beltCost, long: 'Conveyors' };
+  TR_TOOLS.traffic = tf;
+}
+TR_PURPOSE.rail = 'Railway: on its own ground; it crosses a street straight (a level crossing). Fields and works within ' + TR.railNear + ' tiles load at their siding';
+TR_PURPOSE.belt = 'Conveyor: up to ' + TR.beltMax + ' tiles from a works or farm to a station\'s goods shed';
+Object.assign(ICONS, {
+  station: 'M2 10 L12 3 L22 10 V12 H20 V19 H4 V12 H2 Z M7 12 V17 H10 V12 Z M13 12 H17 V15 H13 Z M1 20 H23 V22 H1 Z',
+  belt: 'M5 8 H19 A4 4 0 0 1 19 16 H5 A4 4 0 0 1 5 8 Z M5 10 A2 2 0 1 0 5.01 10 Z M12 10 A2 2 0 1 0 12.01 10 Z M19 10 A2 2 0 1 0 19.01 10 Z M7 3 H11 V7 H7 Z M13 3 H17 V7 H13 Z M6 18 L4 23 H6.4 L8 18 Z M18 18 L16.4 23 H18.8 L20 18 Z',
+});
+{
+  const _stw = strokeTileWhy;
+  strokeTileWhy = function (s, x, y) { return APP.ui.tool === 'belt' ? beltWhy(s, x, y) : _stw.apply(this, arguments); };
+  // the stroke stops where the track would run along a street (or a road along the track), and a conveyor at its length
+  const _sto = strokeTo;
+  strokeTo = function (x, y) {
+    const r = _sto.apply(this, arguments), ui = APP.ui, s = APP.state, t = ui.tool;
+    if (!ui.stroke || !ui.stroke.length) return r;
+    if (t === 'rail' || t === 'road') {
+      const kind = t === 'rail' ? 'rail' : 'road', k = rlStrokeCut(s, ui.stroke, kind);
+      if (k >= 0) { ui.strokeBlock = { i: ui.stroke[k], why: rlCutWhy(kind, k === ui.stroke.length - 1) }; ui.stroke = ui.stroke.slice(0, k); ui.strokeJoin = null; }
+    }
+    if (t === 'belt' && ui.stroke.length > TR.beltMax) { ui.strokeBlock = { i: ui.stroke[TR.beltMax], why: 'A conveyor is at most ' + TR.beltMax + ' tiles' }; ui.stroke = ui.stroke.slice(0, TR.beltMax); }
+    return r;
+  };
+  // the Traffic layer's legend also stands while a railway tool is armed (the crossings and the lines' loads)
+  const _ton = trafficOn;
+  trafficOn = function () { return _ton.apply(this, arguments) || APP.ui.tool === 'rail' || APP.ui.tool === 'belt'; };
+}
+
+// ---------- the legend: the lines, the crossings, old track ----------
+// layer: the Traffic layer is on (the whole story with its buttons); else a railway tool is armed (one short line:
+// she is drawing, as the road tools show only the counts)
+function rlLegendHtml(s, layer) {
+  if (!rlOn(s)) return '';
+  const lines = railLines(s).lines.filter((L) => L.tiles.length >= 2), cap = rlLineCap(), X = rlCrossInfo(s), runs = rlOldRuns(s);
+  if (!lines.length) return '';
+  const load = lines.map((L) => rlLineLoad(s, L)), worst = Math.max(...load.map((v) => v / cap));
+  if (!layer) return '<div class="wl rl"><span class="worst">' + esc('Track crosses a street only straight across (a level crossing' + (X.n ? ': ' + X.n + ' now' : '') + '); never along it.') + '</span></div>';
+  const lv = worst >= 1 ? 'jam' : worst > TR.busy ? 'busy' : 'free';
+  let h = '<div class="wl rl"><span class="g"><span class="k ' + lv + ' trk"></span><b>Railway</b></span><span class="worst">' +
+    esc((lines.length === 1 ? 'its trains carried ' + load[0] : plural(lines.length, 'line', 'lines') + ', the busiest carried ' + Math.max(...load)) + ' of ' + cap + ' loads last month') +
+    '<span class="wide">' + esc(' (' + Math.round(TUNE.ticksPerMonth / TR.railTrip) + ' trains a month, ' + TR.trainCap + ' loads each)') + '</span>' + esc((X.n ? ' · ' + plural(X.n, 'level crossing', 'level crossings') : '') + '.') + '</span></div>';
+  const old = runs.reduce((a, r) => a + r.tiles.length, 0);
+  if (old) {
+    const k = runs.findIndex((r) => r.add), r = runs[k];
+    h += '<div class="wl rl old"><span class="worst busy">' + esc('Old track along a street: ' + plural(old, 'tile', 'tiles') + '.') + '<span class="wide">' + esc(' It keeps working; carts and trains share it.') + '</span>' + '</span>' +
+      '<button class="tl" id="rlOldShow">Show</button>' + (r ? '<button class="tl fix" id="rlRelay" data-k="' + k + '">' + esc('Relay beside it · ' + (r.cost < 0 ? '+' + money$(-r.cost) + ' back' : money$(r.cost))) + '</button>' : '') + '</div>';
+  }
+  return h;
+}
+{
+  const _tl = trafficLegend;
+  trafficLegend = function () {
+    _tl.apply(this, arguments);
+    const L = $('trlegend'), s = APP.state;
+    if (!L || !L.classList.contains('show') || !s) return;
+    const html = rlLegendHtml(s, APP.ui.layer === 'traffic'), key = html.length + ':' + html;
+    const have = L.querySelectorAll('.wl.rl');
+    if (L.dataset.rl === key && (have.length || !html)) return;
+    have.forEach((e) => e.remove());
+    L.dataset.rl = key;
+    if (!html) return;
+    L.insertAdjacentHTML('beforeend', html);
+    const sh = $('rlOldShow');
+    if (sh) sh.onclick = () => { const r = rlOldRuns(s)[0], i = r.tiles[(r.tiles.length / 2) | 0]; APP.ui.rlOldShow = performance.now(); cameraFlyTo(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5); };
+    const rb = $('rlRelay');
+    if (rb) rb.onclick = () => {
+      const r = rlRelay(s, +rb.dataset.k);
+      toastShow(r.ok ? 'The old track is relaid beside the street: ' + plural(r.up, 'tile', 'tiles') + ' up, ' + plural(r.laid, 'tile', 'tiles') + ' laid, ' + money$(r.cost) + '.' : r.why + '.');
+      if (r.ok) audioCue('road');
+      L.dataset.rl = '';
+      trafficLegend();
+    };
+  };
+}
+
+// (on a phone the legend keeps its numbers and drops the explanations)
+{
+  const st = document.createElement('style');
+  st.textContent = '@media (max-width: 600px) { #trlegend .rl .wide { display: none; } }';
+  document.head.appendChild(st);
+}
+
+// ---------- the cards ----------
+function rlName(b) { return b ? (b.type === 'quay' ? 'steamship quay' : (BUILDINGS[b.type].short || BUILDINGS[b.type].name).toLowerCase()) : ''; }
+function rlGoods(s, st) {
+  const out = [];
+  for (const g of Object.keys(st.stock || {}).sort()) {
+    const n = Math.floor(st.stock[g] + 1e-9);
+    if (n < 1) continue;
+    const w = (st.wh && st.wh[g]) || {}, from = Object.keys(w).filter((id) => w[id] >= 1).map((id) => { const m = bById(s, +id); return (m ? (BUILDINGS[m.type].short || BUILDINGS[m.type].name) : 'earlier') + ' ' + Math.floor(w[id] + 1e-9); });
+    out.push([GOODS[g].name + ' ' + n, from.join(', ')]);
+  }
+  return out;
+}
+function rlNextTrain(s) { const k = TR.railTrip - 1 - (s.tick % TR.railTrip); return rlDays(k + 1); }
+function rlStationHtml(s, b) {
+  const L = rlLineOfB(s, b);
+  let h = '';
+  if (!L) return '<p class="note">' + esc('No track runs beside it: lay the railway along one of its long sides.') + '</p>';
+  const goods = rlGoods(s, b), used = Math.floor(whUsed(b) + 1e-9);
+  h += '<div class="line"><span>Goods shed</span><span>' + used + ' of ' + TR.whCap + ' loads</span></div>';
+  for (const [a, from] of goods) h += '<div class="line sub"><span>' + esc(a) + '</span><span>' + esc(from) + '</span></div>';
+  if (!goods.length) h += '<div class="line sub"><span>empty</span><span>' + esc('the train took all') + '</span></div>';
+  const to = L.takers.map((id) => bById(s, id)).filter(Boolean), names = [...new Set(to.map(rlName))];
+  h += '<div class="line"><span>Next train</span><span>' + esc('in ' + plural(rlNextTrain(s), 'day', 'days') + (names.length ? ' · to the ' + names.slice(0, 3).join(', the ') : '')) + '</span></div>';
+  h += '<div class="line"><span>Sent last month</span><span>' + esc(plural(b.lastSent || 0, 'load', 'loads') + (b.lastVal ? ', worth ' + money$(b.lastVal) : '')) + '</span></div>';
+  h += '<div class="line"><span>Its line</span><span>' + esc(L.tiles.length + ' tiles · ' + rlLineLoad(s, L) + ' of ' + rlLineCap() + ' loads a month') + '</span></div>';
+  const vans = s.carts.filter((c) => c.dest === b.id && c.st === 'go').length, belts = ((s.rl && s.rl.belts) || []).filter((q) => q.b === b.id).length;
+  h += '<p class="note' + (b.lastSent ? ' good' : '') + '">' + esc((vans ? plural(vans, 'cart is', 'carts are') + ' on the way here. ' : '') + (belts ? plural(belts, 'conveyor brings', 'conveyors bring') + ' goods into the shed. ' : '') +
+    'Works and farms within ' + TR.vanReach + ' road tiles send their goods here when the train gets them to the ' + (names[0] || 'works on the line') + ' sooner than the road. Nothing on the line takes it: it stays home.') + '</p>';
+  return h;
+}
+function rlProducerHtml(s, b) {
+  const def = BUILDINGS[b.type];
+  if (!rlOn(s) || s.stage < TR.railStage) return '';
+  const cmp = rlCompare(s, b);
+  if (!cmp) return '';
+  const g = GOODS[cmp.g].name.toLowerCase(), r = cmp.rail, c = cmp.cart;
+  const cart = c ? 'By cart: ' + c.tiles + ' tiles of road to the ' + rlName(c.to) + ', ' + plural(c.days, 'day', 'days') + ' on the way; its carts move up to ' + c.loads + ' loads a month (it makes ' + cmp.makes + ')' : '';
+  if (r && r.how === 'siding') return '<p class="note good">' + esc('By rail: its siding at the gate. The train takes its ' + g + ' to the ' + rlName(r.to) + ': ' + plural(r.days, 'day', 'days') + ' on the way, ' + plural(r.last, 'load', 'loads') + ' by train last month, about ' + money$(r.cost) + ' a load (track and coal).' + (c ? ' ' + cart + '.' : '')) + '</p>';
+  if (r && r.how === 'station') return '<p class="note good">' + esc('By rail: its carts take the ' + g + ' to the station, the train on to the ' + rlName(r.to) + ': ' + plural(r.days, 'day', 'days') + ' on the way, ' + plural(r.last || 0, 'load', 'loads') + ' last month. ' + (c ? cart + '.' : '')) + '</p>';
+  if (r && r.how === 'offer') {
+    const sid = r.siding, bt = beltSuggest(s, b), worth = !c || r.ticks < c.ticks;
+    return '<p class="note' + (worth ? ' trip' : '') + '">' + esc((c ? cart + '. ' : '') + 'By rail: a siding of ' + plural(sid.tiles, 'tile', 'tiles') + ' from the line to its gate (the dotted spur): ' + plural(r.days, 'day', 'days') + ' on the way, trains carry up to ' + r.loads + ' loads a month, about ' + money$(r.cost) + ' a load (track and coal), ' + money$(sid.tiles * TR.railUpkeep) + ' a month upkeep.') + '</p>' +
+      '<div class="btns"><button id="rlSiding">' + esc('Connect with a siding · ' + money$(sid.cost)) + '</button></div>' + (bt ? '<div class="btns"><button id="rlBelt">' + esc('Conveyor to the station · ' + money$(bt.t.length * TR.beltCost)) + '</button></div>' : '');
+  }
+  const bt = beltSuggest(s, b);
+  if (bt) return '<p class="note">' + esc((c ? cart + '. ' : '') + 'A station stands ' + plural(bt.t.length, 'tile', 'tiles') + ' away: a conveyor brings its ' + g + ' into the goods shed.') + '</p><div class="btns"><button id="rlBelt">' + esc('Conveyor to the station · ' + money$(bt.t.length * TR.beltCost)) + '</button></div>';
+  return '';
+}
+function rlHarborHtml(s, b) {
+  if (!rlOn(s) || s.stage < TR.railStage) return '';
+  const L = railLines(s).lines.find((l) => l.takers.includes(b.id));
+  if (L) return '<p class="note good">' + esc('By rail: the trains unload here into the ship\'s hold (' + plural(b.lastByRail || 0, 'load', 'loads') + ' last month). Its line carried ' + rlLineLoad(s, L) + ' of ' + rlLineCap() + ' loads.') + '</p>';
+  const p = sidingPlan(s, b);
+  if (!p) return '';
+  return '<p class="note">' + esc('A siding of ' + plural(p.tiles, 'tile', 'tiles') + ' from the line to the quay (the dotted spur): the trains would unload into the ship\'s hold.') + '</p><div class="btns"><button id="rlSiding">' + esc('Connect with a siding · ' + money$(p.cost)) + '</button></div>';
+}
+function rlCardHtml(s, b) {
+  const def = BUILDINGS[b.type];
+  if (b.type === 'station') return rlStationHtml(s, b);
+  if (def.kind === 'harbor') return rlHarborHtml(s, b);
+  if (def.kind === 'producer' && def.makes) return rlProducerHtml(s, b);
+  return '';
+}
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const html = _ch.apply(this, arguments), add = rlCardHtml(s, b);
+    if (!add) return html;
+    // high on the card, where she reads first: before the A6 worth table, else before the workers
+    // (the station's goods shed is what its card is for: above its money)
+    let at = b.type === 'station' ? html.indexOf('<div class="earn ') : html.indexOf('<table class="ledger worth">');
+    if (at < 0) at = html.indexOf('<div class="line"><span>Workers</span>');
+    if (at >= 0) return html.slice(0, at) + add + html.slice(at);
+    const btn = cardButtons(s, b);
+    return html.endsWith(btn) ? html.slice(0, html.length - btn.length) + add + btn : html + add;
+  };
+  const _bs = bStatus;
+  bStatus = function (s, b) {
+    if (b.type === 'station' && b.open) {
+      const L = rlLineOfB(s, b);
+      if (!L) return { text: 'No track beside it: nothing to load.' };
+      if (b.workers > 0) return { text: 'Open: ' + Math.floor(whUsed(b) + 1e-9) + ' of ' + TR.whCap + ' loads in the goods shed; the next train in ' + plural(rlNextTrain(s), 'day', 'days') + '.', good: true };
+    }
+    return _bs.apply(this, arguments);
+  };
+  const _cr = cardRender;
+  cardRender = function () {
+    const key = APP.cardKey, r = _cr.apply(this, arguments), s = APP.state, b = APP.ui.sel && bById(s, APP.ui.sel);
+    // the offered spur and conveyor glow while the card is open
+    const p = b && $('rlSiding') ? sidingPlan(s, b) : null, bt = b && $('rlBelt') ? beltSuggest(s, b) : null;
+    APP.ui.railPrev = p || bt ? { id: b.id, line: p ? p.path : null, belt: bt ? bt.t : null, label: p ? 'Siding · ' + plural(p.tiles, 'tile', 'tiles') + ' · ' + money$(p.cost) : 'Conveyor · ' + money$(bt.t.length * TR.beltCost) } : null;
+    if (APP.cardKey === key) return r;
+    const sb = $('rlSiding');
+    if (sb && b) sb.addEventListener('click', () => {
+      const q = placeSiding(s, b);
+      toastShow(q.built ? 'The siding is laid: ' + plural(q.built, 'tile', 'tiles') + ', ' + money$(q.cost) + '. The train loads at the gate.' : q.why + '.');
+      if (q.built) { audioCue('road'); guideRender(); }
+      APP.cardKey = ''; cardRender();
+    });
+    const bb = $('rlBelt');
+    if (bb && b) bb.addEventListener('click', () => {
+      const t = beltSuggest(s, b), q = t ? placeBelt(s, t.t) : { built: 0, why: 'No conveyor fits' };
+      toastShow(q.built ? 'The conveyor runs: ' + plural(q.built, 'tile', 'tiles') + ', ' + money$(q.cost) + '. It carries up to ' + TR.beltRate + ' loads a month into the goods shed.' : q.why + '.');
+      if (q.built) audioCue('place');
+      APP.cardKey = ''; cardRender();
+    });
+    return r;
+  };
+  const _cc = cardClose;
+  cardClose = function () { APP.ui.railPrev = null; return _cc.apply(this, arguments); };
+}
+
+// ---------- the build bar's Station button and the conveyor stroke ----------
+{
+  const _nsh = noSpotHint;
+  noSpotHint = function (s, type) {
+    if (type === 'station' && s && BUILDINGS.station.stage <= s.stage && !spotsFor(s, 'station').n) return { short: 'beside the track', text: 'A station stands beside the railway along one of its long sides, with a road beside it: lay the track past a free lot by a road first.', btn: 'Railway', act: { tool: 'rail' } };
+    return _nsh.apply(this, arguments);
+  };
+}
+{
+  const _tset = toolSet;
+  toolSet = function (tool) {
+    const r = _tset.apply(this, arguments);
+    if (tool === 'belt' && APP.state && !stationsOf(APP.state).some((b) => rlLineOfB(APP.state, b))) toastShow('A conveyor runs to a station\'s goods shed: build a station beside the railway first.');
+    else if (tool === 'station' && APP.state && !rlOn(APP.state)) toastShow('A station stands beside the railway: lay the track first.');
+    return r;
+  };
+}
+
+// ---- src/ui/junctions_ui.js
+// Junctions and roundabouts on screen (nova/rbt, DESIGN.md §36): the Roundabout tool in the Transport tab, the Traffic
+// legend naming the worst junction with [Show] [Roundabout · $X] (one tap builds it there, its price on the button),
+// a tap on a crossing with the Traffic layer on names that crossing, Undo after building. Sim: src/sim/junctions.js.
+// A12: nothing is built unless she taps a button with its price or taps a lit crossing with the tool armed.
+
+TR_TOOLS.rbt = { name: 'Roundabout', icon: 'rbt', stage: JCT.stage, cost: money$(JCT.cost), price: JCT.cost, long: 'Roundabouts' };
+TR_PURPOSE.rbt = 'Roundabout: carts merge round a planted island instead of crossing: a busy crossing carries up to ×1.5 the carts';
+// a ring road round an island, four streets meeting it
+ICONS.rbt = 'M11 0 H13 V5.2 H11 Z M11 18.8 H13 V24 H11 Z M0 11 H5.2 V13 H0 Z M18.8 11 H24 V13 H18.8 Z M12 4.5 A7.5 7.5 0 1 0 12.01 4.5 Z M12 8.6 A3.4 3.4 0 1 1 11.99 8.6 Z';
+
+{
+  const st = document.createElement('style');
+  st.textContent = '#trlegend button.tl.rbt { min-height: 44px; } #trlegend button.tl { min-height: 44px; } #trlegend .worst.pick { color: var(--ink); font-weight: 700; }';
+  document.head.appendChild(st);
+}
+
+{
+  const _trafficOn = trafficOn;
+  trafficOn = function () { return _trafficOn() || APP.ui.tool === 'rbt'; };
+  const _toolLabel = toolLabel;
+  toolLabel = function (t) { return t === 'rbt' ? 'Roundabout' : _toolLabel(t); };
+}
+
+// The crossing nearest a screen point (within a tile of the finger), or -1.
+function jctNear(s, sx, sy, any) {
+  const p = screenToTile(APP.R, APP.view, sx, sy), x0 = Math.floor(p.x), y0 = Math.floor(p.y);
+  let best = -1, bd = 0.95;
+  for (let y = y0 - 1; y <= y0 + 1; y++) for (let x = x0 - 1; x <= x0 + 1; x++) {
+    if (!inMap(x, y)) continue;
+    const i = tileIdx(x, y);
+    if (!jctAt(s, i) && !(any && rbtAt(s, i))) continue;
+    const d = Math.hypot(x + 0.5 - p.x, y + 0.5 - p.y);
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+
+// Builds a roundabout on tile i (her tap): the money flies off, Undo stands by Done for 9 s.
+function rbtBuild(i) {
+  const s = APP.state, prev = rbtList(s).slice(), r = placeRbt(s, i);
+  const x = i % MAP_W + 0.5, y = ((i / MAP_W) | 0) + 0.5;
+  if (!r.ok) { toastShow(r.why + '.'); return false; }
+  floaterAdd(x, y, '−$' + r.cost.toLocaleString('en-US'), '#c0392b');
+  audioCue('road');
+  APP.ui.undo = { tiles: [[i, s.road[i]]], tram: null, rail: null, money: r.cost, what: 'Undo roundabout', rbt: prev, t: performance.now() };
+  roadUndoRender();
+  clearTimeout(APP.undoTimer);
+  APP.undoTimer = setTimeout(() => roadUndoClear(), UNDO_MS);
+  APP.ui.trPick = i; APP.ui.trPickT = performance.now();
+  guideRender(); trafficLegend();
+  return true;
+}
+
+{
+  const _roadUndo = roadUndo;
+  roadUndo = function () {
+    const u = APP.ui.undo;
+    if (u && u.rbt) APP.state.rbt = u.rbt.slice();
+    const r = _roadUndo.apply(this, arguments);
+    if (u && u.rbt) trafficLegend();
+    return r;
+  };
+  const _tapAt = tapAt;
+  tapAt = function (sx, sy) {
+    const s = APP.state, tool = APP.ui.tool;
+    if (tool === 'rbt') {
+      $('pop').classList.remove('show');
+      const i = jctNear(s, sx, sy, true);
+      if (i < 0) { toastShow('Tap a crossing of three or four roads (they are ringed).'); return; }
+      if (rbtAt(s, i)) { APP.ui.trPick = i; APP.ui.trPickT = performance.now(); trafficLegend(); toastShow('Already a roundabout: ' + Math.round(trafficLevel(s, i) * 100) + ' % of what it carries.'); return; }
+      rbtBuild(i);
+      return;
+    }
+    // with the Traffic layer on, a tap on a crossing (no building under the finger) names it in the legend
+    if (tool === 'look' && APP.ui.layer === 'traffic' && !renderPick(APP.R, APP.view, s, sx, sy)) {
+      const i = jctNear(s, sx, sy, true);
+      if (i >= 0) { APP.ui.trPick = i; APP.ui.trPickT = performance.now(); trafficLegend(); }
+    }
+    return _tapAt(sx, sy);
+  };
+}
+
+// The legend's line: the crossing she tapped (for 20 s), else the worst place; a junction a roundabout helps has the fix
+// "a roundabout (×1.4 the flow)" and the button "Roundabout · $1,500" that builds it there in one tap.
+{
+  const _worst = trafficWorst;
+  trafficWorst = function (s) {
+    const pk = APP.ui.trPick;
+    if (pk >= 0 && performance.now() - (APP.ui.trPickT || 0) < 20000 && s.road[pk] && jctAt(s, pk)) {
+      const ji = jctInfo(s, pk), l = ji.level;
+      const fix = ji.rbt ? (l > TR.busy ? (s.road[pk] === 1 && s.stage >= PAVED_STAGE ? 'pave it and the streets into it (twice the carts)' : s.road[pk] === 2 && s.stage >= TR.avenueStage ? 'an avenue into it, or a second road that takes carts past it' : 'a second road that takes carts past it') : 'none needed: the carts merge and go on') :
+        ji.offer ? 'a roundabout (' + gainText(ji.gain) + ' the flow)' : l > TR.busy ? (s.road[pk] === 1 && s.stage >= PAVED_STAGE ? 'pave it (twice the carts)' : 'a second road beside it') : 'none needed';
+      return { i: pk, level: l, name: placeName(s, pk), fix, tool: ji.offer ? 'rbt' : l > TR.busy && s.stage >= PAVED_STAGE && s.road[pk] === 1 ? 'paved' : '', jam: l >= TR.jam, pick: true, ji };
+    }
+    const w = _worst(s);
+    if (!w) return w;
+    const ji = jctInfo(s, w.i);
+    if (ji && ji.offer) return Object.assign(w, { fix: 'a roundabout (' + gainText(ji.gain) + ' the flow)', tool: 'rbt', ji });
+    return w;
+  };
+  const _legend = trafficLegend;
+  trafficLegend = function () {
+    // the legend is drawn again when the Roundabout tool is armed or put down (A6 keeps it while its numbers stay)
+    const e0 = $('trlegend'), armed = APP.ui.tool === 'rbt' ? '1' : '';
+    if (e0 && (e0.dataset.rbtTool || '') !== armed) { e0.dataset.a6 = ''; e0.dataset.key = ''; e0.dataset.rbtTool = armed; }
+    _legend.apply(this, arguments);
+    const el = $('trlegend');
+    if (!el || !el.classList.contains('show')) return;
+    el.dataset.rbtTool = armed;
+    const s = APP.state;
+    if (armed) {
+      // the tool armed: what it costs and where it goes, before she taps (in place of the worst place's line)
+      const txt = innerWidth < 600 ? 'Roundabout · ' + money$(JCT.cost) + ', ' + money$(JCT.upkeep) + ' a month: tap a ringed crossing.' :
+        'Roundabout · ' + money$(JCT.cost) + ' (' + money$(JCT.avenueCost) + ' on an avenue), ' + money$(JCT.upkeep) + ' a month: tap a ringed crossing. At a busy one it carries up to ×1.5 the carts.';
+      const wl = el.querySelector('.wl'), sm = el.querySelector('small');
+      if (wl && wl.textContent !== txt) wl.innerHTML = '<span class="worst pick">' + esc(txt) + '</span>';
+      else if (!wl && sm && sm.textContent !== txt) sm.textContent = txt;
+      return;
+    }
+    if (APP.ui.layer !== 'traffic') return;
+    const w = trafficWorst(s), fx = $('trFix'), wl = el.querySelector('.worst');
+    if (w && w.pick && wl) {
+      const t = (w.ji.rbt ? 'The roundabout' : w.ji.word === 'crossroads' ? 'The crossroads' : 'The junction') + w.name.replace(/^the (roundabout|crossroads|junction)/, '').replace(/^a (roundabout|crossroads|junction) in town/, ' in town') + ': ' + Math.round(w.level * 100) + ' % of what it carries' +
+        (w.ji.rbt ? '' : ', ' + Math.round(w.ji.share * 100) + ' % of its carts cross') + '. Fix: ' + w.fix + '.';
+      if (wl.textContent !== t) { wl.textContent = t; wl.className = 'worst pick ' + (w.jam ? 'jam' : w.level > TR.busy ? 'busy' : 'ok'); }
+      if (fx) fx.style.display = w.tool ? '' : 'none';
+    } else if (fx) fx.style.display = '';
+    if (fx && w && w.tool === 'rbt') {
+      const lab = 'Roundabout · ' + money$(w.ji.cost);
+      if (fx.textContent !== lab) fx.textContent = lab;
+      fx.classList.add('rbt');
+      fx.onclick = () => { cameraFlyTo(w.i % MAP_W + 0.5, ((w.i / MAP_W) | 0) + 0.5); rbtBuild(w.i); };
+    } else if (fx && w && w.pick && w.tool) {
+      fx.textContent = toolLabel(w.tool); fx.classList.remove('rbt');
+      fx.onclick = () => { toolSet(w.tool); cameraFlyTo(w.i % MAP_W + 0.5, ((w.i / MAP_W) | 0) + 0.5); };
+    }
+    const sh = $('trShow');
+    if (sh && w) sh.onclick = () => cameraFlyTo(w.i % MAP_W + 0.5, ((w.i / MAP_W) | 0) + 0.5);
+  };
+}
+
+{
+  // the Roundabout tool keeps the Undo of the roundabout she just built from the legend
+  const _toolSet = toolSet;
+  toolSet = function (tool) {
+    const u = APP.ui.undo, r = _toolSet.apply(this, arguments);
+    if (tool === 'rbt' && u && u.rbt && !APP.ui.undo) { APP.ui.undo = u; roadUndoRender(); }
+    return r;
+  };
+  // Rosa's [Roundabout] arms the tool where she named the jam: that crossing's ring is drawn thicker
+  const _guideAct = guideAct;
+  guideAct = function () {
+    const m = guideMsg(), a = (m && m.act) || {};
+    const go = a.tool === 'rbt' && a.at && performance.now() - (APP.guideT || 0) >= 900;
+    if (go) { APP.ui.trPick = tileIdx(a.at[0], a.at[1]); APP.ui.trPickT = performance.now(); }
+    const r = _guideAct.apply(this, arguments);
+    // her line has done its job: the tool is armed, the crossing ringed, the legend says the price; the map is free
+    // to tap (on a phone Rosa's line, the legend and the bar would leave no map between them)
+    if (go && m === APP.state.guide.msg) { guideDismiss(APP.state); guideRender(); }
+    return r;
+  };
+}
 
 // ---- src/ui/main.js
 // The app: load or start an island, run the clock (pause / 1x / 2x / 3x), turn sim events into what she sees, autosave.
