@@ -2046,8 +2046,9 @@ function cartTick(state, c) {
     c.ver = state.ver;
   }
   const at = c.path[Math.min(c.path.length - 1, Math.floor(c.pos))];
-  // M5: surface and traffic (a busy tile slows the carts on it: cartStep in transport.js)
-  c.pos += cartStep(state, at);
+  // M5: surface and traffic (a busy tile slows the carts on it: cartStep in transport.js); T1: the agents moved it
+  // already this tick (cartMove in traffic.js)
+  c.pos += cartMove(state, c, at);
   if (c.pos < c.path.length - 1) return;
   if (c.st === 'go') {
     cartDeliver(state, c);
@@ -2056,6 +2057,9 @@ function cartTick(state, c) {
     Object.assign(c, { st: 'idle', good: '', dest: 0, path: null, pos: 0 });
   }
 }
+
+// How far a moving cart goes this tick (T1 wraps it: a cart the traffic agents moved goes no farther here).
+function cartMove(state, c, at) { return cartStep(state, at); }
 
 function pantryCap(h, g) { return Math.max(0.5, TUNE.pantryMonths * eatRate(h, g)); }
 
@@ -4127,12 +4131,12 @@ function heapPop(h) { const top = h[0], last = h.pop(); if (h.length) { h[0] = l
 // paved road when it is quicker, and goes round a jam when the way round is shorter in time. Cached per source until
 // the roads change (and, while some road is busy, for one month).
 function routeTree(state, a) {
-  const c = simCache(state), ep = trBusy(state) ? state.month : -1;
+  const c = simCache(state), ep = trBusy(state) ? routeEpoch(state) : -1;
   if (!c.rt || c.rtEp !== ep) {
     c.rt = {}; c.rtEp = ep;
     // ticks to cross each road tile (Infinity off the road), once per month and road change
     const n = MAP_W * MAP_H, cost = new Float64Array(n).fill(Infinity);
-    for (let i = 0; i < n; i++) if (state.road[i]) cost[i] = 1 / (TUNE.cartSpeed * (TR.speed[state.road[i]] || 1) * trSlowOf(routeLevel(state, i)));
+    for (let i = 0; i < n; i++) if (state.road[i]) cost[i] = routeCost(state, i);
     c.rcost = cost;
   }
   if (c.rt[a.id]) return c.rt[a.id];
@@ -4151,6 +4155,11 @@ function routeTree(state, a) {
   }
   return (c.rt[a.id] = { dist, par });
 }
+
+// Which copy of the traffic the routes are planned on (T1 wraps it: the copy of the measured times it took).
+function routeEpoch(state) { return state.month; }
+// Ticks to cross road tile i for the routes (T1 wraps it: the time the agents measured there).
+function routeCost(state, i) { return 1 / (TUNE.cartSpeed * (TR.speed[state.road[i]] || 1) * trSlowOf(routeLevel(state, i))); }
 
 // The cart's path from a to b along the fastest route (falls back on the shortest road path).
 function cartRoute(state, a, b) {
@@ -12667,6 +12676,9 @@ function flowTaker(state, b) {
     if (lost.length) { const w = lost[lost.length - 1]; add.push({ icon: BUILDINGS[w.b.type].icon, id: w.b.id, warn: 1, text: 'Lost the most: the ' + BUILDINGS[w.b.type].name.toLowerCase() + ', ' + signed$(w.n) + ' in the year' + (lost.length > 1 ? ' (' + plural(lost.length, 'workplace', 'workplaces') + ' lost money)' : '') + '.' }); }
     else if (ws.length > 1) add.push({ icon: 'check', text: 'No workplace lost money this year.' });
     g.items.splice(at >= 0 ? at : g.items.length, 0, ...add);
+    // (T1 found it: where the page had one workplace line and E1 says two, the page kept 7 items; the last goes, as
+    // isle.js and families.js keep it to 6)
+    while (g.items.length > 6) g.items.splice(g.items.length - 1, 1);
     return g;
   };
   // ---- old saves: every building takes the island's current lever as its wage; the books restart ----
@@ -12684,6 +12696,1205 @@ function flowTaker(state, b) {
   };
   const _ng = newGame;
   newGame = function () { flowPricesApply(); const s = _ng.apply(this, arguments); s.e1 = { v: 1, m0: 0 }; s.wg = { v: 1, sec: {}, b: {}, fx: {} }; return s; };
+}
+
+// ---- src/sim/traffic.js
+// T1 (21 Oct 2026, nova/traffic): traffic as a game of its own. Tomáš asked whether we could take Trafficity's code
+// (Onramp Games; closed and unreleased): no code, art or text of it is used here, only mechanics from published traffic
+// science. Rules and numbers: DESIGN.md §39; sources: docs/research/traffic.md. TUNE.t1Off: M5's aggregate rule.
+// - Every cart on the road is an agent: its path (tiles), a lane, a position (path index units, as before) and a speed.
+//   It follows the one ahead by the Intelligent Driver Model (Treiber, Hennecke & Helbing 2000), changes lane by MOBIL
+//   (Kesting, Treiber & Helbing 2007), and drives into a junction only when the junction's rule lets it in: give way to
+//   the main road (HCM 2010 critical headways), all-way stop, traffic lights (fixed time, Webster 1958), roundabout
+//   (yield to the ring, NCHRP 572). Four steps a tick, no randomness: a reloaded island drives the same.
+// - Each quarter month each road tile has its time (the mean ticks a cart spent on it, waiting at a crossing counted at
+//   the crossing): the Traffic layer's level is the larger of carts / what its lanes carry and that slowness; the routes
+//   take the measured times (as they were when the month began, half last month's).
+// Saved: on each cart c.v (speed), c.ln (lane), c.vk ('ox' | 'lorry'), c.adm (the path index of the junction it may
+// enter), c.sa (when it stood at an all-way stop's line); state.lanes (tile -> lanes each way, where she changed them),
+// state.jctl (tile -> { k: 'stop' | 'lights', C, sp, lt }), state.traffic.tt / ttr / tw / tp / qa / qn / jw / jn / lor.
+// Old saves: no lanes (each road its kind's), no controls (every junction gives way to its main road), carts at the
+// speed of their road.
+
+const TF = {
+  sec: 4,                // seconds of street time in a tick: an ox cart then walks M5's 0.6 tiles a tick (a 12 m tile:
+                         // 6.5 km/h), a dirt lane's queue drives off at a cart a tick (900 an hour: ox carts at the HCM's
+                         // passenger-car equivalent of 2 against its base 1,900), a paved lane at two (1,800 an hour)
+  sub: 4,                // integration steps a tick
+  delta: 4,              // IDM's acceleration exponent
+  // l length, s0 jam gap (tiles), gap the time gap as tiles at the road's speed (T = gap / v0: 0.25 ticks on dirt),
+  // a acceleration, b comfortable braking (tiles a tick a tick on dirt; x4 paved): M5's speeds, dirt 0.6 / paved 1.2 a tick
+  kind: {
+    ox:    { l: 0.22, s0: 0.08, gap: 0.15, a: 0.5, b: 1.0, name: 'ox cart' },
+    lorry: { l: 0.26, s0: 0.08, gap: 0.15, a: 0.55, b: 1.0, name: 'motor lorry' },
+  },
+  // what a lane carries each way, carts a month (measured by tests/traffic.js: a standing queue's discharge)
+  capLane: [1, 100, 200, 200],
+  hard: 4,               // braking at most this many times b
+  clear: 0.4,            // ticks (on dirt) between two carts passing the same conflict point in a crossing
+  look: 3,               // tiles looked ahead for the one in front and a stop line
+  seek: 7,               // tiles looked ahead for the next crossing (the carts coming that a side-street cart sees)
+  roll: 1,               // a cart leaves its yard at this share of its road's speed (it starts from the yard, rolling)
+  line: 0.53,            // the stop line: this far (path index units) before the crossing tile's centre
+  ghost: 120,            // ticks standing before a cart squeezes through (no deadlock: M5's "a jam never stops a cart")
+  polite: 0.3, thr: 0.03, bias: 0.02, bSafe: 0.6,   // MOBIL
+  // HCM 2010 Exhibit 19-10, two-lane major street, base critical headways (s); an ox cart +1 s (a heavy vehicle)
+  tc: { mLeft: 4.1, sRight: 6.2, sThru: 6.5, sLeft: 7.1, heavy: 1.0 },
+  rbtTc: 5.2,            // NCHRP 572: single-lane roundabout entry, critical headway (s)
+  rbtTf: 3.2,            // ... and follow-up headway (s): one car in from each street every 3.2 s at most
+  tf: { sRight: 3.3, sThru: 4.0, sLeft: 3.5 },   // HCM 2010 Exhibit 19-11: follow-up headways from a side street (s)
+  stopV: 0.04,           // tiles a tick: standing at a stop line
+  lost: 4,               // s of amber and all-red after each green (HCM: ~4 s lost a phase)
+  stop: { cost: 50, year: 1915, stage: 2 },
+  lights: { cost: 2000, upkeep: 20, year: 1930, stage: 3 },
+  cycle: [30, 120],      // s
+  leftShare: 0.2,        // a protected left phase takes this share of the main road's green
+  laneDef: [1, 1, 1, 2], laneMax: [1, 1, 2, 3], laneCost: [0, 0, 120, 200], laneStage: 3,
+  // noise: dB = k + 10 log10(sum of carts a month (a lorry as `lorry` carts) x the tile's weight); weight `near` for a road
+  // tile beside the home, `far` two tiles out; `damp` with palms, a garden, a park or forest beside the home
+  noise: { k: 32, lorry: 3, near: 0.5, far: 0.15, damp: 0.4, noisy: 55, loud: 62, happy: 6 },
+  window: 25,
+  losBusy: 15, losJam: 35,  // s a cart waits at a crossing: busy, jammed (HCM levels of service C and E)
+  adviseMin: 4,          // s a cart waits at a crossing before the card, the legend and Rosa offer another rule
+  // white lines on paved streets from this year (the first centre line: Wayne County, Michigan, 1911; common in the
+  // 1920s): before, cobbles and kerbs only
+  linesYear: 1917,
+};
+function t1On() { return !TUNE.t1Off; }
+
+// ---------- lanes ----------
+function laneDefOf(k) { return TF.laneDef[k] || 1; }
+// lanes each way on road tile i
+function lanesAt(s, i) {
+  const k = s.road[i] || 0;
+  if (!k) return 1;
+  const o = s.lanes && s.lanes[i];
+  return o ? Math.max(1, Math.min(TF.laneMax[k], o)) : laneDefOf(k);
+}
+// carts a month (both ways) a road tile carries: its lanes each way x what a lane carries (T1; M5's TR.cap when off)
+function capAt(s, i) { const k = s.road[i] || 0; return !k ? 1 : t1On() ? 2 * TF.capLane[k] * lanesAt(s, i) : TR.cap[k]; }
+// what a road kind carries with its usual lanes (the legend's numbers)
+function trCapOf(k) { return t1On() ? 2 * TF.capLane[k] * laneDefOf(k) : TR.cap[k]; }
+
+// ---------- geometry of a crossing ----------
+const TF_H = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+function tfDir(a, b) { const d = b - a; return d === 1 ? 0 : d === MAP_W ? 1 : d === -1 ? 2 : d === -MAP_W ? 3 : -1; }
+// the way through a crossing tile from heading din to dout (right-hand traffic, lane 0.15 right of the centre line)
+function tfCurve(din, dout) {
+  const hi = TF_H[din], ho = TF_H[dout], w = 0.15;
+  const p0 = [-0.5 * hi[0] - w * hi[1], -0.5 * hi[1] + w * hi[0]], p2 = [0.5 * ho[0] - w * ho[1], 0.5 * ho[1] + w * ho[0]];
+  const c1 = din === dout ? [(p0[0] + p2[0]) / 2, (p0[1] + p2[1]) / 2] : hi[0] !== 0 ? [p2[0], p0[1]] : [p0[0], p2[1]];
+  const out = [];
+  for (let k = 0; k <= 12; k++) { const t = k / 12, u = 1 - t; out.push([u * u * p0[0] + 2 * u * t * c1[0] + t * t * p2[0], u * u * p0[1] + 2 * u * t * c1[1] + t * t * p2[1]]); }
+  return out;
+}
+// TF_CONF[m1 * 16 + m2]: the two ways (m = din * 4 + dout) cross or merge (never in the crossing together)
+const TF_CONF = (() => {
+  const C = new Uint8Array(256), P = [];
+  for (let m = 0; m < 16; m++) P[m] = ((m & 3) + 2) % 4 === m >> 2 ? null : tfCurve(m >> 2, m & 3);
+  for (let a = 0; a < 16; a++) for (let b = 0; b < 16; b++) {
+    if (a >> 2 === b >> 2) continue;
+    if (!P[a] || !P[b]) { C[a * 16 + b] = 1; continue; }
+    let d = 9;
+    for (const p of P[a]) for (const q of P[b]) d = Math.min(d, Math.hypot(p[0] - q[0], p[1] - q[1]));
+    if (d < 0.2) C[a * 16 + b] = 1;
+  }
+  return C;
+})();
+// TF_CPT[(m1 * 16 + m2) * 2 + 0 / 1]: where along each way (0 at the tile's edge it comes in by, 1 where it leaves)
+// the two come closest: the conflict point both must not pass at the same time
+const TF_CPT = (() => {
+  const C = new Float32Array(512).fill(-1);
+  for (let a = 0; a < 16; a++) for (let b = 0; b < 16; b++) {
+    if (!TF_CONF[a * 16 + b]) continue;
+    const A = ((a & 3) + 2) % 4 === a >> 2 ? null : tfCurve(a >> 2, a & 3), B = ((b & 3) + 2) % 4 === b >> 2 ? null : tfCurve(b >> 2, b & 3);
+    if (!A || !B) { C[(a * 16 + b) * 2] = 0; C[(a * 16 + b) * 2 + 1] = 0; continue; }
+    let d = 9, ia = 0, ib = 0;
+    for (let i = 0; i < A.length; i++) for (let j = 0; j < B.length; j++) { const e = Math.hypot(A[i][0] - B[j][0], A[i][1] - B[j][1]); if (e < d - 1e-9) { d = e; ia = i; ib = j; } }
+    C[(a * 16 + b) * 2] = ia / (A.length - 1); C[(a * 16 + b) * 2 + 1] = ib / (B.length - 1);
+  }
+  return C;
+})();
+// 0 straight, 1 right, 3 left (2: back the way it came)
+function tfTurn(din, dout) { return (dout - din + 4) % 4; }
+
+// ---------- the rule at a junction ----------
+function jctlOf(s, i) { return (s.jctl && s.jctl[i]) || null; }
+// 'yield' (give way to the main road), 'stop' (all-way stop), 'lights', 'rbt'
+function tfCtl(s, i) { if (rbtAt(s, i)) return 'rbt'; const L = jctlOf(s, i); return L ? L.k : 'yield'; }
+// The main road's axis (0: east-west, 1: north-south): the higher road kind, else the axis most carts come in along.
+function tfMain(s, i) {
+  if (s._mainFix !== undefined) return s._mainFix;
+  const X = tfRun(s);
+  if (X.mainM !== s.month + ':' + s.ver) { X.main = {}; X.mainM = s.month + ':' + s.ver; }
+  if (X.main[i] !== undefined) return X.main[i];
+  const x = i % MAP_W, R = s.road, k = (j) => (j >= 0 && j < R.length ? R[j] || 0 : 0);
+  const kE = k(x + 1 < MAP_W ? i + 1 : -1), kW = k(x > 0 ? i - 1 : -1), kS = k(i + MAP_W), kN = k(i - MAP_W);
+  const f0 = kE > 0 && kW > 0, f1 = kS > 0 && kN > 0;
+  let m = 0;
+  // a T: the road that runs through; a crossroads: the better road; else the axis most carts come in along
+  if (f0 !== f1) m = f0 ? 0 : 1;
+  else if (Math.min(kE, kW) !== Math.min(kS, kN)) m = Math.min(kE, kW) > Math.min(kS, kN) ? 0 : 1;
+  else { const T = trState(s), q = (T.qar || T.qa || {})[i]; if (q) m = q[1] + q[3] > 1.2 * (q[0] + q[2]) ? 1 : 0; }
+  return (X.main[i] = m);
+}
+
+// Runtime (not saved): the step's buckets and the junctions' lists.
+function tfRun(s) { if (!s._tf) s._tf = { main: {}, mainM: -1, bench: {} }; return s._tf; }
+
+// ---------- signals (fixed time) ----------
+// The phases of a light: [{ axis, left, g (s) }], each green followed by TF.lost of amber (3 s) and all-red (1 s).
+function sigPlan(s, i) {
+  const L = jctlOf(s, i), main = tfMain(s, i), C = L.C || 60, n = L.lt ? 3 : 2, G = Math.max(n * 4, C - n * TF.lost);
+  const gl = L.lt ? Math.round(G * TF.leftShare) : 0, gm = Math.round((G - gl) * (L.sp || 0.5)), gc = G - gl - gm;
+  const out = [];
+  if (L.lt) out.push({ axis: main, left: true, g: gl });
+  out.push({ axis: main, left: false, g: gm }, { axis: 1 - main, left: false, g: gc });
+  return out;
+}
+// The signal for a cart heading din, turning tr, at time t (ticks): 'G' go, 'P' go when the oncoming road is clear
+// (a left turn), 'A' amber, 'R' red.
+function sigFor(s, i, din, tr, t) {
+  const L = jctlOf(s, i);
+  if (!L || L.k !== 'lights') return 'G';
+  const P = sigPlan(s, i), C = P.reduce((a, p) => a + p.g + TF.lost, 0);
+  let x = ((t * TF.sec) % C + C) % C;
+  for (const p of P) {
+    const mine = din % 2 === p.axis && (p.left ? tr === 3 : true);
+    // a protected left phase: the main road's left turns only; a through phase: straight and right go, left turns
+    // go in the oncoming road's gaps
+    if (x < p.g) return !mine ? 'R' : p.left ? 'G' : tr === 3 ? 'P' : 'G';
+    x -= p.g;
+    // amber, then all-red: a car at the line still goes, a left turn waiting at the line clears (tfAdmit)
+    if (x < TF.lost) return mine ? 'A' : 'R';
+    x -= TF.lost;
+  }
+  return 'R';
+}
+// The colour each approach shows (for the art): [E, S, W, N] by the side the carts come from, 'G' | 'A' | 'R'.
+function sigShow(s, i, t) {
+  const out = [];
+  for (let side = 0; side < 4; side++) { const din = (side + 2) % 4, g = sigFor(s, i, din, 0, t), l = sigFor(s, i, din, 3, t); out.push(g === 'G' || l === 'G' ? 'G' : g === 'A' || l === 'A' ? 'A' : 'R'); }
+  return out;
+}
+// Webster (1958): C0 = (1.5 L + 5) / (1 - Y), greens by the critical flow ratios, from the measured carts on each approach.
+// (snap: from the carts as the month began, for the copies of crossings)
+function sigWebster(s, i, left, snap) {
+  const T0 = trState(s), q = ((snap ? T0.qar : T0.qa) || T0.qa || {})[i] || [0, 0, 0, 0], ql = ((snap ? T0.qlr : T0.ql) || T0.ql || {})[i] || [0, 0, 0, 0], main = tfMain(s, i);
+  const x = i % MAP_W, nb = [x > 0 ? i - 1 : i, i - MAP_W, x + 1 < MAP_W ? i + 1 : i, i + MAP_W];
+  // saturation flow a tick of the approach a cart heading din comes along (the tile behind it): its lanes x a lane's
+  const sat = (din) => { const j = nb[din]; const k = s.road[j] || s.road[i] || 1; return TF.capLane[k] / TUNE.ticksPerMonth * lanesAt(s, j >= 0 && s.road[j] ? j : i); };
+  const y = (din) => q[din] / TUNE.ticksPerMonth / sat(din), yl = (din) => ql[din] / TUNE.ticksPerMonth / sat(din);
+  const yM = Math.max(y(main), y(main + 2)), yC = Math.max(y(1 - main), y(3 - main)), yL = left ? Math.max(yl(main), yl(main + 2)) : 0;
+  const n = left ? 3 : 2, L = n * TF.lost, Y = yM + yC + yL;
+  const C0 = Y >= 0.9 ? TF.cycle[1] : (1.5 * L + 5) / (1 - Y);
+  const C = Math.max(TF.cycle[0], Math.min(TF.cycle[1], Math.round(C0 / 5) * 5));
+  const sp = yM + yC > 0 ? Math.max(0.2, Math.min(0.8, Math.round(yM / (yM + yC) * 20) / 20)) : 0.5;
+  return { C, sp, Y: Math.round(Y * 100) / 100, C0: Math.round(C0), lt: left ? 1 : 0 };
+}
+
+// ---------- the agents ----------
+function tfV0(s, i) { return TUNE.cartSpeed * (TR.speed[s.road[i] || 1] || 1); }
+function tfPar(s, c) {
+  if (!c.vk) c.vk = typeof FLOW !== 'undefined' && c.path && yearOf(s) >= FLOW.lorry.year && flowPaved(s, c.path) >= FLOW.lorry.paved ? 'lorry' : 'ox';
+  return TF.kind[c.vk] || TF.kind.ox;
+}
+// Per road change: lanes and free speed of every tile (typed arrays), the junctions.
+function tfNet(s) {
+  const X = tfRun(s);
+  if (X.net && X.net.ver === s.ver && X.net.road === s.road) return X.net;
+  const n = s.road.length, lanes = new Uint8Array(n), v0 = new Float32Array(n);
+  for (let i = 0; i < n; i++) { lanes[i] = lanesAt(s, i); v0[i] = s.road[i] ? tfV0(s, i) : TUNE.cartSpeed; }
+  X.sig = {};
+  return (X.net = { ver: s.ver, road: s.road, lanes, v0, arms: jctMap(s).arms });
+}
+// IDM: acceleration at speed v towards v0, with a gap (tiles to the one ahead's tail; Infinity: none) closing at dv.
+// A paved road is a dirt road at twice the pace: the time gap halves (T = gap / v0) and a, b scale with v0 squared.
+function idmAcc(P, v, v0, gap, dv) {
+  const r = v / v0, T = P.gap / v0, f = (v0 / TUNE.cartSpeed) * (v0 / TUNE.cartSpeed), A = P.a * f, Bk = P.b * f;
+  let a = A * (1 - r * r * r * r);
+  if (gap < 1e8) {
+    const ss = P.s0 + Math.max(0, v * T + v * dv / (2 * Math.sqrt(A * Bk))), g = Math.max(gap, 0.01);
+    a -= A * (ss / g) * (ss / g);
+  }
+  return Math.max(-TF.hard * Bk, a);
+}
+function tfBrake(P, v0) { return P.b * (v0 / TUNE.cartSpeed) * (v0 / TUNE.cartSpeed); }
+
+// The cart's way through the crossing at path index m: { din, dout, tr, mv }.
+function tfMoveAt(c, m) {
+  const p = c.path, n = p.length;
+  const din = m > 0 ? tfDir(p[m - 1], p[m]) : tfDir(p[m], p[m + 1]), dout = m < n - 1 ? tfDir(p[m], p[m + 1]) : din;
+  return { din, dout, tr: tfTurn(din, dout), mv: din * 4 + dout };
+}
+// HCM rank of a way through a give-way crossing (1 main road straight and right, 2 its left turns, 3 side right, 4 side
+// straight and left)
+function tfRank(main, M) { const onMain = M.din % 2 === main; return onMain ? (M.tr === 3 ? 2 : 1) : M.tr === 1 ? 3 : 4; }
+// critical headway in ticks for a cart of kind P making way M (onMain: a left turn from the main road)
+// (on a paved road twice the pace: half the ticks)
+function tfTc(P, M, onMain, v0) {
+  const t = onMain ? TF.tc.mLeft : M.tr === 1 ? TF.tc.sRight : M.tr === 3 ? TF.tc.sLeft : TF.tc.sThru;
+  return (t + (P === TF.kind.ox ? TF.tc.heavy : 0)) / TF.sec * TUNE.cartSpeed / (v0 || TUNE.cartSpeed);
+}
+// roundabout: whether a cart making way M passes in front of side e on the ring (anticlockwise on the map: E -> N -> W
+// -> S) and at what share of its way through (-1: it does not)
+function tfRing(M, e) {
+  const f = (M.din + 2) % 4, x = M.dout;
+  let n = 0, at = -1;
+  for (let sd = f; sd !== x && n < 4; ) { sd = (sd + 3) % 4; n++; if (sd === e && sd !== x) at = n; }
+  return at < 0 ? -1 : at / Math.max(1, n);
+}
+
+// A moving cart's working copy for the step (one shape for all, so the step's loops stay quick; never saved): the
+// cart's own fields are copied in at the tick's start and out at its end.
+class TfCar {
+  constructor(c) {
+    this.c = c; this.id = c.id; this.path = c.path; this.n = 0; this.pos = 0; this.v = 0; this.ln = 0; this.adm = -1; this.P = TF.kind.ox;
+    this.lorry = false; this.k = -1; this.u = 0; this.e = 0; this.nl = 1; this.key = 0; this.bi = 0; this.j1 = -1; this.j2 = -1;
+    this.nv = -1; this.np = null; this.m = -1; this.d = 0; this.Mn = null; this.Mm = -1; this.Mp = null; this.M = null; this.Ma = -1;
+    this.gap = 0; this.dv = 0; this.a = 0; this.room = 0; this.v0 = 0; this.bind = 0; this.gh = 0; this.stk = 0; this.sa = -1;
+    this.tl = -1; this.br = 0; this.ok = 0; this.adm2 = -1; this.zm = -1; this.za = -1; this.zd = 0; this.yard = 0;
+  }
+}
+const TF_AH = { gap: 0, dv: 0, o: null };
+// The cart's place on its path for this step: path index k, u along the edge k -> k + 1, the edge's key (tile, heading,
+// lane) and the next two crossings ahead (cached until it passes a tile or the roads change).
+function tfPlace(net, q) {
+  const p = q.path, n = q.n, k = Math.min(n - 2, Math.max(0, Math.floor(q.pos)));
+  if (k !== q.k || q.nv !== net.ver || q.np !== p) {
+    const a = p[k], b = p[k + 1];
+    q.k = k; q.nv = net.ver; q.np = p;
+    q.e = a * 4 + tfDir(a, b); q.nl = Math.min(net.lanes[a], net.lanes[b]);
+    q.j1 = -1; q.j2 = -1;
+    for (let m = k + 1; m < n && m <= k + 1 + TF.seek; m++) if (net.arms[p[m]]) { if (q.j1 < 0) q.j1 = m; else { q.j2 = m; break; } }
+  }
+  q.u = q.pos - k;
+  if (q.ln >= q.nl) q.ln = q.nl - 1;
+  q.key = q.e * 4 + q.ln;
+}
+// The step's index: cars sorted by edge and lane, front first; key -> first index in the sorted list.
+function tfIndex(S) {
+  S.sort((p, q) => p.key - q.key || q.u - p.u || p.id - q.id);
+  const at = new Map();
+  for (let k = 0; k < S.length; k++) { const c = S[k]; c.bi = k; if (k === 0 || S[k - 1].key !== c.key) at.set(c.key, k); }
+  return at;
+}
+function tfRear(S, at, key) {
+  const k0 = at.get(key);
+  if (k0 === undefined) return null;
+  let k = k0;
+  while (k + 1 < S.length && S[k + 1].key === key) k++;
+  return S[k];
+}
+// The one ahead of car q in lane ln, into TF_AH { gap, dv, o } (gap Infinity: nobody within TF.look tiles).
+function tfAhead(net, S, at, q, ln, own) {
+  const k = q.k, u = q.u, n = q.n, key = q.e * 4 + ln, R = TF_AH;
+  if (own) {
+    const b = q.bi - 1;
+    if (b >= 0 && S[b].key === key) { const o = S[b]; R.gap = o.u - u - o.P.l; R.dv = q.v - o.v; R.o = o; return R; }
+  } else {
+    const k0 = at.get(key);
+    if (k0 !== undefined) {
+      let best = null;
+      for (let j = k0; j < S.length && S[j].key === key; j++) { if (S[j].u > u) best = S[j]; else break; }
+      if (best) { R.gap = best.u - u - best.P.l; R.dv = q.v - best.v; R.o = best; return R; }
+    }
+  }
+  const p = q.path;
+  for (let j = 1; j <= TF.look && k + j <= n - 2; j++) {
+    const a = p[k + j], b = p[k + j + 1], nl = Math.min(net.lanes[a], net.lanes[b]);
+    const r = tfRear(S, at, (a * 4 + tfDir(a, b)) * 4 + Math.min(ln, nl - 1));
+    if (r) { R.gap = (1 - u) + (j - 1) + r.u - r.P.l; R.dv = q.v - r.v; R.o = r; return R; }
+  }
+  R.gap = Infinity; R.dv = 0; R.o = null;
+  return R;
+}
+// The car behind q in lane ln on q's edge (for MOBIL), or null.
+function tfBehind(S, at, q, ln) {
+  const key = q.e * 4 + ln, k0 = at.get(key);
+  if (k0 === undefined) return null;
+  for (let j = k0; j < S.length && S[j].key === key; j++) if (S[j] !== q && (S[j].u < q.u || (S[j].u === q.u && S[j].id > q.id))) return S[j];
+  return null;
+}
+
+function tfStep(s, net, S, dt, first, live) {
+  const T = trState(s), arms = net.arms;
+  const rail = (s.rail || []).length > 0 && typeof rlCrossAt === 'function' && typeof rlOn === 'function' && rlOn(s) && rlCrossInfo(s).n;
+  const t = s.tick + (s._tfSub || 0) * dt;
+  // a car at the end of its path is in at the gate: it stands in nobody's way for the rest of the tick
+  let w = 0;
+  for (let i = 0; i < S.length; i++) if (S[i].pos < S[i].n - 1) S[w++] = S[i];
+  S.length = w;
+  for (let i = 0; i < S.length; i++) tfPlace(net, S[i]);
+  let at = tfIndex(S);
+  // the crossing each car comes to next (path index m), the cars in or committed to each crossing
+  const appr = new Map(), occ = new Map();
+  for (let i = 0; i < S.length; i++) {
+    const q = S[i], p = q.path;
+    q.m = -1;
+    if (q.adm >= 0 && q.adm < q.n && arms[p[q.adm]] && q.pos < q.adm + 0.5 + q.P.l) {
+      // a car let in that has not reached the crossing and stands (the queue beyond it stopped) gives its turn back
+      if (q.pos < q.adm - 0.5 && q.v < 0.02) { q.adm = -1; q.adm2 = -1; }
+      else if (q.pos > q.adm - 0.5 - 1.6) { const J = p[q.adm]; let a = occ.get(J); if (!a) occ.set(J, (a = [])); if (q.Ma !== q.adm || !q.M) { q.M = tfMoveAt(q, q.adm); q.Ma = q.adm; } a.push(q); }
+    }
+    // the second crossing of a pair right behind each other (an avenue's two carriageways): let in with the first
+    if (q.adm2 >= 0 && q.adm2 < q.n && arms[p[q.adm2]] && q.pos < q.adm2 + 0.5 + q.P.l) {
+      const J = p[q.adm2]; let a = occ.get(J); if (!a) occ.set(J, (a = []));
+      a.push({ id: q.id, pos: q.pos, v: q.v, P: q.P, adm: q.adm2, M: tfMoveAt(q, q.adm2) });
+    } else q.adm2 = -1;
+    const m = q.j1 >= 0 && q.j1 - TF.line >= q.pos - 1e-6 ? q.j1 : q.j2 >= 0 && q.j2 - TF.line >= q.pos - 1e-6 ? q.j2 : -1;
+    if (m < 0 || m > q.pos + TF.seek || q.adm === m || q.adm2 === m) continue;
+    q.m = m; q.d = m - TF.line - q.pos;
+    // the crossing's control delay (HCM): from when the car first sees it to when it is let in, less the free time
+    if (q.zm !== m) { q.zm = m; q.za = t; q.zd = q.d; }
+    if (q.Mm !== m || q.Mp !== p) { q.Mn = tfMoveAt(q, m); q.Mm = m; q.Mp = p; }
+    let a = appr.get(p[m]); if (!a) appr.set(p[m], (a = [])); a.push(q);
+  }
+  // lane changes (once a tick): the turn lane before a crossing, else MOBIL
+  if (first) {
+    let moved = false;
+    for (let i = 0; i < S.length; i++) {
+      const q = S[i];
+      if (q.nl < 2 || q.gh > s.tick) continue;
+      const P = q.P, v0 = net.v0[q.path[Math.min(q.n - 1, Math.round(q.pos))]];
+      let want = -1;
+      if (q.m >= 0 && q.d < 2) want = q.Mn.tr === 3 ? q.nl - 1 : q.Mn.tr === 1 ? 0 : -1;
+      const cands = want >= 0 ? (want === q.ln ? [] : [q.ln + (want > q.ln ? 1 : -1)]) : [q.ln - 1, q.ln + 1].filter((l) => l >= 0 && l < q.nl);
+      if (!cands.length) continue;
+      tfAhead(net, S, at, q, q.ln, true);
+      const aCur = idmAcc(P, q.v, v0, TF_AH.gap, TF_AH.dv);
+      let best = -1, bestG = 0;
+      for (const l of cands) {
+        tfAhead(net, S, at, q, l, false);
+        const g2 = TF_AH.gap, dv2 = TF_AH.dv;
+        if (g2 < P.s0) continue;
+        const f = tfBehind(S, at, q, l);
+        let dF = 0;
+        if (f) {
+          const fg = q.u - P.l - f.u;
+          if (fg < f.P.s0) continue;
+          const aN = idmAcc(f.P, f.v, v0, fg, f.v - q.v);
+          if (aN < -TF.bSafe * tfBrake(f.P, v0)) continue;
+          tfAhead(net, S, at, f, l, true);
+          dF = aN - idmAcc(f.P, f.v, v0, TF_AH.gap, TF_AH.dv);
+        }
+        const sc = tfBrake(P, v0) / P.b;
+        const gain = want >= 0 ? 1 : (idmAcc(P, q.v, v0, g2, dv2) - aCur + TF.polite * dF) / sc - TF.thr - (l > q.ln ? TF.bias : -TF.bias);
+        if (gain > bestG) { bestG = gain; best = l; }
+      }
+      if (best >= 0) { q.ln = best; q.key = q.e * 4 + best; q.c.lc = s.tick; moved = true; }
+    }
+    if (moved) at = tfIndex(S);
+  }
+  // who is ahead of whom (for the moves, and "first in its queue" for asking at a crossing)
+  for (let i = 0; i < S.length; i++) {
+    const q = S[i];
+    if (q.gh > s.tick) { q.gap = Infinity; q.dv = 0; continue; }
+    tfAhead(net, S, at, q, q.ln, true);
+    q.gap = TF_AH.gap; q.dv = TF_AH.dv;
+  }
+  // admissions: the first car of each lane, the nearest first. A car the rule lets in drives on (no stop line); it is
+  // committed (in the crossing's list) only once it could no longer stop before the line, so a car still far off holds
+  // nobody up, and a car the rule stops brakes for the line
+  const asking = [];
+  for (let i = 0; i < S.length; i++) { const q = S[i]; q.ok = 0; if (q.m >= 0 && q.gap >= q.d - 0.05 && q.d <= TF.look) asking.push(q); }
+  if (asking.length > 1) asking.sort((a, b) => a.d - b.d || a.id - b.id);
+  for (const q of asking) {
+    const Jt = q.path[q.m];
+    if (tfAdmit(s, net, S, at, q, Jt, appr.get(Jt) || TF_NONE, occ.get(Jt) || TF_NONE, t, false)) {
+      // a crossing right behind this one: the car may not stand in the first waiting for the second, so both let it in
+      // together (its stop line is the first one's)
+      const m2 = q.m + 1 < q.n && arms[q.path[q.m + 1]] ? q.m + 1 : -1;
+      let M2 = null;
+      if (m2 >= 0) {
+        const sm = q.m, sMn = q.Mn, sd = q.d, J2 = q.path[m2];
+        q.m = m2; q.Mn = tfMoveAt(q, m2); q.d = m2 - TF.line - q.pos; M2 = q.Mn;
+        const ok2 = tfAdmit(s, net, S, at, q, J2, appr.get(J2) || TF_NONE, occ.get(J2) || TF_NONE, t, true);
+        q.m = sm; q.Mn = sMn; q.d = sd;
+        if (!ok2) continue;
+      }
+      if (q.d > q.v * q.v / (2 * tfBrake(q.P, net.v0[Jt])) + 2 * q.v * dt + 0.12) { q.ok = 1; continue; }
+      if (m2 >= 0) { q.adm2 = m2; const J2 = q.path[m2]; let a2 = occ.get(J2); if (!a2) occ.set(J2, (a2 = [])); a2.push({ id: q.id, pos: q.pos, v: q.v, P: q.P, adm: m2, M: M2 }); }
+      q.adm = q.m; q.M = q.Mn; q.Ma = q.m;
+      const FL = T.fl || (T.fl = {}); FL[Jt * 4 + q.Mn.din] = Math.round(t * 1000) / 1000;
+      let a = occ.get(Jt); if (!a) occ.set(Jt, (a = [])); a.push(q);
+      if (live) {
+        const Q = T.qn || (T.qn = {}), o = Q[Jt] || (Q[Jt] = new Array(16).fill(0));
+        o[q.M.mv]++;
+        const JN = T.jn || (T.jn = {}); JN[Jt] = (JN[Jt] || 0) + 1;
+        if (q.zm === q.m && q.za >= 0) { const JW = T.jw || (T.jw = {}); JW[Jt] = (JW[Jt] || 0) + Math.max(0, (t - q.za) - (q.zd - q.d) / net.v0[Jt]); }
+      }
+      q.m = -1; q.sa = -1;
+    }
+  }
+  // accelerations from the step's start (all at once), then the moves
+  for (let i = 0; i < S.length; i++) {
+    const q = S[i], P = q.P, p = q.path, n = q.n, v0 = net.v0[p[Math.min(n - 1, Math.round(q.pos))]];
+    let gap = q.gap, dv = q.dv, room = gap - 0.02;
+    q.bind = 0;
+    if (q.gh <= s.tick) {
+      // the stop line as a standing obstacle; IDM keeps s0 from what stands ahead, so the line is s0 farther
+      if (q.m >= 0 && !q.ok && q.d + P.s0 < gap) { gap = q.d + P.s0; dv = q.v; q.bind = 1; room = Math.min(room, q.d); }
+      if (rail) for (let j = q.k + 1; j <= q.k + TF.look && j < n; j++) {
+        const tj = p[j];
+        if (!rlCrossAt(s, tj) || rlCrossAt(s, p[j - 1])) continue;
+        const d = j - 0.62 - q.pos;
+        if (d > -0.05 && d + P.s0 < gap && rlCrossShut(s, tj, s.tick)) { gap = Math.max(0, d) + P.s0; dv = q.v; room = Math.min(room, Math.max(0, d)); }
+        break;
+      }
+    }
+    q.a = idmAcc(P, q.v, v0, gap, dv);
+    q.room = room; q.v0 = v0;
+  }
+  const W = live ? T.tw || (T.tw = {}) : null, TP = live ? T.tp || (T.tp = {}) : null;
+  for (let i = 0; i < S.length; i++) {
+    const q = S[i], P = q.P, p = q.path, n = q.n, v = q.v, a = q.a;
+    let nv = v + a * dt, dx;
+    if (nv < 0) { dx = a < 0 ? Math.min(v * dt, -v * v / (2 * a)) : 0; nv = 0; } else dx = v * dt + 0.5 * a * dt * dt;
+    if (q.room < 1e8) { const room = q.room > 0 ? q.room : 0; if (dx > room) { dx = room; nv = Math.min(nv, room / dt); } }
+    if (dx < 0) dx = 0;
+    q.pos = Math.min(n - 1, q.pos + dx); q.v = nv;
+    q.br = a < -0.6 * tfBrake(P, q.v0) || nv < 0.02 ? 1 : 0;
+    // the time on each tile (between the path's ends; a wait at a crossing's line is the crossing's), the passages
+    const r = Math.round(q.pos), waitJ = q.m >= 0 && q.bind && q.d < 1 ? p[q.m] : -1;
+    if (live && r > 0 && r < n - 1) {
+      const tile = waitJ >= 0 ? waitJ : p[r];
+      W[tile] = (W[tile] || 0) + dt;
+
+    }
+    if (r !== q.tl) {
+      q.tl = r;
+      if (live && r > 0 && r < n - 1) TP[p[r]] = (TP[p[r]] || 0) + 1;
+      if (live && q.lorry) { const LO = T.lorn || (T.lorn = {}); LO[p[r]] = (LO[p[r]] || 0) + 1; }
+    }
+    // standing long (a deadlock, never a red light's length): it squeezes through; in a crossing sooner
+    const inJ = q.adm >= 0 && q.pos >= q.adm - 0.5 && q.pos < q.adm + 0.5;
+    if (nv < 0.01 && dx < 1e-4) { q.stk += dt; if (q.stk > (inJ ? TF.ghost / 3 : TF.ghost)) { q.gh = s.tick + 12; q.stk = 0; s._tfGhosts = (s._tfGhosts || 0) + 1; if (s._tfLog) s._tfLog.push({ tile: p[Math.round(q.pos)], inJ, m: q.m, J: q.m >= 0 ? p[q.m] : -1, d: q.d, gap: q.gap, pos: q.pos, n, lead: TF_AH.o ? -1 : 0, st: q.c.st, ok: q.ok }); } } else q.stk = 0;
+  }
+}
+const TF_NONE = [];
+
+// Car o (committed to the crossing) and car q would be at their ways' conflict point together: q may go only if it is
+// past that point before o gets there, or gets there after o has passed it (with TF.clear ticks between).
+function tfFoe(q, o, net, Jt) {
+  const k = (q.Mn.mv * 16 + o.M.mv) * 2, cq = q.m - 0.5 + TF_CPT[k], co = o.adm - 0.5 + TF_CPT[k + 1], v0 = net.v0[Jt];
+  if (o.pos - o.P.l > co + 0.05) return false;
+  const vo = Math.max(o.v, 0.25 * v0), vq = Math.max(q.v, 0.5 * v0);
+  const oIn = (co - o.pos) / vo, oOut = (co + 0.05 + o.P.l - o.pos) / vo;
+  const qIn = (cq - q.pos) / vq, qOut = (cq + 0.05 + q.P.l - q.pos) / vq, gap = TF.clear * TUNE.cartSpeed / v0;
+  return !(qOut + gap <= oIn || qIn >= oOut + gap);
+}
+// May car q drive into crossing Jt now?
+// No room beyond the crossing for car q on its way out (the box stays clear): the last car on that street stands, or
+// nearly, with no room for q past the crossing's edge.
+function tfNoRoom(net, S, at, q) {
+  const p = q.path, m = q.m;
+  if (m < 0 || m + 1 > q.n - 1) return false;
+  const a = p[m], b = p[m + 1], nl = Math.min(net.lanes[a], net.lanes[b]);
+  const r = tfRear(S, at, (a * 4 + tfDir(a, b)) * 4 + Math.min(q.ln, nl - 1));
+  return !!(r && r !== q && r.v < 0.25 * net.v0[b] && r.u - r.P.l < 0.5 + q.P.l + q.P.s0);
+}
+function tfAdmit(s, net, S, at, q, Jt, appr, occ, t, pair) {
+  if (q.gh > s.tick) return true;
+  const P = q.P, M = q.Mn, ctl = tfCtl(s, Jt);
+  if (tfNoRoom(net, S, at, q)) return false;
+  // nobody inside whose way crosses or merges with this one
+  for (const o of occ) {
+    if (o === q || o.id === q.id) continue;
+    if (ctl === 'rbt') {
+      const sh = tfRing(o.M, (M.din + 2) % 4), x = o.pos - (o.adm - 0.5);
+      if (sh >= 0 && x < sh + 0.15) return false;
+      continue;
+    }
+    // (an all-way stop: nobody whose way crosses this one may be in the crossing at all; the HCM's all-way stop
+    // serves the conflicting streets in turn)
+    if (TF_CONF[M.mv * 16 + o.M.mv] && (ctl === 'stop' ? o.pos - o.P.l <= o.adm - 0.5 + TF_CPT[(M.mv * 16 + o.M.mv) * 2 + 1] + 0.05 : tfFoe(q, o, net, Jt))) return false;
+  }
+  // a street's cars come in one at a time: the follow-up headway since the last one from this side
+  // (saved in state.traffic.fl: a reloaded island lets the same cars in)
+  // (a paved crossing runs at its roads' pace: twice as fast, half the ticks)
+  const side = Jt * 4 + M.din, last = (trState(s).fl || {})[side], pace = TUNE.cartSpeed / net.v0[Jt];
+  if (ctl === 'rbt') return last === undefined || t - last >= TF.rbtTf / TF.sec * pace;
+  if (ctl === 'stop') {
+    if (!pair && (q.d > 0.12 || q.v > TF.stopV)) return false;
+    if (q.sa < 0) q.sa = t;
+    for (const a of appr) {
+      if (a === q || a.sa < 0 || a.d > 0.12) continue;
+      if (!TF_CONF[M.mv * 16 + a.Mn.mv]) continue;
+      // (a car first at the line whose street beyond is full cannot go: the next in turn goes)
+      if (a.v < TF.stopV && tfNoRoom(net, S, at, a)) continue;
+      if (a.sa < q.sa - 1e-9 || (Math.abs(a.sa - q.sa) < 1e-9 && a.id < q.id)) return false;
+    }
+    return true;
+  }
+  if (ctl === 'lights') {
+    const sg = sigFor(s, Jt, M.din, M.tr, t);
+    if (sg === 'R') return false;
+    // amber: only a car too close to stop goes, and a left turn waiting at the line clears now (the oncoming stop)
+    if (sg === 'A') {
+      if (q.d <= 0.15 && M.tr === 3) { for (const a of appr) if (a !== q && TF_CONF[M.mv * 16 + a.Mn.mv] && a.d < 0.15 && a.v > 0.1) return false; return true; }
+      return q.d <= 0.15;
+    }
+    if (sg === 'P') {
+      for (const a of appr) {
+        if (a === q || !TF_CONF[M.mv * 16 + a.Mn.mv]) continue;
+        const sa = sigFor(s, Jt, a.Mn.din, a.Mn.tr, t);
+        if (sa !== 'G' && sa !== 'A') continue;
+        if (a.d / Math.max(a.v, 0.05) < tfTc(P, M, true, net.v0[Jt])) return false;
+      }
+    }
+    return true;
+  }
+  // give way: the main road first (HCM ranks), a gap of the critical headway in what has priority
+  const main = tfMain(s, Jt), rk = tfRank(main, M);
+  if (rk === 1) return true;
+  if (rk >= 3 && last !== undefined && t - last < (M.tr === 1 ? TF.tf.sRight : M.tr === 3 ? TF.tf.sLeft : TF.tf.sThru) / TF.sec * pace) return false;
+  const tc = tfTc(P, M, rk === 2, net.v0[Jt]);
+  for (const a of appr) {
+    if (a === q || !TF_CONF[M.mv * 16 + a.Mn.mv] || tfRank(main, a.Mn) >= rk) continue;
+    // (a main-road car standing because its street beyond is full holds nobody up: measured on the scripted novice's
+    // Town, a left turn waited 120 ticks for a queue that could not move, a gridlock only the squeeze undid)
+    if (a.v < 0.1 * net.v0[Jt] && tfNoRoom(net, S, at, a)) continue;
+    if (a.d / Math.max(a.v, 0.05) < tc) return false;
+  }
+  return true;
+}
+
+// Carts at their gates go out where their street has room (in any lane, by the one with room; the rear of what is on
+// that edge as the last step placed it); the rest stay in the yard (Y).
+function tfYard(net, S, Y) {
+  const room = new Map();
+  for (const q of S) {
+    const p = q.path, k = Math.min(q.n - 2, Math.max(0, Math.floor(q.pos))), a = p[k], b = p[k + 1], key = (a * 4 + tfDir(a, b)) * 4 + Math.min(q.ln || 0, Math.min(net.lanes[a], net.lanes[b]) - 1), u = q.pos - k - q.P.l;
+    if (!room.has(key) || room.get(key) > u) room.set(key, u);
+  }
+  let w = 0;
+  for (const y of Y) {
+    const a = y.path[0], b = y.path[1], e = a * 4 + tfDir(a, b), nl = Math.min(net.lanes[a], net.lanes[b]);
+    let ln = -1;
+    for (let l = 0; l < nl && ln < 0; l++) { const u = room.has(e * 4 + l) ? room.get(e * 4 + l) : 9; if (u >= y.P.s0) ln = l; }
+    if (ln < 0) { Y[w++] = y; continue; }
+    y.ln = ln; y.yard = 0; y.k = -1; room.set(e * 4 + ln, -y.P.l); S.push(y);
+  }
+  Y.length = w;
+}
+
+// The tick: every cart on the road moves TF.sub steps (copied into its working car and back).
+function trafficStep(s) {
+  const X = tfRun(s), cars = X.cars || (X.cars = new Map()), S = [], live = !s._tfBench;
+  for (const c of s.carts) {
+    if (c.st === 'idle' || !c.path || c.path.length < 2 || c.pos >= c.path.length - 1) continue;
+    let q = cars.get(c.id);
+    if (!q || q.c !== c) { q = new TfCar(c); cars.set(c.id, q); }
+    if (q.path !== c.path) { q.path = c.path; q.k = -1; }
+    q.n = c.path.length; q.pos = c.pos; q.P = tfPar(s, c); q.lorry = c.vk === 'lorry';
+    q.v = c.v === undefined ? tfV0(s, c.path[Math.min(q.n - 1, Math.round(c.pos))]) : c.v;
+    q.ln = c.ln || 0; q.adm = c.adm === undefined ? -1 : c.adm; q.adm2 = c.adm2 === undefined ? -1 : c.adm2; q.sa = c.sa === undefined ? -1 : c.sa;
+    q.stk = c.stk || 0; q.gh = c.gh || 0; q.tl = c.tl === undefined ? -1 : c.tl;
+    if (c.zm !== undefined) { q.zm = c.zm; q.za = c.za; q.zd = c.zd; } else if (q.np !== c.path) q.zm = -1;
+    S.push(q);
+  }
+  // a cart still at its gate (path start) waits in the yard, off the road, until there is room on its street (tfYard,
+  // each step: several can leave in a tick, one after the other)
+  const Y = [];
+  { let w = 0; for (const q of S) { if (q.pos <= 0.001) { q.yard = 1; Y.push(q); } else S[w++] = q; } S.length = w; }
+  if (cars.size > S.length * 2 + 64) { const keep = new Set(s.carts.map((c) => c.id)); for (const id of cars.keys()) if (!keep.has(id)) cars.delete(id); }
+  if (!S.length && !Y.length) return;
+  const dt = 1 / TF.sub, net = tfNet(s), all = S.concat(Y);
+  for (let k = 0; k < TF.sub; k++) { s._tfSub = k; if (Y.length) tfYard(net, S, Y); tfStep(s, net, S, dt, k === 0, live); }
+  s._tfSub = 0;
+  // a cart held in its yard waits for the street it is to take: the wait is that street's first tile's (the routes see it)
+  for (const q of Y) { q.c.yw = (q.c.yw || 0) + 1; q.c.mv = s.tick; if (live && q.n > 2) { const W = trState(s).tw || (trState(s).tw = {}); W[q.path[1]] = (W[q.path[1]] || 0) + 1; } }
+  for (const q of all) {
+    if (q.yard && Y.includes(q)) continue;
+    const c = q.c;
+    c.pos = q.pos; c.v = Math.round(q.v * 1e6) / 1e6; c.ln = q.ln; c.adm = q.adm; if (q.adm2 >= 0 || c.adm2 !== undefined) c.adm2 = q.adm2; c.sa = q.sa < 0 ? undefined : q.sa; c.stk = q.stk; c.gh = q.gh; c.tl = q.tl; c.br = q.br;
+    // where it waits for its turn (the junction card's queues): the crossing's tile and the side it comes from
+    c.wj = q.m >= 0 && q.v < 0.1 && q.d < 2.5 ? q.path[q.m] : -1; c.ws = c.wj >= 0 ? (q.Mn.din + 2) % 4 : -1;
+    if (q.zm >= 0) { c.zm = q.zm; c.za = Math.round(q.za * 1000) / 1000; c.zd = Math.round(q.zd * 1000) / 1000; } else if (c.zm !== undefined) c.zm = -1;
+    c.mv = s.tick;
+  }
+}
+
+// Each quarter month: each tile's time (half old, half new), the crossings' arrivals and waits, the lorries.
+function tfFold(s) {
+  const T = trState(s), tw = T.tw || {}, tp = T.tp || {}, old = T.tt || {}, nt = {};
+  const keys = new Set(Object.keys(tw).concat(Object.keys(old)));
+  for (const k of keys) {
+    const i = +k;
+    if (!s.road[i]) continue;
+    const free = 1 / tfV0(s, i);
+    let v;
+    if (tw[k] > 0) { const now = tw[k] / Math.max(1, tp[k] || 0); v = old[k] === undefined ? now : 0.5 * old[k] + 0.5 * now; }
+    else v = 0.5 * (old[k] || free) + 0.5 * free;
+    if (v > free * 1.02) nt[k] = Math.round(v * 1000) / 1000;
+  }
+  T.tt = nt; T.tw = {}; T.tp = {};
+  // the follow-up times older than a few ticks are forgotten (they no longer hold anybody)
+  if (T.fl) for (const k in T.fl) if (s.tick - T.fl[k] > 8) delete T.fl[k];
+  const per = TUNE.ticksPerMonth / TF.window;
+  const fold = (oldM, cnt, len) => {
+    const out = {};
+    for (const k of new Set(Object.keys(oldM || {}).concat(Object.keys(cnt || {})))) {
+      const o = (oldM || {})[k], c = (cnt || {})[k];
+      if (len) {
+        const v = []; let any = 0;
+        for (let j = 0; j < len; j++) { v[j] = Math.round((0.5 * (o ? o[j] : 0) + 0.5 * (c ? c[j] : 0) * per) * 10) / 10; if (v[j] >= 0.1) any = 1; }
+        if (any) out[k] = v;
+      } else { const v = 0.5 * (o || 0) + 0.5 * (c || 0) * per; if (v >= 0.2) out[k] = Math.round(v * 10) / 10; }
+    }
+    return out;
+  };
+  // the carts let into each crossing by their way through it (heading in x 4 + heading out), and from those the carts
+  // coming in by heading (qa) and the left turns among them (ql)
+  T.qm = fold(T.qm, T.qn, 16); T.qn = {};
+  const qa = {}, ql = {};
+  for (const k in T.qm) { const m = T.qm[k]; qa[k] = [0, 1, 2, 3].map((d) => Math.round((m[d * 4] + m[d * 4 + 1] + m[d * 4 + 2] + m[d * 4 + 3]) * 10) / 10); ql[k] = [0, 1, 2, 3].map((d) => m[d * 4 + (d + 3) % 4]); }
+  T.qa = qa; T.ql = ql;
+  // the mean wait a cart at each crossing (ticks): its waits over the carts let in
+  const jd = {}, oj = T.jd || {};
+  for (const k of new Set(Object.keys(T.jw || {}).concat(Object.keys(oj)))) {
+    const n = (T.jn || {})[k] || 0, w = (T.jw || {})[k] || 0, now = n ? w / n : w > 0 ? w : 0, v = oj[k] === undefined ? now : 0.5 * oj[k] + 0.5 * now;
+    if (v >= 0.02 && jctAt(s, +k)) jd[k] = Math.round(v * 100) / 100;
+  }
+  T.jd = jd; T.jw = {}; T.jn = {};
+  T.lor = fold(T.lor, T.lorn, 0); T.lorn = {};
+}
+
+// A cart's way back from the taker it served when its gate is busy (2 or more carts waiting there to leave): the
+// quickest way home from any of the taker's gates, each gate's yard queue counted as a tick a cart; null: keep the
+// way it came.
+function tfBackRoute(s, c) {
+  const g0 = c.path[0], d = bById(s, c.dest), h = bById(s, c.home);
+  if (!d || !h) return null;
+  const wait = (g) => { let n = 0; for (const o of s.carts) if (o !== c && o.st !== 'idle' && o.path && o.pos <= 0.001 && o.path[0] === g) n++; return n; };
+  if (wait(g0) < 2) return null;
+  const gates = bEntrances(s, d);
+  if (gates.length < 2) return null;
+  const n = MAP_W * MAP_H, dist = new Float64Array(n).fill(Infinity), par = new Int32Array(n).fill(-1), hp = [];
+  for (const g of gates) { const w = wait(g); dist[g] = w; heapPush(hp, w, g); }
+  const goal = new Set(bEntrances(s, h));
+  let at = -1;
+  while (hp.length) {
+    const top = heapPop(hp), dd = top[0], i = top[1];
+    if (dd > dist[i]) continue;
+    if (goal.has(i)) { at = i; break; }
+    const x = i % MAP_W;
+    for (let k = 0; k < 4; k++) {
+      const j = k === 0 ? (x + 1 < MAP_W ? i + 1 : -1) : k === 1 ? (x > 0 ? i - 1 : -1) : k === 2 ? i + MAP_W : i - MAP_W;
+      if (j < 0 || j >= n || !s.road[j]) continue;
+      const nd = dd + routeCost(s, j);
+      if (nd < dist[j] - 1e-9) { dist[j] = nd; par[j] = i; heapPush(hp, nd, j); }
+    }
+  }
+  if (at < 0) return null;
+  const path = [];
+  for (let i = at; i >= 0; i = par[i]) path.push(i);
+  path.reverse();
+  return path[0] === g0 || path.length < 2 ? null : path;
+}
+
+// When a month begins: the routes' copy of each tile's time (half last month's copy, half now).
+function tfMonthStart(state) {
+  const T = trState(state), old = T.ttr || {}, nt = {};
+  for (const k of new Set(Object.keys(old).concat(Object.keys(T.tt || {})))) { const v = 0.5 * (old[k] || 1 / tfV0(state, +k)) + 0.5 * ((T.tt || {})[k] || 1 / tfV0(state, +k)); if (state.road[+k] && v > 1.02 / tfV0(state, +k)) nt[k] = Math.round(v * 1000) / 1000; }
+  T.ttr = nt; T.ttrV = (T.ttrV || 0) + 1;
+  // (a crossing's rule changed: "measuring" for up to two months)
+  if (T.jchg) for (const k in T.jchg) if (state.tick - T.jchg[k] >= 2 * TUNE.ticksPerMonth) delete T.jchg[k];
+  // the crossings' carts as the month began: the main road's axis and the copies of crossings read these (saved: a
+  // reloaded island decides the same)
+  T.qar = Object.assign({}, T.qa || {}); T.qmr = Object.assign({}, T.qm || {}); T.qlr = Object.assign({}, T.ql || {}); T.jdr = Object.assign({}, T.jd || {});
+}
+
+// ---------- what the rest of the game reads ----------
+// The measured slowness of tile i: its time over its free time (1: free); route: as when the month began.
+function tfRatio(s, i, route) {
+  const T = trState(s), tt = (route ? T.ttr || T.tt : T.tt) || {}, v = tt[i];
+  return v ? Math.max(1, v * tfV0(s, i)) : 1;
+}
+// The level by slowness (the Traffic layer's colour): free while carts take under a quarter longer than on a free
+// road, busy up to 1.6 times (M5's jammed tile slowed carts so), jammed beyond
+// a crossing's mean wait a cart (s), and its level (HCM 2010 Exhibit 19-1: LOS A to 10 s, C to 25, E to 50, F beyond)
+function jctWait(s, i) { return ((trState(s).jd || {})[i] || 0) * TF.sec; }
+function tfWaitLevel(w) { return w < TF.losBusy ? TR.busy * w / TF.losBusy : TR.busy + (TR.jam - TR.busy) * (w - TF.losBusy) / (TF.losJam - TF.losBusy); }
+// (at most 2.5: a queue standing still for a while reads "jammed", not ever more jammed)
+function tfDelayLevel(r) { return r < 1.25 ? TR.busy * Math.max(0, r - 1) / 0.25 : Math.min(2.5, TR.busy + (TR.jam - TR.busy) * (r - 1.25) / 0.35); }
+{
+  const _tl = trafficLevel;
+  trafficLevel = function (state, i) {
+    if (!t1On()) return _tl(state, i);
+    const k = state.road[i];
+    if (!k) return 0;
+    // a crossing's level is its carts' mean wait, by the HCM's levels of service for a crossing (busy from 15 s, LOS C;
+    // jammed from 35 s, LOS E); a road tile's the larger of carts / what it carries and its slowness
+    if (jctAt(state, i)) return tfWaitLevel(jctWait(state, i));
+    return Math.max((trState(state).load[i] || 0) / capAt(state, i), tfDelayLevel(tfRatio(state, i)));
+  };
+  const _rl = routeLevel;
+  routeLevel = function (state, i) { return t1On() ? (state.road[i] ? tfDelayLevel(tfRatio(state, i, true)) : 0) : _rl(state, i); };
+  // the routes are planned again each month while any tile is measured slower than free (else until the roads change)
+  const _tb = trBusy;
+  trBusy = function (state) { if (!t1On()) return _tb(state); const R = trState(state).ttr; for (const k in R) return true; return false; };
+  // the routes' trees are kept while the copy of the times they were planned on stands (its number is saved)
+  const _re = routeEpoch;
+  routeEpoch = function (state) { return t1On() ? 'v' + (trState(state).ttrV || 0) : _re(state); };
+  const _rc = routeCost;
+  routeCost = function (state, i) { return t1On() ? tfRatio(state, i, true) / tfV0(state, i) : _rc(state, i); };
+  const _cs = cartStep;
+  cartStep = function (state, i) { return t1On() ? tfV0(state, i) / tfRatio(state, i) : _cs(state, i); };
+  const _cm = cartMove;
+  cartMove = function (state, c, at) { return t1On() && c.mv === state.tick ? 0 : _cm(state, c, at); };
+  // routes: a cart sent out takes the quickest way by the measured times, but a new quickest way takes over a quarter of
+  // the trips a month (the method of successive averages), so a jam moves carts across bit by bit, never all at once
+  const _cr = cartRoute;
+  cartRoute = function (state, a, b) {
+    const best = _cr(state, a, b);
+    if (!t1On() || !state._tfSend || !best || best.length < 3) return best;
+    return tfRouteSplit(state, a.id + '>' + b.id, best);
+  };
+  // a departing cart rolls out at half its road's speed, as an ox cart or (E1's rule) a motor lorry
+  const _cd = cartDispatch;
+  cartDispatch = function (state, c, b) {
+    const was = c.st;
+    state._tfSend = true;
+    let r;
+    try { r = _cd.apply(this, arguments); } finally { state._tfSend = false; }
+    if (was === 'idle' && c.st === 'go' && c.path) { c.vk = ''; tfPar(state, c); c.v = TF.roll * tfV0(state, c.path[0]); c.ln = 0; c.adm = -1; c.adm2 = -1; c.zm = -1; c.tl = 0; c.sa = undefined; c.stk = 0; }
+    return r;
+  };
+  // the way back starts at the taker's gate
+  const _ct = cartTick;
+  cartTick = function (state, c) {
+    const p0 = c.path, st0 = c.st, r = _ct.apply(this, arguments);
+    // the way back from a taker whose gate has carts waiting in its yard: out by its least busy gate
+    if (t1On() && st0 === 'go' && c.st === 'back' && c.path && c.path.length > 2) { const q = tfBackRoute(state, c); if (q) c.path = q; }
+    if (c.path !== p0) { c.adm = -1; c.adm2 = -1; c.zm = -1; c.tl = 0; c.sa = undefined; c.stk = 0; c.ln = 0; if (c.path) c.v = Math.min(c.v || 0, TF.roll * tfV0(state, c.path[0])); }
+    return r;
+  };
+  const _st = simTick;
+  simTick = function (state) {
+    if (t1On()) trafficStep(state);
+    const r = _st.apply(this, arguments);
+    if (t1On() && (state.tick - 1) % TF.window === TF.window - 1) tfFold(state);
+    if (t1On() && state.mt === 0) tfMonthStart(state);
+    return r;
+  };
+}
+
+// The split between two ways for one yard and taker (saved in state.trR: a reloaded island sends its carts the same):
+// { a: the way most carts take, b: the newer quickest way or null, w: b's share, n: carts sent, m: month }.
+function tfPathCost(s, path) { let t = 0; for (const i of path) t += s.road[i] ? routeCost(s, i) : 99; return t; }
+function tfRouteSplit(s, key, best) {
+  const R = s.trR || (s.trR = {}), same = (p, q) => p && q && p.length === q.length && p[0] === q[0] && p[p.length - 1] === q[q.length - 1] && p.every((v, k) => v === q[k]);
+  let r = R[key];
+  const ok = (p) => p && p.every((i) => s.road[i] > 0);
+  if (!r || !ok(r.a) || r.a[0] !== best[0] || r.a[r.a.length - 1] !== best[best.length - 1]) { R[key] = { a: best, b: null, w: 0, n: 0, m: s.month }; return best; }
+  if (r.b && !ok(r.b)) { r.b = null; r.w = 0; }
+  if (r.m !== s.month) {
+    r.m = s.month;
+    // each month the share moves a step towards the quicker way; the step halves each time the quicker way changes
+    // back (successive averages: the split settles where both ways take as long)
+    const step = (dir) => { if (r.dir && r.dir !== dir) r.st = Math.max(0.06, (r.st || 0.25) / 2); r.dir = dir; return r.st || 0.25; };
+    if (same(best, r.a)) { if (r.b) { r.w -= step(-1); if (r.w <= 0) { r.b = null; r.w = 0; r.dir = 0; r.st = 0.25; } } }
+    else if (r.b && same(best, r.b)) r.w = Math.min(0.9, r.w + step(1));
+    else if (tfPathCost(s, best) < 0.95 * tfPathCost(s, r.a)) { r.b = best; r.w = 0.25; r.dir = 1; r.st = 0.25; }
+  }
+  const f = (r.n++ * 0.618034) % 1;
+  return r.b && f < r.w ? r.b : r.a;
+}
+// the routes of yards and takers that are gone, or not used for a year, are forgotten
+function tfRouteTidy(s) { const R = s.trR; if (!R) return; for (const k in R) if (s.month - R[k].m > 12) delete R[k]; }
+
+// ---------- building: junction rules, lanes ----------
+function jctlCost(s, i, k) { return k === 'lights' ? TF.lights.cost : k === 'stop' ? TF.stop.cost : 0; }
+// Why rule k cannot go on junction i ('' when it can); anyMoney: as if the treasury could pay.
+function jctlWhy(s, i, k, anyMoney) {
+  if (!s.road[i] || !jctAt(s, i)) return 'A rule goes on a crossing of three or four roads';
+  if (k === 'rbt') return typeof rbtWhy === 'function' ? rbtWhy(s, i, anyMoney) : 'No roundabouts';
+  if (tfCtl(s, i) === k) return k === 'lights' ? 'Already traffic lights' : k === 'stop' ? 'Already an all-way stop' : 'Already gives way to the main road';
+  if (k === 'lights' && yearOf(s) < TF.lights.year) return 'Traffic lights from ' + TF.lights.year;
+  if (k === 'lights' && s.stage < TF.lights.stage) return 'Traffic lights open at ' + STAGES[TF.lights.stage].name;
+  if (k === 'stop' && yearOf(s) < TF.stop.year) return 'Stop signs from ' + TF.stop.year;
+  if (k === 'stop' && s.stage < TF.stop.stage) return 'Stop signs open at ' + STAGES[TF.stop.stage].name;
+  if (!anyMoney && s.money < jctlCost(s, i, k)) return 'Not enough money (' + money$(jctlCost(s, i, k)) + ')';
+  return '';
+}
+// Sets the rule at junction i (her tap on the card): 'yield' | 'stop' | 'lights' (a roundabout: placeRbt). Lights start
+// on Webster's cycle for the carts measured there.
+function placeJctl(s, i, k) {
+  const why = jctlWhy(s, i, k);
+  if (why) return { ok: false, why };
+  const cost = jctlCost(s, i, k);
+  // what stood there before goes, half its price back (a roundabout's island, the lights' posts)
+  if (rbtAt(s, i)) { s.rbt = rbtList(s).filter((j) => j !== i); s.money += Math.floor(rbtCost(s, i) * TUNE.refund); }
+  if (tfCtl(s, i) === 'lights') s.money += Math.floor(TF.lights.cost * TUNE.refund);
+  if (!s.jctl) s.jctl = {};
+  if (k === 'yield') delete s.jctl[i];
+  else s.jctl[i] = k === 'lights' ? Object.assign({ k }, sigWebster(s, i, false)) : { k };
+  s.money -= cost; s.ver++;
+  tfJctReset(s, i);
+  simEvent(s, { kind: 'jctl', i, k });
+  return { ok: true, cost };
+}
+// A crossing's rule or phases changed: its wait is measured anew (the card says "measuring" until carts pass), so the
+// card, the legend and Rosa never quote the old rule's wait as the new one's.
+function tfJctReset(s, i) {
+  const T = trState(s);
+  for (const k of ['jd', 'jdr', 'jw', 'jn']) if (T[k]) delete T[k][i];
+  (T.jchg || (T.jchg = {}))[i] = s.tick;
+}
+function jctMeasuring(s, i) {
+  const T = trState(s), t = (T.jchg || {})[i];
+  return t !== undefined && !((T.jd || {})[i] > 0) && s.tick - t < 2 * TUNE.ticksPerMonth;
+}
+{
+  const _placeRbt = placeRbt;
+  placeRbt = function (state, i) { const r = _placeRbt.apply(this, arguments); if (r && r.ok) tfJctReset(state, i); return r; };
+}
+// The phase editor's change (no cost): { C } cycle s, { sp } the main road's share of the green, { lt } protected left,
+// { webster: true } Webster's cycle for the carts measured now.
+function setSignal(s, i, ch) {
+  const L = jctlOf(s, i);
+  if (!L || L.k !== 'lights') return { ok: false, why: 'No traffic lights here' };
+  if (ch.webster) Object.assign(L, sigWebster(s, i, !!L.lt));
+  if (ch.C !== undefined) L.C = Math.max(TF.cycle[0], Math.min(TF.cycle[1], Math.round(ch.C)));
+  if (ch.sp !== undefined) L.sp = Math.max(0.2, Math.min(0.8, Math.round(ch.sp * 20) / 20));
+  if (ch.lt !== undefined) L.lt = ch.lt ? 1 : 0;
+  s.ver++;
+  tfJctReset(s, i);
+  return { ok: true, L };
+}
+// A road change that ends a junction ends its rule; a removed road takes its lanes with it.
+function jctlTidy(s) {
+  if (s.jctl) for (const k in s.jctl) if (!s.road[+k] || !jctAt(s, +k) || rbtAt(s, +k)) { delete s.jctl[k]; s.ver++; }
+  if (s.lanes) for (const k in s.lanes) if (!s.road[+k] || s.lanes[k] <= laneDefOf(s.road[+k])) delete s.lanes[k];
+}
+function laneWhy(s, i, add) {
+  const k = s.road[i] || 0;
+  if (!k) return 'Not a road';
+  if (s.stage < TF.laneStage) return 'Lanes open at ' + STAGES[TF.laneStage].name;
+  if (k === 1) return 'A dirt road has one lane each way: pave it first';
+  const n = lanesAt(s, i);
+  if (add && n >= TF.laneMax[k]) return k === 2 ? 'Already two lanes each way (an avenue takes three)' : 'Already three lanes each way';
+  if (!add && n <= laneDefOf(k)) return 'No added lane here';
+  return '';
+}
+// The lane stroke's plan: { add: tiles, cost, bad: [{ i, why }] } (add false: removing, cost is the refund)
+function lanePlan(s, tiles, add) {
+  const out = { add: [], cost: 0, bad: [] };
+  for (const i of tiles) { const w = laneWhy(s, i, add); if (w) out.bad.push({ i, why: w }); else { out.add.push(i); out.cost += TF.laneCost[s.road[i]]; } }
+  if (!add) out.cost = Math.floor(out.cost * TUNE.refund);
+  return out;
+}
+function placeLanes(s, tiles, add) {
+  const plan = lanePlan(s, tiles, add);
+  if (!plan.add.length) return { ok: false, why: plan.bad.length ? plan.bad[0].why : 'Nothing to change' };
+  if (add && s.money < plan.cost) return { ok: false, why: 'Not enough money (' + money$(plan.cost) + ')' };
+  if (!s.lanes) s.lanes = {};
+  for (const i of plan.add) { const n = lanesAt(s, i) + (add ? 1 : -1); if (n <= laneDefOf(s.road[i])) delete s.lanes[i]; else s.lanes[i] = n; }
+  s.money += add ? -plan.cost : plan.cost; s.ver++;
+  simEvent(s, { kind: 'lanes', n: plan.add.length });
+  return { ok: true, cost: plan.cost, n: plan.add.length };
+}
+
+// ---------- money: the lights' upkeep (a line on the receipt) ----------
+function lightsUpkeep(s) { let n = 0; for (const k in s.jctl || {}) if (s.jctl[k].k === 'lights' && s.road[+k]) n++; return { n, up: n * TF.lights.upkeep }; }
+{
+  const _pr = paydayRun;
+  paydayRun = function (state) {
+    jctlTidy(state); tfRouteTidy(state);
+    const r = _pr(state), L = lightsUpkeep(state);
+    if (L.up) {
+      r.lines.push({ id: 0, what: 'lights', n: -L.up }); r.result -= L.up; state.money -= L.up;
+      const hh = state.history[state.history.length - 1];
+      if (hh && hh.m === state.month) { hh.money = state.money; hh.result = r.result; }
+    }
+    r.lights = L.up ? L : null;
+    return r;
+  };
+  const _rl = receiptLines;
+  receiptLines = function (state, r) {
+    const lines = _rl(state, r);
+    if (!r.lights) return lines;
+    const at = lines.findIndex((l) => l[0] === 'Wages and upkeep');
+    lines.splice(at >= 0 ? at + 1 : lines.length, 0, ['Traffic lights upkeep (' + r.lights.n + ')', -r.lights.up]);
+    return lines.slice(0, 11);
+  };
+}
+
+// ---------- a junction's numbers (the card, the legend, Rosa) ----------
+// { i, ctl, word, main, q: carts a month by the side they come from [E, S, W, N], wait (s a cart), queue [E, S, W, N] now }
+function jctTraffic(s, i) {
+  if (!jctAt(s, i)) return null;
+  const T = trState(s), qa = (T.qa || {})[i] || [0, 0, 0, 0], queue = [0, 0, 0, 0];
+  for (const c of s.carts) if (c.st !== 'idle' && c.wj === i && c.ws >= 0) queue[c.ws]++;
+  return { i, ctl: tfCtl(s, i), word: jctWord(s, i), main: tfMain(s, i), q: [qa[2], qa[3], qa[0], qa[1]], wait: Math.round(((T.jd || {})[i] || 0) * TF.sec * 10) / 10, queue, level: trafficLevel(s, i), sig: jctlOf(s, i) };
+}
+
+// ---------- Q2: a rule checked on a copy of the crossing ----------
+// The crossing as it is (its arms, their road kinds and lanes) with the carts measured coming in from each side, each
+// turning as measured, driven 8 months under rule k; the mean wait a cart in the last 6 (s). Pure, deterministic.
+function jctBenchState(spec, k) {
+  const cx = 24, cy = 24, W = MAP_W, L = 9, arm = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  const st = { road: new Array(MAP_W * MAP_H).fill(0), carts: [], tick: 0, mt: 0, month: 0, ver: 1, rbt: [], jctl: {}, lanes: {}, traffic: { load: {}, cnt: {} }, stage: 5, rail: [], money: 1e9, b: [], nextId: 1, ev: null, _tfBench: true };
+  const j = cy * W + cx;
+  for (let side = 0; side < 4; side++) {
+    if (!spec.arms[side]) continue;
+    for (let d = 0; d <= L; d++) { const t = (cy + arm[side][1] * d) * W + cx + arm[side][0] * d; st.road[t] = spec.arms[side]; if (spec.lanes && spec.lanes[side] > 1) st.lanes[t] = spec.lanes[side]; }
+  }
+  st.road[j] = Math.max(...spec.arms);
+  if (k === 'rbt') st.rbt.push(j); else if (k !== 'yield') st.jctl[j] = k === 'lights' ? Object.assign({ k }, spec.sig || { C: 60, sp: 0.5, lt: 0 }) : { k };
+  if (spec.main !== undefined) st._mainFix = spec.main;
+  const legs = (side) => { const out = []; for (let d = L; d >= 1; d--) out.push((cy + arm[side][1] * d) * W + cx + arm[side][0] * d); return out; };
+  // from side `from` (0 E, 1 S, 2 W, 3 N), turning tr (0 straight, 1 right, 3 left): the side it leaves by
+  const exitOf = (from, tr) => ((from + 2) % 4 + tr) % 4;
+  const path = (side, out) => legs(side).concat([j], legs(out).reverse());
+  return { st, j, path, exitOf };
+}
+// The crossing as it is (its arms, their road kinds and lanes) with the carts measured coming in from each side, each
+// turning as measured, driven `months` months under rule k: the mean wait a cart in the last 6 (s), against a cart that
+// drives the same way alone. Pure and deterministic (Q2: the rule is tried on a copy before it is offered).
+function jctBench(spec, k, months) {
+  const B = jctBenchState(spec, k), st = B.st, base = {}, vk = spec.vk || 'ox';
+  const lone = (side, out) => {
+    const key = side * 4 + out;
+    if (base[key] !== undefined) return base[key];
+    const A = jctBenchState(spec, 'yield'), p = A.path(side, out), c = { id: 1, home: 0, st: 'go', path: p, pos: 0, v: TF.roll * tfV0(A.st, p[0]), vk, ln: 0, adm: -1 };
+    A.st.carts.push(c);
+    let t = 0;
+    while (c.pos < p.length - 1 && t < 600) { trafficStep(A.st); A.st.tick++; t++; }
+    return (base[key] = t);
+  };
+  // carts come in at random moments at their measured rates (exponential gaps, as the HCM's gap acceptance assumes;
+  // from a fixed seed: the same copy gives the same answer)
+  let seed = 12345;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return (seed + 0.5) / 2147483648; };
+  const next = [0, 0, 0, 0], seq = [0, 0, 0, 0], waits = [], hold = Math.max(1, months - 4);
+  for (let side = 0; side < 4; side++) next[side] = spec.q[side] > 0 ? -Math.log(rnd()) * TUNE.ticksPerMonth / spec.q[side] : Infinity;
+  let id = 1;
+  for (let m = 0; m < months; m++) {
+    for (let tk = 0; tk < TUNE.ticksPerMonth; tk++) {
+      for (let side = 0; side < 4; side++) {
+        const q = spec.q[side] || 0;
+        if (!q || !spec.arms[side] || st.tick < next[side]) continue;
+        next[side] += -Math.log(rnd()) * TUNE.ticksPerMonth / q;
+        const sh = spec.turn[side] || [1, 0, 0], f = (seq[side]++ * 0.618034) % 1, tr = f < sh[0] ? 0 : f < sh[0] + sh[1] ? 1 : 3;
+        let out = B.exitOf(side, tr);
+        if (!spec.arms[out]) { out = -1; for (const t2 of [0, 1, 3]) if (out < 0 && spec.arms[B.exitOf(side, t2)]) out = B.exitOf(side, t2); }
+        if (out < 0) continue;
+        const p = B.path(side, out);
+        st.carts.push({ id: id++, home: 0, st: 'go', path: p, pos: 0, v: TF.roll * tfV0(st, p[0]), vk, ln: 0, adm: -1, t0: st.tick, side, out });
+      }
+      trafficStep(st);
+      st.tick++; st.mt = st.tick % TUNE.ticksPerMonth;
+      for (const c of st.carts) if (c.pos >= c.path.length - 1) { c.done = 1; if (m >= hold) waits.push(st.tick - c.t0 - lone(c.side, c.out)); }
+      st.carts = st.carts.filter((c) => !c.done);
+    }
+    st.month++;
+  }
+  const n = waits.length, mean = n ? waits.reduce((a, b) => a + b, 0) / n : 0;
+  return { wait: Math.round(Math.max(0, mean) * TF.sec * 10) / 10, n, left: st.carts.length };
+}
+// The bench's spec for junction i on the island (its measured arrivals and turns).
+function jctSpec(s, i) {
+  const T = trState(s), qa = (T.qar || T.qa || {})[i] || [0, 0, 0, 0], x = i % MAP_W;
+  const nb = [x + 1 < MAP_W ? i + 1 : -1, i + MAP_W, x > 0 ? i - 1 : -1, i - MAP_W];
+  const arms = nb.map((j) => (j >= 0 && j < s.road.length ? s.road[j] || 0 : 0)), lanes = nb.map((j) => (j >= 0 && s.road[j] ? lanesAt(s, j) : 1));
+  // qa is by heading (0 E ...); a cart heading E comes from the W side (2)
+  const q = [qa[2], qa[3], qa[0], qa[1]], qm = (T.qmr || T.qm || {})[i];
+  // each side's carts by where they go (straight, right, left), as measured; none measured: mostly straight on
+  const turn = q.map((v, side) => {
+    const din = (side + 2) % 4, row = qm ? [qm[din * 4 + din], qm[din * 4 + (din + 1) % 4], qm[din * 4 + (din + 3) % 4]] : null, t = row ? row[0] + row[1] + row[2] : 0;
+    return t > 0 ? row.map((x) => x / t) : [0.6, 0.25, 0.15];
+  });
+  const L = jctlOf(s, i);
+  return { arms, lanes, q, turn, main: tfMain(s, i), sig: L && L.k === 'lights' ? { C: L.C, sp: L.sp, lt: L.lt } : null, vk: yearOf(s) >= 1920 && s.road[i] >= 2 ? 'lorry' : 'ox' };
+}
+// What each rule would do at junction i (cached for three months and the roads): { now, yield, stop, lights, rbt } (s a cart) and the best
+// other rule { k, wait, gain } where it cuts the wait by a quarter or more (and at least 2 s).
+function jctAdvice(s, i) {
+  const X = tfRun(s), key = i + ':' + s.month + ':' + s.ver;
+  let C = X.bench[i];
+  if (!C || C.key !== key) {
+    // the copy, driven once a month (and after each change) with the carts measured as the month began
+    const spec = jctSpec(s, i), cur = tfCtl(s, i);
+    C = X.bench[i] = { key, cur, w: {}, opts: [] };
+    if (spec.q.reduce((a, b) => a + b, 0) >= 8) {
+      C.opts = ['yield', 'stop', 'lights', 'rbt'].filter((k) => k === cur || !jctlWhy(s, i, k, true));
+      for (const k of C.opts) if (k !== 'lights' || cur === 'lights') C.w[k] = jctBench(spec, k, 6).wait;
+      if (C.opts.includes('lights') && cur !== 'lights') {
+        // a new light starts on Webster's cycle: bench it so
+        const W = sigWebster(s, i, false, true);
+        C.w.lights = jctBench(Object.assign({}, spec, { sig: { C: W.C, sp: W.sp, lt: 0 } }), 'lights', 6).wait;
+      }
+    }
+  }
+  const cur = C.cur, opts = C.opts, out = { key, cur, w: C.w };
+  if (!opts.length) { out.now = Math.round(jctWait(s, i) * 10) / 10; out.best = null; out.est = {}; return out; }
+  // the copy ranks the rules; the seconds she reads start from the wait measured at the crossing now (the card's, the
+  // legend's and Rosa's number: one number): each rule's estimate is that wait times the copy's ratio of that rule to
+  // the rule there now. After a change of rule the wait is measured anew (tfJctReset).
+  const copyNow = Math.max(0.5, out.w[cur] || 0), live = Math.round(jctWait(s, i) * 10) / 10;
+  out.est = {};
+  for (const k in out.w) out.est[k] = k === cur ? live : Math.round(Math.max(0.1, live * out.w[k] / copyNow) * 10) / 10;
+  let best = null;
+  // offered where the crossing really holds carts up (TF.adviseMin s) and the copy cuts the wait by a quarter and at
+  // least 2 s (a copy where no rule holds carts up, its waits near 0, offers nothing: the jam is the streets' then)
+  if (live >= TF.adviseMin) for (const k of opts) if (k !== cur && out.w[k] !== undefined && out.w[k] <= copyNow * 0.75 && copyNow - out.w[k] >= 2 && (!best || out.w[k] < out.w[best.k])) best = { k, wait: out.est[k], gain: copyNow / Math.max(0.5, out.w[k]) };
+  out.now = live; out.best = best;
+  return out;
+}
+
+// ---------- noise ----------
+// The traffic noise at a home: { db, at (the loudest road tile), carts, lorries } (dB on the game's scale, see TF.noise).
+function homeNoise(s, h) {
+  const T = trState(s), L = T.load || {}, LO = T.lor || {}, N = TF.noise;
+  let sum = 0, best = -1, bv = 0, damp = false;
+  for (let y = h.y - 2; y < h.y + h.h + 2; y++) for (let x = h.x - 2; x < h.x + h.w + 2; x++) {
+    if (!inMap(x, y)) continue;
+    const i = tileIdx(x, y), d = Math.max(h.x - x, x - (h.x + h.w - 1), h.y - y, y - (h.y + h.h - 1));
+    if (d === 1 && s.terrain && s.terrain[i] === FOREST) damp = true;
+    if (!s.road[i]) continue;
+    const q = (L[i] || 0) + (N.lorry - 1) * (LO[i] || 0), w = (d <= 1 ? N.near : N.far) * (s.road[i] === 3 ? 1.6 : 1), e = q * w;
+    sum += e;
+    if (e > bv) { bv = e; best = i; }
+  }
+  if (!damp) for (const b of s.b) { const d = BUILDINGS[b.type]; if ((d.deco === 'palms' || d.deco === 'garden' || b.type === 'park') && footDist(b, h) <= 1) { damp = true; break; } }
+  if (damp) sum *= N.damp;
+  const db = sum > 0 ? Math.round(N.k + 10 * Math.log10(sum)) : 0;
+  return { db, at: best, carts: best >= 0 ? Math.round(L[best] || 0) : 0, lorries: best >= 0 ? Math.round(LO[best] || 0) : 0, damp };
+}
+// The island's noisy homes (cached for the month and the roads): { noisy, loud, homes, v (happiness) }
+function noiseAll(s) {
+  const X = tfRun(s), key = s.month + ':' + s.ver;
+  if (X.noise && X.noise.key === key) return X.noise;
+  let noisy = 0, loud = 0, homes = 0;
+  for (const h of s.b) {
+    if (BUILDINGS[h.type].kind !== 'home' || !h.res) continue;
+    homes++;
+    const n = homeNoise(s, h);
+    if (n.db >= TF.noise.loud) loud++; else if (n.db >= TF.noise.noisy) noisy++;
+  }
+  const v = homes ? -Math.round(TF.noise.happy * (noisy + 2 * loud) / (2 * homes)) : 0;
+  return (X.noise = { key, noisy, loud, homes, v });
+}
+{
+  const _hc = happyCalc;
+  happyCalc = function (state) {
+    const r = _hc(state);
+    if (!t1On()) return r;
+    const N = noiseAll(state);
+    if (N.v) { r.parts.push({ label: 'Traffic noise at ' + plural(N.noisy + N.loud, 'home', 'homes'), v: N.v }); r.value = Math.max(0, Math.min(100, r.value + N.v)); }
+    return r;
+  };
+}
+
+// ---------- Rosa: a jammed crossing a rule measurably helps (checked on a copy of it) ----------
+// The jam line with no rule to offer: the road's own fix (pave it; a paved street: a lane, or an avenue).
+function tfJamPlain(s, j) {
+  const where = placeName(s, j.i), at = [j.i % MAP_W, (j.i / MAP_W) | 0], slow = Math.round(tfRatio(s, j.i) * 10) / 10;
+  if (s.road[j.i] === 1) {
+    const paved = s.stage >= PAVED_STAGE;
+    return { text: 'Traffic jam at ' + where + ': carts there take ' + slow + '× as long. ' + (paved ? 'Pave the streets into it: a paved lane carries twice the carts.' : 'Lay a second road that takes carts past it (paved roads come at City).'), btn: paved ? 'Paved road' : 'Road', act: { tool: paved ? 'paved' : 'road', at } };
+  }
+  return { text: 'Traffic jam at ' + where + ', even paved: carts there take ' + slow + '× as long. A second lane each way on the streets into it carries twice the carts (Lanes), or a second road shares the load.', btn: 'Lanes', act: { tool: 'lane', at } };
+}
+{
+  const P = GUIDE_PROBLEMS.find((p) => p.key === 'jam');
+  if (P) {
+    const _check = P.check;
+    P.check = function (s) {
+      const m = _check.call(this, s);
+      if (!m || !t1On()) return m;
+      const j = worstJam(s);
+      if (!j) return m;
+      if (!jctAt(s, j.i)) return tfJamPlain(s, j);
+      const A = jctAdvice(s, j.i);
+      // §36's roundabout line (its "×1.4" from the crossing share) only where the copy of the crossing agrees
+      if (!A.best) return m.btn === 'Roundabout' ? tfJamPlain(s, j) : m;
+      const where = placeName(s, j.i), b = A.best, name = b.k === 'lights' ? 'Traffic lights' : b.k === 'rbt' ? 'A roundabout' : b.k === 'stop' ? 'An all-way stop' : 'Giving way to the main road';
+      const price = b.k === 'lights' ? money$(TF.lights.cost) + ' and ' + money$(TF.lights.upkeep) + ' a month' : b.k === 'rbt' ? money$(rbtCost(s, j.i)) + ' and ' + money$(rbtUpkeepOf(s, j.i)) + ' a month' : b.k === 'stop' ? money$(TF.stop.cost) : 'nothing';
+      return { text: 'Traffic jam at ' + where + ': a cart waits ' + A.now + ' s there. ' + name + ' would cut it to about ' + b.wait + ' s (tried on a copy of this crossing with its carts), for ' + price + '.',
+        btn: b.k === 'rbt' ? 'Roundabout' : 'The crossing', act: b.k === 'rbt' ? { tool: 'rbt', at: [j.i % MAP_W, (j.i / MAP_W) | 0] } : { tool: 'jct', at: [j.i % MAP_W, (j.i / MAP_W) | 0] } };
+    };
+  }
+}
+
+// ---------- Rosa: a shortage that is a jam ----------
+// With the agents a works' yard fills when its carts stand in a jam on their way (or wait in the yard for room on the
+// street), and the homes then lack its goods: Rosa names the jam and its fix, not "build another bakery" or "no market
+// wants it". Measured on the scripted novice's Town (sim_test, month 100): one dirt street from four bakeries to one
+// market stood still for months and 48 homes lacked bread while Rosa asked for a bakery.
+// The worst jammed tile ahead of these works' carts, when it holds up at least half of them; else null.
+function tfCartsJam(s, list) {
+  const ids = new Set(list.map((o) => o.id));
+  let best = null, n = 0, all = 0;
+  for (const c of s.carts) {
+    if (!ids.has(c.home) || c.st === 'idle' || !c.path) continue;
+    all++;
+    let w = null;
+    for (let p = Math.max(0, Math.floor(c.pos)); p < c.path.length; p++) { const i = c.path[p]; if (!s.road[i]) continue; const l = trafficLevel(s, i); if (l >= TR.jam && (!w || l > w.level)) w = { i, level: l }; }
+    if (w) { n++; if (!best || w.level > best.level) best = w; }
+  }
+  return best && n * 2 >= all ? Object.assign(best, { kind: s.road[best.i], carts: n }) : null;
+}
+// The jam's fix in a few words: { text, tool, at, plan }: the rule the copy of the crossing rings, else the street's
+// own (a second road along the dotted line before City, then paving; a paved street: a lane each way).
+function tfJamFix(s, j) {
+  const at = [j.i % MAP_W, (j.i / MAP_W) | 0];
+  if (jctAt(s, j.i)) {
+    const A = jctAdvice(s, j.i), b = A.best;
+    if (b) {
+      const name = b.k === 'lights' ? 'traffic lights' : b.k === 'rbt' ? 'a roundabout' : b.k === 'stop' ? 'an all-way stop' : 'giving way to the main road';
+      return { text: name + ' there would cut a cart\'s wait from ' + A.now + ' s to about ' + b.wait + ' s', tool: b.k === 'rbt' ? 'rbt' : 'jct', at };
+    }
+  }
+  if (s.road[j.i] === 1) {
+    if (s.stage >= PAVED_STAGE) return { text: 'pave the streets into it: a paved lane carries twice the carts', tool: 'paved', at };
+    const line = typeof jamSecond === 'function' ? jamSecond(s, j.i) : null, plan = line ? { kind: 'line', line, road: 1 } : null;
+    return { text: 'lay a second road past it' + (plan ? ' (the dotted line)' : ''), tool: 'road', at, plan };
+  }
+  if (s.stage >= TF.laneStage) return { text: 'a second lane each way on the streets into it carries twice the carts', tool: 'lane', at };
+  return { text: 'a second road past it shares the load', tool: 'road', at };
+}
+{
+  const _needCause = needCause;
+  needCause = function (s, need, homes) {
+    if (t1On() && NEED_GOODS.includes(need)) {
+      const list = s.b.filter((o) => o.open && BUILDINGS[o.type].makes && goodNeed(BUILDINGS[o.type].makes) === need);
+      const full = list.filter((o) => o.blocked === 'yard'), j = full.length && full.length * 2 >= list.length ? tfCartsJam(s, full) : null;
+      if (j) {
+        const t = BUILDINGS[full[0].type].name.toLowerCase(), many = full.length > 1, F = tfJamFix(s, j);
+        const who = many ? 'the ' + full.length + ' ' + (t.endsWith('y') ? t.slice(0, -1) + 'ies' : t + 's') + '\' carts' : 'the ' + t + '\'s carts';
+        const how = jctAt(s, j.i) ? 'a cart waits ' + Math.round(jctWait(s, j.i)) + ' s there' : 'carts there take ' + Math.round(tfRatio(s, j.i) * 10) / 10 + '× as long';
+        return { text: who + ' stand in a jam at ' + placeName(s, j.i) + ' (' + how + ') and the ' + NEED_NAMES[need] + ' waits in ' + (many ? 'their yards' : 'its yard') + ': ' + F.text,
+          tool: F.tool, at: F.at, plan: F.plan || undefined };
+      }
+    }
+    return _needCause.apply(this, arguments);
+  };
+}
+
+// ---------- what the art reads ----------
+// A cart's distance right of the road's centre line: lane 0 by the kerb (0.15 on a one-lane street, as before T1).
+function tfLaneOff(s, c, at) { const nl = lanesAt(s, at), ln = Math.min(c.ln || 0, nl - 1); return 0.3 - (ln + 0.5) * 0.3 / nl; }
+// The traffic lights and stop signs to draw: one at the right-hand corner of each street coming into the crossing,
+// { k: 'sig', x, y, col: 'R' | 'A' | 'G' } or { k: 'sig', stop: true, x, y }; t: the time (ticks) the lights show.
+function tfSigns(s, t) {
+  const out = [];
+  if (!s.jctl) return out;
+  for (const k in s.jctl) {
+    const i = +k, L = s.jctl[k];
+    if (!s.road[i] || !jctAt(s, i)) continue;
+    const x = i % MAP_W, y = (i / MAP_W) | 0, show = L.k === 'lights' ? sigShow(s, i, t) : null;
+    for (let side = 0; side < 4; side++) {
+      const nx = x + TF_H[side][0], ny = y + TF_H[side][1];
+      if (!inMap(nx, ny) || !s.road[tileIdx(nx, ny)]) continue;
+      const h = TF_H[(side + 2) % 4], px = x + 0.5 - 0.47 * h[0] - 0.44 * h[1], py = y + 0.5 - 0.47 * h[1] + 0.44 * h[0];
+      out.push(L.k === 'lights' ? { k: 'sig', x: px, y: py, col: show[side], box: [px - 0.05, py - 0.05, px + 0.05, py + 0.05] } : { k: 'sig', stop: true, x: px, y: py, box: [px - 0.05, py - 0.05, px + 0.05, py + 0.05] });
+    }
+  }
+  return out;
 }
 
 // ---- src/sim/brain.js
@@ -16414,6 +17625,21 @@ const ISO = (() => {
       g.beginPath(); g.arc(cx + a * 0.8 + o * 0.3, cy - a * 0.5 + o, 0.022, 0, TAU); g.fillStyle = r > 0.5 ? 'rgba(120,105,85,.35)' : 'rgba(255,252,240,.5)'; g.fill();
     }
   }
+  // ---------- T1 (nova/traffic, DESIGN.md §39): the street's paint ----------
+  // From the year white lines were painted (traffic.js tfMarks): a dashed centre line on every paved street, a lane line
+  // between lanes going the same way, at a crossing a stop line where its rule stops the carts (all-way stop, lights)
+  // and a row of give-way triangles on the side streets of a give-way crossing.
+  function laneMarks(g, s, x0, y0, x1, y1) {
+    const M = tfMarks(s, x0, y0, x1, y1);
+    if (!M.n) return;
+    g.lineCap = 'butt';
+    g.setLineDash([0.2, 0.13]); g.strokeStyle = 'rgba(255,250,232,.95)'; g.lineWidth = 0.05; g.stroke(M.centre);
+    g.setLineDash([0.1, 0.12]); g.strokeStyle = 'rgba(255,253,244,.75)'; g.lineWidth = 0.025; g.stroke(M.lanes);
+    g.setLineDash([]);
+    g.strokeStyle = 'rgba(255,253,244,.95)'; g.lineWidth = 0.05; g.stroke(M.stops);
+    g.fillStyle = 'rgba(255,253,244,.9)'; g.fill(M.tri);
+    g.lineCap = 'round';
+  }
   // ---------- roundabouts (nova/rbt, DESIGN.md §36) ----------
   // On the ground of both views: a ring road (dirt, or cobbles inside a stone kerb when paved) round a planted island
   // with its kerb and flowers (an avenue's with a clipped hedge); a palm stands on it (objectsBuild), its lamp glows at
@@ -16649,6 +17875,8 @@ const ISO = (() => {
     const pv = pavedGeom((x, y) => inMap(x, y) && s.road[tileIdx(x, y)] >= 2, rx0, ry0, rx1, ry1);
     if (pv.n) pavedStroke(g, pv);
     rbtPaint(g, s, rx0, ry0, rx1, ry1);
+    // T1: lane lines, stop lines and give-way marks on paved streets (painted from TF_LINES' year)
+    if (typeof tfMarks === 'function') laneMarks(g, s, rx0, ry0, rx1, ry1);
     // M5: avenue medians (a planted promenade between the two carriageways), tram tracks, the cane railway
     trackPaint(g, s, rx0, ry0, rx1, ry1);
     // locked land: washed, hatched, with a dashed border
@@ -16674,8 +17902,9 @@ const ISO = (() => {
   }
   // Roads and the stage are the only things the ground depends on: changed tiles mark their chunks stale.
   function groundCheck(R, s) {
-    if (R.groundStage !== s.stage) {
-      R.groundStage = s.stage; R.unlocked = unlockedRect(s);
+    const lines = typeof tfMarks === 'function' && yearOf(s) >= TF.linesYear;
+    if (R.groundStage !== s.stage || R.groundLines !== lines) {
+      R.groundStage = s.stage; R.groundLines = lines; R.unlocked = unlockedRect(s);
       for (const ch of R.chunks.values()) ch.stale = true;
       R.groundDirty = true;
       R.roadSnap = trackCodes(s);
@@ -17940,6 +19169,9 @@ const ISO = (() => {
     const out = Uint8Array.from(s.road);
     if ((s.tram || []).length) for (const i of s.tram) out[i] += 4;
     if ((s.rail || []).length) for (const i of s.rail) out[i] += 8;
+    // T1: added lanes and a crossing's rule are painted on the ground
+    if (s.lanes) for (const k in s.lanes) out[+k] += 16 * Math.min(3, s.lanes[k] - 1);
+    if (s.jctl) for (const k in s.jctl) out[+k] += s.jctl[k].k === 'lights' ? 128 : 64;
     return out;
   }
   // Avenue medians: between two avenue tiles side by side, where no street crosses: { x, y, cx, cy, ax } (ax: along x).
@@ -19102,13 +20334,21 @@ const ISO = (() => {
       if (c.st === 'idle' || !c.path || c.path.length < 2) continue;
       const at = c.path[Math.min(c.path.length - 1, Math.floor(c.pos))];
       // A14: a cart that waited at a level crossing this tick stands (no step drawn ahead of the sim)
-      const pos = Math.min(c.path.length - 1.001, c.pos + (c.wt === s.tick - 1 ? 0 : cartStep(s, at) * f));
+      // T1: an agent moves at its own speed (c.v), stands in its queue, keeps to its lane
+      const agent = c.mv === s.tick - 1 && c.v !== undefined;
+      const pos = Math.min(c.path.length - 1.001, c.pos + (c.wt === s.tick - 1 ? 0 : (agent ? c.v : cartStep(s, at)) * f));
       const [x, y, dx, dy] = pathAt(c.path, pos, rbtSetOf(s)), h = head8(dx, dy);
+      let lo = agent && typeof tfLaneOff === 'function' ? tfLaneOff(s, c, at) : 0.14;
+      // a lane change is drawn as a short glide across, not a jump
+      if (agent) { const m = R.laneSm || (R.laneSm = new Map()), was = m.get(c.id); if (was !== undefined && Math.abs(was - lo) > 0.004) lo = was + Math.sign(lo - was) * Math.min(Math.abs(lo - was), 0.025); m.set(c.id, lo); }
       if (RBT_SET && RBT_S === s && RBT_SET.has(at)) nRing++;
-      const van = typeof rlYear === 'function' && rlYear(s) >= 1920 && c.dest && (bById(s, c.dest) || {}).type === 'station' && c.st === 'go';
-      out.push({ k: 'cart', van, id: c.id, x: x - dy * 0.14, y: y + dx * 0.14, fx: h[0], fy: h[1], good: c.st === 'go' ? c.good : '', n: c.st === 'go' ? c.n : 0, fr, bob: Math.abs(Math.sin(now / 160 + c.id)) });
+      const van = c.vk === 'lorry' || (typeof rlYear === 'function' && rlYear(s) >= 1920 && c.dest && (bById(s, c.dest) || {}).type === 'station' && c.st === 'go');
+      out.push({ k: 'cart', van, id: c.id, x: x - dy * lo, y: y + dx * lo, hx: dx, hy: dy, fx: h[0], fy: h[1], good: c.st === 'go' ? c.good : '', n: c.st === 'go' ? c.n : 0, fr, bob: agent && c.v < 0.05 ? 0 : Math.abs(Math.sin(now / 160 + c.id)), brake: agent && c.br ? 1 : 0 });
     }
     R.stats.rbtCarts = nRing;
+    if (R.laneSm && R.laneSm.size > 2 * s.carts.length + 64) R.laneSm.clear();
+    // T1: the traffic lights and stop signs at their crossings' corners
+    if (typeof tfSigns === 'function') for (const q of tfSigns(s, s.tick + f)) out.push(q);
     const m = shipMoor(s), sh = R.ship, docked = sh && (sh.st === 'load' || sh.st === 'moored');
     if (s.walk) for (const w of s.walk) {
       let pos = w.pos + 0.12 * f;
@@ -19160,7 +20400,33 @@ const ISO = (() => {
     if (p[0] < -60 || p[0] > R.w + 60 || p[1] < -60 || p[1] > R.h + 80) return;
     // A6: with the Traffic layer on, the carts and the people on the move stand out a little (a pale halo under each)
     if (R.trEmph && TRAFFIC_K[q.k]) { const k = R.hw / 44 * TRAFFIC_K[q.k]; ell(p[0], p[1], 11 * k, 5.5 * k, 'rgba(255,250,232,.78)'); ctx.strokeStyle = 'rgba(58,42,31,.55)'; ctx.lineWidth = 1.2; ctx.stroke(); }
+    if (q.k === 'sig') { sigDraw(R, s, q, p); return; }
     sprDraw(R, dynSprite(R, q), p[0], p[1] - (q.bob || 0) * 0.9 * R.hw / 44);
+    // T1: a cart braking or standing in a queue shows its red lamps after dusk (a lorry's, a cart's lantern)
+    if (q.brake && q.k === 'cart' && R.dark > 0.2) {
+      const b = P(q.x - q.hx * 0.13, q.y - q.hy * 0.13, TOP ? 0 : 0.1), k = R.hw / 44;
+      ctx.globalAlpha = Math.min(1, R.dark * 1.4);
+      circ(b[0], b[1], 6.5 * k, 'rgba(255,60,40,.3)');
+      circ(b[0] - q.hy * 2.8 * k, b[1] + q.hx * (TOP ? 2.8 : 1.4) * k, 2 * k, '#ff3b24'); circ(b[0] + q.hy * 2.8 * k, b[1] - q.hx * (TOP ? 2.8 : 1.4) * k, 2 * k, '#ff3b24');
+      ctx.globalAlpha = 1;
+    }
+  }
+  // T1: a traffic light (a dark post, a head with red, amber and green; the lit one glows after dusk) or a stop sign
+  function sigDraw(R, s, q, p) {
+    const k = R.hw / 44, top = P(q.x, q.y, TOP ? 0 : 0.62);
+    if (q.stop) {
+      if (!TOP) { ctx.strokeStyle = '#4a4038'; ctx.lineWidth = 1.6 * k; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(top[0], top[1]); ctx.stroke(); }
+      ctx.beginPath();
+      for (let n = 0; n < 8; n++) { const a = (n + 0.5) / 8 * TAU; ctx.lineTo(top[0] + Math.cos(a) * 4.4 * k, top[1] + Math.sin(a) * 4.4 * k); }
+      ctx.closePath(); ctx.fillStyle = '#c8261b'; ctx.fill(); ctx.strokeStyle = '#fff6ea'; ctx.lineWidth = 0.9 * k; ctx.stroke();
+      return;
+    }
+    if (!TOP) { ctx.strokeStyle = '#3a3a36'; ctx.lineWidth = 1.8 * k; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(top[0], top[1]); ctx.stroke(); }
+    const w = 4.4 * k, hgt = 11 * k, x = top[0] - w / 2, y = top[1] - hgt;
+    if (!TOP) { ctx.fillStyle = '#2b2d2a'; ctx.fillRect(x, y, w, hgt); }
+    const cols = { R: '#ff3b24', A: '#ffb31a', G: '#3bdc5c' }, at = { R: 0, A: 1, G: 2 }, glow = R.dark > 0.15;
+    if (TOP) { ctx.fillStyle = '#2b2d2a'; ctx.fillRect(top[0] - 4.6 * k, top[1] - 4.6 * k, 9.2 * k, 9.2 * k); circ(top[0], top[1], 3.4 * k, cols[q.col]); if (glow) circ(top[0], top[1], 8 * k, cols[q.col] + '55'); return; }
+    for (const c of ['R', 'A', 'G']) { const cy = y + (at[c] + 0.5) * hgt / 3; circ(top[0], cy, 1.35 * k, c === q.col ? cols[c] : 'rgba(90,90,80,.9)'); if (c === q.col && glow) circ(top[0], cy, 3.8 * k, cols[c] + '55'); }
   }
   const TRAFFIC_K = { cart: 1.35, car: 1.1, bike: 0.9, walk: 0.7, kid: 0.6, tram: 1.6, loco: 1.4, wagon: 1.2 };
   function dynSprite(R, q) {
@@ -19244,6 +20510,7 @@ const ISO = (() => {
     g.setTransform(d, 0, 0, d, 0, 0); g.lineCap = 'round'; g.lineJoin = 'round';
     pen(g, R.ox, R.oy, R.hw, d, R.rot);
     sailboatsDraw(R, t);
+    R.dark = typeof dayDark === 'function' && dayOn(s) ? dayDark(dayClock(s)) : 0;
     const dyn = dynCollect(R, s, now); mark('dyn');
     let di = 0;
     const drawDyn = (upto) => { while (di < dyn.length && dyn[di].after <= upto) { const q = dyn[di++]; dynDraw(R, s, q, now, t); } };
@@ -21896,7 +23163,7 @@ function inputInit(canvas) {
       return;
     }
     gesture = { kind: 'press', x0: p.x, y0: p.y, grab: screenToTile(APP.R, APP.view, p.x, p.y), moved: false, t0: performance.now() };
-    if (APP.ui.tool === 'road' || APP.ui.tool === 'tram' || APP.ui.tool === 'rail' || APP.ui.tool === 'belt') {
+    if (APP.ui.tool === 'road' || APP.ui.tool === 'tram' || APP.ui.tool === 'rail' || APP.ui.tool === 'belt' || APP.ui.tool === 'lane') {
       const t = tileAt(p.x, p.y);
       if (inMap(t.x, t.y)) { APP.ui.strokeA = tileIdx(t.x, t.y); APP.ui.strokeAxis = ''; strokeTo(t.x, t.y); gesture.kind = 'road'; }
     } else if (APP.ui.tool === 'remove' && unroadStart(p, gesture)) {
@@ -21973,9 +23240,10 @@ function inputInit(canvas) {
         // A6: what the stroke changes can be taken back with one tap (roads_ui.js)
         const snap = roadUndoBegin(APP.state), kind = APP.state._roadKind;
         // A14: the conveyor is drawn like a short road (rail.js placeBelt)
-        const r = APP.ui.tool === 'tram' ? placeTram(APP.state, st) : APP.ui.tool === 'rail' ? placeRail(APP.state, st) : APP.ui.tool === 'belt' ? placeBelt(APP.state, st) : placeRoad(APP.state, st);
-        if (r.built) { floaterAdd((st[st.length - 1] % MAP_W) + 0.5, ((st[st.length - 1] / MAP_W) | 0) + 0.5, '−$' + r.cost, '#c0392b'); guideIntro(APP.state); guideRender(); audioCue('road'); }
-        if (r.built) roadUndoSet(APP.state, snap, 'Undo ' + (APP.ui.tool === 'tram' ? 'tram line' : APP.ui.tool === 'rail' ? 'railway' : kind === 3 && APP.state.stage >= PAVED_STAGE ? 'avenue' : kind === 2 && APP.state.stage >= PAVED_STAGE ? 'paving' : 'road'));
+        // T1: the Lanes tool adds (or takes away) a lane along the stroke (traffic_ui.js laneStroke, its own Undo)
+        const r = APP.ui.tool === 'lane' ? laneStroke(APP.state, st) : APP.ui.tool === 'tram' ? placeTram(APP.state, st) : APP.ui.tool === 'rail' ? placeRail(APP.state, st) : APP.ui.tool === 'belt' ? placeBelt(APP.state, st) : placeRoad(APP.state, st);
+        if (r.built) { floaterAdd((st[st.length - 1] % MAP_W) + 0.5, ((st[st.length - 1] / MAP_W) | 0) + 0.5, r.cost < 0 ? '+$' + -r.cost : '−$' + r.cost, r.cost < 0 ? '#2e8b3e' : '#c0392b'); guideIntro(APP.state); guideRender(); audioCue('road'); }
+        if (r.built && !r.lane) roadUndoSet(APP.state, snap, 'Undo ' + (APP.ui.tool === 'tram' ? 'tram line' : APP.ui.tool === 'rail' ? 'railway' : kind === 3 && APP.state.stage >= PAVED_STAGE ? 'avenue' : kind === 2 && APP.state.stage >= PAVED_STAGE ? 'paving' : 'road'));
         if (r.why) toastShow(r.why + (r.built ? ' (built ' + r.built + ' tiles)' : ''));
         else if (blk && r.built) toastShow('The road stops there: ' + blk.why.charAt(0).toLowerCase() + blk.why.slice(1) + '.');
       }
@@ -27432,6 +28700,393 @@ function flowDeskHtml(s) {
   return h;
 }
 
+// ---- src/ui/traffic_ui.js
+// T1 (21 Oct 2026, nova/traffic) on screen: DESIGN.md §39. Sim: src/sim/traffic.js.
+// - The junction's card (a tap on a crossing with the Traffic layer on, Rosa's [The crossing], the legend's fix): the
+//   crossing, its rule, the carts coming in from each side and how many wait now, the mean wait a cart; the four rules
+//   as buttons with their prices and what each would do here (tried on a copy of this crossing with its carts: Q2);
+//   with lights the phase editor (cycle, the main road's share of the green, protected left turns, Webster's cycle).
+// - Lanes (Transport tab, from City): a stroke along a paved street or avenue adds a lane each way, its price by the
+//   finger; the legend's [Remove a lane] turns the same stroke into taking one away (half back); Undo for 9 s.
+// - The home card: how loud the traffic is there, from which road, what helps.
+// - The Traffic legend: what a lane carries (the agents' numbers); a jammed crossing a rule helps names it.
+// A12: nothing is built or changed unless she taps a priced button (or strokes with the tool armed).
+
+TR_TOOLS.lane = { name: 'Lanes', icon: 'lanes', stage: TF.laneStage, cost: '$' + TF.laneCost[2] + '/tile', price: TF.laneCost[2], long: 'Extra lanes' };
+// The Lanes tool lives in the Traffic legend ([Add a lane], from City; the legend's and Rosa's fix for a paved jam arm
+// it too), not in the Transport tray: a 13th tool made the tray too wide at 1180 for ✓ Done beside it, and Done then
+// stood above the tray and lifted the panels over the map (smoke roads, measured against nova/main)
+{
+  const _bta = barToolsAll;
+  barToolsAll = function (s, group) { const r = _bta.apply(this, arguments); return group === 'roads' ? r.filter((t) => t.id !== 'lane') : r; };
+}
+TR_PURPOSE.lane = 'Lanes: a stroke along a paved street adds a lane each way (an avenue takes three); each lane carries ' + TF.capLane[2] + ' carts a month each way';
+Object.assign(ICONS, {
+  lanes: 'M2.5 2 H4.5 V22 H2.5 Z M19.5 2 H21.5 V22 H19.5 Z M8 3 H9.6 V7 H8 Z M8 10 H9.6 V14 H8 Z M8 17 H9.6 V21 H8 Z M14.4 3 H16 V7 H14.4 Z M14.4 10 H16 V14 H14.4 Z M14.4 17 H16 V21 H14.4 Z',
+  lights: 'M8.5 1.5 H15.5 C16.6 1.5 17.5 2.4 17.5 3.5 V16.5 C17.5 17.6 16.6 18.5 15.5 18.5 H13 V22.5 H11 V18.5 H8.5 C7.4 18.5 6.5 17.6 6.5 16.5 V3.5 C6.5 2.4 7.4 1.5 8.5 1.5 Z M12 3.6 A2 2 0 1 0 12.01 3.6 Z M12 8.1 A2 2 0 1 0 12.01 8.1 Z M12 12.6 A2 2 0 1 0 12.01 12.6 Z',
+});
+{
+  const st = document.createElement('style');
+  st.textContent = [
+    '#card .jq { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0 4px; }',
+    '#card .jq div { border: 1.5px solid rgba(58,42,31,.22); border-radius: 9px; padding: 5px 8px; font-size: 13px; line-height: 1.25; }',
+    '#card .jq div b { display: block; font-size: 12px; color: var(--ink2); font-weight: 700; }',
+    '#card .jq div.main { border-color: var(--ink); }',
+    '#card .jq div.wait { background: #fff1dd; }',
+    '#card h4 { margin: 10px 0 4px; font-size: 14px; }',
+    '#card .jr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }',
+    '#card .jr button { min-height: 52px; border-radius: 11px; padding: 4px 8px; text-align: left; font-size: 13.5px; font-weight: 800; color: var(--ink); background: var(--paper2); box-shadow: inset 0 0 0 1.5px rgba(58,42,31,.45); line-height: 1.2; }',
+    '#card .jr button small { display: block; font-weight: 600; font-size: 12px; color: var(--ink2); }',
+    '#card .jr button.on { background: #e3efcf; box-shadow: inset 0 0 0 2.5px #2e7a3a; }',
+    '#card .jr button.best { box-shadow: inset 0 0 0 2.5px #c98a12; }',
+    '#card .jr button:disabled { opacity: .55; }',
+    '#card .ph { display: flex; height: 16px; border-radius: 6px; overflow: hidden; margin: 6px 0 2px; box-shadow: inset 0 0 0 1px rgba(58,42,31,.35); }',
+    '#card .ph i { display: block; height: 100%; }',
+    '#card .ph i.g { background: #3fa45a; } #card .ph i.l { background: #2f7ad0; } #card .ph i.a { background: #f2b21c; } #card .ph i.r { background: #c8392b; }',
+    '#card .phk { font-size: 11.5px; color: var(--ink2); margin-bottom: 4px; }',
+    '#card .step { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 0; border-top: 2px dotted rgba(58,42,31,.22); font-size: 14px; }',
+    '#card .step span.v { min-width: 52px; text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }',
+    '#card .step button { width: 44px; height: 44px; border-radius: 10px; font-size: 22px; font-weight: 800; color: var(--ink); background: var(--paper2); box-shadow: inset 0 0 0 1.5px rgba(58,42,31,.45); }',
+    '#card .step button.tg { width: auto; min-width: 64px; padding: 0 10px; font-size: 14px; }',
+    '#card .step button.tg.on { background: #e3efcf; box-shadow: inset 0 0 0 2px #2e7a3a; }',
+    '#card button.web { width: 100%; min-height: 44px; margin-top: 6px; border-radius: 10px; font-weight: 800; background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--ink); color: var(--ink); }',
+    '#trlegend button.tl.lane { min-height: 44px; }',
+    // (T1: the junction card opens on a tap with the Traffic layer on; at the side (wider than 900 px) the goal pill
+    // keeps to the map left of the card instead of running under it)
+    '@media (min-width: 901px) { body.carded #pill { left: calc((100% - 310px - 2 * var(--gap) - var(--sr) + var(--sl)) / 2); max-width: calc(100% - 310px - 4 * var(--gap) - var(--sr) - var(--sl)); } }',
+    // a phone: a card open (a junction's, a home's) has the screen; the Traffic legend waits behind it
+    '@media (max-width: 600px) { body.carded #trlegend { display: none !important; } }',
+  ].join('\n');
+  document.head.appendChild(st);
+}
+
+// ---------- Undo beside the junction card ----------
+// The card stays open while she changes the crossing's rule (or builds a roundabout from the legend): Undo stands just
+// above a card at the bottom of the screen, or left of one at the side, never under it.
+{
+  const _rup = roadUndoPlace;
+  roadUndoPlace = function () {
+    _rup.apply(this, arguments);
+    const el = $('undoRoad'), c = $('card');
+    if (!el || !el.classList.contains('show') || !c || !c.classList.contains('show')) return;
+    const r = c.getBoundingClientRect(), e = el.getBoundingClientRect(), gap = 10;
+    if (!(e.right > r.left && e.left < r.right && e.bottom > r.top && e.top < r.bottom)) return;
+    if (r.left <= gap + 1 || innerWidth <= 900) el.style.top = Math.round(r.top - e.height - gap) + 'px';
+    else el.style.left = Math.round(r.left - e.width - gap) + 'px';
+  };
+}
+
+// ---------- the junction's card ----------
+const JC_SIDE = ['east', 'south', 'west', 'north'];
+const JC_RULE = { yield: 'Give way', stop: 'All-way stop', lights: 'Traffic lights', rbt: 'Roundabout' };
+function jcardOpen(i) {
+  const s = APP.state;
+  if (!s.road[i] || !jctAt(s, i)) return;
+  if (APP.ui.sel) cardClose();
+  APP.ui.jsel = i; APP.ui.trPick = i; APP.ui.trPickT = performance.now();
+  // the tools' tray folds away so the card has the screen's height (a tap on the tab brings it back)
+  if (!APP.ui.trayClosed) { APP.ui.trayClosed = true; barBuild(); }
+  APP.cardKey = ''; APP.cardFor = -1 - i;
+  jcardRender();
+  $('card').classList.add('show');
+  document.body.classList.add('carded');
+  roadUndoPlace();
+  const p = tileToScreen(APP.R, APP.view, i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5), card = $('card').getBoundingClientRect();
+  if (innerWidth <= 900) { if (p.y > card.top - 40) viewNudge(0, p.y - card.top / 2); } else if (p.x > card.left - 40) viewNudge(p.x - card.left / 2, 0);
+}
+// the rule's words, one line (what it does, in a smart adult's words)
+function jcRuleWhy(s, i, J) {
+  const main = J.main === 0 ? 'east–west' : 'north–south';
+  if (J.ctl === 'rbt') return 'Roundabout: carts on the ring go first; one comes in when nobody on the ring is about to pass its street, one at a time (3 s apart).';
+  if (J.ctl === 'stop') return 'All-way stop: every cart stops at the line, then they go in the order they came.';
+  if (J.ctl === 'lights') { const L = J.sig; return 'Traffic lights, a ' + L.C + ' s cycle: the ' + main + ' road green ' + Math.round(L.sp * 100) + ' % of the time' + (L.lt ? ', its left turns first on their own' : '') + '; 4 s of amber and all-red after each green.'; }
+  return 'Give way: the ' + main + ' road goes first; a cart from a side street waits for a gap of about ' + Math.round(TF.tc.sThru + TF.tc.heavy) + ' s in its traffic (left turns from the main road wait for a gap in the oncoming carts).';
+}
+function jcardHtml(s, i) {
+  const J = jctTraffic(s, i), A = jctAdvice(s, i), head = '<button class="x" id="cardX" aria-label="Close">' + iconSvg('close') + '</button>';
+  const name = placeName(s, i).replace(/^the /, ''), title = name.charAt(0).toUpperCase() + name.slice(1);
+  const lvl = J.level >= TR.jam ? 'jammed' : J.level > TR.busy ? 'busy' : 'free';
+  let h = head + '<h3>' + iconSvg(J.ctl === 'lights' ? 'lights' : J.ctl === 'rbt' ? 'rbt' : 'traffic') + esc(title) + '</h3><p class="why">' + esc(jcRuleWhy(s, i, J)) + '</p>';
+  h += '<div class="line"><span>A cart waits here</span><b>' + (jctMeasuring(s, i) ? 'measuring since the change' : (J.wait ? J.wait + ' s' : 'no wait') + ' · ' + lvl) + '</b></div>';
+  // the phase editor
+  if (J.ctl === 'lights') {
+    const L = J.sig, P = sigPlan(s, i), C = P.reduce((a, p) => a + p.g + TF.lost, 0);
+    let bar = '';
+    for (const p of P) bar += '<i class="' + (p.left ? 'l' : 'g') + '" style="width:' + (p.g / C * 100).toFixed(1) + '%"></i><i class="a" style="width:' + (TF.lost / C * 100).toFixed(1) + '%"></i>';
+    const W = sigWebster(s, i, !!L.lt);
+    h += '<h4>' + iconSvg('lights') + 'The lights</h4><div class="ph">' + bar + '</div><div class="phk">' + P.map((p) => (p.left ? 'left turns' : p.axis === J.main ? 'main road' : 'cross road') + ' ' + p.g + ' s').join(' · ') + ' · amber and all-red 4 s each</div>';
+    h += '<div class="step"><span>Cycle</span><button id="jcC-" aria-label="Shorter">−</button><span class="v">' + L.C + ' s</span><button id="jcC+" aria-label="Longer">+</button></div>';
+    h += '<div class="step"><span>Main road\'s green</span><button id="jcS-" aria-label="Less">−</button><span class="v">' + Math.round(L.sp * 100) + ' %</span><button id="jcS+" aria-label="More">+</button></div>';
+    h += '<div class="step"><span>Left turns on their own</span><button id="jcL" class="tg' + (L.lt ? ' on' : '') + '">' + (L.lt ? 'On' : 'Off') + '</button></div>';
+    h += '<button class="web" id="jcW">Webster\'s cycle for these carts: ' + W.C + ' s, main ' + Math.round(W.sp * 100) + ' %</button>';
+    h += '<p class="why">Webster (1958): the cycle that waits least is (1.5 × lost time + 5 s) / (1 − the share of the hour the busiest streets need); greens by each street\'s carts.</p>';
+  }
+  // the rules, each with its price and what it would do here (tried on a copy)
+  h += '<h4>The rule here</h4><div class="jr">';
+  for (const k of ['yield', 'stop', 'lights', 'rbt']) {
+    const cur = J.ctl === k, why = cur ? '' : jctlWhy(s, i, k, true), w = A.est ? A.est[k] : undefined;
+    const price = k === 'yield' ? 'free' : k === 'stop' ? money$(TF.stop.cost) : k === 'lights' ? money$(TF.lights.cost) + ' + ' + money$(TF.lights.upkeep) + '/mo' : money$(rbtCost(s, i));
+    const sub = cur ? 'now' + (w !== undefined ? ' · ' + w + ' s' : '') : why ? why : price + (w !== undefined ? ' · ≈' + w + ' s' : '');
+    h += '<button id="jr_' + k + '" class="' + (cur ? 'on' : A.best && A.best.k === k ? 'best' : '') + '"' + (!cur && why ? ' disabled' : '') + '>' + JC_RULE[k] + '<small>' + esc(sub) + '</small></button>';
+  }
+  h += '</div>';
+  if (A.best) h += '<p class="note risk">' + esc(JC_RULE[A.best.k] + ' would cut the wait to about ' + A.best.wait + ' s a cart (now ' + A.now + ' s): tried on a copy of this crossing with its carts.') + '</p>';
+  else if (Object.keys(A.w).length > 1) h += '<p class="why">≈: the wait a cart under each rule, from the wait measured here and a copy of this crossing driven with its carts.</p>';
+  // the approaches: carts a month coming in from each side, how many wait now
+  const x = i % MAP_W, y = (i / MAP_W) | 0;
+  let q = '';
+  for (const side of [3, 0, 1, 2]) {
+    const nx = x + TF_H[side][0], ny = y + TF_H[side][1];
+    if (!inMap(nx, ny) || !s.road[tileIdx(nx, ny)]) continue;
+    const onMain = side % 2 === J.main, n = Math.round(J.q[side] || 0), w = J.queue[side];
+    q += '<div class="' + (onMain && J.ctl === 'yield' ? 'main' : '') + (w ? ' wait' : '') + '"><b>From the ' + JC_SIDE[side] + (onMain && J.ctl === 'yield' ? ' · main road' : '') + '</b>' + n + ' carts a month' + (w ? ' · ' + w + ' waiting' : '') + '</div>';
+  }
+  h += '<h4>Carts coming in</h4><div class="jq">' + q + '</div>';
+  return h;
+}
+function jcardRender() {
+  const s = APP.state, i = APP.ui.jsel;
+  if (i === undefined || i < 0 || !s.road[i] || !jctAt(s, i)) { cardClose(); return; }
+  const html = jcardHtml(s, i), el = $('card');
+  if (html === APP.cardKey) return;
+  if (APP.cardKey && el.classList.contains('show') && uiHeld('card')) return;
+  APP.cardKey = html;
+  el.innerHTML = html;
+  cardHold(el);
+  roadUndoPlace();
+  $('cardX').addEventListener('click', cardClose);
+  for (const k of ['yield', 'stop', 'lights', 'rbt']) { const b = $('jr_' + k); if (b) b.addEventListener('click', () => jcRule(i, k)); }
+  const step = (id, f) => { const b = $(id); if (b) b.addEventListener('click', () => { const r = setSignal(APP.state, i, f(jctlOf(APP.state, i))); if (!r.ok) toastShow(r.why + '.'); APP.cardKey = ''; jcardRender(); }); };
+  step('jcC-', (L) => ({ C: L.C - 10 })); step('jcC+', (L) => ({ C: L.C + 10 }));
+  step('jcS-', (L) => ({ sp: L.sp - 0.05 })); step('jcS+', (L) => ({ sp: L.sp + 0.05 }));
+  step('jcL', (L) => ({ lt: !L.lt })); step('jcW', () => ({ webster: true }));
+}
+// Her tap on a rule's button: it is set (its price off the treasury), the card says what it does.
+function jcRule(i, k) {
+  const s = APP.state, x = i % MAP_W + 0.5, y = ((i / MAP_W) | 0) + 0.5;
+  if (k === 'rbt') { if (rbtBuild(i)) { APP.cardKey = ''; jcardRender(); } return; }
+  const was = tfCtl(s, i), r = placeJctl(s, i, k);
+  if (!r.ok) { toastShow(r.why + '.'); return; }
+  if (r.cost) floaterAdd(x, y, '−$' + r.cost.toLocaleString('en-US'), '#c0392b');
+  toastShow(JC_RULE[k] + (was === k ? '' : ' at ' + placeName(s, i)) + (r.cost ? ': ' + money$(r.cost) : '') + '.');
+  audioCue('road');
+  APP.cardKey = ''; jcardRender(); trafficLegend(); guideRender();
+}
+{
+  const _cr = cardRender;
+  cardRender = function () { if (APP.ui.jsel >= 0 && !APP.ui.sel) { jcardRender(); return; } return _cr.apply(this, arguments); };
+  const _cc = cardClose;
+  cardClose = function () { APP.ui.jsel = -1; return _cc.apply(this, arguments); };
+  const _co = cardOpen;
+  cardOpen = function () { APP.ui.jsel = -1; return _co.apply(this, arguments); };
+  // with the Traffic layer on, a tap on a crossing (no building under the finger) opens its card; the Roundabout tool's
+  // tap on a roundabout too
+  const _tap = tapAt;
+  tapAt = function (sx, sy) {
+    const s = APP.state, tool = APP.ui.tool;
+    // (TUNE.t1Off, M5's rule for the old checks: a tap names the crossing in the legend, as before T1)
+    if (!t1On()) return _tap.apply(this, arguments);
+    if (tool === 'look' && APP.ui.layer === 'traffic' && !renderPick(APP.R, APP.view, s, sx, sy) && !bubbleAt(sx, sy)) {
+      const i = jctNear(s, sx, sy, true);
+      if (i >= 0) { $('pop').classList.remove('show'); jcardOpen(i); trafficLegend(); return; }
+    }
+    if (tool === 'rbt') { const i = jctNear(s, sx, sy, true); if (i >= 0 && rbtAt(s, i)) { jcardOpen(i); return; } }
+    return _tap.apply(this, arguments);
+  };
+  // Rosa's [The crossing]: the view goes there and its card opens (she picks the rule on it)
+  const _ga = guideAct;
+  guideAct = function () {
+    const m = guideMsg(), a = (m && m.act) || {};
+    if (a.tool === 'jct' && a.at && performance.now() - (APP.guideT || 0) >= 900) {
+      const i = tileIdx(a.at[0], a.at[1]);
+      if (APP.ui.layer !== 'traffic') trafficToggle(true);
+      cameraFlyTo(a.at[0] + 0.5, a.at[1] + 0.5);
+      if (m === APP.state.guide.msg) guideDismiss(APP.state);
+      jcardOpen(i); guideRender();
+      return;
+    }
+    return _ga.apply(this, arguments);
+  };
+  const _tl = toolLabel;
+  toolLabel = function (t) { return t === 'lane' ? 'Lanes' : t === 'jct' ? 'The crossing' : _tl(t); };
+  const _on = trafficOn;
+  trafficOn = function () { return _on() || APP.ui.tool === 'lane'; };
+}
+APP.ui.jsel = -1;
+
+// ---------- lanes: the stroke ----------
+{
+  const _w = strokeTileWhy;
+  strokeTileWhy = function (s, x, y) { return APP.ui.tool === 'lane' ? (s.road[tileIdx(x, y)] ? '' : 'Lanes go along a road') : _w(s, x, y); };
+  const _l = strokeLabel;
+  strokeLabel = function (s, tiles) {
+    if (APP.ui.tool !== 'lane') return _l(s, tiles);
+    const add = !APP.ui.laneDel, plan = lanePlan(s, tiles, add);
+    if (!plan.add.length) return { text: plan.bad.length ? plan.bad[0].why : 'Nothing to change', ok: false, plan };
+    const parts = [add ? 'Add a lane' : 'Remove a lane', plural(plan.add.length, 'tile', 'tiles'), (add ? '' : '+') + money$(plan.cost)];
+    if (plan.bad.length) parts.push(plan.bad.length + ' skipped');
+    const ok = !add || s.money >= plan.cost;
+    if (!ok) parts.push('not enough money');
+    return { text: parts.join(' · '), ok, plan };
+  };
+}
+// The stroke done (input.js): lanes added or taken away along it, Undo by Done for 9 s.
+function laneStroke(s, tiles) {
+  const prev = Object.assign({}, s.lanes || {}), add = !APP.ui.laneDel, r = placeLanes(s, tiles, add);
+  if (!r.ok) return { built: 0, why: r.why };
+  const at = tiles[tiles.length - 1];
+  APP.ui.undo = { tiles: [[at, s.road[at]]], tram: null, rail: null, money: add ? r.cost : -r.cost, what: add ? 'Undo lanes' : 'Undo', lanes: prev, t: performance.now() };
+  roadUndoRender();
+  clearTimeout(APP.undoTimer);
+  APP.undoTimer = setTimeout(() => roadUndoClear(), UNDO_MS);
+  return { built: r.n, cost: add ? r.cost : -r.cost, lane: true };
+}
+{
+  const _u = roadUndo;
+  roadUndo = function () { const u = APP.ui.undo; if (u && u.lanes) APP.state.lanes = Object.assign({}, u.lanes); return _u.apply(this, arguments); };
+  // the legend while the Lanes tool is armed: what it costs, what a lane carries, and add / remove
+  const _lg = trafficLegend;
+  trafficLegend = function () {
+    const e0 = $('trlegend'), armed = APP.ui.tool === 'lane' ? (APP.ui.laneDel ? 'd' : 'a') : '';
+    if (e0 && (e0.dataset.laneTool || '') !== armed) { e0.dataset.a6 = ''; e0.dataset.key = ''; e0.dataset.laneTool = armed; }
+    _lg.apply(this, arguments);
+    const el = $('trlegend');
+    if (!el || !el.classList.contains('show')) return;
+    el.dataset.laneTool = armed;
+    const sm = el.querySelector('small');
+    if (sm && !armed) { const t = 'a lane carries ' + TF.capLane[1] + ' carts a month each way on dirt, ' + TF.capLane[2] + ' paved; an avenue has two each way'; if (sm.textContent !== t) sm.textContent = t; }
+    if (!armed) {
+      // [Add a lane · $120] beside the worst place's Show and fix, from City, with the layer on (the Lanes tool)
+      // (narrower than 900 px just "Lanes", so it stays in the row of Show and the fix and the legend keeps its height when
+      // the worst place changes: the round map buttons stand below it; none where the fix is the lane already)
+      const row = el.querySelector('.wl:not(.rl)'), fx = $('trFix'), w = trafficWorst(APP.state);
+      let go = $('trLaneGo');
+      const want = row && t1On() && APP.ui.layer === 'traffic' && APP.state.stage >= TF.laneStage && !(w && w.tool === 'lane'), label = innerWidth < 900 ? 'Lanes' : 'Add a lane · ' + money$(TF.laneCost[2]);
+      if (go && (!want || go.textContent !== label)) { go.remove(); go = null; }
+      if (want && !go) { go = document.createElement('button'); go.className = 'tl lane'; go.id = 'trLaneGo'; go.textContent = label; if (fx && fx.parentNode === row) fx.after(go); else row.appendChild(go); }
+      if (go) go.onclick = () => toolSet('lane');
+      return;
+    }
+    const phone = innerWidth < 600;
+    const txt = APP.ui.laneDel ? 'Remove a lane: drag along a street with an added lane (half its price back).' : 'Add a lane · ' + money$(TF.laneCost[2]) + ' a tile' + (phone ? ': drag along a paved street.' : ' (' + money$(TF.laneCost[3]) + ' on an avenue): drag along a paved street. A lane carries ' + TF.capLane[2] + ' carts a month each way.');
+    const wl = el.querySelector('.wl'), cur = wl && wl.querySelector('.worst');
+    const html = '<span class="worst pick">' + esc(txt) + '</span><button class="tl lane" id="trLane">' + (APP.ui.laneDel ? 'Add a lane' : 'Remove a lane') + '</button>';
+    if (wl) { if (wl.dataset.k !== txt || !cur || cur.textContent !== txt) { wl.innerHTML = html; wl.dataset.k = txt; } }
+    else if (sm) { const d = document.createElement('div'); d.className = 'wl'; d.innerHTML = html; d.dataset.k = txt; sm.replaceWith(d); }
+    const b = $('trLane'); if (b) b.onclick = () => { APP.ui.laneDel = !APP.ui.laneDel; trafficLegend(); };
+  };
+  // a jammed crossing that a rule helps (measured on a copy): the legend's fix opens its card
+  // T1: a crossing's fix is what the copy of it says (§36's "×1.4" from the crossing share only where the copy agrees)
+  const _tw = trafficWorst;
+  trafficWorst = function (s) {
+    const w = _tw(s);
+    if (!w || !t1On()) return w;
+    if (!jctAt(s, w.i)) {
+      // a paved street that jams: a lane each way first (an avenue's or a second road's as before)
+      if (s.road[w.i] === 2 && lanesAt(s, w.i) < TF.laneMax[2] && s.stage >= TF.laneStage) return Object.assign(w, { fix: 'a second lane each way (Lanes · ' + money$(TF.laneCost[2]) + ' a tile), or a second road', tool: 'lane' });
+      return w;
+    }
+    const A = jctAdvice(s, w.i), ji = w.ji || jctInfo(s, w.i);
+    if (A.best) return Object.assign(w, { fix: JC_RULE[A.best.k].toLowerCase() + ' (about ' + A.best.wait + ' s)', tool: A.best.k === 'rbt' ? 'rbt' : 'jct', ji: Object.assign({}, ji, { cost: rbtCost(s, w.i) }) });
+    if (w.tool === 'rbt') return Object.assign(w, { fix: s.road[w.i] === 1 && s.stage >= PAVED_STAGE ? 'pave the streets into it (twice the carts)' : s.road[w.i] >= 2 && s.stage >= TF.laneStage ? 'a second lane each way on the streets into it' : 'a second road that takes carts past it', tool: s.road[w.i] === 1 && s.stage >= PAVED_STAGE ? 'paved' : s.road[w.i] >= 2 && s.stage >= TF.laneStage ? 'lane' : 'road' });
+    return w;
+  };
+  const _lg2 = trafficLegend;
+  trafficLegend = function () {
+    _lg2.apply(this, arguments);
+    const fx = $('trFix'), s = APP.state;
+    if (!fx || APP.ui.layer !== 'traffic') return;
+    const w = trafficWorst(s);
+    // T1's words: a crossing by its carts' wait, a street by how much longer its carts take (and its carts against what
+    // its lanes carry)
+    const wl = document.querySelector('#trlegend .worst');
+    if (w && wl && t1On() && APP.ui.tool !== 'lane') {
+      const nm = w.name.charAt(0).toUpperCase() + w.name.slice(1), tag = w.jam ? 'Jammed: ' : w.level > TR.busy ? 'Busiest: ' : '';
+      // (the slowness only where carts are slowed: a busy street at free speed says how full its lanes are)
+      const rt = Math.round(tfRatio(s, w.i) * 10) / 10, full = Math.round((trState(s).load[w.i] || 0) / capAt(s, w.i) * 100) + ' % of what its lanes carry';
+      const what = jctAt(s, w.i) ? 'a cart waits ' + Math.round(jctWait(s, w.i) * 10) / 10 + ' s there' : rt >= 1.1 ? 'carts take ' + rt.toFixed(1) + '× as long as on a free road, ' + full : 'carts go at full speed, ' + full;
+      const t = (w.pick ? nm : tag + w.name) + ': ' + what + '. Fix: ' + w.fix + '.';
+      if (wl.textContent !== t) wl.textContent = t;
+    }
+    if (w && w.tool === 'jct') { if (fx.textContent !== 'The crossing') fx.textContent = 'The crossing'; fx.onclick = () => { cameraFlyTo(w.i % MAP_W + 0.5, ((w.i / MAP_W) | 0) + 0.5); jcardOpen(w.i); }; }
+  };
+  const _ts = toolSet;
+  toolSet = function (tool) {
+    if (tool !== 'lane') APP.ui.laneDel = false; else APP.ui.trPick = -1;
+    return _ts.apply(this, arguments);
+  };
+}
+// The round map buttons stand below the Traffic legend, so they move when its height changes (the Lanes tool's line,
+// a longer jam line): a tap where one of them stood a moment ago is a tap on a control (Q1's rule for Done), not on the
+// map with a tool armed.
+{
+  const _rp = rotPlace;
+  rotPlace = function () {
+    const el = $('rotbtns'), was = el && el.offsetWidth ? el.getBoundingClientRect() : null;
+    const r = _rp.apply(this, arguments);
+    if (was && el.offsetWidth) { const now = el.getBoundingClientRect(); if (Math.abs(now.left - was.left) > 2 || Math.abs(now.top - was.top) > 2) uiGone({ getBoundingClientRect: () => was }); }
+    return r;
+  };
+}
+
+// ---------- the home card: traffic noise ----------
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch(s, b);
+    if (!t1On() || BUILDINGS[b.type].kind !== 'home' || !b.res) return h;
+    const n = homeNoise(s, b), N = noiseAll(s);
+    if (!n.db || n.db < 45) return h;
+    const where = n.at >= 0 ? placeName(s, n.at) : 'the road', what = n.carts + ' carts' + (n.lorries ? ' (' + n.lorries + ' of them lorries)' : '') + ' a month';
+    const loud = n.db >= TF.noise.loud, noisy = n.db >= TF.noise.noisy;
+    const t = noisy ? 'Traffic noise: ' + n.db + ' dB from ' + where + ', ' + what + '. ' + (loud ? 'Very noisy (over ' + TF.noise.loud + ' dB)' : 'Noisy (over ' + TF.noise.noisy + ' dB)') + ': noisy homes cost the island ' + Math.abs(N.v) + ' happiness (' + plural(N.noisy + N.loud, 'home', 'homes') + '). ' +
+      (n.damp ? 'The trees beside it already soften it.' : 'Palms or a garden beside it soften it (−4 dB), or a second road that takes the carts elsewhere.') :
+      'Traffic noise: ' + n.db + ' dB from ' + where + ' (quiet enough: homes over ' + TF.noise.noisy + ' dB are unhappier).';
+    const p = '<p class="note' + (loud ? '' : noisy ? ' risk' : ' good') + '">' + esc(t) + '</p>';
+    const at = h.indexOf('<div class="btns">');
+    return at >= 0 ? h.slice(0, at) + p + h.slice(at) : h + p;
+  };
+}
+
+// ---------- the street's paint (iso.js laneMarks draws it into the ground) ----------
+// Path2D in tile units for the tiles x0..x1, y0..y1: { centre, lanes, stops, tri, n }.
+function tfMarks(s, x0, y0, x1, y1) {
+  const out = { centre: new Path2D(), lanes: new Path2D(), stops: new Path2D(), tri: new Path2D(), n: 0 };
+  if (!t1On() || yearOf(s) < TF.linesYear) return out;
+  const R = s.road, has = (x, y) => inMap(x, y) && R[tileIdx(x, y)] > 0, J = jctMap(s);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const i = tileIdx(x, y), k = R[i];
+    if (!k || k < 2) continue;
+    const nb = [has(x + 1, y), has(x, y + 1), has(x - 1, y), has(x, y - 1)], cx = x + 0.5, cy = y + 0.5;
+    if (J.arms[i]) {
+      // the lines where each street comes into the crossing: a stop line (stop, lights) or give-way triangles on the side
+      // streets (the main road's arms have none); none on a roundabout (its ring has its own)
+      const ctl = tfCtl(s, i);
+      if (ctl === 'rbt') continue;
+      const main = ctl === 'yield' ? tfMain(s, i) : -1;
+      for (let side = 0; side < 4; side++) {
+        if (!nb[side]) continue;
+        const h = TF_H[(side + 2) % 4], r = [-h[1], h[0]], ex = cx - 0.5 * h[0], ey = cy - 0.5 * h[1];
+        if (ctl === 'yield') {
+          if (side % 2 === main) continue;
+          for (const o of [0.08, 0.17, 0.26]) { const px = ex + r[0] * o, py = ey + r[1] * o; out.tri.moveTo(px - r[0] * 0.035 - h[0] * 0.02, py - r[1] * 0.035 - h[1] * 0.02); out.tri.lineTo(px + r[0] * 0.035 - h[0] * 0.02, py + r[1] * 0.035 - h[1] * 0.02); out.tri.lineTo(px + h[0] * 0.05, py + h[1] * 0.05); out.tri.closePath(); }
+        } else { out.stops.moveTo(ex + r[0] * 0.02 - h[0] * 0.03, ey + r[1] * 0.02 - h[1] * 0.03); out.stops.lineTo(ex + r[0] * 0.29 - h[0] * 0.03, ey + r[1] * 0.29 - h[1] * 0.03); }
+      }
+      out.n++;
+      continue;
+    }
+    // straight pieces: the centre line, and the lane lines each way
+    const ax = nb[0] && nb[2] && !nb[1] && !nb[3] ? 0 : nb[1] && nb[3] && !nb[0] && !nb[2] ? 1 : nb[0] !== nb[2] && !nb[1] && !nb[3] ? 0 : nb[1] !== nb[3] && !nb[0] && !nb[2] ? 1 : -1;
+    if (ax < 0) continue;
+    const a = ax === 0 ? [x, cy, x + 1, cy] : [cx, y, cx, y + 1], d = ax === 0 ? [0, 1] : [1, 0];
+    out.centre.moveTo(a[0], a[1]); out.centre.lineTo(a[2], a[3]);
+    const nl = lanesAt(s, i);
+    for (let m = 1; m < nl; m++) for (const sg of [-1, 1]) { const o = sg * (0.3 - m * 0.3 / nl); out.lanes.moveTo(a[0] + d[0] * o, a[1] + d[1] * o); out.lanes.lineTo(a[2] + d[0] * o, a[3] + d[1] * o); }
+    out.n++;
+  }
+  return out;
+}
+
 // ---- src/ui/brain_ui.js
 // Q2 on screen (sim/brain.js, DESIGN.md §38): the Roundabout tool's red tile says why, the Traffic legend flags a
 // railway line that serves nothing (connect it, dotted, or take it up: her tap only), a works' card says when it hands
@@ -27724,7 +29379,8 @@ function frameRun(now) {
   flyTick(now);
   spaceUpdate();
   // Q1: the open card's numbers at most twice a second (they were redrawn every 5 ticks, 6 times a second at 3x)
-  if (APP.ui.sel && (!APP.cardKey || now - (APP.cardT || 0) > 500)) { APP.cardT = now; cardRender(); }
+  // (T1: and the junction card, its wait and queues as they change)
+  if ((APP.ui.sel || APP.ui.jsel >= 0) && (!APP.cardKey || now - (APP.cardT || 0) > 500)) { APP.cardT = now; cardRender(); }
   toastTick(now);
   receiptTick(now);
   APP.ui.floaters = APP.ui.floaters.filter((f) => now - f.t0 < Math.max(1700, f.dur || 0));
