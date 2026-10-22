@@ -642,6 +642,22 @@ body.titled #comstack { display: none !important; }
 #trlegend .g { white-space: nowrap; }
 @media (max-width: 600px) { #trlegend { font-size: 13px; padding: 6px 10px; gap: 2px 6px; } #trlegend small { font-size: 11px; } }
 #trlegend small { flex-basis: 100%; text-align: center; opacity: .75; font-size: 12px; }
+/* V1: the Land value layer's button and legend (under the pill, where the Traffic legend sits; the two take turns) */
+/* it hangs under the row's right end (the row keeps its four-button width: the Traffic legend and the panels place
+   themselves by the row as before) */
+#rotbtns #bLand { position: absolute; right: 0; top: calc(100% + 6px); }
+#rotbtns #bLand.on { background: #6fa86a; }
+#rotbtns #bLand.on svg { fill: #fff7ea; }
+#lvlegend { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--pill-b, 118px) + 8px); z-index: 30; display: none; align-items: center; flex-wrap: wrap; justify-content: center;
+  gap: 2px 8px; max-width: min(560px, calc(100vw - 24px)); padding: 6px 10px; border-radius: 14px; background: var(--paper); border: 2px solid var(--ink); box-shadow: 0 3px 0 rgba(58, 42, 31, .25); font-size: 14px; color: var(--ink); }
+#lvlegend.show { display: flex; }
+#lvlegend .sc { white-space: nowrap; font-weight: 700; }
+#lvlegend .sc i { display: inline-block; width: 14px; height: 12px; border-radius: 4px; margin: 0 2px 0 6px; vertical-align: -2px; border: 1px solid rgba(58, 42, 31, .35); }
+#lvlegend .t { text-align: center; font-size: 13px; }
+#lvlegend small { flex-basis: 100%; text-align: center; opacity: .8; font-size: 12px; }
+#lvlegend button { width: 44px; height: 44px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; margin: -8px -8px -8px 0; }
+#lvlegend button svg { width: 18px; height: 18px; fill: var(--ink); }
+@media (max-width: 600px) { #lvlegend { font-size: 13px; padding: 6px 10px; gap: 2px 6px; } #lvlegend small { font-size: 11px; } }
 #trlegend i { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; margin: -8px -10px -8px 4px; cursor: pointer; }
 #trlegend i svg { width: 18px; height: 18px; fill: currentColor; }
 /* A6: the worst jam and its fix under the legend's counts; Undo road; the Traffic button in the top bar */
@@ -850,10 +866,12 @@ const TUNE = {
   // M2 (12 Oct 2026, "housing is her job"): a home with everything for its next level for these months becomes *ready*
   // (a gold arrow over it); it moves up only when she pays for the upgrade on its card (block 6: it moved up by itself
   // after 2 / 8 / 14 / 16 months; Tugba missed building for people, PSYCHOLOGY.md §2).
-  levelUpMonths: [0, 1, 2, 3, 3],
+  levelUpMonths: [0, 1, 2, 3, 3, 3, 4, 4],
   // What an upgrade costs (index: the level it leaves: Casita -> House $600, House -> Villa $1,500, Villa -> Townhouse
   // $2,500, Townhouse -> Mansion $3,500): a street of eight homes takes about three to five paydays at that stage.
-  upgradeCost: [0, 600, 1500, 2500, 3500],
+  // V1 (22 Oct 2026): a Mansion -> an apartment house $9,000, -> an apartment block $22,000, -> a high-rise $50,000
+  // (the table's prices; A11 raises them with the builders' wage from Town on): DESIGN.md §41.
+  upgradeCost: [0, 600, 1500, 2500, 3500, 9000, 22000, 50000],
   upgradeTicks: 25,       // scaffolding for a quarter of a month (5 s at 1x), then the new level stands
   // Settlers without a roof wait at the pier in tents (state.waiting); a boat's families sail away again after this many
   // months, and while families wait the boats bring fewer (word gets around): none once waitSlow boats' worth wait.
@@ -998,6 +1016,15 @@ const BUILDINGS = {
   fountain:   { name: 'Fountain', kind: 'deco', deco: 'fountain', w: 1, h: 1, cost: 4000, stage: 2, reach: 5, icon: 'fountain', art: 'field', color: '#6fb6c9', group: 'homes' },
   statue:     { name: 'Statue', kind: 'deco', deco: 'statue', w: 1, h: 1, cost: 10000, stage: 3, reach: 6, icon: 'statue', art: 'field', color: '#bdb6a6', group: 'homes' },
   bandstand:  { name: 'Bandstand', kind: 'deco', deco: 'bandstand', w: 2, h: 2, cost: 25000, stage: 4, reach: 8, icon: 'bandstand', art: 'field', color: '#e9b54f', group: 'homes' },
+  // V1 (22 Oct 2026): levels of the services and the market, reached only by an Upgrade on the card of the one below
+  // (`from`; DESIGN.md §41). The chapel becomes a church, then the cathedral (the cathedral stays buildable on its own);
+  // the clinic becomes the hospital (the grand project's building: it also serves its quarter as a clinic); the school a
+  // secondary school (the Instituto de Segunda Enseñanza: universities stay separate); the market a covered market, then
+  // a department store (El Encanto, Havana, 1888: five storeys of shops). Not on the build bar.
+  church:     { name: 'Church', kind: 'service', w: 2, h: 2, cost: 9000, jobs: 4, stage: 3, gives: 'church', reach: 12, from: 'chapel', icon: 'chapel', art: 'civic', color: '#efe3cc', group: 'services' },
+  lyceum:     { name: 'Secondary school', short: 'Lyceum', kind: 'service', w: 2, h: 2, cost: 30000, jobs: 14, stage: 4, gives: 'school', reach: 14, from: 'school', icon: 'school', art: 'civic', color: '#d98a55', group: 'services' },
+  covered:    { name: 'Covered market', short: 'Covered market', kind: 'market', w: 2, h: 2, cost: 8000, jobs: 6, stage: 3, food: true, reach: 10, from: 'market', icon: 'market', art: 'market', color: '#e6dcc2', group: 'food' },
+  store:      { name: 'Department store', short: 'Dept. store', kind: 'market', w: 2, h: 2, cost: 40000, jobs: 16, stage: 5, food: true, reach: 13, from: 'covered', icon: 'market', art: 'market', color: '#e9d9b8', group: 'food' },
   pier:       { name: 'Pier', kind: 'fixed', w: 3, h: 1, cost: 0, stage: 99, art: 'pier', color: '#a07a50', icon: 'anchor' },
   residence:  { name: "Governor's hut", kind: 'fixed', w: 2, h: 2, cost: 0, stage: 99, art: 'residence', color: '#c8553d', icon: 'home' },
 };
@@ -1037,18 +1064,32 @@ const LEVELS = [
   { name: 'Villa', people: 12, rent: 210, stage: 2, needs: ['road', 'market', 'food', 'bread', 'church', 'rum', 'school', 'clinic'], eats: { food: 3, bread: 0.75, rum: 0.15 } },
   { name: 'Townhouse', people: 16, rent: 280, stage: 3, needs: ['road', 'market', 'food', 'bread', 'church', 'rum', 'school', 'clinic', 'meat', 'coffee', 'park', 'deco'], eats: { food: 4, bread: 1, rum: 0.2, meat: 0.2, coffee: 0.2 } },
   { name: 'Mansion', people: 20, rent: 350, stage: 4, needs: ['road', 'market', 'food', 'bread', 'church', 'rum', 'school', 'clinic', 'meat', 'coffee', 'park', 'deco', 'cigars', 'paved'], eats: { food: 5, bread: 1.25, rum: 0.25, meat: 0.25, coffee: 0.25, cigars: 0.25 } },
+  // V1 (22 Oct 2026, Tomáš: "homes rebuilt normally into taller buildings, skyscrapers, so that we use the land under
+  // them"): after the Mansion the same lot grows up, each level by her Upgrade (DESIGN.md §41; nova/docs/research/
+  // vertical.md). Every person eats what a Mansion's people eat; the lot holds more of them. `floors` for the art and
+  // the cards, `year` the first year it can be built (lifts, concrete frames), `land` the land value it needs. Needs
+  // beyond the Mansion's: a tram stop or station near (transit), services with room for its people (room), land worth
+  // enough (lv50/60/70), electric light and lifts (power), water pressure for the upper floors (water), the year; the
+// blocks and high-rises also room at their services (room; vertical.js).
+  // Havana: Vedado's 3-4 floor apartment houses of the 1910s-20s; the López Serrano building (1932, 10 floors and a
+  // tower, three lifts) the first residential tower; the FOCSA (1956, 39 floors, 374 apartments).
+  { name: 'Apartment house', people: 40, rent: 700, stage: 4, floors: 4, year: 1920, land: 50, needs: ['road', 'market', 'food', 'bread', 'church', 'rum', 'school', 'clinic', 'meat', 'coffee', 'park', 'deco', 'cigars', 'paved', 'transit', 'lv50', 'y1920'], eats: { food: 10, bread: 2.5, rum: 0.5, meat: 0.5, coffee: 0.5, cigars: 0.5 } },
+  { name: 'Apartment block', people: 80, rent: 1400, stage: 4, floors: 8, year: 1940, land: 60, needs: ['road', 'market', 'food', 'bread', 'church', 'rum', 'school', 'clinic', 'meat', 'coffee', 'park', 'deco', 'cigars', 'paved', 'transit', 'power', 'lv60', 'room', 'y1940'], eats: { food: 20, bread: 5, rum: 1, meat: 1, coffee: 1, cigars: 1 } },
+  { name: 'High-rise', people: 160, rent: 2800, stage: 4, floors: 16, year: 1955, land: 70, needs: ['road', 'market', 'food', 'bread', 'church', 'rum', 'school', 'clinic', 'meat', 'coffee', 'park', 'deco', 'cigars', 'paved', 'transit', 'power', 'water', 'lv70', 'room', 'y1955'], eats: { food: 40, bread: 10, rum: 2, meat: 2, coffee: 2, cigars: 2 } },
 ];
 // People one unit a month of a good is enough for (1 / what a person eats): the cards say "enough for N people".
 const PER_PERSON = { food: 1 / 4, bread: 1 / 16, rum: 1 / 80, meat: 1 / 80, coffee: 1 / 80, cigars: 1 / 80 };
 const NEED_NAMES = { road: 'a road', market: 'a market', food: 'food', bread: 'bread', church: 'a church', rum: 'rum',
   school: 'a school', clinic: 'a clinic', meat: 'meat', coffee: 'coffee', park: 'a park', cigars: 'cigars', paved: 'a paved street',
-  deco: 'a decoration nearby' };
+  deco: 'a decoration nearby', transit: 'a tram stop or station near', power: 'electric light and lifts (the power station)',
+  water: 'water pressure (the water works)', lv50: 'land worth 50 or more', lv60: 'land worth 60 or more', lv70: 'land worth 70 or more',
+  room: 'room at the school, clinic, church and market', y1920: 'the 1920s', y1940: 'the 1940s', y1955: 'the mid-1950s' };
 const NEED_GOODS = ['food', 'bread', 'rum', 'meat', 'coffee', 'cigars'];
 // What builds a need: for the guide's one line and its button.
 const NEED_FIX = {
   food: 'fishing', bread: 'bakery', rum: 'distillery', meat: 'butcher', coffee: 'roastery', cigars: 'cigars',
   church: 'chapel', school: 'school', clinic: 'clinic', park: 'park', market: 'market', paved: 'paved', road: 'road',
-  deco: 'garden',
+  deco: 'garden', transit: 'tram', power: 'power', water: 'waterworks',
 };
 
 // The stages. Block 3: from Village on, each goal includes the stage's landmark (expensive, built once): `res` the
@@ -9392,7 +9433,7 @@ function livingUnrestMax() { return typeof UNREST !== 'undefined' ? UNREST.max :
     const _ck = S.check;
     S.check = function (s) {
       const m = _ck.apply(this, arguments);
-      if (m && m.text) { const L = livingOf(s); m.text = m.text.replace(/: wages are low and happiness is (\d+)\./, ': a worker’s family keeps ' + money$(Math.max(0, L.keeps)) + ' a month after rent and food (it needs ' + money$(L.need) + ') and happiness is $1.').replace(/Raise wages at the desk/, 'Raise wages or lower the rent at the desk'); }
+      if (m && m.text) { const L = livingOf(s); m.text = m.text.replace(/: wages are low and happiness is (\d+)\./, (_, hp) => ': a worker’s family keeps ' + money$(Math.max(0, L.keeps)) + ' a month after rent and food (it needs ' + money$(L.need) + ') and happiness is ' + hp + '.').replace(/Raise wages at the desk/, 'Raise wages or lower the rent at the desk'); }
       return m;
     };
   }
@@ -9688,7 +9729,7 @@ function harborExpand(state, b, lv) {
   shipsText = function (s, g, wait) {
     const t = _stx.apply(this, arguments), hb = hbBest(s), nx = hb ? hbNext(s, hb)[0] : null;
     if (!nx) return t;
-    return t.replace(/ Build (a second|another) harbor.*$/, ' Give the harbor its ' + nx.name.toLowerCase() + ' (' + nx.gives + ') · ' + money$(nx.cost) + ': tap the glowing harbor.');
+    return t.replace(/ Build (a second|another) harbor.*$/, () => ' Give the harbor its ' + nx.name.toLowerCase() + ' (' + nx.gives + ') · ' + money$(nx.cost) + ': tap the glowing harbor.');
   };
   // Rosa's "ships are full": the harbor's next level, as a plan (it glows, one tap builds it)
   const G = GUIDE_PROBLEMS.find((p) => p.key === 'ships');
@@ -15697,6 +15738,689 @@ function whyStarves(state, b) {
   return null;
 }
 
+// ---- src/sim/landvalue.js
+// V1 (22 Oct 2026, Tomáš, after reading what Cities: Skylines II does: "land value raises rents and levels buildings;
+// industry prefers cheap land … I agree with all of it"): what a tile of land is worth, 0-100, worked out once a month
+// (at the month's end, before payday) from what is around it, the same way for everyone and saved with the island, so
+// a reloaded island pays the same rent. Inspiration only (CS2's public dev diaries: land value from services, parks,
+// water and transport, lowered by noise and pollution; rent follows land value; industry prefers low land value); no
+// code, art or text from it. Rules (DESIGN.md §41; every part is on the home card's "Land here" line and the legend):
+//   base 20
+//   + the sea: by the shore +18, 2 tiles +15, 3 +12, 4-5 +9, 6-7 +6, 8-9 +4 (a sea view, the breeze, the Malecón)
+//   + a park within 2 tiles +12, within 6 +6; decorations in their reach: garden or palms +3, fountain or statue +5,
+//     bandstand +7 (together at most +12)
+//   + services in reach (as the homes' needs reckon reach, in a straight line): a school, a clinic (a hospital counts),
+//     a church, a market +5 each; an opera +5
+//   + transport: a tram stop within 2 tiles +8 (or a railway station within 3 +6); a paved street beside it +4, an
+//     avenue +6
+//   + the residence's square: within 3 tiles 8 + 2 a residence level, within 6 half that
+//   − traffic noise (T1's measure for the tile): 0.8 a dB over 50, at most 15
+//   − smoke: a works within its smoke (big works 14 within 5 tiles, a works of 10+ workers 10 within 4, a small one 5
+//     within 2; the power station 14 within 5), fading with distance; together at most 25
+//   − a jammed street beside it 6 (busy 3); a cattle ranch within 2 tiles 6 (the smell)
+// From Town on, rent (E1's home line) follows it: × (1 + 0.5 × (land − 42) / 100) (land 80: +19 %, land 30: −6 %). Works pay upkeep
+// by the land under them (its value without their own smoke): × (1 + 0.5 × (land − 40) / 100): cheap land, cheaper to
+// keep; the card says so. Both are on the cards and the receipt adds them up as before.
+
+const LANDV = {
+  base: 20,
+  sea: [0, 18, 15, 12, 9, 9, 6, 6, 4, 4],
+  park: [12, 6], parkR: [2, 6],
+  deco: { garden: 3, palms: 3, fountain: 5, statue: 5, bandstand: 7 }, decoMax: 12,
+  svc: 5, opera: 5,
+  tram: 8, station: 6, stationR: 3, paved: 4, avenue: 6,
+  square: 8, squareLv: 2, squareR: [3, 6],
+  noiseFrom: 50, noiseK: 0.8, noiseMax: 15,
+  smokeMax: 25, jam: 6, busy: 3, smell: 6,
+  rentK: 0.5, rentPivot: 42,
+  fromStage: 2,       // rent and upkeep follow it from Town on (a village's land is cheap everywhere)
+  worksK: 0.5, worksPivot: 40,
+};
+function lvalOn() { return !TUNE.landOff; }
+
+// The tiles' distance to the sea (4-neighbour steps; the shore 1), kept while the terrain's sea is the same.
+function landSeaDist(s) {
+  const key = s.terrain.length + ':' + s.seed;
+  if (s._lvSea && s._lvSea.key === key) return s._lvSea.d;
+  const n = MAP_W * MAP_H, d = new Int16Array(n).fill(99), q = [];
+  for (let i = 0; i < n; i++) if (s.terrain[i] === SEA) { d[i] = 0; q.push(i); }
+  for (let k = 0; k < q.length; k++) {
+    const i = q[k], x = i % MAP_W, y = (i / MAP_W) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const X = x + dx, Y = y + dy;
+      if (!inMap(X, Y)) continue;
+      const j = tileIdx(X, Y);
+      if (d[j] > d[i] + 1) { d[j] = d[i] + 1; if (d[j] < 12) q.push(j); }
+    }
+  }
+  s._lvSea = { key, d };
+  return d;
+}
+
+// What the month's land value is made of: the sources once per computation.
+function landSources(s) {
+  const src = { park: [], deco: [], svc: { school: [], clinic: [], church: [], market: [], opera: [] }, stops: [], stations: [], smoke: [], smell: [], res: null, noise: null, damp: null };
+  for (const b of s.b) {
+    const d = BUILDINGS[b.type];
+    if (!d) continue;
+    if (b.type === 'residence') src.res = b;
+    if (d.deco && LANDV.deco[d.deco]) { src.deco.push([b, d.reach || 3, LANDV.deco[d.deco]]); continue; }
+    if (d.gives === 'park') { src.park.push(b); continue; }
+    const up = b.open !== false && !b.wip;
+    if (d.kind === 'market' && up) src.svc.market.push([b, bReach(d)]);
+    else if (d.kind === 'service' && up) {
+      if (d.gives === 'school' || d.gives === 'clinic' || d.gives === 'church' || d.gives === 'opera') src.svc[d.gives].push([b, bReach(d)]);
+      // a hospital is its quarter's clinic too (vertical.js)
+      if (d.gives === 'hospital') src.svc.clinic.push([b, VT_HOSP_REACH]);
+    }
+    if (b.type === 'station') src.stations.push(b);
+    if (d.kind === 'producer' && d.uses && b.open !== false) {
+      const big = d.jobs >= 25, mid = d.jobs >= 10;
+      src.smoke.push([b, big ? 14 : mid ? 10 : 5, big ? 5 : mid ? 4 : 2]);
+    }
+    if (d.gives === 'power' && !b.wip) src.smoke.push([b, 14, 5]);
+    if (d.makes === 'cattle') src.smell.push(b);
+  }
+  try { if ((s.tram || []).length && typeof tramLines === 'function') for (const L of tramLines(s).lines) if (L.stops.length >= 2) for (const i of L.stops) src.stops.push(i); } catch (e) { /* no tram lines */ }
+  src.noise = landNoiseGrid(s);
+  return src;
+}
+
+// T1's noise measure for every tile (homeNoise's rule for a 1 x 1 lot): dB, 0 where no road is heard.
+function landNoiseGrid(s) {
+  const n = MAP_W * MAP_H, out = new Float32Array(n);
+  if (typeof TF === 'undefined' || !TF.noise || typeof trState !== 'function') return out;
+  const T = trState(s), L = T.load || {}, LO = T.lor || {}, N = TF.noise, e = new Float32Array(n);
+  let any = false;
+  for (let i = 0; i < n; i++) if (s.road[i]) { e[i] = ((L[i] || 0) + (N.lorry - 1) * (LO[i] || 0)) * (s.road[i] === 3 ? 1.6 : 1); if (e[i] > 0) any = true; }
+  if (!any) return out;
+  // where trees soften it (forest beside it, or palms, a garden, a park within a tile)
+  const damp = new Uint8Array(n);
+  for (let i = 0; i < n; i++) if (s.terrain[i] === FOREST) { const x = i % MAP_W, y = (i / MAP_W) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inMap(x + dx, y + dy)) damp[tileIdx(x + dx, y + dy)] = 1; }
+  for (const b of s.b) { const d = BUILDINGS[b.type]; if (!d || !(d.deco === 'palms' || d.deco === 'garden' || b.type === 'park')) continue; for (let y = b.y - 1; y <= b.y + b.h; y++) for (let x = b.x - 1; x <= b.x + b.w; x++) if (inMap(x, y)) damp[tileIdx(x, y)] = 1; }
+  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+    let sum = 0;
+    for (let Y = y - 2; Y <= y + 2; Y++) for (let X = x - 2; X <= x + 2; X++) {
+      if (!inMap(X, Y)) continue;
+      const v = e[tileIdx(X, Y)];
+      if (v) sum += v * (Math.max(Math.abs(X - x), Math.abs(Y - y)) <= 1 ? N.near : N.far);
+    }
+    if (sum <= 0) continue;
+    const i = tileIdx(x, y);
+    if (damp[i]) sum *= N.damp;
+    out[i] = N.k + 10 * Math.log10(sum);
+  }
+  return out;
+}
+
+// The parts of a tile's value: [{ k, v, label, id }] (id: the building it comes from, or a tile), and the total.
+// skip: a building whose own smoke is not counted (a works' ground: its own smoke does not cheapen it for itself).
+// fast: the grid's run (no words, only the numbers).
+function landParts(s, i, src, skip, fast) {
+  src = src || landSources(s);
+  const x = i % MAP_W, y = (i / MAP_W) | 0, t = { x, y, w: 1, h: 1 }, parts = [];
+  const add = (k, v, label, id) => { if (v) parts.push({ k, v: Math.round(v), label: fast ? '' : typeof label === 'function' ? label() : label, id }); };
+  const sd = landSeaDist(s)[i];
+  if (sd > 0 && sd < LANDV.sea.length) add('sea', LANDV.sea[sd], sd <= 1 ? 'by the sea' : 'the sea ' + sd + ' tiles away');
+  // parks, the best one; decorations together
+  let pk = 0, pkId = 0;
+  for (const p of src.park) { const d = footDist(p, t), v = d <= LANDV.parkR[0] ? LANDV.park[0] : d <= LANDV.parkR[1] ? LANDV.park[1] : 0; if (v > pk) { pk = v; pkId = p.id; } }
+  add('park', pk, 'a park', pkId);
+  let dc = 0, dcId = 0, dcBest = 0;
+  for (const [b, r, v] of src.deco) if (footDist(b, t) <= r) { dc += v; if (v > dcBest) { dcBest = v; dcId = b.id; } }
+  add('deco', Math.min(LANDV.decoMax, dc), () => (dc > dcBest ? 'decorations' : (BUILDINGS[(bById(s, dcId) || {}).type] || { name: 'a decoration' }).name.toLowerCase()), dcId);
+  // services in reach
+  const sv = [];
+  for (const k of ['school', 'clinic', 'church', 'market', 'opera']) {
+    const hit = src.svc[k].find(([b, r]) => footDist(b, t) <= r);
+    if (hit) sv.push([k, hit[0].id]);
+  }
+  if (sv.length) add('svc', sv.reduce((a, q) => a + (q[0] === 'opera' ? LANDV.opera : LANDV.svc), 0), () => listAnd(sv.map((q) => (q[0] === 'church' ? 'a church' : q[0] === 'opera' ? 'the opera' : 'a ' + q[0]))) + ' in reach', sv[0][1]);
+  // transport
+  let tr = 0, trL = '', trAt = 0;
+  for (const st of src.stops) if (footDist(tile1(st), t) <= TR.tramWalk) { tr = LANDV.tram; trL = 'a tram stop'; trAt = 0; break; }
+  if (!tr) for (const b of src.stations) if (footDist(b, t) <= LANDV.stationR) { tr = LANDV.station; trL = 'a railway station'; trAt = b.id; break; }
+  add('tram', tr, trL, trAt);
+  let pv = 0;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (!inMap(X, Y)) continue; const k = s.road[tileIdx(X, Y)]; pv = Math.max(pv, k === 3 ? LANDV.avenue : k === 2 ? LANDV.paved : 0); }
+  add('paved', pv, pv === LANDV.avenue ? 'an avenue' : 'a paved street');
+  // the residence's square
+  if (src.res) {
+    const d = footDist(src.res, t), lv = (s.res || 0) + (s.palace ? 1 : 0), v = LANDV.square + LANDV.squareLv * lv;
+    add('square', d <= LANDV.squareR[0] ? v : d <= LANDV.squareR[1] ? v / 2 : 0, 'the residence’s square', src.res.id);
+  }
+  // noise, smoke, jams, smell
+  const db = src.noise[i];
+  if (db > LANDV.noiseFrom) {
+    let at = -1, bv = 0;
+    if (!fast) for (let Y = y - 2; Y <= y + 2; Y++) for (let X = x - 2; X <= x + 2; X++) { if (!inMap(X, Y)) continue; const j = tileIdx(X, Y); if (!s.road[j]) continue; const L = (trState(s).load || {})[j] || 0; if (L > bv) { bv = L; at = j; } }
+    add('noise', -Math.min(LANDV.noiseMax, (db - LANDV.noiseFrom) * LANDV.noiseK), () => 'the noise of ' + (at >= 0 && typeof placeName === 'function' ? placeName(s, at) : 'the road') + ' (' + Math.round(db) + ' dB)', -1 - at);
+  }
+  let sm = 0, smB = null, smV = 0;
+  for (const [b, k, r] of src.smoke) {
+    if (skip && b.id === skip) continue;
+    const d = footDist(b, t);
+    if (d > r) continue;
+    const v = k * (1 - d / (r + 1));
+    sm += v;
+    if (v > smV) { smV = v; smB = b; }
+  }
+  if (sm) add('smoke', -Math.min(LANDV.smokeMax, sm), () => 'smoke from the ' + (BUILDINGS[smB.type].short || BUILDINGS[smB.type].name).toLowerCase(), smB.id);
+  let jm = 0, jmAt = -1;
+  if (typeof trafficLevel === 'function') for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const X = x + dx, Y = y + dy;
+    if (!inMap(X, Y) || !s.road[tileIdx(X, Y)]) continue;
+    const l = trafficLevel(s, tileIdx(X, Y)), v = l >= TR.jam ? LANDV.jam : l > TR.busy ? LANDV.busy : 0;
+    if (v > jm) { jm = v; jmAt = tileIdx(X, Y); }
+  }
+  if (jm) add('jam', -jm, jm === LANDV.jam ? 'a jammed street' : 'a busy street', -1 - jmAt);
+  for (const b of src.smell) if (footDist(b, t) <= 2) { add('smell', -LANDV.smell, 'the cattle ranch', b.id); break; }
+  const v = Math.max(0, Math.min(100, Math.round(LANDV.base + parts.reduce((a, p) => a + p.v, 0))));
+  return { v, parts };
+}
+
+// Every land tile's value this month (0 on the sea), worked out at the month's end and saved: state.lval = { m, v }.
+function landCompute(s) {
+  const n = MAP_W * MAP_H, v = new Array(n).fill(0), src = landSources(s);
+  for (let i = 0; i < n; i++) if (s.terrain[i] !== SEA) v[i] = landParts(s, i, src, 0, true).v;
+  s.lval = { m: s.month, v };
+  if (s._c) s._c.lvH = null;
+  return s.lval;
+}
+function landGrid(s) {
+  if (!s.lval || !Array.isArray(s.lval.v) || s.lval.v.length !== MAP_W * MAP_H) landCompute(s);
+  return s.lval.v;
+}
+// A building's land: the value at the middle of its lot (a works: without its own smoke, worked out now)
+function landOf(s, b) {
+  const i = tileIdx(b.x + ((b.w - 1) >> 1), b.y + ((b.h - 1) >> 1));
+  const d = BUILDINGS[b.type];
+  if (d && d.kind === 'producer' && d.uses) return landWorks(s, b).v;
+  return landGrid(s)[i] || 0;
+}
+// A works' ground (its own smoke not counted), cached for the month and the island's version.
+function landWorks(s, b) {
+  const c = simCache(s), key = (s.lval ? s.lval.m : -1) + ':' + b.id;
+  if (!c.lvW) c.lvW = {};
+  if (c.lvW[key]) return c.lvW[key];
+  const i = tileIdx(b.x + ((b.w - 1) >> 1), b.y + ((b.h - 1) >> 1));
+  return (c.lvW[key] = landParts(s, i, null, b.id, !!c.lvFast));
+}
+// The rent factor for land worth v, and the works' upkeep factor.
+function landRentK(v) { return 1 + LANDV.rentK * (v - LANDV.rentPivot) / 100; }
+function landWorksK(v) { return 1 + LANDV.worksK * (v - LANDV.worksPivot) / 100; }
+
+// The card's line: "Land here: 72 · by the sea +18, a park +12, the noise of Calle Real (58 dB) −6".
+function landLine(s, b) {
+  const c = simCache(s), key = b.id + ':' + s.month + ':' + (s.lval ? s.lval.m : -1);
+  if (!c.lvL) c.lvL = {};
+  return c.lvL[key] || (c.lvL[key] = landLine0(s, b));
+}
+function landLine0(s, b) {
+  const i = tileIdx(b.x + ((b.w - 1) >> 1), b.y + ((b.h - 1) >> 1)), d = BUILDINGS[b.type];
+  const q = d && d.kind === 'producer' && d.uses ? landWorks(s, b) : landParts(s, i);
+  const v = landOf(s, b), ps = q.parts.slice().sort((a, b2) => Math.abs(b2.v) - Math.abs(a.v));
+  const fmt = (p) => p.label + ' ' + (p.v > 0 ? '+' : '−') + Math.abs(p.v);
+  return { v, text: 'Land here: ' + v + (ps.length ? ' · ' + ps.slice(0, 4).map(fmt).join(', ') : ' · bare land (20)'), parts: ps };
+}
+
+// The month's end: the land is valued first (payday reads it).
+{
+  const _me = monthEnd;
+  monthEnd = function (state) {
+    if (lvalOn()) landCompute(state);
+    return _me.apply(this, arguments);
+  };
+}
+
+// Rent follows the land (E1's home line: what it pays; its shopping unchanged, so its rent line takes the difference);
+// works pay upkeep by their ground.
+{
+  const _bn = bNumber;
+  bNumber = function (state, b) {
+    const x = _bn.apply(this, arguments);
+    if (!lvalOn() || state.stage < LANDV.fromStage) return x;
+    const def = BUILDINGS[b.type];
+    if (def.kind === 'home' && x.rent) {
+      const v = landOf(state, b), r1 = Math.round(x.rent * landRentK(v)), d = r1 - x.rent;
+      x.land = { v, d, base: x.rent };
+      x.rent = r1; if (x.pays !== undefined) x.pays = r1; x.n += d;
+    } else if (def.kind === 'producer' && def.uses && x.upkeep && !b.wip) {
+      const v = landOf(state, b), g = Math.round(upkeepOf(def) * (landWorksK(v) - 1) * (b.open ? 1 : TUNE.closedUpkeep));
+      x.land = { v, d: -g };
+      x.upkeep += g; x.n -= g;
+    }
+    return x;
+  };
+}
+
+// ---- src/sim/vertical.js
+// V1 (22 Oct 2026, Tomáš: "homes rebuilt normally into taller buildings, skyscrapers, so that we use the land under
+// them — and not only homes: clinics into tall hospitals, schools into bigger schools … a chapel into a cathedral, etc. —
+// so that the small island can grow vertically as well as horizontally"). DESIGN.md §41; research: docs/research/
+// vertical.md. Nothing grows by itself (A12): every level is her Upgrade, its price and what it gives on the card.
+// 1. Homes after the Mansion (data.js LEVELS 6-8): the apartment house (4 floors, 40 people, from 1920), the apartment
+//    block (8 floors, 80, from 1940, needs the power station's electric light and lifts), the high-rise (16 floors,
+//    160, from 1955, also the water works' pressure). Each needs land worth 50 / 60 / 70 (landvalue.js), a tram stop
+//    or a station near, and room at its services. The ready → Upgrade rule is M2's.
+// 2. Room at the services: every occupied home counts at the nearest school, clinic, church and market in its reach;
+//    each has room for so many people (VT.cap: a chapel 400, a church 1,200, the cathedral 4,000; a school 400, a
+//    secondary school 1,500; a clinic 400, a hospital 2,000; a market 400, a covered market 1,200, a department store
+//    3,000). The tall homes need one of each kind in reach with room (the old levels as before): so a skyline needs
+//    the services to grow too.
+// 3. The services and the market grow (VT.up): chapel → church → cathedral, clinic → hospital, school → secondary
+//    school, market → covered market → department store. The Upgrade on the card says the price, the months of
+//    building (the old one works on meanwhile) and, when the new one needs more ground, the free tiles beside it that it
+//    takes (her card shows them outlined on the map before the tap; kept for it while it is built). A hospital (built
+//    on its own as the grand project, or grown from a clinic) is also the clinic of the homes within 16 tiles.
+
+const VT = {
+  cap: { chapel: 400, church: 1200, cathedral: 4000, school: 400, lyceum: 1500, clinic: 400, hospital: 2000, market: 400, covered: 1200, store: 3000 },
+  up: { chapel: 'church', church: 'cathedral', clinic: 'hospital', school: 'lyceum', market: 'covered', covered: 'store' },
+  months: { church: 2, cathedral: 6, hospital: 6, lyceum: 3, covered: 2, store: 4 },
+  year: { covered: 1915, store: 1920 },
+  part: 0.5,          // the price: the new building's less this share of the old one's (its walls are kept)
+  tall: 6,            // the first tall home level
+};
+const VT_HOSP_REACH = 16;
+const VT_KINDS = ['church', 'school', 'clinic', 'market'];
+const VT_NEEDS = /^(transit|power|water|room|lv\d+|y\d{4})$/;
+if (typeof PURSE !== 'undefined') Object.assign(PURSE.months, { church: 2, lyceum: 3, covered: 1, store: 4 });
+COM_WHO.architect = { role: 'the architects’ society', form: 'mr', col: '#5a6b78' };
+
+function vtOn() { return !TUNE.vtOff; }
+function vtTall(h) { return !!h && h.type === 'casita' && (h.level || 1) >= VT.tall; }
+function vtFloors(level) { const L = LEVELS[level]; return (L && L.floors) || [0, 1, 2, 2, 3, 2][level] || 2; }
+
+// ---------- the new needs ----------
+function vtTransit(state, h) {
+  try { if ((state.tram || []).length && stopsNear(state, h).length) return true; } catch (e) { /* no tram */ }
+  return state.b.some((b) => b.type === 'station' && b.open !== false && footDist(b, h) <= LANDV.stationR);
+}
+// The people at each service (each occupied home at the nearest one of each kind in its reach): { id: people }
+function vtLoads(state) {
+  const c = simCache(state), key = state.month + ':' + state.mt;
+  if (c.vtLoad && c.vtLoad.key === key) return c.vtLoad.by;
+  const by = {}, reach = homeReach(state);
+  for (const h of state.b) {
+    if (h.type !== 'casita' || !h.res) continue;
+    const r = reach[h.id];
+    if (!r) continue;
+    for (const k of VT_KINDS) {
+      const ids = k === 'market' ? r.markets : (r.svc[k] || []);
+      let best = null, bd = 1e9;
+      for (const id of ids) { const s = bById(state, id); if (!s || !serviceOk(state, id)) continue; const d = footDist(s, h); if (d < bd || (d === bd && s.id < best.id)) { bd = d; best = s; } }
+      if (best) by[best.id] = (by[best.id] || 0) + h.res;
+    }
+  }
+  c.vtLoad = { key, by };
+  return by;
+}
+function vtCap(b) { return VT.cap[b.type] || 0; }
+// The kinds a tall home finds no room for: [{ k, ids }] (its providers in reach, all full); a kind with none in reach
+// is its own need (a school, a clinic …), not room.
+function vtRoomShort(state, h) {
+  const r = homeReach(state)[h.id], L = vtLoads(state), out = [];
+  if (!r) return out;
+  for (const k of VT_KINDS) {
+    const ids = (k === 'market' ? r.markets : (r.svc[k] || [])).filter((id) => serviceOk(state, id));
+    if (!ids.length) continue;
+    if (!ids.some((id) => { const s = bById(state, id), cap = vtCap(s); return !cap || (L[id] || 0) <= cap; })) out.push({ k, ids });
+  }
+  return out;
+}
+{
+  const _hh = homeHas;
+  homeHas = function (state, h, need) {
+    // TUNE.vtOff (tests: the rules before V1): no home grows past the Mansion
+    if (!vtOn() && VT_NEEDS.test(need)) return false;
+    if (need === 'transit') return vtTransit(state, h);
+    if (need === 'power') return projectOn(state, 'power');
+    if (need === 'water') return projectOn(state, 'water');
+    if (need === 'room') return vtRoomShort(state, h).length === 0;
+    let m = /^lv(\d+)$/.exec(need);
+    if (m) return landOf(state, h) >= +m[1];
+    m = /^y(\d{4})$/.exec(need);
+    if (m) return yearOf(state) >= +m[1];
+    return _hh.apply(this, arguments);
+  };
+}
+// A need that is only the calendar shows no bubble (nothing to build for it); the card says when.
+{
+  const _bp = bubblesPick;
+  bubblesPick = function (state) {
+    const r = _bp.apply(this, arguments);
+    for (const h of state.b) if (h.type === 'casita' && h.wants && h.wants.length && /^y\d{4}$/.test(h.wants[0])) h.wants = [];
+    return r;
+  };
+}
+// What helps with each new need (Rosa, the pill, the card's at-risk line): one line and, where there is one, the tool.
+{
+  const _nc = needCause;
+  needCause = function (s, need, homes) {
+    homes = homes || homesOccupied(s).filter((h) => (h.miss || []).includes(need) || (h.missNext || []).includes(need));
+    const at = homes.length ? homesAt(homes) : null;
+    if (need === 'transit') return { text: 'lay a tram line with a stop within ' + TR.tramWalk + ' tiles of them (or build a railway station within ' + LANDV.stationR + ')', tool: 'tram', at };
+    if (need === 'power' || need === 'water') {
+      const t = need === 'power' ? 'power' : 'waterworks', b = s.b.find((o) => o.type === t), nm = BUILDINGS[t].name.toLowerCase();
+      if (!b) return { text: 'build the ' + nm + ' (a grand project)', tool: t };
+      if (b.wip) return { text: 'the ' + nm + ' is being built', tool: '' };
+      return { text: 'open the ' + nm + ' and give it workers', tool: '', sel: b.id };
+    }
+    if (need === 'room') {
+      const q = homes.map((h) => vtRoomShort(s, h)).find((x) => x.length);
+      if (q) {
+        const k = q[0].k, b = bById(s, q[0].ids[0]), L = vtLoads(s)[b.id] || 0, nx = VT.up[b.type];
+        return { text: 'the ' + (BUILDINGS[b.type].short || BUILDINGS[b.type].name).toLowerCase() + ' in reach serves ' + L.toLocaleString('en-US') + ' people and has room for ' + vtCap(b).toLocaleString('en-US') +
+          (nx ? ': upgrade it to a ' + BUILDINGS[nx].name.toLowerCase() + ' on its card, or build another ' + (k === 'church' ? 'chapel' : k) + ' near them' : ': build another ' + (k === 'church' ? 'chapel' : k) + ' near them'), tool: k === 'church' ? 'chapel' : k, at, sel: b.id };
+      }
+      return { text: 'their services have room again', tool: '' };
+    }
+    let m = /^lv(\d+)$/.exec(need);
+    if (m) {
+      const h = homes[0], q = h ? landLine(s, h) : null, has = (k) => q && q.parts.some((p) => p.k === k && p.v > 0);
+      const tool = !has('park') ? 'park' : !has('tram') ? 'tram' : !has('paved') ? 'paved' : !has('deco') ? 'garden' : '';
+      return { text: 'the land here is worth ' + (q ? q.v : '?') + ', it needs ' + m[1] + ': a park, a tram stop, a paved street or decorations raise it; smoke, noise and jams lower it', tool, at };
+    }
+    m = /^y(\d{4})$/.exec(need);
+    if (m) return { text: 'buildings like this came to Havana from about ' + m[1] + ' (lifts and concrete frames)', tool: '' };
+    return _nc.apply(this, arguments);
+  };
+}
+// A hospital is the clinic of the homes within VT_HOSP_REACH tiles joined to it by road.
+{
+  const _hr = homeReach;
+  homeReach = function (state) {
+    const c = simCache(state);
+    if (c.reach && c.reachVt) return c.reach;
+    const reach = _hr.apply(this, arguments);
+    if (!c.reachVt && vtOn()) {
+      c.reachVt = 1;
+      for (const s of state.b) {
+        if (s.type !== 'hospital' || s.wip) continue;
+        for (const h of state.b) {
+          if (h.type !== 'casita' || !reach[h.id] || footDist(s, h) > VT_HOSP_REACH) continue;
+          const r = reach[h.id], L = r.svc.clinic || (r.svc.clinic = []);
+          if (L.includes(s.id) || !roadJoined(state, s, h)) continue;
+          L.push(s.id);
+        }
+      }
+    }
+    return reach;
+  };
+}
+// A market's level reaches farther (its own `reach`; the plain market keeps TUNE.marketReach).
+{
+  const _br = bReach;
+  bReach = function (def) { return def && def.kind === 'market' && def.reach ? def.reach : _br.apply(this, arguments); };
+}
+// The stage card says the homes can grow up.
+{
+  const _so = stageOpens;
+  stageOpens = function (stage) {
+    const r = _so.apply(this, arguments);
+    if (stage === LEVELS[VT.tall].stage) r.push('Homes can grow up: apartment houses (40 people, from ' + LEVELS[6].year + '), apartment blocks (80, from ' + LEVELS[7].year + ', with the power station), high-rises (160, from ' + LEVELS[8].year + ', with the water works)');
+    return r;
+  };
+}
+
+// ---------- the services and the market grow ----------
+function vtNext(b) { return b && vtOn() ? VT.up[b.type] || '' : ''; }
+function vtRound(v) { return Math.round(v / 50) * 50; }
+function vtPrice(state, b, to) {
+  const T = BUILDINGS[to], F = BUILDINGS[b.type];
+  return vtRound(Math.max(T.cost * 0.5, T.cost - F.cost * VT.part));
+}
+// Is tile i kept for another building's new wing (one being built)?
+function vtKept(state, i, except) {
+  const x = i % MAP_W, y = (i / MAP_W) | 0;
+  for (const b of state.b) {
+    const u = b.vup;
+    if (!u || b.id === except) continue;
+    if (x >= u.x && x < u.x + u.w && y >= u.y && y < u.y + u.h && !(x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h)) return b;
+  }
+  return null;
+}
+// The plot the next level needs: the same lot when it fits, else the lot grown onto free tiles beside it (kept off the
+// sea and the beach, roads and buildings, land not open yet; a road still beside it): { x, y, w, h, f, add, forest }.
+function vtPlot(state, b, to) {
+  const d = BUILDINGS[to], f0 = b.f ? b.f & 3 : 0, sw = (f0 & 1) === 1 && d.w !== d.h;
+  const dims = [[sw ? d.h : d.w, sw ? d.w : d.h, f0]];
+  if (d.w !== d.h) dims.push([dims[0][1], dims[0][0], (f0 + 1) & 3]);
+  const occ = occMap(state), out = [];
+  for (const [W, H, f] of dims) {
+    if (W < b.w || H < b.h) continue;
+    if (W === b.w && H === b.h) return { x: b.x, y: b.y, w: W, h: H, f, add: [], forest: 0 };
+    for (let y = b.y - (H - b.h); y <= b.y; y++) for (let x = b.x - (W - b.w); x <= b.x; x++) {
+      const add = [];
+      let forest = 0, bad = false;
+      for (let ty = y; ty < y + H && !bad; ty++) for (let tx = x; tx < x + W; tx++) {
+        if (tx >= b.x && tx < b.x + b.w && ty >= b.y && ty < b.y + b.h) continue;
+        if (!inMap(tx, ty)) { bad = true; break; }
+        const i = tileIdx(tx, ty), t = state.terrain[i];
+        if (t === SEA || t === BEACH || occ[i] || state.road[i] || state.region[i] > state.stage + 1 || vtKept(state, i, b.id)) { bad = true; break; }
+        if ((state.rail || []).length && typeof railAt === 'function' && railAt(state, i)) { bad = true; break; }
+        if (t === FOREST) forest++;
+        add.push(i);
+      }
+      if (bad || !bEntrances(state, { x, y, w: W, h: H }).length) continue;
+      out.push({ x, y, w: W, h: H, f, add, forest, dm: Math.abs(x + W / 2 - b.x - b.w / 2) + Math.abs(y + H / 2 - b.y - b.h / 2) + (f !== f0 ? 3 : 0) });
+    }
+  }
+  out.sort((a, c) => a.forest - c.forest || a.dm - c.dm || a.y - c.y || a.x - c.x);
+  return out[0] || null;
+}
+// What the card offers: null (no next level), or { to, name, price, months, plot, why, gives }.
+function vtUpInfo(state, b) {
+  const to = vtNext(b);
+  if (!to) return null;
+  const T = BUILDINGS[to], F = BUILDINGS[b.type], plot = b.vup ? null : vtPlot(state, b, to);
+  const clear = plot ? plot.forest * clearTileCost(state) : 0, price = vtPrice(state, b, to) + clear, months = VT.months[to] || 2;
+  let why = '';
+  if (b.vup) why = 'Being built: ' + plural(Math.max(1, Math.ceil(b.vup.t / TUNE.ticksPerMonth)), 'month', 'months') + ' left';
+  else if (T.stage > state.stage) why = 'Opens at ' + STAGES[T.stage].name;
+  else if (VT.year[to] && yearOf(state) < VT.year[to]) why = 'Opens in ' + VT.year[to];
+  else if (!plot) why = 'No free land beside it: the ' + T.name.toLowerCase() + ' needs ' + T.w + ' × ' + T.h + ' tiles (free grass beside it, a road along it)';
+  else if (state.money < price) why = 'Not enough money (' + money$(price) + ')';
+  const reach = T.kind === 'market' ? bReach(T) : to === 'hospital' ? VT_HOSP_REACH : bReach(T), reach0 = F.kind === 'market' ? bReach(F) : bReach(F);
+  const gives = [T.name + ': room for ' + (VT.cap[to] || 0).toLocaleString('en-US') + ' people (now ' + (VT.cap[b.type] || 0).toLocaleString('en-US') + ')',
+    'reach ' + reach + ' tiles (now ' + reach0 + ')', T.jobs + ' jobs (now ' + F.jobs + ')',
+    'upkeep ' + money$(upkeepOf(T)) + ' a month (now ' + money$(upkeepOf(F)) + ')'];
+  if (to === 'hospital') gives.push('the island’s hospital: ' + PROJECT_FX.hospital.text);
+  if (to === 'cathedral') gives.push('a landmark the whole town sees');
+  return { to, name: T.name, price, clear, months, plot, why, gives, add: plot ? plot.add.length : 0 };
+}
+// Her tap on the card's Upgrade: the money goes now; the plot is kept; the old building works on until it stands.
+function vtUpgrade(state, b) {
+  const q = vtUpInfo(state, b);
+  if (!q) return { ok: false, why: 'The highest level' };
+  if (q.why) return { ok: false, why: q.why };
+  state.money -= q.price;
+  b.vup = { to: q.to, x: q.plot.x, y: q.plot.y, w: q.plot.w, h: q.plot.h, f: q.plot.f, t: q.months * TUNE.ticksPerMonth, n: q.months * TUNE.ticksPerMonth, cost: q.price, m0: state.month };
+  state.stats.vtUp = (state.stats.vtUp || 0) + 1;
+  state.stats.vtSpent = (state.stats.vtSpent || 0) + q.price;
+  state.ver++;
+  simLog(state, 'The ' + (BUILDINGS[b.type].short || BUILDINGS[b.type].name).toLowerCase() + ' is being rebuilt as a ' + q.name.toLowerCase() + ' (' + money$(q.price) + ', ' + plural(q.months, 'month', 'months') + '); it works on meanwhile.', [b.x, b.y]);
+  simEvent(state, { kind: 'vtUp', id: b.id, to: q.to, cost: q.price });
+  return { ok: true, cost: q.price };
+}
+function vtFinish(state, b) {
+  const u = b.vup, from = b.type;
+  delete b.vup;
+  for (let y = u.y; y < u.y + u.h; y++) for (let x = u.x; x < u.x + u.w; x++) { const i = tileIdx(x, y); if (state.terrain[i] === FOREST) state.terrain[i] = GRASS; }
+  if (!b.base) b.base = from;
+  b.type = u.to; b.x = u.x; b.y = u.y; b.w = u.w; b.h = u.h;
+  if (u.f) b.f = u.f; else delete b.f;
+  b.wip = 0;
+  const d = BUILDINGS[u.to];
+  if (d.kind === 'market') { b.stock = b.stock || {}; b.incoming = b.incoming || {}; b.served = b.served || 0; }
+  state.ver++;
+  simLog(state, 'The ' + d.name.toLowerCase() + ' stands: room for ' + (VT.cap[u.to] || 0).toLocaleString('en-US') + ' people, reach ' + (u.to === 'hospital' ? VT_HOSP_REACH : bReach(d)) + ' tiles, ' + d.jobs + ' jobs.', [b.x, b.y]);
+  simEvent(state, { kind: 'vtDone', id: b.id, from, to: u.to });
+}
+{
+  const _st = simTick;
+  simTick = function (state) {
+    const r = _st.apply(this, arguments);
+    for (const b of state.b) if (b.vup && --b.vup.t <= 0) vtFinish(state, b);
+    return r;
+  };
+}
+// The kept tiles: nothing else is built or laid on them while the new wing is built.
+{
+  const _cp = canPlace;
+  canPlace = function (state, type, x, y, opts) {
+    const r = _cp.apply(this, arguments);
+    if (r || !state.b.some((b) => b.vup)) return r;
+    const def = BUILDINGS[type];
+    for (let ty = y; ty < y + def.h; ty++) for (let tx = x; tx < x + def.w; tx++) {
+      const k = inMap(tx, ty) && vtKept(state, tileIdx(tx, ty), -1);
+      if (k) return 'Kept for the new ' + BUILDINGS[k.vup.to].name.toLowerCase();
+    }
+    return r;
+  };
+  const _cr = canRoad;
+  canRoad = function (state, x, y) {
+    const r = _cr.apply(this, arguments);
+    if (r || !inMap(x, y)) return r;
+    const k = state.b.some((b) => b.vup) && vtKept(state, tileIdx(x, y), -1);
+    return k ? 'Kept for the new ' + BUILDINGS[k.vup.to].name.toLowerCase() : r;
+  };
+}
+// A service grown from another still counts as one of its kind (the chapel's ask, the tutorial's market).
+{
+  const _ct = countType;
+  countType = function (state, type) { return _ct.apply(this, arguments) + state.b.filter((b) => b.base === type && b.type !== type).length; };
+}
+// The grand project's hospital is not asked for while a clinic grows into it.
+{
+  const _pn = projectNext;
+  projectNext = function (state) {
+    const t = _pn.apply(this, arguments);
+    if (t !== 'hospital' || !state.b.some((b) => b.vup && b.vup.to === 'hospital')) return t;
+    for (const p of PROJECTS) if (p !== 'hospital' && BUILDINGS[p].stage <= state.stage && !countType(state, p)) return p;
+    return null;
+  };
+}
+
+// ---------- the island's goals after the palace (A10's ladder): the first apartment block, a skyline ----------
+function vtTallCount(s, level) { return s.b.filter((h) => h.type === 'casita' && h.level >= level).length; }
+function vtGoalStep(s, level, id) {
+  const lead = id === 'block' ? 'Havana builds upward: the López Serrano building in Vedado (1932) has ten floors and three lifts. ' : 'From the sea a town is its skyline: the FOCSA (1956) has 39 floors. ';
+  for (let L = level - 1; L >= 5; L--) {
+    const d = { kind: 'upgrade', level: L }, p = planOf(s, d);
+    if (!p) continue;
+    const nx = LEVELS[L + 1];
+    return { k: 'up' + L, who: 'architect', tool: '', need: 0, near: p.at, plan: d, joy: 1,
+      ask: lead + plural(p.n, LEVELS[L].name.toLowerCase() + ' has', LEVELS[L].name.toLowerCase() + 's have') + ' everything to become ' + (p.n === 1 ? 'a ' + nx.name.toLowerCase() : nx.name.toLowerCase() + 's') + ' (' + nx.floors + ' floors, ' + nx.people + ' people on the same lot).',
+      praise: 'The scaffolding goes up floor by floor.' };
+  }
+  // none is ready: what the best of them lacks, when a tool can give it and it has a place
+  const cand = s.b.filter((h) => h.type === 'casita' && h.res && h.level >= 5 && h.level < level && (h.missNext || []).length).sort((a, b) => b.level - a.level || a.missNext.length - b.missNext.length || a.id - b.id);
+  for (const h of cand.slice(0, 6)) {
+    const need = h.missNext.find((n) => !/^y\d{4}$/.test(n));
+    if (!need) continue;
+    let f = null;
+    try { f = needCause(s, need, [h]); } catch (e) { f = null; }
+    if (!f || !f.tool || !BUILDINGS[f.tool] || !landLit(s, f.tool).length) continue;
+    const st = { k: need + '@' + h.id, who: 'architect', tool: f.tool, need: 1, near: f.at || [h.x, h.y], joy: 0,
+      ask: lead + 'The ' + LEVELS[h.level].name.toLowerCase() + ' on ' + (typeof placeName === 'function' ? placeName(s, tileIdx(h.x, h.y)) : 'the street') + ' lacks ' + NEED_NAMES[need] + ' to grow: ' + f.text + '.',
+      praise: 'That was what it lacked.' };
+    if (isleStepLive(s, st)) return st;
+  }
+  return null;
+}
+{
+  const G = [
+    { id: 'block', title: 'the first apartment block', reward: '80 people on one lot', need: (s) => !vtTallCount(s, 7),
+      done: (s) => vtTallCount(s, 7) > 0, step(s) { return vtGoalStep(s, 7, 'block'); } },
+    { id: 'skyline', title: 'a skyline: 5 buildings of 8 floors or more', reward: '+2 happiness for a year', need: (s) => vtTallCount(s, 7) < 5,
+      done: (s) => vtTallCount(s, 7) >= 5, step(s) { return vtGoalStep(s, 8, 'skyline'); } },
+  ];
+  const at = ISLE_GOALS.findIndex((g) => g.id === 'census');
+  ISLE_GOALS.splice(at < 0 ? ISLE_GOALS.length : at, 0, ...G);
+  // an island whose ladder began before V1 takes the two goals before its census (if it has not reached it yet)
+  const _is = isleStart;
+  isleStart = function (s) {
+    const I = _is.apply(this, arguments);
+    if (I.ladder && !I.vt && vtOn()) {
+      I.vt = 1;
+      const add = G.filter((g) => !I.ladder.includes(g.id) && I.done[g.id] === undefined && g.need(s)).map((g) => g.id);
+      const k = I.ladder.indexOf('census');
+      if (add.length) I.ladder.splice(k >= 0 && I.done.census === undefined ? k : I.ladder.length, 0, ...add);
+    }
+    return I;
+  };
+  const _ir = isleReach;
+  isleReach = function (s, g) {
+    const was = isleState(s).done[g.id];
+    const r = _ir.apply(this, arguments);
+    if (g.id === 'skyline' && was === undefined) { const c = comState(s); c.joy.push({ label: 'The island’s skyline', v: 2, until: s.month + 12 }); c.joy = c.joy.slice(-4); }
+    return r;
+  };
+}
+
+// ---------- the ask: a full service the tall homes wait for (A3's commissions, A8's one-tap plans) ----------
+// The Mansions (and taller homes) that lack only room wait on a full service: its people ask for its next level, the
+// building glows with its new lot dotted and the price; one tap on it (or the ask's button) builds it (her tap: A12).
+// Asked only when the upgrade can be done (a plot, its stage and year): Q2.
+function vtRoomAsk(s) {
+  if (!vtOn() || s.stage < LEVELS[VT.tall].stage) return null;
+  const by = {};
+  for (const h of s.b) {
+    if (h.type !== 'casita' || !h.res || h.level < VT.tall - 1) continue;
+    const miss = h.level >= VT.tall ? (h.miss || []).concat(h.missNext || []) : (h.missNext || []);
+    if (!miss.includes('room')) continue;
+    for (const q of vtRoomShort(s, h)) for (const id of q.ids) (by[id] = by[id] || []).push(h);
+  }
+  let best = null;
+  for (const id in by) {
+    const b = bById(s, +id), q = b && vtUpInfo(s, b);
+    if (!q || (q.why && !/^Not enough money/.test(q.why))) continue;
+    if (!best || by[id].length > best.homes.length || (by[id].length === best.homes.length && b.id < best.b.id)) best = { b, q, homes: by[id] };
+  }
+  if (!best || best.homes.length < 2) return null;
+  return best;
+}
+COMMISSIONS.push({ key: 'vtroom', p: 5, who: 'teacher', when(s) {
+  const a = vtRoomAsk(s);
+  if (!a) return null;
+  const { b, q, homes } = a, def = BUILDINGS[b.type], L = vtLoads(s)[b.id] || 0, lv = Math.max(...homes.map((h) => h.level));
+  const who = def.kind === 'market' ? 'cook' : def.gives === 'church' ? 'priest' : def.gives === 'clinic' ? 'doctor' : 'teacher';
+  const nx = LEVELS[lv + 1] || LEVELS[lv];
+  return { sub: String(b.id), who, tool: '', need: 0, near: [b.x, b.y], plan: { kind: 'vtup', id: b.id }, joy: 1,
+    ask: 'Our ' + (def.short || def.name).toLowerCase() + ' has room for ' + vtCap(b).toLocaleString('en-US') + ' people and serves ' + L.toLocaleString('en-US') + '. ' +
+      plural(homes.length, 'home', 'homes') + ' around it could grow into ' + nx.name.toLowerCase() + 's if there were room: a ' + q.name.toLowerCase() + (q.add ? ' on the free tiles beside it (dotted)' : '') + ' has room for ' + (VT.cap[q.to] || 0).toLocaleString('en-US') + '.',
+    praise: 'The new ' + q.name.toLowerCase() + ' is going up: room for ' + (VT.cap[q.to] || 0).toLocaleString('en-US') + ' when it stands.' };
+} });
+if (typeof A8_KINDS !== 'undefined' && typeof a8PlanOf === 'function') {
+  A8_KINDS.vtup = 1;
+  const _ap = a8PlanOf;
+  a8PlanOf = function (s, d) {
+    if (!d || d.kind !== 'vtup') return _ap.apply(this, arguments);
+    const b = bById(s, d.id), q = b && !b.vup ? vtUpInfo(s, b) : null;
+    if (!q || (q.why && !/^Not enough money/.test(q.why))) return null;
+    const line = [];
+    for (let y = q.plot.y; y < q.plot.y + q.plot.h; y++) for (let x = q.plot.x; x < q.plot.x + q.plot.w; x++) line.push(tileIdx(x, y));
+    return { kind: 'vtup', id: b.id, line, glow: [b.id], cost: q.price, name: q.name };
+  };
+  const _pr = planRun;
+  planRun = function (s, d) {
+    if (!d || d.kind !== 'vtup') return _pr.apply(this, arguments);
+    const p = planOf(s, d), b = bById(s, d.id);
+    if (!p || !b) return { ok: false, why: 'Nothing to do here now' };
+    if (s.money < p.cost) return { ok: false, poor: true, cost: p.cost, why: 'Not enough money yet (' + money$(p.cost) + ')' };
+    const r = vtUpgrade(s, b);
+    return r.ok ? { ok: true, cost: r.cost, at: p.at, built: b.id } : r;
+  };
+  const _pl = planLabel;
+  planLabel = function (p) { return p && p.kind === 'vtup' ? 'Tap it: a ' + p.name.toLowerCase() + ' · ' + money$(p.cost) : _pl.apply(this, arguments); };
+  const _pb = planBtn;
+  planBtn = function (p) { return p && p.kind === 'vtup' ? 'Upgrade it' : _pb.apply(this, arguments); };
+  const _ps = planSay;
+  planSay = function (s, p) { return p && p.kind === 'vtup' ? '· ' + money$(p.cost) : _ps.apply(this, arguments); };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -19779,7 +20503,7 @@ const ISO = (() => {
     // sprite keys name what is painted (face, roof, footprint, sea side): a look shared by two turns is one sprite
     if (art === 'home') {
       // A13: a home turned a quarter has its door on the other face it shows and its gable ridge across
-      const t1 = b.f & 1, v = Math.floor(h2(b.x * 7 + 3, b.y * 13 + 5) * 4096), face = homeFace(s, b, r), empty = !b.res, lv = b.level || 1, lk = homeLookR(v, r + t1);
+      const t1 = b.f & 1, lv = b.level || 1, v0 = Math.floor(h2(b.x * 7 + 3, b.y * 13 + 5) * 4096), v = lv >= 6 ? v0 % 8 : v0, face = homeFace(s, b, r), empty = !b.res, lk = homeLookR(v, r + t1);
       return sprite(R, 'home|' + lv + '|' + v + '|' + face + '|' + (empty ? 1 : 0) + '|' + lk.roofType, [1, 1], H, () => paintHome(lv, lk, face, empty));
     }
     if (def.deco) return sprite(R, 'deco|' + def.deco, foot, H, () => paintDeco(vd));
@@ -19795,7 +20519,7 @@ const ISO = (() => {
     // A12: a harbor on its fenced 4 x 4 plot (an old one on its 2 x 2 lot as before)
     if (art === 'harbor' && def.w >= 4 && !(def.ships > 1)) { const lv = typeof hbLevel === 'function' ? Math.max(0, hbLevel(s, b)) : 0, sea = seaView(s, b, r); return sprite(R, 'hplot|' + lv + '|' + (sea ? sea.join(',') : '-') + '|' + vd.w, [foot[0], foot[1], 1.5, 1.5], H, () => paintHarborPlot(vd, lv, sea)); }
     if (art === 'harbor' && def.ships > 1) { const sea = seaView(s, b, r); return sprite(R, 'quay|' + b.type + '|' + (sea ? sea.join(',') : '-'), foot, H, () => paintQuay(vd, sea)); }
-    if (art === 'market') return sprite(R, 'market|' + def.w, foot, H, () => paintMarket(vd));
+    if (art === 'market') return sprite(R, 'market|' + (def.from ? b.type + '|' : '') + def.w, foot, H, () => paintMarket(vd));
     if (art === 'harbor') {
       // A9: a harbor with a longer pier or a second berth
       const lv = typeof hbLevel === 'function' ? hbLevel(s, b) : 0;
@@ -20839,7 +21563,8 @@ const ISO = (() => {
   // ships' lanterns, cars' headlights, the lighthouse's beam. At most DAY_LIGHTS glows a frame; a light hidden behind a
   // building in front of it (R.grid along the view diagonal) is not drawn. Nothing is cached per building.
   // The commuters are dynamic objects (dynCollect), sorted in depth with the carts and walkers.
-  const DAY_LIGHTS = 150, DAY_WINDOWS = 90, DAY_LAMPS = 45;
+  // V1: a skyline's floors (a lit band a floor) take more of the lights: 130 windows (was 90), 190 lights (was 150)
+  const DAY_LIGHTS = 190, DAY_WINDOWS = 130, DAY_LAMPS = 45;
   function dayOn(s) { return !!s && typeof dayClock === 'function' && !(typeof APP !== 'undefined' && APP.dayOff); }
   function glowSprite(R) {
     if (R.glow) return R.glow;
@@ -20956,6 +21681,8 @@ const ISO = (() => {
       const ob = c[0], w = c[1], u = ob.u0 + w[0], v = ob.v0 + w[1], p = PV(u, v, w[2]);
       if (!vis(p, 20)) continue;
       if (dayHidden(R, u, v, w[2], ob.i)) { st.hidden++; continue; }
+      // V1: a wide band (a tall home's floor) is shown only when both its ends are clear too
+      if (w[4] > 0.3) { const du = w[3] ? w[4] / 2 : 0, dv = w[3] ? 0 : w[4] / 2; if (dayHidden(R, u - du, v - dv, w[2], ob.i) || dayHidden(R, u + du, v + dv, w[2], ob.i)) { st.hidden++; continue; } }
       shown.push([ob, w, c[2], u, v, p]);
     }
     const wKeep = shown.length > DAY_WINDOWS ? DAY_WINDOWS / shown.length : 1;
@@ -22431,6 +23158,276 @@ const ISO = (() => {
       stats: { frames: 0, ms: 0, last: 0, chunks: 0, sprites: 0, geoMs: 0, hist: [], parts: {} },
     };
   }
+
+  // ---------- V1 (22 Oct 2026): an island that grows up (DESIGN.md §41) ----------
+  // Tall homes (levels 6-8: an apartment house of 4 floors with Havana's arcade on the street, an Art Deco apartment
+  // block of 8 with a stepped crown, a modern high-rise of 16 with balcony slabs, its lift house and aerial), the
+  // grown services (a church with its bell tower, the secondary school, the covered market's iron hall, the department
+  // store), the Land value layer and the plots a card offers. Generic over the four facings and the view's turns (the
+  // primitives do it), from above by their shadows and roofs; lit windows by floor at night (dayWins).
+  const VTI = { floors: [0, 1, 2, 2, 3, 2, 4, 8, 16], fh: [0, 0, 0, 0, 0, 0, 0.46, 0.44, 0.41], gf: [0, 0, 0, 0, 0, 0, 0.52, 0.56, 0.58] };
+  // From above a tower's walls are drawn shorter (0.45 of their height: the street in front stays in view); its height
+  // shows by its shadow (cast at the full height) and a roof drawn a little larger, as nearer to the eye.
+  function vtK() { return TOP ? 0.45 : 1; }
+  function vtTop(level) { return (VTI.gf[level] + (VTI.floors[level] - 1) * VTI.fh[level]) * vtK(); }
+  function vtWall(level, lk) { return level === 6 ? lk.wall : level === 7 ? mix(lk.wall, '#f1e9d8', 0.6) : mix(lk.wall, '#e6e3dc', 0.85); }
+  function paintTower(level, lk, face, empty) {
+    const K = vtK(), F = VTI.floors[level], fh = VTI.fh[level] * K, gf = VTI.gf[level] * K, hr = level >= 8, blk = level === 7;
+    const x = 0.08, y = 0.08, w = 0.84, d = 0.84, h = vtTop(level), hFull = h / K;
+    const wall = empty ? mix(vtWall(level, lk), '#f8eed6', 0.25) : vtWall(level, lk), trim = hr ? '#cfd3d4' : '#fbf7ee';
+    groundPatch(0.03, 0.03, 0.97, 0.97, '#d8ccb2', ln('#d8ccb2'));
+    boxShadow(x, y, x + w, y + d, hFull + 0.5);
+    const wv = walls(x, y, w, d, 0, h, wall, true);
+    const df = face === 'y' ? wv.fl : wv.fr, rx = TOP ? 0.012 * F / 4 : 0;
+    for (const f of [wv.fl, wv.fr]) {
+      const lit = f === wv.fl, cw = lit ? wall : wv.cS, tc = lit ? trim : sh(trim), glass = empty ? '#66767a' : '#3d5560';
+      poly(fq(f, 0, w, 0, gf), dk(cw, 0.14)); poly(fq(f, 0, w, 0, 0.05), dk(cw, 0.32));
+      for (let k = 0; k < F; k++) { const z = gf + k * fh; poly(fq(f, 0, w, z - 0.03, z + 0.004), tc); }
+      if (blk || hr) for (const s0 of [0, w - 0.045]) poly(fq(f, s0, s0 + 0.045, gf, h), tc);
+      const n = hr ? 4 : 3;
+      for (let k = 1; k < F; k++) {
+        const z0 = gf + (k - 1) * fh + fh * 0.2, wh = fh * 0.52;
+        for (let j = 0; j < n; j++) {
+          const s0 = w * (j + 0.5) / n, ww = (w / n) * (hr ? 0.8 : blk ? 0.6 : 0.44);
+          poly(fq(f, s0 - ww / 2, s0 + ww / 2, z0, z0 + wh), glass);
+          poly(fq(f, s0 - ww / 2, s0 - ww / 2 + ww * 0.4, z0 + wh * 0.5, z0 + wh), 'rgba(170,205,210,.35)');
+          if (!hr) seg(fp(f, s0, z0), fp(f, s0, z0 + wh), tc, 0.7 * S);
+        }
+      }
+      // the street floor: shop windows on the side, the door face has its own below
+      if (f !== df) for (const s0 of [0.27, 0.66]) poly(fq(f, w * s0 - 0.12, w * s0 + 0.12, 0.1, gf - 0.1), glass);
+    }
+    if (level === 6) {
+      // the portales: three arches over the pavement, iron balconies on every floor above
+      for (const s0 of [0.2, 0.5, 0.8]) { poly(farch(df, w * s0, 0.04, 0.2, gf - 0.1), '#2f3a40'); poly(farch(df, w * s0, 0.04, 0.24, gf - 0.07), null, ln(trim), 0.9 * S); }
+      for (let k = 1; k < F; k++) ironBalcony(df, w * 0.08, w * 0.92, gf + (k - 1) * fh + 0.02, 0.1, df === wv.fl);
+    } else if (blk) {
+      // shop windows under an awning, the door in the middle, a vertical fin up the front (Art Deco)
+      for (const s0 of [0.2, 0.8]) poly(fq(df, w * s0 - 0.13, w * s0 + 0.13, 0.08, gf - 0.12), '#3d5560');
+      door(df, w * 0.5, 0.18, gf - 0.12, '#6b4a2e');
+      const aw = '#2e9a91';
+      poly([fpo(df, 0.02, gf - 0.06, 0), fpo(df, w - 0.02, gf - 0.06, 0), fpo(df, w - 0.02, gf - 0.12, 0.12), fpo(df, 0.02, gf - 0.12, 0.12)], aw, ln(aw), 0.7 * S);
+      poly(fq(df, w * 0.5 - 0.035, w * 0.5 + 0.035, gf, h + 0.32), df === wv.fl ? trim : sh(trim), ln(trim), 0.6 * S);
+    } else {
+      // pilotis and a glass lobby; a balcony slab along every floor of the front
+      poly(fq(df, 0.06, w - 0.06, 0.06, gf - 0.06), '#5d7f88');
+      for (const s0 of [0.04, 0.5, 0.96]) poly(fq(df, w * s0 - 0.025, w * s0 + 0.025, 0, gf), '#e9e6df');
+      for (let k = 1; k < F; k++) { const z = gf + (k - 1) * fh + 0.01, c = df === wv.fl ? '#f2f0ea' : sh('#f2f0ea'); poly([fpo(df, 0.02, z, 0), fpo(df, w - 0.02, z, 0), fpo(df, w - 0.02, z, 0.08), fpo(df, 0.02, z, 0.08)], c, ln(c), 0.5 * S); poly([fpo(df, 0.02, z, 0.08), fpo(df, w - 0.02, z, 0.08), fpo(df, w - 0.02, z + 0.11, 0.08), fpo(df, 0.02, z + 0.11, 0.08)], 'rgba(240,238,232,.55)'); }
+    }
+    wallsOutline(wv);
+    cornice(wv, w, d, h - 0.02, trim);
+    if (blk) {
+      // the stepped crown and a flagpole
+      boxAt(x + 0.16, y + 0.16, w - 0.32, d - 0.32, h, 0.3, wall);
+      flatRoof(x + 0.14, y + 0.14, w - 0.28, d - 0.28, h + 0.3, 0.04, trim, '#b9a88a');
+      flatRoof(x - 0.02 - rx, y - 0.02 - rx, w + 0.04 + 2 * rx, d + 0.04 + 2 * rx, h + 0.06, 0.05, trim, '#c2ad8c');
+      const p = P(x + w / 2, y + d / 2, h + 0.3); seg(p, [p[0], p[1] - 0.7 * zs], INK, 1.3 * S);
+      poly([[p[0], p[1] - 0.7 * zs], [p[0] + 9 * S, p[1] - 0.7 * zs + 2.5 * S], [p[0], p[1] - 0.7 * zs + 6 * S]], '#2e6fa8', ln('#2e6fa8'), 0.6 * S);
+    } else {
+      flatRoof(x - 0.02 - rx, y - 0.02 - rx, w + 0.04 + 2 * rx, d + 0.04 + 2 * rx, h + 0.08, 0.05, trim, hr ? '#a9a49a' : '#c9a27a');
+      obox(x + 0.26, y + 0.26, 1, 0, 0.2, 0.2, h + 0.08, hr ? 0.3 : 0.16, hr ? '#b8b4ac' : '#9a8a7a');
+      if (hr) { obox(x + 0.6, y + 0.55, 1, 0, 0.22, 0.16, h + 0.08, 0.22, '#d4d0c8'); const p = P(x + 0.6, y + 0.55, h + 0.3); seg(p, [p[0], p[1] - 0.9 * zs], '#4a4640', 1.1 * S); seg([p[0] - 4 * S, p[1] - 0.6 * zs], [p[0] + 4 * S, p[1] - 0.6 * zs], '#4a4640', 0.9 * S); }
+      else if (!empty) { const p = P(x + 0.62, y + 0.3, h + 0.08); circ(p[0], p[1] - 3 * S, 3.4 * S, '#4f8a45', ln('#4f8a45'), 0.7 * S); }
+    }
+  }
+  { const _ph = paintHome; paintHome = function (level, lk, face, empty) { if (level >= 6) { if (BK) BKSHUT = lk.shut; paintTower(level, lk, face, empty); return; } return _ph.apply(this, arguments); }; }
+  // The church: a longer nave than the chapel's, a tall bell tower with its clock, the parish's plaza.
+  function paintChurch() {
+    const white = '#f8f2e4', trim = '#e9b54f', roof = '#b9553c';
+    poly(rrPts(0.08, 1.35, 1.92, 1.96, 0.2).map((p) => P(p[0], p[1])), '#ecdcb6', '#bfa274', 0.8 * S);
+    boxShadow(0.25, 0.1, 1.45, 1.4, 1.9); boxShadow(1.3, 1.2, 1.85, 1.75, 3.6);
+    const nv = walls(0.25, 0.1, 1.05, 1.22, 0, 1.12, white);
+    poly(fq(nv.fr, 0, 1.22, 0, 0.08), sh(trim)); poly(fq(nv.fr, 0, 1.22, 1.06, 1.12), sh(trim));
+    for (const s0 of [0.3, 0.65, 1.0]) { poly(farch(nv.fr, s0, 0.3, 0.17, 0.55), '#f5ecd8', ln('#f5ecd8'), 0.8 * S); poly(farch(nv.fr, s0, 0.32, 0.12, 0.5), '#3d5560'); }
+    door(nv.fl, 0.52, 0.28, 0.6, '#7a4a2e', true);
+    const ro = fdisc(nv.fl, 0.52, 0.86, 0.13); poly(ro, '#3d5560', ln(trim), 1 * S);
+    wallsOutline(nv);
+    gableY(0.25, 0.1, 1.05, 1.22, 1.12, 0.55, 0.08, roof, white);
+    const tx = 1.3, ty = 1.2, tw = 0.55, tH = 2.9;
+    const tv = walls(tx, ty, tw, tw, 0, tH, white);
+    for (const f of [tv.fl, tv.fr]) {
+      const c = f === tv.fl ? trim : sh(trim);
+      for (const b of [[0, 0.07], [1.0, 1.06], [1.9, 1.96], [tH - 0.06, tH]]) poly(fq(f, 0, tw, b[0], b[1]), c, ln(c), 0.7 * S);
+      poly(farch(f, tw / 2, 2.2, 0.22, 0.42), '#2f3a40', ln(c), 0.8 * S);
+      const cl = fdisc(f, tw / 2, 1.5, 0.12); poly(cl, '#fbf7ee', ln(trim), 1 * S);
+      const cc = fp(f, tw / 2, 1.5); seg(cc, fp(f, tw / 2, 1.58), INK, 1 * S); seg(cc, fp(f, tw / 2 + 0.06, 1.5), INK, 1 * S);
+    }
+    wallsOutline(tv);
+    hipRoof(tx, ty, tw, tw, tH, 0.55, 0.05, roof, { rows: 5, cols: 0 });
+    const top = P(tx + tw / 2, ty + tw / 2, tH + 0.55); ctx.lineCap = 'round';
+    seg(top, [top[0], top[1] - 14 * S], INK, 2 * S); seg([top[0] - 4.5 * S, top[1] - 10 * S], [top[0] + 4.5 * S, top[1] - 10 * S], INK, 2 * S);
+    drawBush(0.2, 1.75, 0.6, '#f0a3c0');
+  }
+  // The secondary school (the Instituto): two storeys round a portico, its name over the door, a flag.
+  function paintLyceum(def) {
+    const T = def.w < def.h, W = Math.max(def.w, def.h), D = Math.min(def.w, def.h), Q = tpose(T), stone = '#f1e6cf', trim = '#fffaf0', roof = '#b9553c';
+    Q.patch(0.05, D - 0.45, W - 0.05, D - 0.05, '#e3d3b0', ln('#e3d3b0'));
+    // three storeys on the school's own lot (it grows up, not out)
+    const H3 = 1.8;
+    Q.shadow(0.2, 0.2, W - 0.2, D - 0.5, 2.5);
+    const wv = Q.walls(0.2, 0.2, W - 0.4, D - 0.7, 0, H3, stone);
+    const fr = Q.front(wv), L = W - 0.4, n = Math.max(4, Math.round(L * 4));
+    for (const z of [0.6, 1.2, H3 - 0.06]) poly(fq(fr, 0, L, z, z + 0.05), trim, ln(trim), 0.6 * S);
+    for (let k = 0; k < n; k++) { const s0 = 0.16 + k * (L - 0.32) / (n - 1); if (Math.abs(s0 - L / 2) > 0.18) win(fr, s0, 0.14, 0.12, 0.32, '#3f74a8'); win(fr, s0, 0.74, 0.12, 0.32, '#3f74a8'); win(fr, s0, 1.32, 0.12, 0.32, '#3f74a8'); }
+    door(fr, L / 2, 0.3, 0.52, '#7a4a2e', true);
+    wallsOutline(wv);
+    Q.hip(0.2, 0.2, W - 0.4, D - 0.7, H3, 0.4, 0.08, roof, { rows: 6, cols: 16 });
+    // the portico: four columns and a pediment
+    const pc = T ? [D - 0.5, L / 2 + 0.2] : [L / 2 + 0.2, D - 0.5];
+    for (let k = 0; k < 4; k++) { const o = -0.3 + k * 0.2; const q = T ? [pc[0] + 0.12, pc[1] + o] : [pc[0] + o, pc[1] + 0.12]; column(q[0], q[1], 0, 1.05, 0.03, trim); }
+    const p0 = T ? [pc[0], pc[1] - 0.38] : [pc[0] - 0.38, pc[1]], p1 = T ? [pc[0] + 0.2, pc[1] + 0.38] : [pc[0] + 0.38, pc[1] + 0.2];
+    boxAt(Math.min(p0[0], p1[0]), Math.min(p0[1], p1[1]), Math.abs(p1[0] - p0[0]) || 0.2, Math.abs(p1[1] - p0[1]) || 0.2, 1.05, 0.12, trim);
+    const fpP = Q.P(W - 0.3, D - 0.2, 0); seg(fpP, [fpP[0], fpP[1] - 1.9 * zs], '#5a4434', 1.6 * S);
+    poly([[fpP[0], fpP[1] - 1.9 * zs], [fpP[0] + 12 * S, fpP[1] - 1.9 * zs + 2 * S], [fpP[0], fpP[1] - 1.9 * zs + 7 * S]], '#2e6fa8', ln('#2e6fa8'), 0.8 * S);
+  }
+  { const _pc = paintCivic; paintCivic = function (def, sea) { if (def.from === 'chapel') { paintChurch(def); return; } if (def.from === 'school') { paintLyceum(def); return; } return _pc.apply(this, arguments); }; }
+  // The covered market: an iron hall with a long roof and a lantern over the stalls (Havana's Mercado Único, 1920s).
+  function paintCovered(def) {
+    const plaza = rrPts(0.06, 0.06, def.w - 0.06, def.h - 0.06, 0.3).map((p) => P(p[0], p[1]));
+    poly(plaza, '#ecdcb6', '#bfa274', 1.2 * S);
+    boxShadow(0.12, 0.12, 1.55, 1.55, 1.7);
+    const iron = '#5b6b70', wall = '#efe6d2', h = 0.95;
+    const wv = walls(0.12, 0.12, 1.43, 1.43, 0, h, wall);
+    for (const f of [wv.fl, wv.fr]) {
+      poly(fq(f, 0, 1.43, 0, 0.06), dk(f === wv.fl ? wall : wv.cS, 0.3));
+      for (let k = 0; k < 4; k++) { const s0 = 0.2 + k * 0.34; poly(farch(f, s0, 0.08, 0.24, 0.62), '#3a4a50', ln(iron), 0.9 * S); seg(fp(f, s0, 0.1), fp(f, s0, 0.7), iron, 0.8 * S); }
+      poly(fq(f, 0, 1.43, h - 0.08, h), iron);
+    }
+    wallsOutline(wv);
+    gableX(0.12, 0.12, 1.43, 1.43, h, 0.45, 0.08, '#8a9aa0', wall, { rows: 8, cols: 12 });
+    // the lantern along the ridge
+    boxAt(0.3, 0.7, 1.07, 0.26, h + 0.42, 0.16, '#dfe6e4');
+    gableX(0.3, 0.7, 1.07, 0.26, h + 0.58, 0.12, 0.04, '#7a8a90', '#dfe6e4', { rows: 3, cols: 6 });
+    const sg = P(0.83, 1.55, 0.78); poly([[sg[0] - 15 * S, sg[1] - 5 * S], [sg[0] + 15 * S, sg[1] - 5 * S], [sg[0] + 15 * S, sg[1] + 3 * S], [sg[0] - 15 * S, sg[1] + 3 * S]], '#2e9a91', INK, 0.8 * S);
+  }
+  // The department store: five storeys of shop windows and a corner tower with its name (El Encanto, 1888).
+  function paintStore(def) {
+    const x = 0.08, y = 0.08, w = def.w - 0.16, d = def.h - 0.16, F = 5, fh = 0.5, gf = 0.62, h = gf + (F - 1) * fh, stone = '#efe3c6', trim = '#fffaf0';
+    groundPatch(0.02, 0.02, def.w - 0.02, def.h - 0.02, '#d8ccb2', ln('#d8ccb2'));
+    boxShadow(x, y, x + w, y + d, h + 0.6);
+    const wv = walls(x, y, w, d, 0, h, stone, true);
+    for (const f of [wv.fl, wv.fr]) {
+      const lit = f === wv.fl, tc = lit ? trim : sh(trim);
+      poly(fq(f, 0, w, 0, gf), '#3d5560');
+      for (let k = 0; k < 5; k++) { const s0 = 0.12 + k * (w - 0.24) / 4; poly(fq(f, s0 - 0.03, s0 + 0.03, 0, gf), tc); }
+      const aw = lit ? '#c0503a' : sh('#c0503a');
+      poly([fpo(f, 0.02, gf - 0.04, 0), fpo(f, w - 0.02, gf - 0.04, 0), fpo(f, w - 0.02, gf - 0.12, 0.14), fpo(f, 0.02, gf - 0.12, 0.14)], aw, ln(aw), 0.7 * S);
+      for (let k = 0; k < F; k++) poly(fq(f, 0, w, gf + k * fh - 0.035, gf + k * fh + 0.005), tc);
+      for (let k = 1; k < F; k++) for (let j = 0; j < 6; j++) { const s0 = 0.16 + j * (w - 0.32) / 5, z0 = gf + (k - 1) * fh + 0.1; poly(fq(f, s0 - 0.09, s0 + 0.09, z0, z0 + 0.3), '#3d5560'); poly(fq(f, s0 - 0.09, s0 - 0.03, z0 + 0.15, z0 + 0.3), 'rgba(170,205,210,.35)'); }
+    }
+    wallsOutline(wv);
+    cornice(wv, w, d, h - 0.02, trim);
+    flatRoof(x - 0.02, y - 0.02, w + 0.04, d + 0.04, h + 0.08, 0.06, trim, '#c2ad8c');
+    // the corner tower with its dome and the name board
+    const cx = x + w - 0.3, cy = y + d - 0.3;
+    drum(cx, cy, h + 0.08, h + 0.6, 0.24, stone); dome(cx, cy, h + 0.6, 0.24, 0.3, '#8aa7a0');
+    faceText(wv.fl, w * 0.45, h - 0.24, 'ALMACENES', 9, '#8a2a1a');
+  }
+  { const _pm = paintMarket; paintMarket = function (def) { if (def.from === 'market') { paintCovered(def); return; } if (def.from === 'covered') { paintStore(def); return; } return _pm.apply(this, arguments); }; }
+  // the store keeps its goods inside (no piles on its pavement)
+  { const _ps = pileSpots; pileSpots = function (s, b, r) { return b.type === 'store' ? [] : _ps.apply(this, arguments); }; }
+  // heights: the painted top (sprites, x-ray, shadows), the tap's height, the bubble's
+  { const _bh = bHeight; bHeight = function (b) {
+    if (b.type === 'casita' && (b.level || 1) >= 6) return vtTop(b.level) + (b.level === 7 ? 0.95 : b.level >= 8 ? 1.25 : 0.35);
+    if (b.type === 'church') return 3.6; if (b.type === 'lyceum') return 2.7; if (b.type === 'covered') return 1.9; if (b.type === 'store') return 3.4;
+    return _bh.apply(this, arguments); }; }
+  { const _pk = pickHeight; pickHeight = function (b) {
+    if (b.type === 'casita' && (b.level || 1) >= 6) return vtTop(b.level) * 0.9;
+    if (b.type === 'church') return 1.6; if (b.type === 'lyceum') return 1.7; if (b.type === 'covered') return 1.1; if (b.type === 'store') return 2.6;
+    return _pk.apply(this, arguments); }; }
+  { const _bz = bubbleZ; bubbleZ = function (b) {
+    if (b.type === 'casita' && (b.level || 1) >= 6) return vtTop(b.level) + 0.35;
+    if (b.type === 'store') return 3.0; if (b.type === 'church') return 2.6;
+    return _bz.apply(this, arguments); }; }
+  // night: a tall home lights its windows floor by floor (one lit band a floor and face: the rooms of a flat)
+  { const _dw = dayWins; dayWins = function (R, s, b, vw, vh) {
+    if (!(b.type === 'casita' && (b.level || 1) >= 6)) return _dw.apply(this, arguments);
+    const lv = b.level, F = VTI.floors[lv], fh = VTI.fh[lv] * vtK(), gf = VTI.gf[lv] * vtK(), fy = homeFace(s, b, R.rot || 0) === 'y', back = bFaceV(s, b, R.rot || 0) >= 2, B = [0.08, 0.08, 0.84, 0.84], out = [];
+    const n = lv === 6 ? 3 : 1, ww = lv === 6 ? 0.12 : 0.66;
+    for (let k = 1; k < F; k++) for (const onFl of [true, false]) for (let j = 0; j < n; j++) {
+      const f = n === 1 ? 0.5 : (j + 0.5) / n, t = gf + (k - 1) * fh + fh * 0.46;
+      if (back && onFl === fy) continue;
+      out.push(onFl ? [B[0] + B[2] * f, B[1] + B[3], t, true, ww, fh * 0.5] : [B[0] + B[2], B[1] + B[3] - B[3] * f, t, false, ww, fh * 0.5]);
+    }
+    return out;
+  }; }
+  // X-ray: also the tile under the finger while a road is drawn, or a tile being cleared or emptied
+  { const _xt = xrayTarget; xrayTarget = function (R, s, ui) {
+    const r = _xt.apply(this, arguments);
+    if (r || TOP) return r;
+    const gh = ui.ghost, st = ui.stroke;
+    let i = -1;
+    if (gh && !gh.type && inMap(gh.x, gh.y)) i = tileIdx(gh.x, gh.y);
+    else if (st && st.length) i = st[st.length - 1];
+    if (i < 0) return null;
+    const x = i % MAP_W, y = (i / MAP_W) | 0, q = vbox(R.rot || 0, x, y, x + 1, y + 1);
+    return { u0: q[0], v0: q[1], u1: q[2], v1: q[3], h: 0.6, i: -1 };
+  }; }
+  // The Land value layer: every land tile in its colour (ui/vertical_ui.js landCol), roads left plain.
+  function landGround(R, s, ui) {
+    if (!ui || !ui.land || typeof landGrid !== 'function') return;
+    const v = landGrid(s), key = (s.lval ? s.lval.m : -1) + ':' + s.ver;
+    let c = R.landC;
+    if (!c || c.key !== key) {
+      const paths = [];
+      for (let k = 0; k <= 10; k++) paths.push(new Path2D());
+      for (let i = 0; i < v.length; i++) { if (s.terrain[i] === SEA || s.road[i]) continue; paths[Math.min(10, Math.round(v[i] / 10))].rect(i % MAP_W + 0.04, ((i / MAP_W) | 0) + 0.04, 0.92, 0.92); }
+      c = R.landC = { key, paths };
+    }
+    tileXf(R);
+    const g = R.ctx;
+    g.globalAlpha = 0.68;
+    c.paths.forEach((p, k) => { g.fillStyle = typeof landCol === 'function' ? landCol(k * 10) : '#cccccc'; g.fill(p); });
+    g.globalAlpha = 1;
+    R.stats.landTiles = (R.stats.landTiles || 0) + 1;
+  }
+  { const _tg = trafficGround; trafficGround = function (R, s, t) { const r = _tg.apply(this, arguments); if (typeof APP !== 'undefined') landGround(R, s, APP.ui); return r; }; }
+  function landTagSprite(R, v) {
+    const key = 'lv|' + v + '|' + R.dpr;
+    let sp = uiGet(R, key);
+    if (sp) return sp;
+    const d = R.dpr, font = '800 12px ' + SANS, t = String(v), meas = measCtx(); meas.font = font;
+    const tw = meas.measureText(t).width + 12, h = 18, W = tw + 4, H = h + 4;
+    const c = canvasNew(W * d, H * d), g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+    rrPath(g, 2, 2, tw, h, h / 2); g.fillStyle = typeof landCol === 'function' ? landCol(v) : '#eee'; g.fill(); g.strokeStyle = 'rgba(58,42,31,.75)'; g.lineWidth = 1.4; g.stroke();
+    g.font = font; g.fillStyle = v < 30 ? '#fff7ea' : '#2a1e14'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, 2 + tw / 2, 2 + h / 2 + 0.5);
+    sp = { c, ax: W / 2, ay: H / 2, w: W, h: H, lbl: 1 };
+    uiPut(R, key, sp);
+    return sp;
+  }
+  // The plot a card offers (dotted, its price), the plots being built (dashed, how far), the homes' land numbers.
+  function vtOverlay(R, s, ui, t) {
+    const g = R.ctx;
+    for (const b of s.b) {
+      const u = b.vup;
+      if (!u) continue;
+      diamond(R, u.x + 0.04, u.y + 0.04, u.x + u.w - 0.04, u.y + u.h - 0.04, 'rgba(242,182,50,.14)', 'rgba(150,100,20,.9)', 2.2, [7, 5]);
+      const p = P(u.x + u.w / 2, u.y + u.h / 2, 0);
+      if (p[0] > -80 && p[0] < R.w + 80 && p[1] > -40 && p[1] < R.h + 60) uiDraw(R, moneyTagSprite(R, 'Building the ' + BUILDINGS[u.to].name.toLowerCase() + ' · ' + Math.round(100 * (1 - u.t / (u.n || 1))) + ' %', 'a'), p[0], p[1] + 14);
+    }
+    const vp = ui.vplot;
+    if (vp) {
+      const pulse = 0.5 + 0.5 * Math.sin(t * 3.2);
+      diamond(R, vp.x + 0.04, vp.y + 0.04, vp.x + vp.w - 0.04, vp.y + vp.h - 0.04, 'rgba(255,240,190,' + (0.18 + 0.12 * pulse).toFixed(3) + ')', '#fffaf0', 3, [6, 5]);
+      diamond(R, vp.x + 0.04, vp.y + 0.04, vp.x + vp.w - 0.04, vp.y + vp.h - 0.04, null, 'rgba(160,110,20,.9)', 1.4, [6, 5]);
+      const p = P(vp.x + vp.w / 2, vp.y + vp.h, 0);
+      uiDraw(R, moneyTagSprite(R, vp.label, 'a'), p[0], p[1] + 16);
+      R.stats.vplot = vp.label;
+    }
+    if (ui.land && R.hw >= 22) {
+      const v = landGrid(s);
+      let n = 0;
+      for (const b of s.b) {
+        if (b.type !== 'casita') continue;
+        const p = P(b.x + 0.5, b.y + 0.5, Math.min(1.2, bHeight(b) * 0.45));
+        if (p[0] < -20 || p[0] > R.w + 20 || p[1] < -20 || p[1] > R.h + 20) continue;
+        uiDraw(R, landTagSprite(R, v[tileIdx(b.x, b.y)] || 0), p[0], p[1]);
+        n++;
+      }
+      R.stats.landTags = n;
+    }
+  }
+  { const _co = comOverlay; comOverlay = function (R, s, ui, t) { const r = _co.apply(this, arguments); vtOverlay(R, s, ui, t); return r; }; }
   return { create, draw, toScreen, toTile, pick, pickAll, mem, trim, reset };
 })();
 
@@ -29810,7 +30807,8 @@ function flowHomeWhy(s, b, x) {
       const def = BUILDINGS[b.type];
       if (def.kind === 'home' && b.res) {
         const x = bNumber(s, b), E = b.lastE && b.lastE.m === s.month - 1 ? b.lastE : null, n = E ? E.n : x.n;
-        html = html.replace(/<div class="num([^"]*)">[^<]*a month<\/div><div class="why">rent from [^<]*<\/div>/, '<div class="num' + (n > 0 ? ' pos' : n < 0 ? ' neg' : '') + '">' + fmtSigned(n) + ' a month</div><div class="why">' + esc(flowHomeWhy(s, b, x)) + '</div>');
+        html = html.replace(/<div class="num([^"]*)">[^<]*a month<\/div><div class="why">rent from [^<]*<\/div>/, () => '<div class="num' + (n > 0 ? ' pos' : n < 0 ? ' neg' : '') + '">' + fmtSigned(n) + ' a month</div><div class="why">' + esc(flowHomeWhy(s, b, x)) + '</div>');
+        // V1: a function, not a string: "$1,400" in the text was read as the pattern's first group ("pos,400")
       }
       if (def.jobs && !b.wip) {
         const at = html.indexOf('<div class="line"><span>Workers</span>');
@@ -31058,6 +32056,175 @@ function whyHtml(s, b) {
     el.querySelectorAll('[data-why-tool]').forEach((bt) => { if (bt.dataset.w) return; bt.dataset.w = '1'; bt.addEventListener('click', () => { const t = bt.dataset.whyTool; cardClose(); barShow(t); toolSet(t); }); });
     el.querySelectorAll('[data-why-traffic]').forEach((bt) => { if (bt.dataset.w) return; bt.dataset.w = '1'; bt.addEventListener('click', () => { trafficToggle(true); cardClose(); }); });
     return r;
+  };
+}
+
+// ---- src/ui/vertical_ui.js
+// V1 (22 Oct 2026): what she sees of sim/landvalue.js and sim/vertical.js (DESIGN.md §41).
+// - The Land value layer: a round map button under the right end of the view buttons (it and the Traffic and Money
+//   layers take turns), every
+//   land tile tinted by its value (render/iso.js landGround; homes carry their number when the map is close), and a
+//   legend that says what raises and lowers it and what it changes.
+// - The cards: a home says what its land is worth and why ("Land here: 72 · by the sea +18, a park +12, …") and what
+//   that does to its rent; a works says what its ground costs it; a service says how many people it serves against
+//   its room; a building that can grow says what its next level gives, needs and costs, outlines the free tiles it
+//   would take on the map, and has the Upgrade button (nothing changes before her tap: A12).
+
+Object.assign(ICONS, {
+  land: 'M2 20 L8 9 L12 15 L15 11 L22 20 Z M16 3 A3 3 0 1 0 16.01 3 Z',
+  tower: 'M7 22 V4 L12 2 L17 4 V22 Z M9 6 V8 H11 V6 Z M13 6 V8 H15 V6 Z M9 10 V12 H11 V10 Z M13 10 V12 H15 V10 Z M9 14 V16 H11 V14 Z M13 14 V16 H15 V14 Z M10.5 18.5 V22 H13.5 V18.5 Z',
+});
+Object.assign(NEED_ICONS, { transit: 'tram', power: 'light', water: 'fountain', lv50: 'land', lv60: 'land', lv70: 'land', room: 'people', y1920: 'tower', y1940: 'tower', y1955: 'tower' });
+
+// ---------- the Land value layer ----------
+{
+  const _ri = rotInit;
+  rotInit = function () {
+    const r = _ri.apply(this, arguments), el = $('rotbtns');
+    if (el && el.style.display !== 'none' && !$('bLand')) {
+      const b = document.createElement('button');
+      b.id = 'bLand'; b.setAttribute('aria-label', 'Land value layer'); b.title = 'Land value'; b.innerHTML = iconSvg('land');
+      el.appendChild(b);
+      b.addEventListener('click', () => landLayer(!APP.ui.land));
+      APP.rotKey = '';
+    }
+    return r;
+  };
+  const _tt = trafficToggle;
+  trafficToggle = function () { const r = _tt.apply(this, arguments); if (APP.ui.layer === 'traffic' && APP.ui.land) landLayer(false); return r; };
+  const _ml = moneyLayer;
+  moneyLayer = function (on) { const r = _ml.apply(this, arguments); if (on && APP.ui.land) landLayer(false); return r; };
+}
+function landLayer(on) {
+  APP.ui.land = !!on && lvalOn();
+  if (APP.ui.land) { if (APP.ui.layer === 'traffic') trafficToggle(false); if (APP.ui.money) moneyLayer(false); }
+  const b = $('bLand');
+  if (b) b.classList.toggle('on', APP.ui.land);
+  landLegend();
+}
+function landLegend() {
+  let el = $('lvlegend');
+  if (!el) { el = document.createElement('div'); el.id = 'lvlegend'; document.body.appendChild(el); }
+  const on = !!APP.ui.land;
+  if (!on) { if (el.classList.contains('show')) uiGone(el); el.classList.remove('show'); return; }
+  const narrow = innerWidth < 600;
+  el.innerHTML = '<b>Land value</b><span class="sc">' + [[20, '20'], [40, '40'], [50, '50'], [60, '60'], [75, '75+']].map((q) => '<i style="background:' + landCol(q[0]) + '"></i>' + q[1]).join('') + '</span>' +
+    '<span class="t">' + (narrow ? 'up: sea, parks, services, tram, paving · down: noise, smoke, jams' :
+      'up: the sea, parks and decorations, services in reach, a tram stop, a paved street, the residence’s square · down: traffic noise, smoke, jams, a ranch') + '</span>' +
+    '<button id="lvlegendX" aria-label="Close">' + iconSvg('close') + '</button>' +
+    '<small>from ' + STAGES[LANDV.fromStage].name + ' on rent follows it (land 75: +' + Math.round(LANDV.rentK * (75 - LANDV.rentPivot)) + ' %) and works pay upkeep by it · tall homes need ' + [6, 7, 8].map((l) => LEVELS[l].land).join(' / ') + '</small>';
+  el.classList.add('show');
+  $('lvlegendX').onclick = () => landLayer(false);
+  landLegendPlace();
+}
+// Under the pill, and below the round map buttons where it would meet them (as the Traffic legend does).
+function landLegendPlace() {
+  const el = $('lvlegend');
+  if (!el || !el.classList.contains('show')) return;
+  const pill = $('pill'), rb = $('rotbtns'), pb = pill ? pill.getBoundingClientRect().bottom : 110;
+  el.style.top = Math.round((pb > 0 ? pb : 110) + 8) + 'px';
+  const a = el.getBoundingClientRect(), r = rb && rb.getBoundingClientRect();
+  if (r && r.width && a.right > r.left && a.left < r.right && a.bottom > r.top && a.top < r.bottom) el.style.top = Math.round(r.bottom + 8) + 'px';
+}
+{
+  const _hu = hudUpdate;
+  hudUpdate = function () { const r = _hu.apply(this, arguments); if (APP.ui && APP.ui.land) landLegendPlace(); return r; };
+}
+// The layer's colour for a value (also iso.js's tint): plum cheap, sand middling, green dear.
+function landCol(v) {
+  const st = [[0, [110, 56, 118]], [25, [196, 82, 86]], [40, [236, 160, 80]], [50, [244, 228, 130]], [60, [150, 204, 96]], [75, [52, 158, 88]], [100, [18, 106, 104]]];
+  let a = st[0], b = st[st.length - 1];
+  for (let k = 0; k < st.length - 1; k++) if (v >= st[k][0] && v <= st[k + 1][0]) { a = st[k]; b = st[k + 1]; break; }
+  const f = b[0] === a[0] ? 0 : (v - a[0]) / (b[0] - a[0]), c = a[1].map((x, i) => Math.round(x + (b[1][i] - x) * f));
+  return 'rgb(' + c.join(',') + ')';
+}
+// The toast steps below the legend.
+{
+  const _tp = toastPlace;
+  toastPlace = function () {
+    const r = _tp.apply(this, arguments), el = $('toast'), lg = $('lvlegend');
+    if (!el || !lg || !lg.classList.contains('show')) return r;
+    const a = el.getBoundingClientRect(), b = lg.getBoundingClientRect();
+    if (a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom) el.style.top = Math.round(b.bottom + 8) + 'px';
+    return r;
+  };
+}
+
+// ---------- the cards ----------
+function vtLine(label, val) { return '<div class="line"><span>' + esc(label) + '</span><span>' + esc(val) + '</span></div>'; }
+function vtCardExtra(s, b) {
+  const def = BUILDINGS[b.type];
+  let h = '';
+  if (lvalOn() && (def.kind === 'home' || (def.kind === 'producer' && def.uses))) {
+    const q = landLine(s, b), x = bNumber(s, b), L = x.land;
+    h += '<p class="note land' + (q.v >= 60 ? ' good' : q.v < 35 ? '' : ' risk') + '">' + esc(q.text + '.') +
+      (def.kind === 'home' && s.stage < LANDV.fromStage ? ' ' + esc('From ' + STAGES[LANDV.fromStage].name + ' on, rent follows it (a village’s land is cheap everywhere).') : '') +
+      (def.kind === 'home' && L && L.base ? ' ' + esc('Rent follows it: ' + (L.d >= 0 ? '+' : '−') + money$(Math.abs(L.d)) + ' a month (× ' + landRentK(q.v).toFixed(2) + ').') : '') +
+      (def.kind === 'producer' && L ? ' ' + esc('Upkeep by its ground (its own smoke not counted): ' + (L.d < 0 ? '+' : '−') + money$(Math.abs(L.d)) + ' a month' + (q.v > LANDV.worksPivot ? '; works pay less on cheap land.' : ': cheap land, cheaper to keep.')) : '') + '</p>';
+    if (def.kind === 'home' && vtTall(b)) h += vtLine('Floors', vtFloors(b.level) + ' · ' + LEVELS[b.level].people + ' people on one lot');
+  }
+  if (VT.cap[b.type]) {
+    const L = vtLoads(s)[b.id] || 0, cap = VT.cap[b.type], full = L > cap;
+    h += vtLine('Serves', L.toLocaleString('en-US') + ' people in reach · room for ' + cap.toLocaleString('en-US') + (full ? ' · full for tall homes' : ''));
+    if (full) h += '<p class="note risk">' + esc('Apartment houses and taller need room at their ' + (def.kind === 'market' ? 'market' : def.gives === 'church' ? 'church' : def.gives) + ': this one serves ' + L.toLocaleString('en-US') + ' and has room for ' + cap.toLocaleString('en-US') + '. The lower homes are served as before.') + '</p>';
+  }
+  if (b.type === 'hospital') h += vtLine('Clinic of its quarter', 'homes within ' + VT_HOSP_REACH + ' tiles joined by road');
+  const q = vtUpInfo(s, b);
+  if (q) {
+    if (b.vup) {
+      const done = 1 - b.vup.t / (b.vup.n || 1);
+      h += '<p class="note good">' + esc('Being rebuilt as a ' + q.name.toLowerCase() + ': ' + Math.round(done * 100) + ' %, ' + plural(Math.max(1, Math.ceil(b.vup.t / TUNE.ticksPerMonth)), 'month', 'months') + ' left. It works on meanwhile; the outlined tiles are kept for it.') + '</p>';
+    } else {
+      const plotT = q.plot && q.add ? ' It takes ' + plural(q.add, 'free tile', 'free tiles') + ' beside it (outlined on the map)' + (q.clear ? ', ' + money$(q.clear) + ' of it to clear forest' : '') + '.' : q.plot ? ' On the same lot.' : '';
+      h += '<p class="note' + (q.why ? '' : ' good') + '">' + esc('Can grow into a ' + q.name.toLowerCase() + ': ' + q.gives.join(' · ') + '. ' + plural(q.months, 'month', 'months') + ' of building; it works on meanwhile.' + plotT + (q.why ? ' ' + q.why + '.' : '')) + '</p>';
+      if (!q.why || /^Not enough money/.test(q.why)) h += '<div class="btns"><button id="cardVt" class="up' + (s.money < q.price ? ' poor' : '') + '">' + esc('Upgrade to a ' + q.name.toLowerCase() + ' · ' + money$(q.price)) + '</button></div>';
+    }
+  }
+  return h;
+}
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!vtOn() || BUILDINGS[b.type].kind === 'fixed' || BUILDINGS[b.type].kind === 'deco') return h;
+    let x = '';
+    try { x = vtCardExtra(s, b); } catch (e) { x = ''; }
+    if (!x) return h;
+    const at = h.indexOf('<div class="btns">');
+    return at >= 0 ? h.slice(0, at) + x + h.slice(at) : h + x;
+  };
+  const _cr = cardRender;
+  cardRender = function () {
+    const r = _cr.apply(this, arguments), s = APP.state, b = APP.ui.sel && s && bById(s, APP.ui.sel);
+    APP.ui.vplot = null;
+    if (!b || !$('card').classList.contains('show')) return r;
+    const q = vtOn() ? vtUpInfo(s, b) : null;
+    if (q && !b.vup && q.plot && q.add) APP.ui.vplot = { x: q.plot.x, y: q.plot.y, w: q.plot.w, h: q.plot.h, id: b.id, label: q.name + ' · ' + money$(q.price) };
+    const bt = $('cardVt');
+    if (bt) bt.onclick = () => {
+      const res = vtUpgrade(s, b);
+      toastShow(res.ok ? 'Rebuilding as a ' + q.name.toLowerCase() + ': ' + money$(res.cost) + '. It works on meanwhile.' : res.why + '.');
+      if (res.ok) audioCue('place');
+      APP.cardKey = ''; cardRender();
+    };
+    return r;
+  };
+  const _cc = cardClose;
+  cardClose = function () { APP.ui.vplot = null; return _cc.apply(this, arguments); };
+}
+
+// The flat fallback (?r=flat): a tall home casts a longer shadow and carries its floors on its roof.
+{
+  const _hd = homeDraw;
+  homeDraw = function (ctx, b, p, z, state) {
+    if (!vtTall(b)) return _hd.apply(this, arguments);
+    const k = vtFloors(b.level) / 16;
+    ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(p.x + z * 0.2, p.y + z * 0.2, z * (0.8 + 0.5 * k), z * (0.8 + 0.5 * k));
+    rr(ctx, p.x + z * 0.08, p.y + z * 0.08, z * 0.84, z * 0.84, 3, '#e6e1d6', '#8a8174');
+    ctx.fillStyle = '#4a6b74';
+    for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) ctx.fillRect(p.x + z * (0.18 + i * 0.25), p.y + z * (0.18 + j * 0.25), z * 0.14, z * 0.12);
+    ctx.fillStyle = '#3a2a1f'; ctx.font = '700 ' + Math.max(9, Math.round(z * 0.32)) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(vtFloors(b.level)), p.x + z * 0.5, p.y + z * 0.52);
   };
 }
 
