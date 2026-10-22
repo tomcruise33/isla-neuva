@@ -152,6 +152,10 @@ body.armed #done { display: flex; }
 #turnG { width: 48px; height: 48px; box-shadow: 0 2px 0 var(--ink), 0 6px 14px rgba(30, 20, 10, 0.18); }
 #turnG span { display: none; }
 body.turnable #turnB, body.turnable #turnG.show { display: flex; }
+/* Fix3: with a mouse, one Turn button beside Done that says its key (ui/turn_ui.js turnMouse) */
+body.mouseui #turnB { width: auto; min-width: 96px; height: 48px; padding: 0 14px 0 10px; border-radius: 14px; flex-direction: row; gap: 6px; font-size: 14px; }
+body.mouseui #turnB .ic { width: 26px; height: 26px; }
+body.mouseui #turnG { display: none !important; }
 body.titled .turnbtn { display: none !important; }
 body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + var(--sb)); }
 #guide.fresh { animation: guideIn 0.6s ease-out; }
@@ -439,6 +443,9 @@ body.titled #nowplay { display: none !important; }
 .stat.work .ic { fill: #c99a5e; } .stat.need .ic { fill: #d6974f; }
 .stat.need.bad { color: var(--red); } .stat.need.bad .ic { fill: #e07a5a; }
 .stat.glance.on { background: var(--coral-soft); box-shadow: inset 0 0 0 2px var(--ink); border-radius: 12px; }
+/* Fix3: the badge on the icon's upper-left corner (on its upper right it covered the number's first digit: "⁸84/184") */
+.stat .gi .badge, .stats .stat .gi .badge { right: auto; left: -11px; }
+@media (max-width: 600px) { .stats .stat .gi .badge { left: 50%; transform: translateX(-50%); top: -16px; } }
 .stat.glance.on + .stat { border-left-color: transparent; }
 #glance { position: fixed; z-index: 7; display: none; padding: 10px 12px 8px 14px; left: 50%; transform: translateX(-50%);
   top: calc(var(--gap) + 106px + var(--st)); width: min(470px, calc(100% - 20px - var(--sl) - var(--sr)));
@@ -14696,6 +14703,157 @@ if (typeof isleCheck === 'function') {
   };
 }
 
+// ---- src/sim/why.js
+// Fix3 (22 Oct 2026, Tomáš on his MacBook, from Slovak: "One rum factory made no profit although the other one right
+// next to it had a high one, and it wasn't explained there at all"): why a works earns less than one of its kind
+// beside it. Both months as measured (b.last with E1's parts) side by side, and the main cause with its fix (the card:
+// ui/why_ui.js). DESIGN.md §37.
+// How the island shares one input among several works (economy.js consumerFind, unchanged here): when a field's cart
+// leaves, it takes its load to the nearest works by road that has room for a whole load (then one with room for a
+// part); a fuller store does not count as farther, as it does for the markets and the cannery's food. So when the
+// fields make less than the works need, the works nearest the fields runs full and the next one gets what is left
+// (as a colono sold his cane to the nearest central). That is kept: splitting the cane evenly would make two works run
+// half, both paying full wages for the same rum. The cards say so instead, on both, with the fix (more fields).
+// Also counted here: the ticks a works stood still last month for want of input or with its yard full (b.mStopI,
+// b.mStopY, kept as b.last.stopI, b.last.stopY): nothing in the rules reads them.
+
+const WHY = { near: 10, gap: 150, ratio: 2 };
+
+MONTH_KEYS.push('mStopI', 'mStopY');
+{
+  const _pt = prodTick;
+  prodTick = function (state, b) {
+    const r = _pt.apply(this, arguments);
+    if (b.blocked === 'input') b.mStopI = (b.mStopI || 0) + 1;
+    else if (b.blocked === 'yard') b.mStopY = (b.mStopY || 0) + 1;
+    return r;
+  };
+  const _mk = monthKeep;
+  monthKeep = function (state, b) {
+    const si = b.mStopI || 0, sy = b.mStopY || 0;
+    const r = _mk.apply(this, arguments);
+    if (b.last && b.last.m === state.month) { b.last.stopI = si; b.last.stopY = sy; }
+    return r;
+  };
+}
+
+// The month a works' card shows (last month, with E1's parts), or null.
+function whyLast(state, b) { const L = b && b.last; return L && L.m === state.month - 1 && L.e1 ? L : null; }
+
+// Days of a month from ticks.
+function whyDays(t) { return Math.round((t || 0) / TUNE.ticksPerMonth * 30); }
+
+// The type that makes good g from nothing (a field, a camp), or ''.
+function whyMakerOf(g) {
+  for (const t in BUILDINGS) { const d = BUILDINGS[t]; if (d.makes === g && !d.uses && d.kind === 'producer' && d.jobs) return t; }
+  return '';
+}
+
+// The parts of one works' month, as the card compares them.
+function whyParts(state, b, L) {
+  const rev = (L.exports || 0) + (L.ws || 0) + (L.sales || 0) + (L.retail || 0);
+  return {
+    inN: Math.round(L.buyN || 0), made: Math.round(L.made || 0), ship: Math.round(L.ship || 0), exp: L.exports || 0, mktN: Math.round(L.wsN || 0), ws: L.ws || 0,
+    harb: Math.round(L.harb || 0), sale: L.sales || 0, cart: L.cart || 0, trips: L.cartN || 0, tiles: L.cartT || 0, wages: L.wages || 0, buys: L.buys || 0,
+    stopI: whyDays(L.stopI), stopY: whyDays(L.stopY), n: L.n || 0, rev, wage: L.wage || '', workers: b.workers || 0,
+    sold: Math.round((L.ship || 0) + (L.wsN || 0) + (L.shop || 0)), shelf: flowOnShelves(state, b), wait: whyWait(state, b), mkt: whyNearest(state, b, 'market'),
+  };
+}
+// units of b's goods waiting at the harbors for a ship now
+function whyWait(state, b) {
+  const g = BUILDINGS[b.type].makes;
+  let n = 0;
+  for (const hb of state.b) { const c = hb.cons && hb.cons[g]; if (c && c[b.id]) n += c[b.id]; }
+  return Math.floor(n + 1e-9);
+}
+// road tiles to the nearest open building of a kind (Infinity: none reached)
+function whyNearest(state, b, kind) {
+  let d = Infinity;
+  for (const m of state.b) if (BUILDINGS[m.type].kind === kind && m.open) d = Math.min(d, roadDist(state, b, m).d);
+  return d;
+}
+
+// The works of b's kind within WHY.near tiles that earned the most last month, when it earned notably more than b
+// (at least WHY.gap and WHY.ratio times b's month), as { b, o, A (b's parts), B (o's parts), cause }; else null.
+function whyNeighbour(state, b) {
+  const def = b && BUILDINGS[b.type];
+  if (!def || def.kind !== 'producer' || !def.jobs || b.wip || !e1On()) return null;
+  const L = whyLast(state, b);
+  if (!L) return null;
+  let best = null;
+  for (const o of state.b) {
+    if (o === b || o.type !== b.type || o.wip) continue;
+    if (Math.hypot(o.x + o.w / 2 - b.x - b.w / 2, o.y + o.h / 2 - b.y - b.h / 2) > WHY.near) continue;
+    const M = whyLast(state, o);
+    if (M && (!best || M.n > best.M.n)) best = { o, M };
+  }
+  if (!best || best.M.n - L.n < WHY.gap || (L.n > 0 && best.M.n < WHY.ratio * L.n)) return null;
+  const A = whyParts(state, b, L), B = whyParts(state, best.o, best.M);
+  return { b, o: best.o, A, B, cause: whyCause(state, b, best.o, A, B) };
+}
+
+// The main cause: the part of the difference worth the most money. { k, text, fix, tool } (tool: a building type her
+// tap on the fix arms, or 'traffic' for the Traffic layer, or '').
+function whyCause(state, b, o, A, B) {
+  const def = BUILDINGS[b.type], g = def.makes, gn = GOODS[g].name.toLowerCase(), u = Object.keys(def.uses || {})[0] || '';
+  const un = u ? GOODS[u].name.toLowerCase() : '', sold = B.ship + B.mktN + Math.round((o.last && o.last.shop) || 0);
+  const unit = sold > 0 ? B.rev / sold : bEarns(state, def) / Math.max(1, def.rate);
+  const fewer = Math.max(0, B.made - A.made), madeV = fewer * unit, cands = [];
+  // made less: for want of input, of workers, or with its yard full
+  if (fewer >= 1) {
+    if (u && (A.stopI > B.stopI + 1 || A.inN < B.inN)) cands.push({ k: 'input', v: madeV - Math.max(0, B.buys - A.buys) });
+    else if (A.workers < B.workers) cands.push({ k: 'workers', v: madeV });
+    else if (A.stopY > B.stopY + 1) cands.push({ k: 'yard', v: madeV });
+  }
+  // sold for less, or paid later (the ship pays when it sails, the markets as the homes buy off their shelves)
+  const soldV = (B.rev - A.rev) - madeV;
+  if (soldV > 0) cands.push({ k: B.ws > A.ws + 50 ? 'shelves' : A.wait > B.wait + 1 ? 'ship' : 'sold', v: soldV });
+  if (A.cart - B.cart > 0) cands.push({ k: 'carts', v: A.cart - B.cart });
+  if (A.wages - B.wages > 0 && A.workers === B.workers) cands.push({ k: 'wages', v: A.wages - B.wages });
+  cands.sort((p, q) => q.v - p.v);
+  const top = cands[0] || { k: 'sold', v: B.n - A.n }, nx = 'the ' + (def.short || def.name).toLowerCase() + ' next door';
+  if (top.k === 'input') {
+    const mk = whyMakerOf(u), fields = state.b.filter((f) => BUILDINGS[f.type].makes === u && f !== b && f !== o && BUILDINGS[f.type].kind === 'producer');
+    let nearer = 0, dA = 0, dB = 0, n = 0, madeF = 0;
+    for (const f of fields) {
+      const a = roadDist(state, f, b).d, c = roadDist(state, f, o).d;
+      madeF += Math.round((f.last && f.last.m === state.month - 1 && f.last.made) || 0);
+      if (!isFinite(a) && !isFinite(c)) continue;
+      n++; if (c < a) nearer++;
+      if (isFinite(a) && isFinite(c)) { dA += a; dB += c; }
+    }
+    const need = 2 * (def.uses[u] * def.rate), md = mk ? BUILDINGS[mk] : null;
+    const fn = md ? (md.short || md.name).toLowerCase() : '';
+    const why = n && md ? 'A ' + fn + '’s cart takes its load to the nearest works with room: ' + nx + ' is nearer to ' + nearer + ' of the ' + n + ' ' + fn + 's' + (dB < dA ? ' (a trip of ' + plural(Math.max(1, Math.round(dB / n)), 'road tile', 'road tiles') + ' against ' + Math.max(1, Math.round(dA / n)) + ')' : '') + '. The ' + fn + 's made ' + madeF + '; the two need ' + need + '.' : '';
+    return { k: 'input', text: 'less ' + un + ' (' + A.inN + ' against ' + B.inN + (A.stopI ? '; ' + A.stopI + ' days without' : '') + '). ' + why,
+      fix: md ? 'one more ' + md.name.toLowerCase() + ' near this one (+' + md.rate + ' ' + un + ' a month at full work)' : 'more ' + un, tool: mk };
+  }
+  if (top.k === 'workers') return { k: 'workers', text: 'workers: ' + A.workers + ' of ' + def.jobs + ' (' + nx + ' ' + B.workers + '), so it made ' + A.made + ' ' + gn + ' against ' + B.made + '.', fix: 'homes near it (workers walk at most ' + TR.walkToWork + ' tiles)', tool: 'casita' };
+  if (top.k === 'yard') return { k: 'yard', text: 'its yard stood full ' + A.stopY + ' days: nothing near took its ' + gn + ' (' + nx + ' ' + B.stopY + ' days).', fix: 'a market or the harbor nearer it', tool: 'traffic' };
+  if (top.k === 'carts') return { k: 'carts', text: 'its carts: ' + (A.trips ? Math.round(A.tiles / A.trips) : 0) + ' tiles a trip against ' + (B.trips ? Math.round(B.tiles / B.trips) : 0) + ' (carters ' + money$(A.cart) + ' against ' + money$(B.cart) + ').', fix: 'a taker nearer, or a paved road', tool: 'traffic' };
+  if (top.k === 'wages') return { k: 'wages', text: 'wages: it pays ' + A.wage + ' (' + money$(A.wages) + '), ' + nx + ' ' + B.wage + ' (' + money$(B.wages) + ').', fix: 'its wage on this card', tool: '' };
+  // where its goods went, and when that pays
+  const six = '';
+  const tiles = (d) => (isFinite(d) ? d + ' road tiles' : 'no road');
+  if (top.k === 'shelves') return { k: 'shelves', text: 'the markets. They pay a maker as the homes buy off the shelves, and the shelves hold ' + B.shelf + ' of ' + nx + '’s ' + gn + ' (it is nearer the market: ' + tiles(B.mkt) + ' against ' + tiles(A.mkt) + ') and ' + A.shelf + ' of this one’s, so this one lives on the ship (' + A.ship + ' ' + gn + ', ' + money$(A.exp) + ').',
+    fix: 'none needed: it catches up as the shelves sell', tool: '' };
+  if (top.k === 'ship') return { k: 'ship', text: 'when it is paid: ' + A.wait + ' of its ' + gn + ' wait at the harbor for the ship (' + nx + ' ' + B.wait + '); the ship pays as it takes them.' + six, fix: 'none needed, or a bigger harbor (its next level, on the harbor’s card)', tool: '' };
+  return { k: 'sold', text: 'it sold for less: ' + money$(A.rev) + ' for ' + A.sold + ' ' + gn + ', ' + nx + ' ' + money$(B.rev) + ' for ' + B.sold + '.' + six, fix: '', tool: '' };
+}
+
+// For the works that earns more: the one of its kind next door earns less for want of input this one gets first
+// (the same check from the other side), or null.
+function whyStarves(state, b) {
+  const def = b && BUILDINGS[b.type];
+  if (!def || def.kind !== 'producer' || !def.uses || !whyLast(state, b)) return null;
+  for (const o of state.b) {
+    if (o === b || o.type !== b.type) continue;
+    const w = whyNeighbour(state, o);
+    if (w && w.o === b && w.cause.k === 'input') return w;
+  }
+  return null;
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -14895,7 +15053,23 @@ function pileDraw(ctx, x, y, z, n, color, cap) {
   }
 }
 
-function homeDraw(ctx, b, p, z) {
+// Fix3 (four facings, DESIGN.md §34): the world side a building's door faces: 0 +y (below), 1 +x, 2 -y, 3 -x; as
+// render/iso.js works it out (a home's door by its street, a lot longer along y on its +x side; then its turn)
+function flatFront(state, b) {
+  const d = BUILDINGS[b.type], road = (x, y) => inMap(x, y) && !!state.road[tileIdx(x, y)];
+  const w0 = !d ? 0 : d.kind === 'home' ? (road(b.x, b.y + 1) ? 0 : road(b.x + 1, b.y) ? 1 : road(b.x - 1, b.y) ? 0 : 1) : d.w < d.h ? 1 : 0, f = (b.f || 0) & 3;
+  return ((f & 1 ? w0 ^ 1 : w0) + (f & 2)) & 3;
+}
+// a door on that side of the box (x, y, w, h in screen px)
+function flatDoor(ctx, k, x, y, w, h, z) {
+  const dw = Math.max(3, z * 0.16), dd = Math.max(2, z * 0.1);
+  ctx.fillStyle = '#5b3a29';
+  if (k === 0) ctx.fillRect(x + w / 2 - dw / 2, y + h - dd, dw, dd);
+  else if (k === 1) ctx.fillRect(x + w - dd, y + h / 2 - dw / 2, dd, dw);
+  else if (k === 2) ctx.fillRect(x + w / 2 - dw / 2, y, dw, dd);
+  else ctx.fillRect(x, y + h / 2 - dw / 2, dd, dw);
+}
+function homeDraw(ctx, b, p, z, state) {
   const wall = WALLS[b.id % WALLS.length], roof = ROOFS[(b.id * 7) % ROOFS.length];
   if (b.level >= 3) rr(ctx, p.x + z * 0.04, p.y + z * 0.04, z * 0.92, z * 0.92, z * 0.18, '#b9dd8c');
   const ins = b.level === 1 ? 0.16 : b.level === 2 ? 0.08 : 0.2;
@@ -14904,7 +15078,8 @@ function homeDraw(ctx, b, p, z) {
   rr(ctx, x, y + h * 0.55, w, h * 0.45, 2, wall);
   rr(ctx, x - 1, y, w + 2, h * 0.6, 2, roof);
   ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x - 1, y, w + 2, h * 0.28);
-  ctx.fillStyle = '#5b3a29'; ctx.fillRect(x + w * 0.42, y + h * 0.76, w * 0.16, h * 0.24);
+  const fk = state ? flatFront(state, b) : 0;
+  if (fk === 0) { ctx.fillStyle = '#5b3a29'; ctx.fillRect(x + w * 0.42, y + h * 0.76, w * 0.16, h * 0.24); } else flatDoor(ctx, fk, x, y, w, h, z);
   if (b.level >= 2) { ctx.fillStyle = '#4a6b74'; ctx.fillRect(x + w * 0.12, y + h * 0.66, w * 0.18, h * 0.12); ctx.fillRect(x + w * 0.7, y + h * 0.66, w * 0.18, h * 0.12); ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y + h * 0.58, w, 2); }
   if (!b.res) { ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(x - 1, y, w + 2, h); }
 }
@@ -14924,7 +15099,7 @@ function buildingDraw(ctx, state, b, R, view) {
   const z = view.z, def = BUILDINGS[b.type];
   const p = flatToScreen(R, view, b.x, b.y), w = b.w * z, h = b.h * z;
   if (p.x > R.w + z || p.y > R.h + z || p.x + w < -z || p.y + h < -z) return;
-  if (b.type === 'casita') { homeDraw(ctx, b, p, z); return; }
+  if (b.type === 'casita') { homeDraw(ctx, b, p, z, state); return; }
   if (b.type === 'pier') {
     rr(ctx, p.x, p.y + z * 0.2, w + z * 0.1, h * 0.6, 3, BCOL.pier, '#6e5234');
     ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1;
@@ -14960,6 +15135,7 @@ function buildingDraw(ctx, state, b, R, view) {
     const icon = def.icon || (b.type === 'residence' ? 'home' : 'home');
     const light = ['chapel', 'clinic', 'residence'].includes(b.type);
     iconDraw(ctx, icon, p.x + w / 2, p.y + h * (b.type === 'residence' ? 0.72 : 0.5), Math.min(w, h) * 0.42, light ? '#8a6a4a' : 'rgba(255,255,255,0.92)');
+    if (def.kind !== 'deco' && def.kind !== 'fixed') flatDoor(ctx, flatFront(state, b), p.x + ins, p.y + ins, w - 2 * ins, h - 2 * ins, z);
   }
   // Stock you can see: the yard (output) at the bottom right, the inputs at the bottom left.
   if (def.kind === 'producer' && b.yard > 0) pileDraw(ctx, p.x + w - z * 0.72, p.y + h - z * 0.3, z, b.yard, GOODS[def.makes].color);
@@ -15231,6 +15407,13 @@ const ISO = (() => {
   // lit and shadows fall to the lower right; the faces they return are in the painter's own frame. Set only while a
   // turned square building's sprite is painted (bTX).
   let TX = false;
+  // Fix3 (22 Oct 2026, four facings; DESIGN.md §34): BK paints a sprite whose front faces away from the viewer. The
+  // painter's front face (BKF: 'fl', or 'fr' for a layout painted with its front on the lower-right face) is the back
+  // wall: walls() paints that wall plain (a plinth and rows of back windows) and gives the painter a face that draws
+  // nothing (fp returns no point), so its door, arches, sign boards and plaques go to the hidden side; faceText,
+  // plaques and porches are skipped. BKIN: inside walls() (its transposed run calls walls() again).
+  let BK = false, BKF = 'fl', BKIN = false, BKSHUT = null;
+  const NOPT = [NaN, NaN];
   function pen(c, x0, y0, h, dpr, r) { ctx = c; ox = x0; oy = y0; hw = h; hh = h / 2; zs = h * ZS; S = h / 44; LW = Math.max(0.6, 1.1 * S); DP = dpr; PR = r ? ROTM[r] : null; TT = h * KT; }
   function P(x, y, z) {
     if (TX) { const t = x; x = y; y = t; }
@@ -15271,7 +15454,7 @@ const ISO = (() => {
   function fcT(f) { return { o: [f.o[1], f.o[0], f.o[2]], a: [f.a[1], f.a[0]] }; }
   // A13: a primitive run once more with x <-> y swapped and TX off (its points then land where TX puts them)
   function txRun(fn) { TX = false; try { return fn(); } finally { TX = true; } }
-  function fp(f, s, t) { return P(f.o[0] + f.a[0] * s, f.o[1] + f.a[1] * s, f.o[2] + t); }
+  function fp(f, s, t) { return f.cull ? NOPT : P(f.o[0] + f.a[0] * s, f.o[1] + f.a[1] * s, f.o[2] + t); }
   function fq(f, s0, s1, t0, t1) { return [fp(f, s0, t0), fp(f, s1, t0), fp(f, s1, t1), fp(f, s0, t1)]; }
   function farch(f, s, t0, w, h, n) {
     const r = w / 2, pts = [fp(f, s - r, t0)], tc = t0 + h - r; n = n || 10;
@@ -15280,6 +15463,7 @@ const ISO = (() => {
   }
   function fdisc(f, s, t, r, n) { const p = []; n = n || 18; for (let k = 0; k < n; k++) { const a = k / n * TAU; p.push(fp(f, s + Math.cos(a) * r, t + Math.sin(a) * r)); } return p; }
   function walls(x, y, w, d, z0, h, col, noHatch) {
+    if (BK && !BKIN) { BKIN = true; let r; try { r = walls(x, y, w, d, z0, h, col, noHatch); } finally { BKIN = false; } return bkWalls(r, w, d, h); }
     // A13: the painter's front face (+y) is the transposed box's lower-right face, with that face's colour
     if (TX) { const r = txRun(() => walls(y, x, d, w, z0, h, col, noHatch)); return { fl: fcT(r.fr), fr: fcT(r.fl), L: r.R, R: r.L, cS: r.col, col: r.cS }; }
     const fl = Fc([x, y + d, z0], [1, 0]), fr = Fc([x + w, y + d, z0], [0, -1]);
@@ -15288,6 +15472,46 @@ const ISO = (() => {
     if (!noHatch) hatch(Rr, ln(cS), 3.4 * S, 0.13, -0.55);
     return { fl, fr, L, R: Rr, cS, col };
   }
+  // Fix3: the window rows of a back wall L long and h high: [s, t, w, h] (s along the face, t the sill's height)
+  function bkWinRows(L, h) {
+    const n = Math.max(1, Math.round(L * 1.4)), ww = Math.min(0.15, L / n * 0.5), wh = Math.min(0.22, h * 0.32), t0 = clamp(h * 0.26, 0.1, 0.2), out = [];
+    for (let t = t0; t + wh < h - 0.07; t += 0.46) for (let k = 0; k < n; k++) out.push([L * (k + 0.5) / n, t, ww, wh]);
+    return out;
+  }
+  // Fix3: a front wall painted as the back (BK): plain, its plinth and back windows; the painter gets a face that
+  // draws nothing in its place (a small box, a chimney or a pillar keeps its face: nothing on it to hide)
+  function bkWalls(r, w, d, h) {
+    const k = BKF === 'fr' ? 'fr' : 'fl', F = r[k], L = k === 'fl' ? w : d, col = k === 'fl' ? r.col : r.cS;
+    if (L < 0.35 || h < 0.28) return r;
+    poly(fq(F, 0, L, 0, 0.06), dk(col, 0.22));
+    for (const q of bkWinRows(L, h)) win(F, q[0], q[1], q[2], q[3], BKSHUT);
+    const o = Object.assign({}, r);
+    o[k] = { o: F.o, a: F.a, cull: true };
+    return o;
+  }
+  // Fix3: what stands behind a building seen from the back, on the strip in front of its back wall (the painter's
+  // frame): a washing line behind a home, barrels and a crate stack behind a works or a public building
+  function bkYard(bk) {
+    if (!bk.yard) return;
+    const W = bk.foot[0], H = bk.foot[1], alongX = bk.f === 'fl', at = (a, e) => (alongX ? [W * a, H - e] : [W - e, H * a]);
+    ctx.lineCap = 'round';
+    if (bk.yard === 'line') {
+      const a = at(0.2, 0.06), b = at(0.68, 0.06), hz = 0.36;
+      for (const q of [a, b]) seg(P(q[0], q[1], 0), P(q[0], q[1], hz + 0.02), '#6b4a2e', 1.5 * S);
+      seg(P(a[0], a[1], hz), P(b[0], b[1], hz), '#f5ecd8', 0.8 * S);
+      const cols = ['#f6f0e2', '#e0583e', '#7ec4cf'];
+      for (let k = 0; k < 3; k++) {
+        const u0 = 0.25 + k * 0.38, u1 = u0 + 0.22, p0 = [lerp(a[0], b[0], u0), lerp(a[1], b[1], u0)], p1 = [lerp(a[0], b[0], u1), lerp(a[1], b[1], u1)];
+        poly([P(p0[0], p0[1], hz), P(p1[0], p1[1], hz), P(p1[0], p1[1], hz - 0.13), P(p0[0], p0[1], hz - 0.11)], cols[k], ln(cols[k]), 0.6 * S);
+      }
+      return;
+    }
+    const b1 = at(0.16, 0.16), b2 = at(0.27, 0.13), c = at(0.36, 0.2);
+    barrelUp(b1[0], b1[1], 0, 0.075, 0.2, '#8a5a34'); barrelUp(b2[0], b2[1], 0, 0.065, 0.17, '#6f7f86');
+    boxAt(c[0] - 0.08, c[1] - 0.08, 0.16, 0.16, 0, 0.13, '#c49a62'); boxAt(c[0] - 0.06, c[1] - 0.06, 0.12, 0.12, 0.13, 0.1, '#b0844f');
+  }
+  // Fix3: an icon on a face (a hanging sign): not drawn when the face draws nothing
+  function icoSafe(c, n, x, y, sz, col) { if (isFinite(x) && isFinite(y)) iconDraw(c, n, x, y, sz, col); }
   function wallsOutline(wv) { poly(wv.L, null, ln(wv.col)); poly(wv.R, null, ln(wv.cS)); }
   function bands(wv, w, d, h) {
     poly(fq(wv.fl, 0, w, 0, 0.06), dk(wv.col, 0.22)); poly(fq(wv.fr, 0, d, 0, 0.06), dk(wv.cS, 0.22));
@@ -15386,6 +15610,7 @@ const ISO = (() => {
     const k = fp(f, s + w * 0.3, h * 0.45); circ(k[0], k[1], 0.8 * S, '#e9c46a');
   }
   function faceText(f, s, t, txt, size, col) {
+    if (BK || f.cull) return;
     const a = TX ? [f.a[1], f.a[0]] : f.a, p = fp(f, s, t), ex = [(a[0] - a[1]) * hw, (a[0] + a[1]) * hh];
     // A13: a face a painter made itself reads right to left when transposed: the words still read left to right
     if (TX && ex[0] < 0) { ex[0] = -ex[0]; ex[1] = -ex[1]; }
@@ -15674,6 +15899,7 @@ const ISO = (() => {
     }
   }
   function porch(face, x, y, w, d, pz, col) {
+    if (BK) return;
     const pd = 0.17, c = '#f8f2e4';
     ctx.lineCap = 'round';
     if (face === 'x') {
@@ -15691,6 +15917,7 @@ const ISO = (() => {
     }
   }
   function paintHome(level, lk, face, empty) {
+    if (BK) BKSHUT = lk.shut;
     const wall = empty ? mix(lk.wall, '#f8eed6', 0.3) : lk.wall;
     if (level <= 1) {
       const x = 0.15, y = 0.15, w = 0.64, d = 0.64, h = 0.46;
@@ -15883,7 +16110,7 @@ const ISO = (() => {
     const sp = fp(wv.fl, w * 0.62, 0.48);
     seg([sp[0], sp[1]], [sp[0] + 7 * S, sp[1] + 1 * S], '#3a2a24', 1.2 * S);
     circ(sp[0] + 7 * S, sp[1] + 6 * S, 4.6 * S, '#f6dfa4', INK, 1 * S);
-    if (typeof iconDraw === 'function') iconDraw(ctx, def.icon || 'home', sp[0] + 7 * S, sp[1] + 6 * S, 6 * S, '#8a4a22');
+    if (typeof iconDraw === 'function') icoSafe(ctx, def.icon || 'home', sp[0] + 7 * S, sp[1] + 6 * S, 6 * S, '#8a4a22');
   }
 
   // ---------- civic: chapel, school, clinic ----------
@@ -16098,7 +16325,7 @@ const ISO = (() => {
     seg(g0, g1, '#5a4030', 2.4 * S); seg(g1, P(x + w + 0.3, y + d / 2, h - 0.2), '#6b5040', 0.9 * S);
     // anchor sign
     const c = fp(wv.fl, w * 0.5, 0.72); circ(c[0], c[1], 6.4 * S, '#fbf3df', INK, 1 * S);
-    if (typeof iconDraw === 'function') iconDraw(ctx, 'anchor', c[0], c[1], 9 * S, '#2f6f8f');
+    if (typeof iconDraw === 'function') icoSafe(ctx, 'anchor', c[0], c[1], 9 * S, '#2f6f8f');
     for (const [bx, by] of [[def.w - 0.12, def.h - 0.14], [0.14, def.h - 0.14]]) { const p0 = P(bx, by, 0); circ(p0[0], p0[1] - 2 * S, 2.2 * S, '#4a3828', INK, 0.7 * S); }
   }
   // A9 (note 4): a harbor's levels on the map. The longer pier: a plank jetty on posts reaching out over the water from
@@ -16317,7 +16544,7 @@ const ISO = (() => {
   }
 
   // ---------- block 3 helpers: outward points on a face, iron balconies, columns, balustrades, flat roofs ----------
-  function fpo(f, s, t, o) { if (TX) o = -o; return P(f.o[0] + f.a[0] * s - f.a[1] * o, f.o[1] + f.a[1] * s + f.a[0] * o, f.o[2] + t); }
+  function fpo(f, s, t, o) { if (f.cull) return NOPT; if (TX) o = -o; return P(f.o[0] + f.a[0] * s - f.a[1] * o, f.o[1] + f.a[1] * s + f.a[0] * o, f.o[2] + t); }
   function ironBalcony(f, s0, s1, t, o, lit) {
     const slab = lit ? '#8a7a68' : sh('#8a7a68');
     poly([fpo(f, s0, t, 0), fpo(f, s1, t, 0), fpo(f, s1, t, o), fpo(f, s0, t, o)], slab, ln(slab), 0.7 * S);
@@ -16862,7 +17089,7 @@ const ISO = (() => {
     poly(aw, null, ln('#c0392b'), 0.9 * S);
     gableX(x, y, w, d, h, 0.32, 0.06, '#b94a3c', wall, { rows: 5 });
     const sp = fp(wv.fr, d * 0.15, 0.55); seg(sp, [sp[0] + 7 * S, sp[1] + 1 * S], '#3a2a24', 1.2 * S); circ(sp[0] + 7 * S, sp[1] + 6 * S, 4.6 * S, '#fbf7ee', INK, 1 * S);
-    if (typeof iconDraw === 'function') iconDraw(ctx, 'meat', sp[0] + 7 * S, sp[1] + 6 * S, 6 * S, '#b5473a');
+    if (typeof iconDraw === 'function') icoSafe(ctx, 'meat', sp[0] + 7 * S, sp[1] + 6 * S, 6 * S, '#b5473a');
   }
   function paintBakery(def) {
     const x = 0.06, y = 0.08, w = 0.7, d = 0.6, h = 0.64, wall = '#f2d9a4';
@@ -16885,7 +17112,7 @@ const ISO = (() => {
     gableX(x, y, w, d, h, 0.38, 0.07, '#c95c3e', wall, { rows: 5 });
     chimney(0.5, 0.16, 0.12, 1.22, 0.8);
     const sp = fp(wv.fr, d * 0.12, 0.55); seg(sp, [sp[0] + 7 * S, sp[1] + 1 * S], '#3a2a24', 1.2 * S); circ(sp[0] + 7 * S, sp[1] + 6 * S, 4.8 * S, '#f6dfa4', INK, 1 * S);
-    if (typeof iconDraw === 'function') iconDraw(ctx, def.icon || 'bread', sp[0] + 7 * S, sp[1] + 6 * S, 6.4 * S, '#8a4a22');
+    if (typeof iconDraw === 'function') icoSafe(ctx, def.icon || 'bread', sp[0] + 7 * S, sp[1] + 6 * S, 6.4 * S, '#8a4a22');
   }
 
   // ---------- A6: the big works on their full lots (DESIGN.md §25; sim/works.js) ----------
@@ -16918,7 +17145,7 @@ const ISO = (() => {
     poly([P(x + ins, y + ins, hgt + 0.12), P(x + w - ins, y + ins, hgt + 0.12), P(x + w - ins, y + w - ins, hgt + 0.12), P(x + ins, y + w - ins, hgt + 0.12)], '#241c18');
     seg(P(x + w, y + w, 0.35), P(x + w - ins, y + w - ins, hgt), ln('#b65a3e'), 1 * S);
   }
-  function plaque(f, s, t, txt, size) { const sw = 0.14 + txt.length * 0.075; poly(fq(f, s - sw / 2, s + sw / 2, t - 0.08, t + 0.08), '#4e3324', ln('#4e3324'), 0.9 * S); faceText(f, s, t, txt, size || 11, '#f6dfa4'); }
+  function plaque(f, s, t, txt, size) { if (BK) return; const sw = 0.14 + txt.length * 0.075; poly(fq(f, s - sw / 2, s + sw / 2, t - 0.08, t + 0.08), '#4e3324', ln('#4e3324'), 0.9 * S); faceText(f, s, t, txt, size || 11, '#f6dfa4'); }
   // The sugar central, 4 x 4: the brick mill house (rollers and the steam engine), the tall chimney, the long boiling
   // house with its ventilator ridge, the sugar store, the cane yard with a derrick, the rail siding with a cane wagon.
   function paintCentral(def) {
@@ -17340,7 +17567,7 @@ const ISO = (() => {
     rrPath(g, 4, 3, tw, h, h / 2); g.fillStyle = ok ? '#f8eed6' : '#c4553f'; g.fill(); g.restore();
     rrPath(g, 4, 3, tw, h, h / 2); g.strokeStyle = INK; g.lineWidth = 2; g.stroke();
     g.font = font; g.fillStyle = ok ? INK : '#fff7ea'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, W / 2, 3 + h / 2 + 0.5);
-    sp = { c, ax: W / 2, ay: H / 2, w: W, h: H };
+    sp = { c, ax: W / 2, ay: H / 2, w: W, h: H, lbl: 1 };
     uiPut(R, key, sp);
     return sp;
   }
@@ -17361,7 +17588,7 @@ const ISO = (() => {
     rrPath(g, 3, 2, tw, h, h / 2); g.strokeStyle = C[1]; g.lineWidth = 1.8; g.stroke();
     if (home) { g.beginPath(); g.moveTo(11, 9); g.lineTo(16, 5); g.lineTo(21, 9); g.lineTo(21, 17); g.lineTo(11, 17); g.closePath(); g.fillStyle = C[1]; g.fill(); }
     g.font = font; g.fillStyle = C[2]; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 3 + (tw + ic) / 2, 2 + h / 2 + 0.5);
-    sp = { c, ax: W / 2, ay: H / 2, w: W, h: H };
+    sp = { c, ax: W / 2, ay: H / 2, w: W, h: H, lbl: 1 };
     uiPut(R, key, sp);
     return sp;
   }
@@ -18126,6 +18353,12 @@ const ISO = (() => {
   }
   function sprite(R, base, foot, H, paint) {
     if (TOP && base.charCodeAt(0) !== 94) base = '^' + base;
+    // Fix3: a back view (bBK): its own key, painted with the front wall as the back and the yard behind it
+    if (SPR_BK) {
+      const bk = SPR_BK, p1 = paint;
+      base += '|k';
+      paint = () => { const was = [BK, BKF, BKSHUT]; BK = true; BKF = bk.f; BKSHUT = null; try { p1(); bkYard(bk); } finally { BK = was[0]; BKF = was[1]; BKSHUT = was[2]; } };
+    }
     // A13: a turned square building's look (bTX): its own key, painted transposed
     if (SPR_TX) { base += '|t'; const p0 = paint; paint = () => { TX = true; try { p0(); } finally { TX = false; } }; }
     let m = R.spr.get(base);
@@ -18186,6 +18419,7 @@ const ISO = (() => {
   }
   function uiDraw(R, sp, sx, sy, alpha) {
     if (sp === HOLD) return;
+    if (LBL && sp.lbl) { const q = lblFit(R, sp, sx, sy); if (!q) return; sx = q[0]; sy = q[1]; }
     const g = R.ctx, d = R.dpr;
     if (alpha !== undefined) g.globalAlpha = alpha;
     g.drawImage(sp.c, Math.round((sx - sp.ax) * d) / d, Math.round((sy - sp.ay) * d) / d, sp.w, sp.h);
@@ -18479,12 +18713,30 @@ const ISO = (() => {
   }
   // The door's face in view: toward a road at view +v ('y', the lower-left face) or +u ('x', lower right); a road behind
   // (view -u) puts it on the +v face, none on the +u face (the rule of turn 0, applied in view coordinates).
-  function homeFace(s, b, r) {
-    const dv = unrotDir(r || 0, 0, 1), du = unrotDir(r || 0, 1, 0);
-    const f = isRoad(s, b.x + dv[0], b.y + dv[1]) ? 'y' : isRoad(s, b.x + du[0], b.y + du[1]) ? 'x' : isRoad(s, b.x - du[0], b.y - du[1]) ? 'y' : 'x';
-    // A13: a home turned a quarter shows its door on the other face
-    return b.f & 1 ? (f === 'y' ? 'x' : 'y') : f;
+  // Fix3 (four facings): the door's world side is the one the rule of turn 0 gives in the island's own frame (as the
+  // view at turn 0 showed it: an old island looks as before there); the home's own turn and the view's turn then put
+  // it on a face (bFaceV): 'y' for a door on the lower-left face or behind it (upper right), 'x' on the lower-right
+  // face or behind it (upper left). Behind: the back view (BK).
+  function homeFace(s, b, r) { return bFaceV(s, b, r) & 1 ? 'x' : 'y'; }
+  // Fix3: the four facings. World sides: 0 +y, 1 +x, 2 -y, 3 -x; in view the same order is the lower-left face (+v),
+  // the lower-right face (+u), the upper right (-v, the back faces her) and the upper left (-u).
+  const FDIR = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+  function dirIdx(d) { return d[1] > 0.5 ? 0 : d[0] > 0.5 ? 1 : d[1] < -0.5 ? 2 : 3; }
+  // the world side of the front at the building's turn 0: a home's door by its street (A5's rule in the island's frame),
+  // a lot longer along y its lower-right face (as painted), every other building +y
+  function bFront0(s, b) {
+    const d = BUILDINGS[b.type];
+    if (!d) return 0;
+    if (bArt(d) === 'home') return !s ? 0 : isRoad(s, b.x, b.y + 1) ? 0 : isRoad(s, b.x + 1, b.y) ? 1 : isRoad(s, b.x - 1, b.y) ? 0 : 1;
+    return d.w < d.h ? 1 : 0;
   }
+  // the world side the front faces: a quarter turn moves it to the other face she sees (A13: 0 <-> 1), two quarters to
+  // the side opposite (0 -> 2: the back toward her), three to the side opposite the first quarter (3)
+  function bFrontW(s, b) { const f = b.f & 3, w0 = bFront0(s, b); return ((f & 1 ? w0 ^ 1 : w0) + (f & 2)) & 3; }
+  // the face in view (0..3, as FDIR) the front shows on in the view's turn r
+  function bFaceV(s, b, r) { const D = FDIR[bFrontW(s, b)]; return dirIdx(rotDir(r || 0, D[0], D[1])); }
+  // the view's turn the renderer paints now (set by drawFrame and the sprite lookups)
+  let RNOW = 0;
   // A home's look in a turn: a gable keeps its ridge along the same world axis (gx and gy swap on odd turns).
   function homeLookR(v, r) { const lk = homeLook(v); if (r & 1) lk.roofType = lk.roofType === 'gx' ? 'gy' : lk.roofType === 'gy' ? 'gx' : lk.roofType; return lk; }
   // The building as painted in a turn: on odd turns a w x h footprint is painted as h x w (cached copies of the def).
@@ -18509,7 +18761,22 @@ const ISO = (() => {
   }
   // A13: a square building (not a home: its door and roof turn instead) turned an odd number of quarters is painted
   // transposed (TX): its front moves from the lower-left face to the lower-right one; a half turn looks as none.
-  function bTX(b) { if (!b || !(b.f & 1)) return false; const d = bDef(b); return !!d && d.w === d.h && d.kind !== 'home' && bArt(d) !== 'pier'; }
+  // Fix3: by the facing in view (bFaceV: the building's turn with the view's), so a square building's front stays on
+  // its side of the island as the island turns; at the view's turn 0 as before (odd turns transposed).
+  function bTX(b, r) { if (!b) return false; const d = bDef(b); if (!d || d.w !== d.h || d.kind === 'home' || bArt(d) === 'pier') return false; return (bFaceV(null, b, r === undefined ? RNOW : r) & 1) === 1; }
+  // Fix3: the back view of building b in the view's turn r, or null: { f: the painter's front face ('fl' / 'fr'),
+  // yard: what stands behind ('line': a washing line, 'crates'), foot: the painter's lot }. Fields, the pier, the
+  // buildings laid out by the sea (huts, harbors, quays, the lighthouse, the airfield) and the open decorations (a
+  // garden, palms, a fountain) have no back to show: their turn is their lot and its transposed layout.
+  function bBK(s, b, r) {
+    const d = bDef(b), art = bArt(d);
+    if (!d) return null;
+    if (d.deco ? d.deco !== 'statue' && d.deco !== 'bandstand' : art === 'field' || art === 'pier' || art === 'hut' || art === 'harbor' || art === 'airfield' || d.gives === 'light') return null;
+    if (bFaceV(s, b, r) < 2) return null;
+    const vd = viewDef(d, r || 0);
+    const f = art === 'home' ? (homeFace(s, b, r) === 'x' ? 'fr' : 'fl') : vd.w < vd.h ? 'fr' : 'fl';
+    return { f, yard: art === 'home' ? 'line' : d.deco ? '' : 'crates', foot: [vd.w, vd.h] };
+  }
   // A view-local point of the painted layout for building b ([u, v] inside its view box): swapped for a TX sprite.
   function txPt(b, q) { return bTX(b) ? [q[1], q[0]] : q; }
   // The sea side of a building in view (a world [dx, dy] turned), or null.
@@ -18529,7 +18796,7 @@ const ISO = (() => {
   // building's roof; four people a tile, so a bigger crowd spills along the street. With no free ground within 3 tiles,
   // the lawn just under the door as before. At night every third one holds a lantern.
   function protestSpots(R, s, b) {
-    const r = R.rot || 0, tx = bTX(b), key = s.ver + '|' + b.id + '|' + b.x + ',' + b.y + '|' + r + (TOP ? 't' : '') + (tx ? 'x' : '');
+    const r = R.rot || 0, tx = bTX(b, r), key = s.ver + '|' + b.id + '|' + b.x + ',' + b.y + '|' + r + (TOP ? 't' : '') + (tx ? 'x' : '');
     if (R.protestKey === key) return R.protestSpots;
     const occ = occMap(s), vb = bVBox(R, b), du = (vb[0] + vb[2]) / 2, cand = [];
     const tileAt = (u, v) => { const w = unrotPt(r, u + 0.5, v + 0.5), x = Math.floor(w[0]), y = Math.floor(w[1]); return x < 0 || y < 0 || x >= MAP_W || y >= MAP_H ? -1 : tileIdx(x, y); };
@@ -18648,11 +18915,15 @@ const ISO = (() => {
     return sp;
   }
   // A13: true while the sprite of a turned square building is looked up (sprite() keys it and paints it transposed)
-  let SPR_TX = false;
+  let SPR_TX = false, SPR_BK = null;
   function bSpriteOf(R, s, b) {
-    if (!bTX(b)) return bSpriteOf0(R, s, b);
-    SPR_TX = true;
-    try { return bSpriteOf0(R, s, b); } finally { SPR_TX = false; }
+    const r = R.rot || 0;
+    RNOW = r;
+    const tx = bTX(b, r), bk = bBK(s, b, r);
+    if (!tx && !bk) return bSpriteOf0(R, s, b);
+    const was = [SPR_TX, SPR_BK];
+    SPR_TX = tx; SPR_BK = bk;
+    try { return bSpriteOf0(R, s, b); } finally { SPR_TX = was[0]; SPR_BK = was[1]; }
   }
   function bSpriteOf0(R, s, b) {
     const def = bDef(b), art = bArt(def), H = bHeight(b) + 0.35, r = R.rot || 0, vd = viewDef(def, r), foot = [vd.w, vd.h];
@@ -18716,7 +18987,7 @@ const ISO = (() => {
   }
   // A13: a turned square building keeps its piles where its transposed layout has them
   { const _ps0 = pileSpots; pileSpots = function (s, b, r) { return b.type === 'station' ? stationPile(s, b, r) : _ps0(s, b, r); }; }
-  { const _ps = pileSpots; pileSpots = function (s, b, r) { const o = _ps(s, b, r); return bTX(b) ? o.map((p) => [p[0], p[1], p[3], p[2]].concat(p.slice(4))) : o; }; }
+  { const _ps = pileSpots; pileSpots = function (s, b, r) { const o = _ps(s, b, r); return bTX(b, r) ? o.map((p) => [p[0], p[1], p[3], p[2]].concat(p.slice(4))) : o; }; }
   function pileSprite(R, good, n) {
     return sprite(R, 'pile|' + good + '|' + n, [0.3, 0.3, 0.3, 0.3], 0.9, () => paintPile(good, n));
   }
@@ -19780,6 +20051,9 @@ const ISO = (() => {
     if (H > 1.8) for (let k = 0; k < nU; k++) out.push(fw(B, true, (k + 0.5) / nU, t0 + 0.6, 0.14, 0.2));
     return out;
   }
+  // Fix3: a home seen from the back has its back windows where the door side's were painted: the evening lights of
+  // the door side are not drawn on it (the back rooms stay dark; the side's lights as before)
+  { const _dw = dayWins; dayWins = function (R, s, b) { const o = _dw.apply(this, arguments); if (bArt(bDef(b)) !== 'home' || bFaceV(s, b, R.rot || 0) < 2) return o; const fy = homeFace(s, b, R.rot || 0) === 'y'; return o.filter((q) => q[3] !== fy); }; }
   // How many of a building's windows are lit now (0: dark): homes while their people are home (homeLit), workplaces
   // with workers until 21:00-22:30, markets until 20:30, the residence until after midnight, clinics and harbors all night.
   function dayLitN(s, b, tod, nWin) {
@@ -20014,14 +20288,16 @@ const ISO = (() => {
       // (the central's gate posts move from the lower-right side to the lower-left one, the others' yards the other way)
       // (a street there that joins the street the shift comes along: the same road network)
       let pick = ent;
-      if (bTX(b)) {
+      // (Fix3: the painted look follows the building's turn in every view of the island, so the gate is worked out in
+      // the island's own frame, as the view at turn 0 shows it: there exactly as before)
+      if (bTX(b, 0)) {
         let g0 = ent[0];
         for (const e of ent) if ((m[e] || 0) > (m[g0] || 0)) g0 = e;
-        const vb = bVBox(R, b), lowerLeft = d.makes === 'sugar', net = roadNets(s);
-        const side = ent.filter((e) => { const q = rotPt(R.rot || 0, e % MAP_W + 0.5, ((e / MAP_W) | 0) + 0.5); return net[e] === net[g0] && (lowerLeft ? q[1] > vb[3] : q[0] > vb[2]); });
+        const vb = vbox(0, b.x, b.y, b.x + b.w, b.y + b.h), lowerLeft = d.makes === 'sugar', net = roadNets(s);
+        const side = ent.filter((e) => { const q = [e % MAP_W + 0.5, ((e / MAP_W) | 0) + 0.5]; return net[e] === net[g0] && (lowerLeft ? q[1] > vb[3] : q[0] > vb[2]); });
         // nearest the painted gate first (the central's posts by the siding's end, the others' yard in the middle)
         const gp = lowerLeft ? [vb[0] + (vb[2] - vb[0]) * 0.86, vb[3]] : [vb[2], (vb[1] + vb[3]) / 2];
-        const far = (e) => { const q = rotPt(R.rot || 0, e % MAP_W + 0.5, ((e / MAP_W) | 0) + 0.5); return Math.hypot(q[0] - gp[0], q[1] - gp[1]); };
+        const far = (e) => { const q = [e % MAP_W + 0.5, ((e / MAP_W) | 0) + 0.5]; return Math.hypot(q[0] - gp[0], q[1] - gp[1]); };
         if (side.length) pick = side.sort((a, c) => far(a) - far(c));
       }
       let g = pick[0];
@@ -20537,7 +20813,7 @@ const ISO = (() => {
     for (const q of dyn) if (q.k === 'loco') puffDraw(R, q, t);
   }
   function smokeDraw(R, ob, t) {
-    const b = ob.b, g = R.ctx, def = viewDef(bDef(b), R.rot || 0), c0 = chimneyTop(def), c = bTX(b) ? [c0[1], c0[0]].concat(c0.slice(2)) : c0, base = PV(ob.u0 + c[0], ob.v0 + c[1], c[2] + 0.02), sc = R.hw / 44, k = c[3] || 1;
+    const b = ob.b, g = R.ctx, def = viewDef(bDef(b), R.rot || 0), c0 = chimneyTop(def), c = bTX(b, R.rot || 0) ? [c0[1], c0[0]].concat(c0.slice(2)) : c0, base = PV(ob.u0 + c[0], ob.v0 + c[1], c[2] + 0.02), sc = R.hw / 44, k = c[3] || 1;
     for (let i = 0; i < 7; i++) {
       const life = 5, age = ((t + i * life / 7 + b.id * 0.37) % life) / life;
       const x = base[0] + age * 34 * sc + Math.sin(age * 5 + i) * 2.5 * sc, y = base[1] - age * 56 * sc, r = (3 + age * 10) * sc * k, a = (1 - age) * 0.7 * Math.min(1, age * 6);
@@ -20728,6 +21004,7 @@ const ISO = (() => {
   }
   function drawFrame(R, s, view, ui) {
     const t0 = performance.now();
+    RNOW = R.rot || 0;
     resize(R);
     R.frame++; R.frameStart = t0; R.frameChunks = 0; R.pending = false; R.holdN = 0;
     const now = ui.now || t0, t = now / 1000;
@@ -20769,6 +21046,8 @@ const ISO = (() => {
     // marks above buildings: what a home lacks, workers short, a full yard
     const sc = clamp(Math.round(R.hw / 34 * 8) / 8, 0.75, 1.25), sel = ui.sel;
     R.bubbles = [];
+    // Fix3: the frame's labels are placed from here (lblFit)
+    lblBegin(R, ui);
     // A12: the roof tags (stopped, closed, on strike, being built) are drawn after the loop, merged or stacked
     const tags = [];
     for (const ob of R.order) {
@@ -20804,11 +21083,14 @@ const ISO = (() => {
     // A10: a new quarter's street sign (two years), the far town's name (always)
     isleMarks(R, s, ui);
     // M4: the Money layer: every building's monthly number, homes one tag a street block
+    const lblKeep = LBL;
+    LBL = null;
     if (ui.money) for (const q of moneyTags(R, s)) {
       const p = P(q.x, q.y, q.z);
       if (p[0] < -60 || p[0] > R.w + 60 || p[1] < -30 || p[1] > R.h + 30) continue;
       uiDraw(R, moneyTagSprite(R, moneyShort(q.n) + (q.tone ? MT_ARROW[q.tone] : ''), q.tone || q.n >= 0, q.home), p[0], p[1]);
     }
+    LBL = lblKeep;
     // selection
     if (sel) { const b = bById(s, sel); if (b) { diamond(R, b.x - 0.06, b.y - 0.06, b.x + b.w + 0.06, b.y + b.h + 0.06, 'rgba(255,246,223,.18)', '#fbf3df', 5); diamond(R, b.x - 0.06, b.y - 0.06, b.x + b.w + 0.06, b.y + b.h + 0.06, null, '#df684c', 2.4, [8, 5]); } }
     // payday floaters; one that would sit on top of another already drawn this frame is skipped (no label clouds)
@@ -20827,7 +21109,9 @@ const ISO = (() => {
     mark('overlay');
     if (!(typeof APP !== 'undefined' && APP.titleOn)) lockLabels(R, s, ui);
     mark('locks');
+    if (LBL) LBL.keep = true;
     ghostDraw(R, s, ui, t);
+    lblEnd(R);
     const ms = performance.now() - t0;
     R.stats.frames++; R.stats.ms = R.stats.ms ? R.stats.ms * 0.9 + ms * 0.1 : ms; R.stats.last = ms;
     R.stats.hist.push(ms); if (R.stats.hist.length > 240) R.stats.hist.shift();
@@ -20894,6 +21178,47 @@ const ISO = (() => {
       if (adj) g.lineTo(pts[k][0], pts[k][1]);
       else { g.moveTo(pts[k][0], pts[k][1]); const n = line[k + 1]; if (!(k + 1 < pts.length && (Math.abs(n - a) === MAP_W || (Math.abs(n - a) === 1 && ((n / MAP_W) | 0) === ((a / MAP_W) | 0))))) g.lineTo(pts[k][0] + 0.1, pts[k][1]); }
     }
+  }
+  // Fix3 (22 Oct 2026, Tomáš on his MacBook: "smaller problems with the graphics, overlapping etc."; his screenshot:
+  // "…and Menéndez families wait" and "Lorenzo family" cut at the screen's left edge): every map label of a frame (the
+  // roof tags, the families' nameplates, who waits in the tents, a plan's price, the lots' labels, the street signs,
+  // the "Opens at" labels, the road and rail notes, the ghost's lines) is placed here as it is drawn: kept inside the
+  // visible map; off the controls (ui.hudRects: the top bar, the goal, the round map buttons, Rosa's panel, the stack,
+  // the build bar, Done, the toast, the card); and off the labels already placed this frame: it moves up above the one
+  // it would cover (A12's rule for the roof tags), else down, else beside it. One that finds no free place within
+  // reach is not drawn (a label whose building is off the screen neither). The ghost's lines (LBL.keep) are always
+  // drawn, kept on the screen and off the controls. The Money layer's tags keep their own places.
+  let LBL = null;
+  function lblBegin(R, ui) {
+    const sh = Math.max(0, (R.w - R.canvas.clientWidth) / 2), sv = Math.max(0, (R.h - R.canvas.clientHeight) / 2);
+    LBL = { boxes: [], H: (ui && ui.hudRects ? ui.hudRects : []).map((q) => [q[0] + sh, q[1] + sv, q[2] + sh, q[3] + sv]), x0: sh, y0: sv, x1: R.w - sh, y1: R.h - sv, keep: false, n: 0, moved: 0, hidden: 0 };
+  }
+  function lblEnd(R) { if (LBL) R.stats.labels = { n: LBL.n, moved: LBL.moved, hidden: LBL.hidden, boxes: LBL.boxes.map((b) => b.map(Math.round)) }; LBL = null; }
+  function lblHit(a, b) { return a[0] < b[2] - 0.5 && b[0] < a[2] - 0.5 && a[1] < b[3] - 0.5 && b[1] < a[3] - 0.5; }
+  function lblFit(R, sp, x, y) {
+    const L = LBL, m = 4, w = sp.w, h = sp.h;
+    L.n++;
+    // the anchor off the screen: not drawn (a label on the edge would point at nothing)
+    if (!L.keep && (x < L.x0 - w / 2 || x > L.x1 + w / 2 || y < L.y0 - h || y > L.y1 + h)) { L.hidden++; return null; }
+    const at = (bx, by) => [bx, by, bx + w, by + h], cl = (bx, by) => at(Math.max(L.x0 + m, Math.min(L.x1 - m - w, bx)), Math.max(L.y0 + m, Math.min(L.y1 - m - h, by)));
+    const bx = x - sp.ax, by = y - sp.ay, avoid = L.keep ? L.H : L.H.concat(L.boxes);
+    const ok = (b) => !avoid.some((q) => lblHit(b, q));
+    let b = cl(bx, by);
+    if (!ok(b)) {
+      // the nearest free place: up above what it hits (as the roof tags stack), down below it, or beside it (and once
+      // more from each of those)
+      const cands = [], step = (c0) => { for (const q of avoid) if (lblHit(c0, q)) cands.push(cl(c0[0], q[1] - 1 - h), cl(c0[0], q[3] + 1), cl(q[0] - 1 - w, c0[1]), cl(q[2] + 1, c0[1])); };
+      step(b);
+      for (const c of cands.slice()) step(c);
+      let best = null;
+      for (const c of cands) {
+        const d = Math.hypot(c[0] - bx, c[1] - by) + (c[1] > by ? 6 : 0);
+        if (d <= (L.keep ? 400 : 140) && ok(c) && (!best || d < best[0])) best = [d, c];
+      }
+      if (best) { b = best[1]; L.moved++; } else if (!L.keep) { L.hidden++; return null; }
+    } else if (b[0] !== bx || b[1] !== by) L.moved++;
+    L.boxes.push(b);
+    return [b[0] + sp.ax, b[1] + sp.ay];
   }
   function labelClear(R, ui, cands, sp) {
     const H = ui.hudRects || [], sh = Math.max(0, (R.w - R.canvas.clientWidth) / 2), sv = Math.max(0, (R.h - R.canvas.clientHeight) / 2);
@@ -20986,7 +21311,7 @@ const ISO = (() => {
     rrPath(g, 3, 2, tw, h, h / 2); g.strokeStyle = '#7a3a22'; g.lineWidth = 1.6; g.stroke();
     g.beginPath(); g.moveTo(11, 15); g.lineTo(16.5, 9.5); g.lineTo(22, 15); g.lineTo(22, 20); g.lineTo(11, 20); g.closePath(); g.fillStyle = '#df684c'; g.fill(); g.strokeStyle = INK; g.lineWidth = 1; g.stroke();
     g.font = font; g.fillStyle = '#5a2a18'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(text, 27, 2 + h / 2 + 0.5);
-    sp = { c, ax: W / 2, ay: H, w: W, h: H };
+    sp = { c, ax: W / 2, ay: H, w: W, h: H, lbl: 1 };
     uiPut(R, key, sp);
     return sp;
   }
@@ -21177,7 +21502,8 @@ const ISO = (() => {
     const p = P(gh.x + def.w / 2, gh.y + def.h / 2, bHeight({ type: gh.type, level: mvb ? mvb.level || 1 : 1 }) * 0.8 + 0.3);
     uiDraw(R, labelSprite(R, text, !gh.why), p[0], p[1] - 14);
     // A13: which side faces the street (the Turn button turns it), under the lot's front corner
-    const fw = def.kind === 'deco' ? '' : turnWords(R, s, { id: 0, type: gh.type, x: gh.x, y: gh.y, w: def.w, h: def.h, f: gf, level: 1 });
+    // (Fix3: with a mouse the line also says how to turn it: the key and the right button)
+    const fw0 = def.kind === 'deco' ? '' : turnWords(R, s, { id: 0, type: gh.type, x: gh.x, y: gh.y, w: def.w, h: def.h, f: gf, level: 1 }), fw = fw0 && typeof turnMouse === 'function' && turnMouse() ? fw0 + ' · R or right-click turns it' : fw0;
     if (fw) { const vq = vbox(R.rot || 0, gh.x, gh.y, gh.x + def.w, gh.y + def.h), lo = TOP ? PV((vq[0] + vq[2]) / 2, vq[3], 0) : PV(vq[2], vq[3], 0); uiDraw(R, labelSprite(R, fw, !gh.why), lo[0], lo[1] + 26); R.stats.turnWords = fw; }
   }
   // Q2: the ghost's edges that meet a road (green), the track (a station or a works by the railway: dark), and the
@@ -21193,9 +21519,10 @@ const ISO = (() => {
       if (inMap(X0 - 1, y)) mark(X0 - 0.08, y + 0.14, X0 + 0.08, y + 0.86, tileIdx(X0 - 1, y));
       if (inMap(X1, y)) mark(X1 - 0.08, y + 0.14, X1 + 0.08, y + 0.86, tileIdx(X1, y));
     }
-    const f = frontSideOf(R, s, fake), vb = f.vb, out = f.side === 'v' ? [0, 1] : [1, 0];
-    // (a front on the right: the arrow low on that side, clear of the Turn button beside the lot at half its height)
-    const a = f.side === 'v' ? [(vb[0] + vb[2]) / 2, vb[3]] : [vb[2], vb[1] + 0.8 * (vb[3] - vb[1])];
+    const f = frontSideOf(R, s, fake), vb = f.vb, out = { v: [0, 1], u: [1, 0], '-v': [0, -1], '-u': [-1, 0] }[f.side];
+    // (a front on the right: the arrow low on that side, clear of the Turn button beside the lot at half its height;
+    // Fix3: a front behind, the arrow out of the far side)
+    const a = { v: [(vb[0] + vb[2]) / 2, vb[3]], u: [vb[2], vb[1] + 0.8 * (vb[3] - vb[1])], '-v': [(vb[0] + vb[2]) / 2, vb[1]], '-u': [vb[0], (vb[1] + vb[3]) / 2] }[f.side];
     const p0 = PV(a[0] - out[0] * 0.08, a[1] - out[1] * 0.08, 0.02), p1 = PV(a[0] + out[0] * 0.8, a[1] + out[1] * 0.8, 0.02);
     const dx = p1[0] - p0[0], dy = p1[1] - p0[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, col = ok ? '#2e9a5a' : '#c4553f';
     ctx.lineCap = 'round';
@@ -21215,10 +21542,8 @@ const ISO = (() => {
   // (Q2: the side, also for the ghost's arrow)
   function frontSideOf(R, s, b) {
     const d = bDef(b), art = bArt(d), r = R.rot || 0, vb = bVBox(R, b);
-    let side;
-    if (art === 'home') side = homeFace(s, b, r) === 'y' ? 'v' : 'u';
-    else if (d.w !== d.h) side = vb[2] - vb[0] >= vb[3] - vb[1] ? 'v' : 'u';
-    else side = bTX(b) ? 'u' : 'v';
+    // Fix3: the front in view by the building's turn and the view's (a front behind: '-v' upper right, '-u' upper left)
+    const side = ['v', 'u', '-v', '-u'][bFaceV(s, b, r)];
     return { side, vb };
   }
   function turnWords(R, s, b) {
@@ -21232,7 +21557,7 @@ const ISO = (() => {
       }
       return false;
     };
-    const name = (k) => (TOP ? { v: 'below', u: 'on the right', '-v': 'above', '-u': 'on the left' } : { v: 'on the left', u: 'on the right', '-v': 'behind', '-u': 'behind' })[k];
+    const name = (k) => (TOP ? { v: 'below', u: 'on the right', '-v': 'above', '-u': 'on the left' } : { v: 'on the left', u: 'on the right', '-v': 'behind, upper right', '-u': 'behind, upper left' })[k];
     if (roadAt(side)) return 'faces the street ' + name(side);
     const other = ['v', 'u', '-v', '-u'].find((k) => k !== side && roadAt(k));
     return 'front ' + name(side) + (other ? ' · the street is ' + name(other) : '');
@@ -27931,17 +28256,55 @@ function turnTap() {
 
 const TURN_ICON = '<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M6.5 12.2l5.5-3 5.5 3v5.6l-5.5 3-5.5-3z" fill="#f2c75a"/><path d="M12 15.2v5.6l5.5-3v-5.6z" fill="#d9a13c"/><path d="M6.5 12.2l5.5 3 5.5-3-5.5-3z" fill="#c75a3c"/><path d="M19.6 8.4A8.6 8.6 0 0 0 4.9 6.3" fill="none" stroke-width="1.9"/><path d="M3.4 3.2l1.1 5.1 4.9-1.6z"/></svg>';
 
+// Fix3 (22 Oct 2026, Tomáš on his MacBook: "buildings can't be turned on the MacBook because you have no way to click
+// on the turning"): with a mouse or a trackpad the ghost follows the pointer, so the button beside the ghost ran away
+// from it. With a mouse (the last pointer on the map was a mouse; before any, a screen without touch) the button beside
+// the ghost is not shown and the one beside Done is a wider "Turn · R" that stays put while a building tool is armed;
+// right-click (a two-finger click on a trackpad) and Shift + scroll turn too (the scroll alone still zooms; Escape and
+// Done still put the tool away). On a touch screen nothing changes.
+function turnMouse() { return APP.turnMouse === undefined ? !(navigator.maxTouchPoints > 0) : APP.turnMouse; }
+function turnMouseSet(on) {
+  if (APP.turnMouse === on) return;
+  APP.turnMouse = on; APP.turnKey = ''; APP.turnK0 = '';
+  document.body.classList.toggle('mouseui', on);
+  const b = $('turnB'), sp = b && b.querySelector('span');
+  if (sp) sp.textContent = on ? 'Turn · R' : 'Turn';
+}
 function turnInit() {
   if ($('turnB')) return;
   for (const [id, cls] of [['turnB', 'turnbtn'], ['turnG', 'turnbtn turng']]) {
     const b = document.createElement('button');
     b.id = id; b.className = cls; b.type = 'button';
     b.setAttribute('aria-label', 'Turn the building a quarter turn');
-    b.title = 'Turn (R)';
+    b.title = 'Turn a quarter (R, right-click, or Shift + scroll)';
     b.innerHTML = TURN_ICON + '<span>Turn</span>';
     b.addEventListener('click', (e) => { e.stopPropagation(); turnTap(); });
     document.body.appendChild(b);
   }
+  turnMouseSet(turnMouse());
+  // which pointer is on the map: a mouse hovering or pressing it, or a finger
+  const cv = $('map');
+  if (cv) {
+    cv.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') turnMouseSet(true); });
+    cv.addEventListener('pointerdown', (e) => turnMouseSet(e.pointerType === 'mouse'));
+    cv.addEventListener('touchstart', () => turnMouseSet(false), { passive: true });
+  }
+  // right-click on the map with a building tool armed: a quarter turn (before the map's own right-click, which puts
+  // the tool away)
+  window.addEventListener('contextmenu', (e) => {
+    if (!cv || e.target !== cv || !turnArmType() || APP.titleOn) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    turnMouseSet(true); turnTap();
+  }, true);
+  // Shift + scroll: one quarter turn a flick (a trackpad sends many small steps: they add up to one turn, then a pause)
+  window.addEventListener('wheel', (e) => {
+    if (!cv || e.target !== cv || !e.shiftKey || e.ctrlKey || !turnArmType() || APP.titleOn) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const now = performance.now(), W = APP.turnWheel || (APP.turnWheel = { acc: 0, t: 0, last: -1e9 });
+    if (now - W.t > 300) W.acc = 0;
+    W.t = now; W.acc += Math.abs(e.deltaX) + Math.abs(e.deltaY) * (e.deltaMode ? 40 : 1);
+    if (W.acc >= 40 && now - W.last > 350) { W.acc = 0; W.last = now; turnTap(); }
+  }, { capture: true, passive: false });
   window.addEventListener('keydown', (e) => {
     if (APP.titleOn || e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target && e.target.tagName;
@@ -27966,23 +28329,24 @@ function turnPlace() {
   const k0 = APP.ui.tool + '|' + turnArmF(APP.ui.tool) + '|' + (gh0 ? gh0.x + ',' + gh0.y : '') + '|' + v.cx.toFixed(2) + ',' + v.cy.toFixed(2) + ',' + v.z.toFixed(1) + ',' + v.rot + ',' + !!v.top + '|' + !!APP.gesturing + '|' + window.innerWidth + 'x' + window.innerHeight;
   if (k0 === APP.turnK0 && now - (APP.turnT || 0) < 250) return;
   APP.turnK0 = k0; APP.turnT = now;
-  const ins = safeInsets(), gap = 10, W = window.innerWidth, H = window.innerHeight, S = a.offsetWidth || 56, done = turnRect('done');
+  const ins = safeInsets(), gap = 10, W = window.innerWidth, H = window.innerHeight, S = a.offsetWidth || 56, SH = a.offsetHeight || S, done = turnRect('done');
   const panels = ['top', 'pill', 'bar', 'guide', 'card', 'done', 'rotbtns', 'toast', 'receipt', 'todo', 'glance', 'trlegend'].map(turnRect).filter(Boolean);
-  const free = (x, y, n, pad) => x >= ins.l + 4 && y >= ins.t + 4 && x + n <= W - ins.r - 4 && y + n <= H - 4 && !panels.some((r) => x < r.right + pad && x + n > r.left - pad && y < r.bottom + pad && y + n > r.top - pad);
+  const free = (x, y, n, pad, nh) => { const m = nh || n; return x >= ins.l + 4 && y >= ins.t + 4 && x + n <= W - ins.r - 4 && y + m <= H - 4 && !panels.some((r) => x < r.right + pad && x + n > r.left - pad && y < r.bottom + pad && y + m > r.top - pad); };
   // beside Done: right of it, else left of it, else above it (the first spot clear of the panels)
-  let ax = W - ins.r - gap - S, ay = H - S - gap - (ins.b || 0);
+  let ax = W - ins.r - gap - S, ay = H - SH - gap - (ins.b || 0);
   if (done) {
-    const yc = done.top + (done.height - S) / 2, cand = [[done.right + gap, yc], [done.left - gap - S, yc], [done.right - S, done.top - gap - S]];
-    const c = cand.find(([x, y]) => free(x, y, S, 4)) || cand[2];
+    const yc = done.top + (done.height - SH) / 2, cand = [[done.right + gap, yc], [done.left - gap - S, yc], [done.right - S, done.top - gap - SH]];
+    const c = cand.find(([x, y]) => free(x, y, S, 4, SH)) || cand[2];
     ax = c[0]; ay = c[1];
   }
   // beside the ghost: right of its lot at half its height on the ground, else left of it
   let gx = -1, gy = -1;
   const gh = APP.ui.ghost, SG = g.offsetWidth || 48;
-  if (gh && gh.type && APP.R && !APP.gesturing) {
+  // (Fix3: with a mouse the ghost is under the pointer: no button beside it)
+  if (gh && gh.type && APP.R && !APP.gesturing && !turnMouse()) {
     const ft = turnFoot(gh.type, turnArmF(gh.type)), cs = [[0, 0], [ft.w, 0], [0, ft.h], [ft.w, ft.h]].map(([dx, dy]) => tileToScreen(APP.R, APP.view, gh.x + dx, gh.y + dy));
     const x0 = Math.min(...cs.map((p) => p.x)), x1 = Math.max(...cs.map((p) => p.x)), ym = (Math.min(...cs.map((p) => p.y)) + Math.max(...cs.map((p) => p.y))) / 2;
-    panels.push({ left: ax, right: ax + S, top: ay, bottom: ay + S });
+    panels.push({ left: ax, right: ax + S, top: ay, bottom: ay + SH });
     for (const x of [x1 + 12, x0 - 12 - SG]) if (free(x, ym - SG / 2, SG, 8)) { gx = x; gy = ym - SG / 2; break; }
   }
   const key = Math.round(ax) + ',' + Math.round(ay) + '|' + Math.round(gx) + ',' + Math.round(gy);
@@ -29240,6 +29604,92 @@ function brCardHtml(s, b) {
     const v = g.style.visibility;
     g.style.visibility = 'hidden';
     try { return _un.apply(this, arguments); } finally { g.style.visibility = v; }
+  };
+}
+
+// ---- src/ui/why_ui.js
+// Fix3 (22 Oct 2026, Tomáš: "one rum factory made no profit although the other one right next to it had a high one,
+// and it wasn't explained there at all"): on a works' card, when one of its kind within 10 tiles earned notably more
+// last month (sim/why.js whyNeighbour: $150 more and twice as much), a block "Why less than the … next door": the
+// measured month of both side by side (input in, made, paid for, to the ship, the markets, on the shelves, carters,
+// workers and wages, days stopped, last 6 months) and the main cause with its fix; [Show] flies to the other works,
+// the fix's button arms its tool (she places it: A12). The works that gets the input first says so on its own card.
+
+function whyCss() {
+  if (document.getElementById('whyCss')) return;
+  const st = document.createElement('style');
+  st.id = 'whyCss';
+  st.textContent = '#card .why2 { margin: 8px 0 6px; padding: 8px 10px; border-radius: 12px; background: var(--paper2); box-shadow: inset 0 0 0 1.5px rgba(58, 42, 31, 0.3); font-size: 13px; line-height: 1.35; }' +
+    '#card .why2 h5 { margin: 0 0 4px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }' +
+    '#card .why2 table { width: 100%; border-collapse: collapse; font-size: 12.5px; }' +
+    '#card .why2 th { text-align: left; font-weight: 500; color: var(--ink2); padding: 1px 4px 1px 0; }' +
+    '#card .why2 td { text-align: right; padding: 1px 0 1px 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }' +
+    '#card .why2 tr.hd td { font-size: 11.5px; color: var(--ink2); }' +
+    '#card .why2 tr.lo td:first-of-type { color: #b0412e; font-weight: 700; }' +
+    '#card .why2 .cause { margin: 2px 0 0; } #card .why2 .fix { margin: 3px 0 0; }' +
+    '#card .why2 button { min-height: 44px; min-width: 64px; padding: 4px 12px; border-radius: 12px; background: var(--paper); box-shadow: inset 0 0 0 1.5px rgba(58, 42, 31, 0.45); font-weight: 700; font-size: 13px; }' +
+    '#card .why2 .acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 6px; }';
+  document.head.appendChild(st);
+}
+
+// The block on b's card, or ''.
+function whyHtml(s, b) {
+  const w = whyNeighbour(s, b);
+  if (!w) {
+    const st = whyStarves(s, b);
+    if (!st) return '';
+    const def = BUILDINGS[b.type], u = Object.keys(def.uses)[0], un = GOODS[u].name.toLowerCase(), mk = whyMakerOf(u);
+    return '<p class="note">' + esc('The ' + (def.short || def.name).toLowerCase() + ' next door earns ' + money$(st.B.n - st.A.n) + ' less a month: it gets ' + st.A.inN + ' ' + un + ' against this one’s ' + st.B.inN + '. The fields send to the nearest works with room first, and that is this one. ' + (mk ? 'One more ' + BUILDINGS[mk].name.toLowerCase() + ' would feed both.' : '')) + ' <button class="link" data-why-show="' + st.b.id + '">Show</button></p>';
+  }
+  const def = BUILDINGS[b.type], g = def.makes, gn = GOODS[g].name, A = w.A, B = w.B, u = Object.keys(def.uses || {})[0] || '';
+  const eA = typeof earnOf === 'function' ? earnTrend(earnOf(s, b)) : null, eB = typeof earnOf === 'function' ? earnTrend(earnOf(s, w.o)) : null;
+  const rows = [];
+  const row = (k, a, c, lo) => rows.push('<tr' + (lo ? ' class="lo"' : '') + '><th>' + esc(k) + '</th><td>' + esc(a) + '</td><td>' + esc(c) + '</td></tr>');
+  if (u) row(GOODS[u].name + ' in', String(A.inN), String(B.inN), A.inN < B.inN);
+  if (A.stopI || B.stopI) row('Days without ' + GOODS[u].name.toLowerCase(), String(A.stopI), String(B.stopI), A.stopI > B.stopI);
+  row(gn + ' made', String(A.made), String(B.made), A.made < B.made);
+  row('Paid for', String(A.sold), String(B.sold), A.sold < B.sold);
+  row('To the ship', A.ship + ' · ' + money$(A.exp), B.ship + ' · ' + money$(B.exp), A.exp < B.exp);
+  row('From the markets', money$(A.ws), money$(B.ws), A.ws < B.ws);
+  if (A.shelf || B.shelf) row('On the shelves', String(A.shelf), String(B.shelf), false);
+  if (A.wait || B.wait) row('Waiting at the harbor', String(A.wait), String(B.wait), A.wait > B.wait);
+  const trip = (P) => (P.trips ? Math.round(P.tiles / P.trips) + ' tiles a trip' : 'no trips');
+  row('Carters', money$(A.cart) + ' · ' + trip(A), money$(B.cart) + ' · ' + trip(B), A.cart > B.cart + 20);
+  row('Workers · wages', A.workers + ' · ' + money$(A.wages), B.workers + ' · ' + money$(B.wages), A.workers < B.workers || A.wages > B.wages + 20);
+  if (A.stopY || B.stopY) row('Days with the yard full', String(A.stopY), String(B.stopY), A.stopY > B.stopY);
+  row('Result', signed$(A.n), signed$(B.n), true);
+  if (eA && eB && eA.months && eB.months) row('Last ' + Math.min(6, eA.months, eB.months) + ' months', signed$(eA.recent), signed$(eB.recent), eA.recent < eB.recent);
+  const c = w.cause, nm = (def.short || def.name).toLowerCase();
+  let acts = '<button data-why-show="' + w.o.id + '">Show it</button>';
+  if (c.tool && c.tool !== 'traffic' && BUILDINGS[c.tool]) acts += '<button data-why-tool="' + c.tool + '">' + esc(BUILDINGS[c.tool].short || BUILDINGS[c.tool].name) + '</button>';
+  if (c.tool === 'traffic') acts += '<button data-why-traffic="1">Traffic</button>';
+  // the cause and its fix first (what she reads), then the numbers it comes from
+  return '<div class="why2"><h5>' + esc('Why less than the ' + nm + ' next door') + '</h5>' +
+    '<p class="cause"><b>Main cause:</b> ' + esc(c.text) + '</p>' + (c.fix ? '<p class="fix"><b>Fix:</b> ' + esc(c.fix) + '.</p>' : '') +
+    '<div class="acts">' + acts + '</div>' +
+    '<table><tr class="hd"><th>Last month</th><td>this one</td><td>next door</td></tr>' + rows.join('') + '</table></div>';
+}
+
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const html = _ch.apply(this, arguments);
+    let add = '';
+    try { add = b ? whyHtml(s, b) : ''; } catch (e) { add = ''; }
+    if (!add) return html;
+    whyCss();
+    // under the month's numbers (and since it was built), before what it earns at full work, the trip note, the workers
+    for (const k of ['<table class="ledger worth">', '<p class="note trip">', '<div class="line"><span>Workers</span>']) { const at = html.indexOf(k); if (at >= 0) return html.slice(0, at) + add + html.slice(at); }
+    return html + add;
+  };
+  const _cr = cardRender;
+  cardRender = function () {
+    const r = _cr.apply(this, arguments), el = $('card');
+    if (!el) return r;
+    el.querySelectorAll('[data-why-show]').forEach((bt) => { if (bt.dataset.w) return; bt.dataset.w = '1'; bt.addEventListener('click', () => showPlace({ id: +bt.dataset.whyShow })); });
+    el.querySelectorAll('[data-why-tool]').forEach((bt) => { if (bt.dataset.w) return; bt.dataset.w = '1'; bt.addEventListener('click', () => { const t = bt.dataset.whyTool; cardClose(); barShow(t); toolSet(t); }); });
+    el.querySelectorAll('[data-why-traffic]').forEach((bt) => { if (bt.dataset.w) return; bt.dataset.w = '1'; bt.addEventListener('click', () => { trafficToggle(true); cardClose(); }); });
+    return r;
   };
 }
 
