@@ -13490,7 +13490,10 @@ function tfStep(s, net, S, dt, first, live) {
   }
   // accelerations from the step's start (all at once), then the moves
   for (let i = 0; i < S.length; i++) {
-    const q = S[i], P = q.P, p = q.path, n = q.n, v0 = net.v0[p[Math.min(n - 1, Math.round(q.pos))]];
+    const q = S[i], P = q.P, p = q.path, n = q.n;
+    let v0 = net.v0[p[Math.min(n - 1, Math.round(q.pos))]];
+    // T3 (accidents.js): past an accident the carts squeeze by at a walking pace
+    if (s._t3blk && t3SlowAt(s, q)) v0 *= ACC.pass;
     let gap = q.gap, dv = q.dv, room = gap - 0.02;
     q.bind = 0;
     if (q.gh <= s.tick) {
@@ -14128,7 +14131,8 @@ function homeNoise(s, h) {
     const i = tileIdx(x, y), d = Math.max(h.x - x, x - (h.x + h.w - 1), h.y - y, y - (h.y + h.h - 1));
     if (d === 1 && s.terrain && s.terrain[i] === FOREST) damp = true;
     if (!s.road[i]) continue;
-    const q = (L[i] || 0) + (N.lorry - 1) * (LO[i] || 0), w = (d <= 1 ? N.near : N.far) * (s.road[i] === 3 ? 1.6 : 1), e = q * w;
+    // (T3, wear.js: a worn road is louder)
+    const q = (L[i] || 0) + (N.lorry - 1) * (LO[i] || 0), w = (d <= 1 ? N.near : N.far) * (s.road[i] === 3 ? 1.6 : 1) * (s.rc ? t3NoiseK(s, i) : 1), e = q * w;
     sum += e;
     if (e > bv) { bv = e; best = i; }
   }
@@ -16879,6 +16883,1205 @@ if (typeof A8_KINDS !== 'undefined' && typeof a8PlanOf === 'function') {
   };
 }
 
+// ---- src/sim/wear.js
+// T3 (23 Oct 2026, nova/t3): the last part of the traffic module. Tomáš agreed on 22 Oct to the rest of C:S2's list
+// (its developer diaries: route cost, accidents, road wear and maintenance); then the traffic module is done. No code,
+// art or text of Cities: Skylines II or Trafficity is used here, only mechanics. DESIGN.md §43; sources:
+// docs/research/accidents.md, docs/research/traffic.md (T3 part). This file: road wear and maintenance.
+// - Each road tile has a condition, 0-100 (100 new). It wears every month with its carts (a motor lorry as three ox
+//   carts) and a little with the weather; a dirt road wears fastest, an avenue slowest (their service lives below).
+//   Good from 60, worn from 30 to 60, poor under 30. A worn road slows carts (×0.9, poor ×0.75), is louder (T1's
+//   noise: +2 dB, poor +4) and has more accidents (accidents.js); the routes (routecost.js) count it as rough going.
+// - Repair is her choice (DESIGN §33, A12): one tap repaves a worn stretch at its price (the plan dotted on the map,
+//   A8), or a road depot (the Obras Públicas yard, from Town) keeps the roads within its reach in repair for its upkeep
+//   and its camineros' wages (C:S2's maintenance depot). Nothing is mended without one of the two.
+// Saved: state.rc (tile -> kind × 1000 + condition × 10, only tiles under 100: an old save's roads are all good),
+// state.t3 = { cv (the condition classes' version: the routes and the agents' speeds follow it), ... accidents.js }.
+// TUNE.t3Off (NOVA_NO_T3=1 in the tests): the rules before T3, to the minute (make_save.js plays without it unless
+// NOVA_T3=1, so the earlier smokes' islands are laid out as before).
+
+const T3 = {
+  good: 60, poor: 30,          // condition from which a road is good, under which it is poor (between: worn)
+  // service life (years) of a surface under typical traffic, from new to poor: Gronberg & Blosser, "Lives of Highway
+  // Surfaces: Half Century Trends" (Bureau of Public Roads, HRB Proceedings 35, 1956), Table 2: soil surfaced 5.2,
+  // gravel or stone 8.3, mixed bituminous 13.1, bituminous penetration (tar macadam) 18.0, Portland cement concrete 25.5
+  life: [0, 5, 14, 20],        // dirt, paved (tar macadam), avenue (asphalt or concrete on a deep base)
+  typical: [0, 100, 200, 400], // carts a month a tile at which a road lasts that life (half of what its lanes carry)
+  weather: 0.15,               // the share of the wear that comes with the years (rain, sun), whatever the traffic
+                               // (a quarter at first: every quiet dirt street of 1905 was poor by 1925, and her-play's
+                               // town, which never mends a road, had 96 of its 156 tiles poor by 1941 and its markets
+                               // short of food; with 0.15 a quiet street lasts about 25 years)
+  lorry: 3,                    // a motor lorry wears a road like this many ox carts (solid tyres broke water-bound
+                               // macadam: the "dust problem" of 1905-15 that made towns tar their streets)
+  speed: [1, 0.9, 0.75],       // a cart's free speed on good, worn, poor road (ruts and potholes; an ox cart at a
+                               // walking pace loses less to them than a lorry: the game's calibration, first ×0.85 / ×0.65)
+  noise: [1, 1.6, 2.5],        // T1's noise from a tile: worn +2 dB, poor +4 dB
+  stage: 2,                    // the depot opens at Town
+  depot: { reach: 10, rate: 240, mend: 85 },  // tiles (straight line from its lot); condition points a month at
+                                              // full staff (2 camineros and their roller), worst first; it mends
+                                              // what is under 85 (2.4 tiles back to new: $120 of dirt, $360 of
+                                              // paved by hand, for about $125 a month at Port city's wages; first
+                                              // 6 men and 160 points, then 4 men: her-play's three depots took
+                                              // half its payday and its City stood still for an hour)
+  stretch: 16,                 // a repave plan's tiles at most
+};
+function t3On() { return !TUNE.t3Off && !TUNE.t1Off; }
+function t3State(s) { if (!s.t3 || typeof s.t3 !== 'object') s.t3 = { cv: 0 }; return s.t3; }
+
+// ---------- condition ----------
+// A tile's condition 0-100 (100: new, or no entry; an entry laid down for another road kind than the tile has now is
+// stale: the road was rebuilt).
+function rcOf(s, i) {
+  const v = s.rc && s.rc[i];
+  if (v === undefined || !s.road[i] || Math.floor(v / 1000) !== s.road[i]) return 100;
+  return (v % 1000) / 10;
+}
+function rcClass(c) { return c >= T3.good ? 0 : c >= T3.poor ? 1 : 2; }
+// 0 good, 1 worn, 2 poor (T3 off: always good)
+function rcCls(s, i) { return t3On() && s.rc ? rcClass(rcOf(s, i)) : 0; }
+function rcSet(s, i, c) {
+  if (!s.road[i]) { if (s.rc) delete s.rc[i]; return; }
+  const was = rcClass(rcOf(s, i));
+  c = Math.max(0, Math.min(100, Math.round(c * 10) / 10));
+  if (c >= 100) { if (s.rc) delete s.rc[i]; } else (s.rc || (s.rc = {}))[i] = s.road[i] * 1000 + Math.round(c * 10);
+  const T = t3State(s);
+  T.rv = (T.rv || 0) + 1;
+  if (rcClass(c) !== was) T.cv = (T.cv || 0) + 1;
+}
+// The roads' wear changed (the month's wear, a repair): the plans that read it are worked out again (A8's plans and Q2's
+// checks are kept per island change, s.ver, which wear does not change)
+function rcTouch(s) {
+  const T = t3State(s), c = simCache(s);
+  T.rv = (T.rv || 0) + 1;
+  if (c.plans) for (const k in c.plans) if (k.indexOf('"repave"') >= 0 || k.indexOf('"jfix"') >= 0) delete c.plans[k];
+  if (typeof BR_MEMO !== 'undefined') BR_MEMO.delete(s);
+}
+const RC_WORD = ['good', 'worn', 'poor'];
+// The villagers mend their own streets (no wear) while the island is a Settlement or a Village.
+function rcVillage(s) { return s.stage < T3.stage; }
+
+// A tile's wear this month at its measured carts: { w (condition points), load, lorries }.
+function rcWearOf(s, i) {
+  const k = s.road[i] || 0;
+  if (!k) return { w: 0, load: 0, lorries: 0 };
+  const T = trState(s), load = (T.load || {})[i] || 0, lor = Math.min(load, (T.lor || {})[i] || 0);
+  const eq = load + (T3.lorry - 1) * lor, per = (100 - T3.poor) / (T3.life[k] * 12);
+  // (an overpass's tile carries both its streets: its carts are both levels')
+  return { w: per * (T3.weather + (1 - T3.weather) * eq / T3.typical[k]), load, lorries: lor };
+}
+
+// ---------- the road depot ----------
+// The Obras Públicas yard (Cuba's Secretaría de Obras Públicas built and kept the roads; the camineros, the road
+// labourers of the Spanish tradition, mended them with a roller and a tar boiler; its great work, the Carretera Central,
+// was begun on 1 March 1927: 1,139 km of concrete under bituminous concrete, docs/research/accidents.md). A service from
+// Town: it keeps the roads within its reach in repair for its upkeep and wages.
+BUILDINGS.roadyard = { name: 'Road depot', short: 'Road depot', kind: 'service', w: 2, h: 2, cost: 4000, jobs: 2, stage: T3.stage, gives: 'roads', reach: T3.depot.reach,
+  icon: 'roller', art: 'roadyard', color: '#b8a582', group: 'services' };
+BUILD_ORDER.push('roadyard');
+// The road tiles a depot keeps (straight line from its lot, as reach is everywhere): cached per road change.
+function depotTiles(s, b) {
+  const c = simCache(s);
+  if (!c.dep) c.dep = {};
+  if (c.dep[b.id]) return c.dep[b.id];
+  const out = [], R = T3.depot.reach;
+  for (let y = Math.max(0, b.y - R); y < Math.min(MAP_H, b.y + b.h + R); y++) for (let x = Math.max(0, b.x - R); x < Math.min(MAP_W, b.x + b.w + R); x++) {
+    const i = tileIdx(x, y);
+    if (s.road[i]) out.push(i);
+  }
+  return (c.dep[b.id] = out);
+}
+// The depot that keeps tile i (the first by the town's book), or null.
+function depotOf(s, i) {
+  if (!t3On()) return null;
+  const x = i % MAP_W, y = (i / MAP_W) | 0;
+  for (const b of s.b) if (b.type === 'roadyard' && b.open && footDist(b, { x, y, w: 1, h: 1 }) <= T3.depot.reach) return b;
+  return null;
+}
+// What a depot mends a month at its staff (points).
+function depotRate(b) { const d = defOf(b); return b.open && d.jobs ? Math.round(T3.depot.rate * Math.min(1, (b.workers || 0) / d.jobs)) : 0; }
+
+// ---------- the month: wear, then the depots' repairs ----------
+function rcMonth(s) {
+  if (!t3On()) return;
+  // Until Town the villagers keep their own streets: the days of road work each household owed its council (the
+  // Spanish tradition of the prestación personal for the caminos vecinales: Spain's roads regulation of 10 August
+  // 1877, art. 53, and the Real orden of 5 September 1903, art. 10; docs/research/accidents.md). From Town the roads
+  // wear and the island repaves them, or a depot keeps them.
+  if (rcVillage(s)) return;
+  const R = s.road, n = R.length;
+  // stale entries (a road removed or rebuilt as another kind) go
+  if (s.rc) for (const k in s.rc) { const i = +k; if (!R[i] || Math.floor(s.rc[k] / 1000) !== R[i]) delete s.rc[k]; }
+  let worn = 0;
+  const wv = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    if (!R[i]) continue;
+    const w = wv[i] = rcWearOf(s, i).w;
+    if (w > 0) rcSet(s, i, rcOf(s, i) - w);
+    if (rcOf(s, i) < T3.good) worn++;
+  }
+  // the depots: each mends the worst tiles in its reach first (a tile kept by two is the first one's), up to its rate
+  const kept = new Set();
+  for (const b of s.b) {
+    if (b.type !== 'roadyard') continue;
+    const rate = depotRate(b), tiles = depotTiles(s, b).filter((i) => !kept.has(i));
+    for (const i of tiles) kept.add(i);
+    const need = tiles.filter((i) => rcOf(s, i) < T3.depot.mend).sort((a, c) => rcOf(s, a) - rcOf(s, c) || a - c);
+    let left = rate, done = 0, fixed = 0;
+    for (const i of need) {
+      if (left <= 0) break;
+      const c = rcOf(s, i), add = Math.min(100 - c, left);
+      rcSet(s, i, c + add); left -= add; done += add; if (c + add >= 100) fixed++;
+    }
+    const want = need.reduce((a, i) => a + 100 - rcOf(s, i), 0) + done;
+    b.dk = { m: s.month, tiles: tiles.length, done: Math.round(done), want: Math.round(want), fixed, rate, worn: tiles.filter((i) => rcOf(s, i) < T3.good).length, flow: Math.round(tiles.reduce((a, i) => a + wv[i], 0)) };
+  }
+  t3State(s).worn = worn;
+  rcTouch(s);
+}
+
+// ---------- repaving: one tap on a worn stretch ----------
+// What it costs to bring tile i back to new: its kind's price (A11 prices it at use time) for the wear it has.
+function repaveCost(s, i) { const c = rcOf(s, i); return c >= 100 ? 0 : Math.max(5, Math.round(roadTileCost(s.road[i]) * (100 - c) / 100 / 5) * 5); }
+// The worn stretch through tile `at`: the worn and poor road tiles joined to it along the streets (breadth first, at
+// most T3.stretch), in walking order. { tiles, cost, worn, poor, load (carts a month on its busiest tile) } or null.
+function repaveStretch(s, at) {
+  if (!s.road[at] || rcOf(s, at) >= T3.good) return null;
+  const seen = new Set([at]), q = [at];
+  for (let h = 0; h < q.length && q.length < T3.stretch; h++) {
+    const i = q[h], x = i % MAP_W;
+    for (const j of [x + 1 < MAP_W ? i + 1 : -1, x > 0 ? i - 1 : -1, i + MAP_W, i - MAP_W]) {
+      if (j < 0 || j >= s.road.length || seen.has(j) || !s.road[j] || rcOf(s, j) >= T3.good) continue;
+      seen.add(j); q.push(j);
+      if (q.length >= T3.stretch) break;
+    }
+  }
+  const L = trState(s).route || trState(s).load || {};
+  return { tiles: q, cost: q.reduce((a, i) => a + repaveCost(s, i), 0), worn: q.filter((i) => rcClass(rcOf(s, i)) === 1).length, poor: q.filter((i) => rcClass(rcOf(s, i)) === 2).length, load: Math.round(Math.max(...q.map((i) => L[i] || 0))) };
+}
+// Her tap: the stretch's tiles back to new, its price off the treasury.
+function repave(s, tiles) {
+  const list = tiles.filter((i) => s.road[i] && rcOf(s, i) < 100), cost = list.reduce((a, i) => a + repaveCost(s, i), 0);
+  if (!list.length) return { ok: false, why: 'Nothing worn here' };
+  if (s.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money yet (' + money$(cost) + ')' };
+  for (const i of list) rcSet(s, i, 100);
+  rcTouch(s);
+  // (a road change: the plans, the routes and the agents' speeds are worked out again)
+  s.money -= cost; s.ver++;
+  simEvent(s, { kind: 'repave', n: list.length, cost, at: list[0] });
+  return { ok: true, cost, n: list.length };
+}
+// The worst stretch on the island to repave: the worn tile whose slowness costs the most cart time (its carts × the
+// time lost on it), its stretch. Cached per month and road change.
+function repaveWorst(s) {
+  if (!t3On() || !s.rc) return null;
+  const c = simCache(s), key = s.month + ':' + (trState(s).ttrV || 0) + ':' + (t3State(s).rv || 0);
+  if (c.rpW && c.rpW.key === key) return c.rpW.v;
+  const L = trState(s).route || trState(s).load || {};
+  let best = null, bv = 0;
+  for (const k in s.rc) {
+    const i = +k, cls = rcCls(s, i);
+    if (!cls || !s.road[i]) continue;
+    const v = (L[i] || 0) * (1 / T3.speed[cls] - 1) + 0.01 * (100 - rcOf(s, i));
+    if (v > bv || (v === bv && best !== null && i < best)) { bv = v; best = i; }
+  }
+  const out = best === null ? null : Object.assign({ at: best, v: bv }, repaveStretch(s, best));
+  c.rpW = { key, v: out };
+  return out;
+}
+// The condition counts for the legend: { good, worn, poor, all }.
+function rcCounts(s) {
+  const out = { good: 0, worn: 0, poor: 0, all: 0 };
+  for (let i = 0; i < s.road.length; i++) if (s.road[i]) { out.all++; out[RC_WORD[rcCls(s, i)]]++; }
+  return out;
+}
+
+// ---------- what wear changes ----------
+{
+  // a new road, or a road rebuilt as another kind (paved, an avenue), is new: its tiles start at 100
+  const _pr = placeRoad;
+  placeRoad = function (state, tiles, kind) {
+    const before = state.rc ? tiles.map((i) => state.road[i]) : null;
+    const r = _pr.apply(this, arguments);
+    if (before && r.built) tiles.forEach((i, k) => { if (state.road[i] !== before[k] && state.rc[i] !== undefined) { delete state.rc[i]; t3State(state).cv = (t3State(state).cv || 0) + 1; rcTouch(state); } });
+    return r;
+  };
+  // a cart's free speed on worn road (the agents' speed, the routes' times: traffic.js reads tfV0 everywhere)
+  const _v0 = tfV0;
+  tfV0 = function (s, i) { const v = _v0.apply(this, arguments); return t3On() && s.rc ? v * T3.speed[rcCls(s, i)] : v; };
+  // the agents' table of free speeds is worked out again when a tile's class changes
+  const _net = tfNet;
+  tfNet = function (s) {
+    const X = tfRun(s), cv = t3On() ? (t3State(s).cv || 0) : 0;
+    if (X.net && X.net.cv !== cv) X.net = null;
+    const r = _net.apply(this, arguments);
+    r.cv = cv;
+    return r;
+  };
+  // the month's wear and repairs at payday (after the month's carts are counted)
+  const _pd = paydayRun;
+  paydayRun = function (state) { const r = _pd.apply(this, arguments); rcMonth(state); return r; };
+}
+// T1's noise from a tile beside a home: a worn road is louder (traffic.js homeNoise reads this)
+function t3NoiseK(s, i) { return t3On() && s.rc ? T3.noise[rcCls(s, i)] : 1; }
+
+// ---------- the asks: the carters for a worn stretch, the council for a depot (A3); one tap (A8); Q2 (accidents.js) ----------
+const RP = {
+  v: 20,        // the worst stretch is asked for when its slowness costs this much: carts a month × the time lost
+                // a tile (a worn tile with 180 carts a month, a poor one with 60)
+  serious: 60,  // and Rosa says it herself, before the food line (a poor tile with 180 carts a month)
+  tiles: 4,     // and it has at least this many worn tiles
+  depot: 24,    // worn tiles out of every depot's reach before the council asks for one
+};
+// Road care takes one place in the commissions' stack at most (a repave, a crossing's fix or a depot), and an ask she
+// leaves for a year rests (A3's rule: half a year before it is asked again): the roads never crowd out the town's asks
+// (sim_test's slow novice never got the railway or the airfield asked while three road asks waited in the stack).
+const T3_ASKS = ['repave', 'acc', 'depot'];
+function t3AskBusy(s, key) { return comState(s).list.some((q) => q.key !== key && T3_ASKS.includes(q.key)); }
+function t3AskOld(s, q) { return s.month - (q.m0 || s.month) >= 12; }
+// The worst stretch when it is worth her money: the repaveWorst stretch, or null.
+function repaveAsk(s) {
+  if (!t3On() || s.stage < 1) return null;
+  // (where a depot is due, the council asks for it instead: it keeps them all, the carters' stretch by stretch)
+  if (depotDue(s)) return null;
+  const w = repaveWorst(s);
+  return w && w.v >= RP.v && w.tiles.length >= RP.tiles ? w : null;
+}
+function repaveText(s, w) {
+  const avg = Math.round(w.tiles.reduce((a, i) => a + rcOf(s, i), 0) / w.tiles.length), slow = Math.round((1 - T3.speed[w.poor ? 2 : 1]) * 100);
+  const acc = typeof accLastYear === 'function' ? accLastYear(s).filter((a) => w.tiles.includes(a.i)).length : 0;
+  return placeName(s, w.at).replace(/^./, (x) => x.toUpperCase()) + ' is ' + (w.poor ? 'broken up' : 'worn') + ': ' + plural(w.tiles.length, 'tile', 'tiles') + ' at ' + avg + ' % on average, ' + w.load + ' carts a month on the busiest; carts there go ' + slow + ' % slower' + (acc ? ' and ' + plural(acc, 'cart', 'carts') + ' broke down there last year' : '') + '.';
+}
+// The worn tiles no depot keeps, and the lot by a road from which a depot would keep most of them: { n (all of them),
+// k (those it would keep), at (the lot, or where most of them lie when no lot by a road is free), lot (true when a lot
+// is free or A7's plan opens one) } or null.
+// (the first version put the depot by the middle of all of them: with worn streets east and west of a town kept in its
+// middle, sim_test's novice built 4 depots side by side, one keeping no tile, while 228 worn tiles lay out of reach;
+// the second asked only where a lot lay within 5 tiles of their middle, and a dense town's 400 worn tiles had none)
+function depotNeed(s) {
+  if (!t3On() || s.stage < T3.stage || !s.rc) return null;
+  const c = simCache(s), key = s.month + ':' + (t3State(s).rv || 0);
+  if (c.dpN && c.dpN.key === key) return c.dpN.v;
+  const out = [];
+  for (const k in s.rc) { const i = +k; if (s.road[i] && rcCls(s, i) && !depotOf(s, i)) out.push(i); }
+  let v = null;
+  if (out.length >= RP.depot) {
+    const R = T3.depot.reach, xy = out.map((i) => [i % MAP_W, (i / MAP_W) | 0]);
+    const keeps = (x, y, w) => { let n = 0; for (const p of xy) if (Math.max(x - p[0], 0, p[0] - (x + w - 1), y - p[1], p[1] - (y + w - 1)) <= R) n++; return n; };
+    // the lots by a road (comSpots' rules: never walling a road's end in), the one that keeps most
+    let best = null, bn = 0;
+    for (const [x, y] of comSpots(s, 'roadyard', [xy[0][0], xy[0][1]], 400)) { const n = keeps(x, y, 2); if (n > bn) { bn = n; best = [x, y]; } }
+    if (best && bn >= RP.depot) v = { n: out.length, k: bn, at: best, lot: true, back: depotBack(s, best[0], best[1], 2), lost: depotLost(s, best[0], best[1], 2) };
+    else if (!best) {
+      // no lot by a road anywhere: where most of them lie, and A7's plan to open land there
+      let bi = 0, bk = 0;
+      for (let a = 0; a < xy.length; a++) { const n = keeps(xy[a][0], xy[a][1], 1); if (n > bk) { bk = n; bi = a; } }
+      if (bk >= RP.depot) v = { n: out.length, k: bk, at: xy[bi], lot: !!landPlan(s, 'roadyard', xy[bi]), back: depotBack(s, xy[bi][0], xy[bi][1], 1), lost: depotLost(s, xy[bi][0], xy[bi][1], 1) };
+    }
+  }
+  return (c.dpN = { key, v }).v;
+}
+// What repaving by hand the worn road tiles a depot at (x, y) would keep costs now (no other depot keeping them).
+function depotBack(s, x, y, w) {
+  const R = T3.depot.reach;
+  let v = 0;
+  for (let ty = Math.max(0, y - R); ty < Math.min(MAP_H, y + w + R); ty++) for (let tx = Math.max(0, x - R); tx < Math.min(MAP_W, x + w + R); tx++) {
+    const i = tileIdx(tx, ty);
+    if (s.road[i] && rcCls(s, i) && !depotOf(s, i)) v += repaveCost(s, i);
+  }
+  return v;
+}
+// The carts' time the worn roads a depot at (x, y) would keep cost a month: ticks (each cart a month × what wear adds to
+// its time on the tile), and that time in dollars at the route cost's rate (RCOST.dollar ticks a dollar).
+function depotLost(s, x, y, w) {
+  const R = T3.depot.reach, L = trState(s).route || trState(s).load || {};
+  let ticks = 0;
+  for (let ty = Math.max(0, y - R); ty < Math.min(MAP_H, y + w + R); ty++) for (let tx = Math.max(0, x - R); tx < Math.min(MAP_W, x + w + R); tx++) {
+    const i = tileIdx(tx, ty), c = s.road[i] ? rcCls(s, i) : 0;
+    if (c && !depotOf(s, i)) ticks += (L[i] || 0) * (1 - T3.speed[c]) / tfV0(s, i);
+  }
+  return { ticks: Math.round(ticks), d: Math.round(ticks / (typeof RCOST !== 'undefined' ? RCOST.dollar : 2)) };
+}
+// The council's ask is due: worn roads no depot keeps, a lot for one among them, and either their repaving by hand would
+// cost at least half the depot's price or the carts' time they cost a month is worth its month (wages and upkeep) at the
+// route cost's rate; the island has fewer than two depots (more is her choice: the build menu and the Traffic legend's
+// [Road depot]). (The balance pass: asked only by the backlog, her-play's town let its busy streets go poor for 30
+// years, poor tiles a quarter to two thirds of its roads from 1930 to 1970, before it built one.)
+// (a first version asked wherever 24 worn tiles lay out of reach, up to four depots: sim_test's novice built four, $800
+// a month in wages and upkeep, and sat in the red for 111 months; one asked only where a depot's month saved its
+// wages and her-play's island, never asked, let 204 of its 270 road tiles go poor and shrank from 976 to 668 people)
+function depotDue(s) { const n = depotNeed(s); return n && n.lot && (n.back >= BUILDINGS.roadyard.cost / 2 || n.lost.d >= depotMonth(s)) && countType(s, 'roadyard') < 2 ? n : null; }
+// A depot's month at today's wages: its upkeep and wages ($ a month), for the ask and the card.
+function depotMonth(s) { const d = BUILDINGS.roadyard; return Math.round(upkeepOf(d) + d.jobs * TUNE.stageWage[Math.min(s.stage, TUNE.stageWage.length - 1)]); }
+if (typeof A8_KINDS !== 'undefined' && typeof a8PlanOf === 'function') {
+  A8_KINDS.repave = 1;
+  const _ap = a8PlanOf;
+  a8PlanOf = function (s, d) {
+    if (!d || d.kind !== 'repave') return _ap.apply(this, arguments);
+    const w = t3On() ? repaveStretch(s, d.at) : null;
+    return w ? { kind: 'repave', line: w.tiles, cost: w.cost, n: w.tiles.length } : null;
+  };
+  const _pr = planRun;
+  planRun = function (s, d) {
+    if (!d || d.kind !== 'repave') return _pr.apply(this, arguments);
+    const p = planOf(s, d);
+    if (!p) return { ok: false, why: 'Nothing to do here now' };
+    const r = repave(s, p.line);
+    return r.ok ? { ok: true, cost: r.cost, at: p.at } : r;
+  };
+  const _pl = planLabel;
+  planLabel = function (p) { return p && p.kind === 'repave' ? 'Tap to repave it · ' + money$(p.cost) : _pl.apply(this, arguments); };
+  const _pb = planBtn;
+  planBtn = function (p) { return p && p.kind === 'repave' ? 'Repave it' : _pb.apply(this, arguments); };
+  const _ps = planSay;
+  planSay = function (s, p) { return p && p.kind === 'repave' ? 'Tap the dotted stretch · ' + money$(p.cost) + '.' : _ps.apply(this, arguments); };
+}
+COMMISSIONS.push({ key: 'repave', p: 5, who: 'carters', when(s) {
+  const w = t3AskBusy(s, 'repave') ? null : repaveAsk(s);
+  if (!w) return null;
+  // (no sub: after one is done or gone the next stretch waits half a year, A3's rule: road care is no chore every month)
+  return { tool: '', need: 0, near: [w.at % MAP_W, (w.at / MAP_W) | 0], plan: { kind: 'repave', at: w.at }, tiles: w.tiles, joy: 1,
+    ask: repaveText(s, w).replace(/\.$/, '') + '. Repave it, please.', praise: 'Smooth going on ' + placeName(s, w.at) + ' again.' };
+} });
+COMMISSIONS.push({ key: 'depot', p: 5, who: 'council', when(s) {
+  const n = t3AskBusy(s, 'depot') ? null : depotDue(s);
+  if (!n) return null;
+  const b = nearestB(s, tileIdx(n.at[0], n.at[1])), where = b ? ' around the ' + (defOf(b).short || defOf(b).name).toLowerCase() : '';
+  return { tool: 'roadyard', need: 1, near: n.at, sub: '',
+    ask: n.k + ' tiles of our roads' + where + ' are worn, and no road depot keeps them. A depot keeps every road within ' + T3.depot.reach + ' tiles of it in repair, worst first (its camineros, a roller and a tar boiler), for about ' + money$(depotMonth(s)) + ' a month; ' + (n.lost.d >= depotMonth(s) ? 'our carts lose time there worth about ' + money$(n.lost.d) + ' a month' : 'repaving them by hand would cost about ' + money$(n.back) + ' now') + '.',
+    praise: 'The camineros are out with the roller: the roads around the depot are kept now.' };
+} });
+{
+  const _cm = comMake;
+  comMake = function (s, T, r) {
+    const q = _cm.apply(this, arguments);
+    if (q && T.key === 'repave' && r && r.plan) { q.plan = r.plan; q.tiles = r.tiles || []; q.spots = []; q.road = null; q.move = 0; q.sv = s.ver; }
+    return q;
+  };
+  const _cd = comIsDone;
+  comIsDone = function (s, q) {
+    if (!q || q.key !== 'repave') return _cd.apply(this, arguments);
+    return (q.tiles || []).length > 0 && q.tiles.every((i) => !s.road[i] || rcCls(s, i) === 0);
+  };
+  // (the depot's glowing lots: those that keep the worn tiles it is asked for, within half its reach of them)
+  const _cr = comRespot;
+  comRespot = function (s, q) {
+    const r = _cr.apply(this, arguments);
+    if (q && q.key === 'depot' && q.near && q.spots.length > 1) {
+      const f = q.spots.filter(([x, y]) => footDist({ x, y, w: 2, h: 2 }, { x: q.near[0], y: q.near[1], w: 1, h: 1 }) <= T3.depot.reach / 2);
+      q.spots = f.length ? f : q.spots.slice(0, 1);
+    }
+    return r;
+  };
+  const _cg = comGone;
+  comGone = function (s, q) {
+    if (q && q.key === 'depot' && t3AskOld(s, q)) return true;
+    if (!q || q.key !== 'repave') return _cg.apply(this, arguments);
+    if (!t3On() || !q.plan || !planOf(s, q.plan) || t3AskOld(s, q)) return true;
+    // (kept while its stretch is the worst or still costs the carts as much: she may be saving for it)
+    const w = repaveAsk(s);
+    return !w && (repaveWorst(s) || { v: 0 }).v < RP.v / 2;
+  };
+}
+// Rosa's own line when a broken street costs the carts much (RP.serious), said before the island's food line: slow carts
+// empty the markets (her-play's island, which never repaved, had its busiest streets poor, 41 homes without food and
+// fell from 976 to 668 people while Rosa spoke of food). A milder stretch is the carters' ask in the stack (when the
+// carters ask, they say her line: COM_SAME), or her line on an island without asks (TUNE.comOff).
+{
+  const P = { key: 'worn', check(s) {
+    if (!t3On()) return null;
+    const w = repaveWorst(s);
+    if (!w || w.tiles.length < RP.tiles || w.v < (TUNE.comOff ? RP.v : RP.serious)) return null;
+    return { text: repaveText(s, w) + ' Repave the dotted stretch (' + money$(w.cost) + ')' + (s.stage >= T3.stage ? ', or a road depot keeps the roads around it in repair.' : '.'), btn: 'Repave it', act: { plan: { kind: 'repave', at: w.at }, at: [w.at % MAP_W, (w.at / MAP_W) | 0] } };
+  } };
+  const at = GUIDE_PROBLEMS.findIndex((p) => p.key === 'food');
+  GUIDE_PROBLEMS.splice(at >= 0 ? at : GUIDE_PROBLEMS.length, 0, P);
+  COM_SAME.worn = 'repave';
+  // Rosa's own line for a depot when the worn roads cost the carts more time a month than a depot costs (the route
+  // cost's dollar): said with her other road line, before food; when the council asks for it, the council says it and
+  // its lot glows (COM_SAME). (The balance pass: the council's ask sat in her stack for 40 years of her-play's game,
+  // a face she never tapped, while a third to a half of its road tiles were poor.)
+  const D = { key: 'depot', check(s) {
+    const n = depotDue(s);
+    if (!n || !n.lost || n.lost.d < depotMonth(s)) return null;
+    const b = nearestB(s, tileIdx(n.at[0], n.at[1])), where = b ? ' around the ' + (defOf(b).short || defOf(b).name).toLowerCase() : '';
+    return { text: 'Our roads wear faster than anyone mends them: ' + n.k + ' worn tiles' + where + ' cost the carts time worth about ' + money$(n.lost.d) + ' a month. A road depot there (' + money$(BUILDINGS.roadyard.cost) + ', about ' + money$(depotMonth(s)) + ' a month) keeps every road within ' + T3.depot.reach + ' tiles of it in repair.',
+      btn: 'Road depot', act: { tool: 'roadyard', at: n.at } };
+  } };
+  GUIDE_PROBLEMS.splice(GUIDE_PROBLEMS.findIndex((p) => p.key === 'worn') + 1, 0, D);
+  COM_SAME.depot = 'depot';
+}
+
+// ---- src/sim/accidents.js
+// T3 (23 Oct 2026, nova/t3): accidents. DESIGN.md §43; numbers and sources: docs/research/accidents.md.
+// - Carts that cross or turn across each other at a crossing collide now and then: the more carts come along the main
+//   road and across it, the more often (the shape of the Highway Safety Manual's crash models: crashes grow with the
+//   major road's traffic to a power of about 0.8 and the minor road's to about 0.6, HSM 2010 ch. 12 and 14). A rule cuts
+//   them by the HSM's factors (an all-way stop 0.53, traffic lights 0.6, a roundabout 0.45); worn road raises them
+//   (×1.4, poor ×2); a busy worn street has its own (a cart's wheel in a pothole, a load spilled).
+// - Deterministic, never a dice roll: each crossing (and each busy worn tile) keeps its expected accidents adding up
+//   every quarter month; when the sum passes one, an accident happens there and one is taken off. The card says the
+//   rate ("about 2.4 a year at this traffic"), so the next one is no surprise.
+// - An accident slows the place for a while (ACC.block ticks: the carts squeeze past at a walking pace, ACC.pass of
+//   their speed, and T1's queues grow), costs money (a line
+//   on the payday's receipt: the cart mended, the load, the doctor) and makes the homes near it a little unhappier for a
+//   year. On the map: a marker while it is blocked, the year's count on the Traffic layer; the legend and Rosa name the
+//   worst place and its fix (lights, a roundabout, an all-way stop: the fix glows, one tap; Q2: only one that cuts them).
+// Saved: state.t3.ar (tile -> the expected accidents adding up), .blk (tile -> the tick it clears), .log (the last 24
+// months: { i, m, t, x (1: a crossing), vk, cost, ctl }), .mn (this month's { n, cost }).
+
+const ACC = {
+  // accidents a year at a give-way crossing with 100 carts a month along its main road and 100 across or into it (the
+  // game's calibration: a game cart stands for a street's traffic, docs/research/accidents.md)
+  k: 1.6, bMain: 0.8, bCross: 0.6,
+  // the HSM's crash modification factors, all severities: minor-road stop to all-way stop 0.53 (Lovell & Hauer 1986),
+  // stop to signal 0.56 rural / 0.95 urban (HSM Exhibit 14-11; in the game's crossings of carts that cross, 0.6), stop
+  // control to a roundabout 0.56, injuries 0.18 (Exhibit 14-8; Retting et al. 2001: −39 % all, −76 % injury)
+  rule: { yield: 1, stop: 0.53, lights: 0.6, rbt: 0.45 },
+  cond: [1, 1.4, 2],       // the crossing's road (its tile and its arms) worn, poor
+  street: [0, 0.12, 0.45], // a worn / poor street tile: accidents a year per 100 carts a month on it
+  streetMin: 30,           // carts a month on a worn tile before it has its own
+  block: 25,               // ticks an accident slows its place (a quarter month: 100 s of street time)
+  pass: 0.3,               // the carts' speed past it meanwhile (they squeeze past the overturned cart at a walking pace;
+                           // a first version stopped them all: the busiest crossings' queues emptied the on-screen-only
+                           // player's markets, 852 people at 1929 against 1,300 before T3)
+  cost: { ox: 50, lorry: 150 },   // the cart or lorry mended, the load, the doctor (the game's ×10 money; a first $80 /
+                                  // $200 cost sim_test's reasonable player its Capital by 90 months on a tight path)
+  rbtCost: 0.5,            // at a roundabout the knocks are slow ones (injuries 0.18 against 0.56 for all)
+  near: 2,                 // tiles: homes this near an accident of the last year are a little unhappier
+  happy: 10, happyMax: 3,  // −happy × (homes near) / (homes), at most happyMax
+  ask: 2,                  // accidents in a year at one place before its people ask for the fix
+};
+
+// ---------- the rate ----------
+// The carts a month along a crossing's busier road and across it: { M, C } (T1's measured carts by heading; the HSM's
+// major and minor roads are by their traffic). snap: as the month began (the asks and the cards: a reloaded island
+// asks the same; the accidents themselves add up by the carts measured now).
+function accFlows(s, i, snap) {
+  const T = trState(s), qa = ((snap ? T.qar || T.qa : T.qa) || {})[i];
+  if (!qa) return { M: 0, C: 0 };
+  const a = (qa[0] || 0) + (qa[2] || 0), b = (qa[1] || 0) + (qa[3] || 0);
+  return { M: Math.max(a, b), C: Math.min(a, b) };
+}
+// The worst condition class on a crossing and its arms.
+function accCondAt(s, i) {
+  let k = rcCls(s, i);
+  const x = i % MAP_W;
+  for (const j of [x + 1 < MAP_W ? i + 1 : -1, x > 0 ? i - 1 : -1, i + MAP_W, i - MAP_W]) if (j >= 0 && j < s.road.length && s.road[j]) k = Math.max(k, rcCls(s, j));
+  return k;
+}
+// Expected accidents a year at tile i (a crossing: by its rule, or rule k instead; a street tile: by its wear).
+function accRate(s, i, k, snap) {
+  if (!s.road[i]) return 0;
+  if (jctAt(s, i)) {
+    const { M, C } = accFlows(s, i, snap), ctl = k || tfCtl(s, i);
+    if (M + C < 4) return 0;
+    return ACC.k * Math.pow(Math.max(M, 1) / 100, ACC.bMain) * Math.pow(Math.max(C, 1) / 100, ACC.bCross) * (ACC.rule[ctl] || 1) * ACC.cond[accCondAt(s, i)];
+  }
+  const T = trState(s), cls = rcCls(s, i), L = ((snap ? T.route || T.load : T.load) || {})[i] || 0;
+  return cls && L >= ACC.streetMin ? ACC.street[cls] * L / 100 : 0;
+}
+// The key of what the asks read: the month's copy of the measured traffic (T1's ttrV), the roads' wear (rv), the
+// accidents, the island's changes (a reloaded island works the same out at the same moments)
+function accKey(s) { const T = t3State(s), L = accLog(s), e = L[L.length - 1]; return (trState(s).ttrV || 0) + ':' + (T.rv || 0) + ':' + (T.cv || 0) + ':' + L.length + ':' + (e ? e.t : -1) + ':' + s.ver; }
+function accLog(s) { const T = t3State(s); if (!Array.isArray(T.log)) T.log = []; return T.log; }
+// The accidents at place i in the last 12 months (or anywhere: i < 0).
+function accLastYear(s, i) { return accLog(s).filter((a) => s.month - a.m < 12 && (i === undefined || i < 0 || a.i === i)); }
+
+// ---------- the quarter month: the sums, the accidents ----------
+function accFold(s) {
+  if (!t3On() || s._trial || s._tfBench) return;
+  const T = t3State(s), ar = T.ar || (T.ar = {}), J = jctMap(s), L = trState(s).load || {};
+  const add = (i, r) => {
+    if (r <= 0) return;
+    const v = (ar[i] || 0) + r / 48;
+    if (v >= 1) { ar[i] = v - 1; accHappen(s, i); } else ar[i] = v;
+  };
+  for (let i = 0; i < s.road.length; i++) if (s.road[i] && J.arms[i]) add(i, accRate(s, i));
+  if (s.rc) for (const k in s.rc) { const i = +k; if (!J.arms[i] && (L[i] || 0) >= ACC.streetMin) add(i, accRate(s, i)); }
+  // a place that no longer has traffic forgets its sum (an old crossing taken up)
+  for (const k in ar) if (!s.road[+k]) delete ar[k];
+}
+function accHappen(s, i) {
+  const T = t3State(s), Tr = trState(s), load = (Tr.load || {})[i] || 0, lor = (Tr.lor || {})[i] || 0;
+  const vk = load > 0 && lor * 2 >= load ? 'lorry' : 'ox', x = jctAt(s, i) ? 1 : 0, ctl = x ? tfCtl(s, i) : '';
+  const cost = Math.round(ACC.cost[vk] * (ctl === 'rbt' ? ACC.rbtCost : 1));
+  const log = accLog(s);
+  log.push({ i, m: s.month, t: s.tick, x, vk, cost, ctl });
+  while (log.length && s.month - log[0].m >= 24) log.shift();
+  (T.blk || (T.blk = {}))[i] = s.tick + ACC.block;
+  const mn = T.mn || (T.mn = { n: 0, cost: 0 });
+  mn.n++; mn.cost += cost;
+  simEvent(s, { kind: 'accident', i, cost, vk, x });
+}
+// The places blocked now (runtime: the agents read s._t3blk, rebuilt each tick from the saved T.blk).
+function accBlocks(s) {
+  const T = s.t3, B = T && T.blk;
+  if (!B) { s._t3blk = null; return; }
+  let set = null;
+  for (const k in B) { if (B[k] <= s.tick || !s.road[+k]) delete B[k]; else (set || (set = new Set())).add(+k); }
+  s._t3blk = set;
+}
+// The agents (traffic.js tfStep): cart q is on an accident's tile or about to enter it: it squeezes past at ACC.pass of
+// its speed (the queue behind it is T1's own).
+function t3SlowAt(s, q) {
+  const p = q.path, B = s._t3blk, k = q.k;
+  return B.has(p[k]) || (k + 1 < q.n && B.has(p[k + 1]) && k + 1 - q.pos < 0.9);
+}
+{
+  const _st = simTick;
+  simTick = function (state) { if (t3On()) accBlocks(state); else state._t3blk = null; return _st.apply(this, arguments); };
+  const _fold = tfFold;
+  tfFold = function (s) { const r = _fold.apply(this, arguments); accFold(s); return r; };
+}
+
+// ---------- money: a line on the payday's receipt ----------
+{
+  const _pr = paydayRun;
+  paydayRun = function (state) {
+    const r = _pr.apply(this, arguments), T = state.t3, mn = T && T.mn;
+    if (mn && mn.n && t3On()) {
+      r.lines.push({ id: 0, what: 'accidents', n: -mn.cost }); r.result -= mn.cost; state.money -= mn.cost;
+      const hh = state.history[state.history.length - 1];
+      if (hh && hh.m === state.month) { hh.money = state.money; hh.result = r.result; }
+      r.accidents = { n: mn.n, cost: mn.cost };
+    }
+    if (T) T.mn = { n: 0, cost: 0 };
+    return r;
+  };
+  const _rl = receiptLines;
+  receiptLines = function (state, r) {
+    const lines = _rl(state, r);
+    if (!r.accidents) return lines;
+    const c = r.accidents.cost, line = ['Accidents (' + r.accidents.n + '): carts mended, loads, the doctor', -c];
+    // E1's receipt closes on the result with its rounding line, which took the accidents in: they get their own line
+    // there (flows.js: the top lines add up to the result; a first version counted them twice)
+    const k = lines.findIndex((l) => /rounding/.test(l[0]));
+    if (k >= 0) {
+      const rest = lines[k][1] + c;
+      if (Math.abs(rest) < 0.5) lines.splice(k, 1, line); else lines.splice(k, 1, line, [lines[k][0], rest]);
+    } else {
+      const at = lines.findIndex((l) => l[0] === 'Wages and upkeep');
+      lines.splice(at >= 0 ? at + 1 : lines.length, 0, line);
+    }
+    // (the receipt keeps its length: one of the ship's goods gives way)
+    if (lines.length > 13) { const g = lines.findIndex((l) => /^  \d/.test(l[0])); if (g >= 0) lines.splice(g, 1); }
+    return lines;
+  };
+}
+
+// ---------- happiness: the homes near an accident of the last year ----------
+function accNearHomes(s) {
+  const c = simCache(s), key = s.month + ':' + accKey(s);
+  if (c.accN && c.accN.key === key) return c.accN.v;
+  const sites = [...new Set(accLastYear(s).map((a) => a.i))].map((i) => ({ x: i % MAP_W, y: (i / MAP_W) | 0, w: 1, h: 1 }));
+  let near = 0, homes = 0;
+  for (const h of s.b) { if (defOf(h).kind !== 'home' || !h.res) continue; homes++; if (sites.some((t) => footDist(h, t) <= ACC.near)) near++; }
+  const v = homes && near ? -Math.min(ACC.happyMax, Math.max(1, Math.round(ACC.happy * near / homes))) : 0;
+  return (c.accN = { key, v: { near, homes, v } }).v;
+}
+{
+  const _hc = happyCalc;
+  happyCalc = function (state) {
+    const r = _hc.apply(this, arguments);
+    if (!t3On()) return r;
+    const A = accNearHomes(state);
+    if (A.v) { r.parts.push({ label: 'Accidents near ' + plural(A.near, 'home', 'homes') + ' last year', v: A.v }); r.value = Math.max(0, Math.min(100, r.value + A.v)); }
+    return r;
+  };
+}
+
+// ---------- the fix: the safest rule that does not hold the carts up much longer ----------
+const ACC_RULE = { stop: 'an all-way stop', lights: 'traffic lights', rbt: 'a roundabout', yield: 'giving way' };
+function accRuleCost(s, i, k) { return k === 'rbt' ? rbtCost(s, i) : jctlCost(s, i, k); }
+// What a rule carries before its carts queue (carts a month in from all sides): T2's measured saturation on a dirt
+// crossing of ox carts (an all-way stop 138 a month, HCM 142; a roundabout 138, HCM 142), twice on paved road (twice the
+// pace); lights carry what their greens give (Webster), more than either.
+const ACC_CAP = { stop: 138, rbt: 138 };
+function accCap(s, i, k) { return ACC_CAP[k] ? ACC_CAP[k] * (s.road[i] >= 2 ? 2 : 1) : Infinity; }
+// { k, n0 (a year now), n1 (with it), cost, load (carts a month in), cap } or null. The safest rule that carries the
+// crossing's carts with room to spare (three quarters of what it carries: no new queue), and cuts its accidents by a
+// quarter (Q2); the cheaper at equal safety. Deterministic and cheap (the junction card's trial says the waits).
+function accFix(s, i) {
+  if (!jctAt(s, i) || (typeof brAt === 'function' && brAt(s, i))) return null;
+  const cur = tfCtl(s, i), n0 = accRate(s, i, null, true);
+  if (n0 <= 0) return null;
+  const { M, C } = accFlows(s, i, true), load = M + C, out = [];
+  for (const k of ['rbt', 'lights', 'stop']) {
+    if (k === cur || jctlWhy(s, i, k, true)) continue;
+    const n1 = accRate(s, i, k, true), cap = accCap(s, i, k);
+    if (n1 > n0 * 0.75 || load > 0.75 * cap) continue;
+    out.push({ k, n0, n1, cost: accRuleCost(s, i, k), load: Math.round(load), cap });
+  }
+  out.sort((a, b) => a.n1 - b.n1 || a.cost - b.cost);
+  return out[0] || null;
+}
+// The place with the most accidents in the last year (a crossing first at equal counts): { i, n, x, cost, fix } or null.
+function accWorst(s) {
+  if (!t3On()) return null;
+  const c = simCache(s), key = s.month + ':' + accKey(s);
+  if (c.accW && c.accW.key === key) return c.accW.v;
+  const by = new Map();
+  for (const a of accLastYear(s)) { const o = by.get(a.i) || { i: a.i, n: 0, x: a.x, cost: 0 }; o.n++; o.cost += a.cost; by.set(a.i, o); }
+  let best = null;
+  for (const o of by.values()) if (s.road[o.i] && (!best || o.n > best.n || (o.n === best.n && (o.x > best.x || (o.x === best.x && o.i < best.i))))) best = o;
+  if (best) best.fix = best.x && jctAt(s, best.i) ? accFix(s, best.i) : null;
+  c.accW = { key, v: best };
+  return best;
+}
+// "about 2.4 a year", "about one in 3 years"
+function accRateWords(n) {
+  if (n >= 0.55) return 'about ' + (Math.round(n * 10) / 10) + ' a year';
+  if (n >= 0.05) return 'about one in ' + Math.round(1 / n) + ' years';
+  return 'hardly ever';
+}
+// The ask's words (also Rosa's line and the legend's): what happened, what it cost, what helps.
+function accText(s, w) {
+  const where = placeName(s, w.i).replace(/^the road by/, 'the crossing by'), f = w.fix;
+  const head = plural(w.n, 'accident', 'accidents') + ' last year at ' + where + ' (' + money$(w.cost) + '; after each the carts squeezed past at a walking pace for ' + Math.round(ACC.block * TF.sec / 60 * 10) / 10 + ' min)';
+  if (!f) return head + '.';
+  return head + '. With ' + f.load + ' carts a month through it, ' + accRateWords(f.n0) + '; ' + ACC_RULE[f.k] + ' would make it ' + accRateWords(f.n1).replace(/ a year$/, '') + (f.n1 >= 0.55 ? ' a year' : '') + '.';
+}
+
+// ---------- the ask: the people near it (A3), the fix glows, one tap (A8), checked first (Q2) ----------
+if (typeof A8_KINDS !== 'undefined' && typeof a8PlanOf === 'function') {
+  A8_KINDS.jfix = 1;
+  const _ap = a8PlanOf;
+  a8PlanOf = function (s, d) {
+    if (!d || d.kind !== 'jfix') return _ap.apply(this, arguments);
+    if (!t3On() || !s.road[d.i] || !jctAt(s, d.i) || tfCtl(s, d.i) === d.k || jctlWhy(s, d.i, d.k, true)) return null;
+    const x = d.i % MAP_W, y = (d.i / MAP_W) | 0;
+    return { kind: 'jfix', i: d.i, k: d.k, line: [d.i], lots: [{ x, y, w: 1, h: 1 }], cost: accRuleCost(s, d.i, d.k), name: ACC_RULE[d.k] };
+  };
+  const _pr = planRun;
+  planRun = function (s, d) {
+    if (!d || d.kind !== 'jfix') return _pr.apply(this, arguments);
+    const p = planOf(s, d);
+    if (!p) return { ok: false, why: 'Nothing to do here now' };
+    if (s.money < p.cost) return { ok: false, poor: true, cost: p.cost, why: 'Not enough money yet (' + money$(p.cost) + ')' };
+    const r = d.k === 'rbt' ? placeRbt(s, d.i) : placeJctl(s, d.i, d.k);
+    return r.ok ? { ok: true, cost: r.cost || p.cost, at: p.at } : { ok: false, why: r.why };
+  };
+  const _pl = planLabel;
+  planLabel = function (p) { return p && p.kind === 'jfix' ? 'Tap it: ' + p.name + ' · ' + money$(p.cost) : _pl.apply(this, arguments); };
+  const _pb = planBtn;
+  planBtn = function (p) { return p && p.kind === 'jfix' ? (p.k === 'rbt' ? 'Roundabout' : p.k === 'lights' ? 'Traffic lights' : 'All-way stop') : _pb.apply(this, arguments); };
+  const _ps = planSay;
+  planSay = function (s, p) { return p && p.kind === 'jfix' ? '· ' + money$(p.cost) : _ps.apply(this, arguments); };
+}
+COMMISSIONS.push({ key: 'acc', p: 4, who: 'family', when(s) {
+  const w = t3AskBusy(s, 'acc') ? null : accWorst(s);
+  if (!w || w.n < ACC.ask || !w.x || !w.fix) return null;
+  const x = w.i % MAP_W, y = (w.i / MAP_W) | 0;
+  return { tool: '', need: 0, near: [x, y], plan: { kind: 'jfix', i: w.i, k: w.fix.k }, joy: 1,
+    ask: accText(s, w).replace(/\.$/, '') + '. Our children cross there.',
+    praise: ACC_RULE[w.fix.k].charAt(0).toUpperCase() + ACC_RULE[w.fix.k].slice(1) + ' at ' + placeName(s, w.i) + ': the carts take their turn now.' };
+} });
+{
+  const _cm = comMake;
+  comMake = function (s, T, r) {
+    const q = _cm.apply(this, arguments);
+    if (q && T.key === 'acc' && r && r.plan) { q.plan = r.plan; q.spots = []; q.road = null; q.move = 0; q.sv = s.ver; }
+    return q;
+  };
+  // done when its rule stands; gone when the place no longer asks for it (another fix, fewer accidents) or it cannot be
+  // done any more
+  const _cd = comIsDone;
+  comIsDone = function (s, q) {
+    if (!q || q.key !== 'acc' || !q.plan) return _cd.apply(this, arguments);
+    return s.road[q.plan.i] > 0 && tfCtl(s, q.plan.i) === q.plan.k;
+  };
+  const _cg = comGone;
+  comGone = function (s, q) {
+    if (!q || q.key !== 'acc') return _cg.apply(this, arguments);
+    if (!t3On() || !q.plan || !planOf(s, q.plan) || t3AskOld(s, q)) return true;
+    const w = accWorst(s);
+    return !w || w.i !== q.plan.i || !w.fix || w.fix.k !== q.plan.k;
+  };
+}
+// Rosa's line, last of her problems: her own only on an island without asks (TUNE.comOff); where the people ask, the
+// families' ask is the line (A3) and her accident line gives way to any commission (it never takes the main ask's
+// voice: sim_test's A8 offer was said as a worn street before it; her worn line speaks only for a badly broken busy
+// street, wear.js)
+GUIDE_PROBLEMS.push({ key: 'acc', check(s) {
+  const w = accWorst(s);
+  if (!w || w.n < ACC.ask || !w.x || !w.fix) return null;
+  return { text: accText(s, w) + ' Tap the glowing crossing.', btn: planBtn({ kind: 'jfix', k: w.fix.k }), act: { plan: { kind: 'jfix', i: w.i, k: w.fix.k }, at: [w.i % MAP_W, (w.i / MAP_W) | 0] } };
+} });
+{
+  const _cg = comGuide;
+  comGuide = function (s) {
+    const g = s.guide;
+    if (g && g.msg && g.msg.key === 'acc' && comState(s).list.length) g.msg = null;
+    return _cg.apply(this, arguments);
+  };
+}
+// Q2: the fix is tried first: it must cut the accidents there by a quarter (accFix offers only such a rule; the check
+// says why when it does not, for the tally)
+{
+  const _bk = brKind;
+  brKind = function (s, a) { const d = a && a.plan; return (d && (d.kind === 'jfix' || d.kind === 'repave')) || (a && a.tool === 'roadyard') ? 't3' : _bk.apply(this, arguments); };
+  const _bc = brCheck;
+  brCheck = function (s, a) {
+    const d = a && a.plan;
+    // (a road depot is asked for the worn roads no depot keeps: it helps wherever it stands near them)
+    if (a && a.tool === 'roadyard' && !d) return depotNeed(s) ? { ok: true, kind: 't3' } : { ok: false, kind: 't3', why: 'no worn roads out of a depot\'s reach' };
+    if (!d || (d.kind !== 'jfix' && d.kind !== 'repave')) return _bc.apply(this, arguments);
+    if (d.kind === 'jfix') {
+      const n0 = accRate(s, d.i, null, true), n1 = accRate(s, d.i, d.k, true);
+      return n0 > 0 && n1 <= 0.75 * n0 ? { ok: true, kind: 't3' } : { ok: false, kind: 't3', why: 'the rule would not cut the accidents there by a quarter' };
+    }
+    const p = planOf(s, d);
+    return p && p.line.some((i) => rcCls(s, i) > 0) ? { ok: true, kind: 't3' } : { ok: false, kind: 't3', why: 'nothing worn left to repave' };
+  };
+}
+
+// ---- src/sim/routecost.js
+// T3 (23 Oct 2026, nova/t3): route cost. DESIGN.md §43. A cart's way is chosen by what it costs, not only by its time:
+// - time: each tile's time as T1 measured it (a jam, a crossing's wait, the lights' red: a wait at a crossing's line
+//   is the crossing's), at the speed of its road and its wear (wear.js);
+// - comfort: a dirt tile, a worn or broken tile, a crossing passed, a turn at a crossing (a left turn across the
+//   oncoming carts more than a right one) count as so many seconds more (RCOST);
+// - money: the carters are paid by the tile (E1, FLOW.cart / FLOW.lorry), so every tile also costs its fee, counted as
+//   time at RCOST.dollar ticks a dollar.
+// The routes' tree knows the heading a cart comes in by (a turn is a step that changes it); an overpass's tile is
+// passed straight on (T2: its two levels are its two headings). The tree is kept for the month and the condition
+// classes (as T1's: one copy of the measured times a month, saved, so a reloaded island plans the same ways), the
+// split between two ways (T1's successive averages) is as before. The railway's choice (A14: a load goes by van and
+// train when the train gets it there sooner than the road) weighs the road by this cost too.
+// No tolls: every cart on the island is the island's own (E1: the state owns the enterprises, the sender pays its
+// carters), so a toll would be money from one pocket to the other; the fee by the tile is the money a way costs.
+// The card says it: a producer's (or works') card names the way its carts go and why, beside the direct way.
+
+const RCOST = {
+  dirt: 0.25,          // ticks (1 s) a dirt tile: dust and ruts
+  worn: [0, 0.5, 1.5], // a worn / poor tile: jolts and the load at risk (2 s, 6 s)
+  cross: 0.5,          // a crossing passed (2 s)
+  right: 0.5, left: 1.25,  // a turn at a crossing (2 s; 5 s: across the oncoming carts)
+  dollar: 2,           // a dollar of the carters' fee counts as 2 ticks (8 s) of a cart's time
+};
+// The carters' fee a tile for a full load, $ (from 1920 the motor lorry's rate; before E1 none).
+function rcFee(s) {
+  if (typeof FLOW === 'undefined' || (typeof e1On === 'function' && !e1On())) return 0;
+  return (yearOf(s) >= FLOW.lorry.year ? FLOW.lorry : FLOW.cart).tile * TUNE.cartLoad;
+}
+// What a tile adds to its time for the routes: comfort and the fee (ticks).
+function rcExtra(s, i, low) {
+  const k = s.road[i] || 0;
+  if (!k) return 0;
+  return (k === 1 ? RCOST.dirt : 0) + RCOST.worn[rcCls(s, i)] + (!low && jctAt(s, i) ? RCOST.cross : 0) + rcFee(s) * RCOST.dollar;
+}
+{
+  const _rc = routeCost;
+  routeCost = function (state, i) { const c = _rc.apply(this, arguments); return t3On() && state.road[i] ? c + rcExtra(state, i) : c; };
+}
+
+// ---------- the tree: tiles with the heading a cart comes in by ----------
+// A small binary heap on typed arrays (the tree is built for every yard once a month).
+const RC_HEAP = { k: new Float64Array(8192), v: new Int32Array(8192), n: 0, top: 0 };
+function rcPush(d, u) {
+  const H = RC_HEAP;
+  if (H.n === H.k.length) { const k = new Float64Array(H.n * 2), v = new Int32Array(H.n * 2); k.set(H.k); v.set(H.v); H.k = k; H.v = v; }
+  let i = H.n++;
+  while (i > 0) { const p = (i - 1) >> 1; if (H.k[p] <= d) break; H.k[i] = H.k[p]; H.v[i] = H.v[p]; i = p; }
+  H.k[i] = d; H.v[i] = u;
+}
+function rcPop() {
+  const H = RC_HEAP, u = H.v[0];
+  H.top = H.k[0];
+  const n = --H.n;
+  if (n > 0) {
+    const d = H.k[n], w = H.v[n];
+    let i = 0;
+    for (;;) { let c = 2 * i + 1; if (c >= n) break; if (c + 1 < n && H.k[c + 1] < H.k[c]) c++; if (H.k[c] >= d) break; H.k[i] = H.k[c]; H.v[i] = H.v[c]; i = c; }
+    H.k[i] = d; H.v[i] = w;
+  }
+  return u;
+}
+// The month's costs a tile (and below each overpass), for the trees.
+function rcCosts(state) {
+  const c = simCache(state), ep = routeEpoch(state) + ':' + (t3State(state).cv || 0);
+  if (c.r3 && c.r3ep === ep) return c;
+  c.r3 = {}; c.r3ep = ep;
+  const n = MAP_W * MAP_H, cost = new Float64Array(n).fill(Infinity);
+  for (let i = 0; i < n; i++) if (state.road[i]) cost[i] = routeCost(state, i);
+  const BRL = typeof brRoad === 'function' ? brRoad(state) : { n: 0, idx: new Map(), ax: [], tiles: [] }, c2 = new Float64Array(BRL.n);
+  BRL.tiles.forEach((t, k) => { c2[k] = (typeof brCost2 === 'function' ? brCost2(state, t) : cost[t]) + rcExtra(state, t, true); });
+  c.r3c = cost; c.r3c2 = c2; c.r3b = BRL;
+  return c;
+}
+// The tree from a building's gates: { dist (tile -> the least cost to reach it, any heading), best (tile -> that
+// heading), par (state -> the state before; a state is tile × 5 + the heading it came in by, 4 at a gate) }.
+function rcTree(state, a) {
+  const c = rcCosts(state);
+  if (c.r3[a.id]) return c.r3[a.id];
+  const n = MAP_W * MAP_H, N5 = n * 5, cost = c.r3c, c2 = c.r3c2, BRL = c.r3b, ov = BRL.n > 0, R = state.road, arms = jctMap(state).arms;
+  const D = new Float64Array(N5).fill(Infinity), par = new Int16Array(N5).fill(-1);
+  RC_HEAP.n = 0;
+  for (const e of bEntrances(state, a)) { const u = e * 5 + 4; D[u] = 0; rcPush(0, u); }
+  while (RC_HEAP.n) {
+    const u = rcPop(), d = RC_HEAP.top;
+    if (d > D[u]) continue;
+    const i = (u / 5) | 0, h = u - i * 5, x = i % MAP_W, bi = ov ? BRL.idx.get(i) : undefined;
+    for (let k = 0; k < 4; k++) {
+      // no U-turns; an overpass's tile is passed straight on (from a gate on one: along its top)
+      if (h < 4 && k === ((h + 2) & 3)) continue;
+      if (bi !== undefined && (h < 4 ? k !== h : (k & 1) !== BRL.ax[bi])) continue;
+      const j = k === 0 ? (x + 1 < MAP_W ? i + 1 : -1) : k === 1 ? i + MAP_W : k === 2 ? (x > 0 ? i - 1 : -1) : i - MAP_W;
+      if (j < 0 || j >= n || !R[j]) continue;
+      let cj = cost[j];
+      if (ov) { const bj = BRL.idx.get(j); if (bj !== undefined && (k & 1) !== BRL.ax[bj]) cj = c2[bj]; }
+      const t = h < 4 && k !== h && arms[i] ? (k === ((h + 1) & 3) ? RCOST.right : RCOST.left) : 0;
+      const nd = d + cj + t, v = j * 5 + k;
+      if (nd < D[v] - 1e-9) { D[v] = nd; par[v] = u; rcPush(nd, v); }
+    }
+  }
+  const dist = new Float64Array(n).fill(Infinity), best = new Uint8Array(n);
+  for (let i = 0; i < n; i++) { if (!R[i]) continue; const b = i * 5; for (let h = 0; h < 5; h++) if (D[b + h] < dist[i]) { dist[i] = D[b + h]; best[i] = h; } }
+  return (c.r3[a.id] = { dist, best, par });
+}
+// The way from building a to building b along the tree (tiles), or null.
+function rcPath(state, a, b) {
+  const T = rcTree(state, a);
+  let at = -1, bd = Infinity;
+  for (const e of bEntrances(state, b)) if (T.dist[e] < bd) { bd = T.dist[e]; at = e; }
+  if (at < 0) return null;
+  const path = [];
+  for (let u = at * 5 + T.best[at]; u >= 0; u = T.par[u]) path.push((u / 5) | 0);
+  return path.reverse();
+}
+{
+  const _rt = routeTree;
+  routeTree = function (state, a) { return t3On() ? rcTree(state, a) : _rt.apply(this, arguments); };
+  // (the split between two ways as T1 has it: traffic.js cartRoute)
+  const _cr = cartRoute;
+  cartRoute = function (state, a, b) {
+    if (!t3On()) return _cr.apply(this, arguments);
+    const best = rcPath(state, a, b) || roadPath(state, a, b);
+    if (!state._tfSend || !best || best.length < 3) return best;
+    return tfRouteSplit(state, a.id + '>' + b.id, best);
+  };
+  // the split compares two ways by the same cost, turns included
+  const _pc = tfPathCost;
+  tfPathCost = function (s, path) { return t3On() ? rcPathCost(s, path) : _pc.apply(this, arguments); };
+}
+// A way's cost as the routes count it (ticks): its tiles' (time, comfort, fee), its turns at crossings.
+function rcPathCost(s, p) {
+  const B = typeof brRoad === 'function' ? brRoad(s) : null, arms = jctMap(s).arms;
+  let t = 0;
+  for (let k = 1; k < p.length; k++) {
+    const i = p[k];
+    if (!s.road[i]) { t += 99; continue; }
+    const bj = B && B.n ? B.idx.get(i) : undefined;
+    t += bj !== undefined && brAxis(p[k - 1], i) !== B.ax[bj] ? (typeof brCost2 === 'function' ? brCost2(s, i) : routeCost(s, i)) + rcExtra(s, i, true) : routeCost(s, i);
+    if (k >= 2 && arms[p[k - 1]]) { const tr = tfTurn(tfDir(p[k - 2], p[k - 1]), tfDir(p[k - 1], i)); if (tr === 1) t += RCOST.right; else if (tr === 3) t += RCOST.left; }
+  }
+  return t;
+}
+
+// ---------- the card's words: which way its carts go and why ----------
+// A way's parts: { tiles, sec (street seconds at the measured speeds and waits), waitS (s at crossings), waitAt (the
+// crossing that holds it up most), jam (the slowest street tile's ratio), jamAt, crossings, left, right, worn, poor,
+// dirt, fee ($ a load), cost (the routes' number, ticks) }.
+function rcParts(s, p) {
+  const out = { tiles: p.length, sec: 0, waitS: 0, waitAt: -1, waitMax: 0, jam: 1, jamAt: -1, crossings: 0, left: 0, right: 0, worn: 0, poor: 0, dirt: 0, fee: 0, cost: rcPathCost(s, p) };
+  const arms = jctMap(s).arms;
+  for (let k = 0; k < p.length; k++) {
+    const i = p[k];
+    if (!s.road[i]) continue;
+    out.sec += tfRatio(s, i, true) / tfV0(s, i) * TF.sec;
+    const cls = rcCls(s, i);
+    if (cls === 1) out.worn++; else if (cls === 2) out.poor++;
+    if (s.road[i] === 1) out.dirt++;
+    if (arms[i] && k > 0 && k < p.length - 1) {
+      out.crossings++;
+      const w = jctWait(s, i);
+      out.waitS += w;
+      if (w > out.waitMax) { out.waitMax = w; out.waitAt = i; }
+      const tr = tfTurn(tfDir(p[k - 1], i), tfDir(i, p[k + 1]));
+      if (tr === 1) out.right++; else if (tr === 3) out.left++;
+    } else if (!arms[i]) { const r = tfRatio(s, i, true); if (r > out.jam) { out.jam = r; out.jamAt = i; } }
+  }
+  out.fee = Math.round(rcFee(s) * p.length * 100) / 100;
+  return out;
+}
+function rcMin(sec) { return sec >= 60 ? (Math.round(sec / 6) / 10) + ' min' : Math.round(sec) + ' s'; }
+// The name of a way: by the avenue, by the road by the market (its part the other way does not take).
+function rcWayName(s, p, other) {
+  const set = new Set(other || []), own = p.filter((i) => !set.has(i));
+  const mid = own.length ? own[(own.length / 2) | 0] : p[(p.length / 2) | 0];
+  const av = own.find((i) => s.road[i] === 3);
+  if (av !== undefined) return 'the avenue' + placeName(s, av).replace(/^the road/, '');
+  return placeName(s, mid);
+}
+// Which side each of two ways takes where they part: ['northern', 'southern'] (the larger difference of their own
+// tiles' mean position).
+function rcSides(A, B) {
+  const sa = new Set(A), sb = new Set(B), a = A.filter((i) => !sb.has(i)), b = B.filter((i) => !sa.has(i));
+  const m = (L, f) => (L.length ? L.reduce((x, i) => x + f(i), 0) / L.length : 0), X = (i) => i % MAP_W, Y = (i) => (i / MAP_W) | 0;
+  const dx = m(a, X) - m(b, X), dy = m(a, Y) - m(b, Y);
+  return Math.abs(dy) >= Math.abs(dx) ? (dy < 0 ? ['northern', 'southern'] : ['southern', 'northern']) : (dx < 0 ? ['western', 'eastern'] : ['eastern', 'western']);
+}
+// Why its carts go the way they go, for a producer's card: { text, A (the way), B (the direct way, when another) } or null.
+function rcWhy(s, b) {
+  if (!t3On()) return null;
+  const def = defOf(b);
+  if (def.kind !== 'producer' || !def.makes) return null;
+  const cart = s.carts.find((c) => c.home === b.id && c.st === 'go' && c.path && c.dest);
+  let d = cart ? bById(s, cart.dest) : null;
+  if (!d) { const f = consumerFind(s, b, def.makes); d = f ? f.d : null; }
+  if (!d) return null;
+  const A = rcPath(s, b, d), B = roadPath(s, b, d);
+  if (!A || A.length < 2) return null;
+  const pa = rcParts(s, A), to = (defOf(d).short || defOf(d).name).toLowerCase();
+  const same = !B || (B.length === A.length && B.every((v, k) => v === A[k]));
+  const notes = (q) => {
+    const o = [];
+    if (q.waitAt >= 0 && q.waitMax >= 8) o.push('a cart waits ' + Math.round(q.waitMax) + ' s at ' + placeName(s, q.waitAt).replace(/^the road by/, 'the crossing by'));
+    if (q.jamAt >= 0 && q.jam >= 1.6) o.push(placeName(s, q.jamAt) + ' is jammed (carts take ' + (Math.round(q.jam * 10) / 10) + '× as long)');
+    if (q.worn + q.poor >= 2) o.push(plural(q.worn + q.poor, 'tile is', 'tiles are') + ' worn');
+    return o;
+  };
+  if (same) {
+    const o = notes(pa);
+    return { A, B: null, text: 'Its carts take the shortest way to the ' + to + ': ' + plural(A.length, 'tile', 'tiles') + ', ' + rcMin(pa.sec) + (pa.crossings ? ', ' + plural(pa.crossings, 'crossing', 'crossings') : '') + (o.length ? '; ' + o.join(', ') : '') + '.' };
+  }
+  const pb = rcParts(s, B), why = [];
+  if (pb.waitMax - pa.waitMax >= 8 && pb.waitAt >= 0) why.push('a cart waits ' + Math.round(pb.waitMax) + ' s at ' + placeName(s, pb.waitAt).replace(/^the road by/, 'the crossing by'));
+  if (pb.jam >= 1.6 && pb.jam > pa.jam + 0.3) why.push(placeName(s, pb.jamAt) + ' is jammed (' + (Math.round(pb.jam * 10) / 10) + '× as long)');
+  if (pb.worn + pb.poor >= pa.worn + pa.poor + 2) why.push(plural(pb.worn + pb.poor, 'tile is', 'tiles are') + ' worn');
+  if (pb.dirt >= pa.dirt + 3) why.push(plural(pb.dirt, 'tile is', 'tiles are') + ' dirt');
+  const turns = pb.left - pa.left, cr = pb.crossings - pa.crossings;
+  if (cr >= 2 || turns >= 1) why.push([cr >= 2 ? plural(cr, 'crossing', 'crossings') + ' more' : '', turns >= 1 ? plural(turns, 'left turn', 'left turns') + ' more' : ''].filter(Boolean).join(' and '));
+  if (!why.length) why.push('it costs more all told (time, comfort and the carters\' fee)');
+  const dt = pa.sec - pb.sec;
+  let nameA = 'by ' + rcWayName(s, A, B), nameB = 'by ' + rcWayName(s, B, A);
+  // (two ways past the same building: named by the side of the block they take)
+  if (nameA === nameB) { const side = rcSides(A, B); nameA = 'the ' + side[0] + ' way'; nameB = 'the ' + side[1] + ' way'; }
+  const other = nameB.startsWith('by ') ? (B.length < A.length ? 'the direct way ' : 'the other way ') + nameB : nameB + (B.length < A.length ? ', the direct one' : '');
+  const head = 'Its carts go to the ' + to + ' ' + nameA + ' (' + plural(A.length, 'tile', 'tiles') + ', ' + rcMin(pa.sec) + ')';
+  const text = dt > 0.5 ? head + ': ' + rcMin(dt) + ' longer than ' + other + ' (' + plural(B.length, 'tile', 'tiles') + '), but there ' + why.join(', ') + '.'
+    : head + ', not ' + other + ' (' + plural(B.length, 'tile', 'tiles') + ', ' + rcMin(pb.sec) + '): there ' + why.join(', ') + '.';
+  return { A, B, text, pa, pb };
+}
+
+// ---- src/sim/slowcarts.js
+// T3's balance pass (23 Oct 2026, nova/t3): when the markets run short of food and the carts that bring it lose much of
+// their time on the way, Rosa's food line and the cook's ask name that cause and its one-tap fix, not "build another
+// fruit grove". DESIGN.md §43. Measured first (LOG T3, the balance pass): the on-screen-only player's markets were
+// short while as much food was made as before; its carts took 13 % longer a tile, on worn streets and past accidents,
+// and its screen kept asking for groves it had no lot for.
+// - The carts are those on the road with fish or fruit to (or back from) the markets that reach the hungry homes; for
+//   each tile of their way: its time as T1 measured it (the month-start copy, saved), what wear adds (the street's speed
+//   against a good one), what a jam adds (T1's measured time against a free road), and at a crossing with accidents in
+//   the last year the time it was slowed by them (accidents.js: ACC.pass for ACC.block ticks each).
+// - When a fifth or more of the carts' time is lost on the way, the biggest loss is the line: a worn stretch (repave it,
+//   A8's dotted plan), a crossing with accidents (its safest rule, the families' fix), or a jam (T1's fix).
+// - Q2 checks the plan as any repave or crossing fix (accidents.js brCheck).
+const SLOW = {
+  share: 0.2,   // the share of the carts' time lost on the way from which it is the cause
+  part: 0.4,    // and the biggest single place must be this much of what is lost
+  carts: 3,     // carts measured at least
+};
+const SLOW_FOOD = ['fish', 'fruit'];
+
+// What the carts on their way to markets `mids` with goods `goods` lose, and where most of it: { share, carts, kind
+// ('wear' | 'acc' | 'jam'), i (the place), lost (that place's part), stretch } or null.
+function slowWay(s, mids, goods) {
+  if (!t3On() || !mids.size) return null;
+  const wear = new Map(), jam = new Map(), acc = new Map(), A = new Map();
+  for (const a of accLastYear(s)) if (a.x) A.set(a.i, (A.get(a.i) || 0) + 1);
+  const pActive = ACC.block / TUNE.ticksPerMonth / 12;
+  let all = 0, lost = 0, n = 0;
+  for (const c of s.carts) {
+    if (c.st === 'idle' || !c.path || !goods.includes(c.good) || !mids.has(c.dest)) continue;
+    n++;
+    for (let k = 1; k < c.path.length; k++) {
+      const i = c.path[k];
+      if (!s.road[i]) continue;
+      const v = tfV0(s, i), r = tfRatio(s, i, true), cls = rcCls(s, i), t = r / v;
+      const w = cls ? (1 - T3.speed[cls]) / v : 0, j = r > 1.25 ? (r - 1) / v : 0;
+      // an accident slows its place for ACC.block ticks: a cart then takes 1 / ACC.pass of its time there, and queues
+      const na = A.get(i) || 0, a = na ? na * pActive * (ACC.block / 2 + (1 / ACC.pass - 1) * t) : 0;
+      all += t + a; lost += w + j + a;
+      if (w) wear.set(i, (wear.get(i) || 0) + w);
+      if (j) jam.set(i, (jam.get(i) || 0) + j);
+      if (a) acc.set(i, (acc.get(i) || 0) + a);
+    }
+  }
+  if (n < SLOW.carts || all <= 0 || lost / all < SLOW.share) return null;
+  // the worn stretch that costs most (its tiles' loss together), the crossing, the jammed tile
+  let best = null;
+  const seen = new Set();
+  for (const [i] of [...wear].sort((x, y) => y[1] - x[1] || x[0] - y[0])) {
+    if (seen.has(i)) continue;
+    const st = repaveStretch(s, i);
+    if (!st) continue;
+    for (const t of st.tiles) seen.add(t);
+    const part = st.tiles.reduce((q, t) => q + (wear.get(t) || 0), 0);
+    if (!best || part > best.lost) best = { kind: 'wear', i, lost: part, stretch: st };
+  }
+  for (const [i, v] of acc) if (!best || v > best.lost) best = { kind: 'acc', i, lost: v };
+  for (const [i, v] of jam) if (!best || v > best.lost) best = { kind: 'jam', i, lost: v };
+  if (!best || best.lost < SLOW.part * lost) return null;
+  return Object.assign(best, { share: lost / all, carts: n });
+}
+
+// Rosa's line for it (and its button and plan), or null when the place has no fix she can tap.
+function slowLine(s, w, head) {
+  const pct = Math.round(w.share * 100), where = placeName(s, w.i), at = [w.i % MAP_W, (w.i / MAP_W) | 0];
+  const lead = head + ' lose ' + pct + ' % of their time on the way, most of it ';
+  if (w.kind === 'wear') {
+    const st = w.stretch, avg = Math.round(st.tiles.reduce((q, t) => q + rcOf(s, t), 0) / st.tiles.length);
+    return { text: lead + 'on ' + where + ', ' + (st.poor ? 'broken up' : 'worn') + ' (' + plural(st.tiles.length, 'tile', 'tiles') + ' at ' + avg + ' %). Repave the dotted stretch (' + money$(st.cost) + ').', btn: 'Repave it', act: { plan: { kind: 'repave', at: st.at || w.i }, at } };
+  }
+  if (w.kind === 'acc') {
+    const fix = accFix(s, w.i);
+    if (!fix) return null;
+    const n = accLastYear(s, w.i).length;
+    return { text: lead + 'at ' + where + ', where ' + plural(n, 'accident', 'accidents') + ' slowed them last year. ' + ACC_RULE[fix.k].replace(/^./, (x) => x.toUpperCase()) + ' (' + money$(fix.cost) + ') would make it ' + accRateWords(fix.n1) + '. Tap the glowing crossing.', btn: planBtn({ kind: 'jfix', k: fix.k }), act: { plan: { kind: 'jfix', i: w.i, k: fix.k }, at } };
+  }
+  if (typeof tfJamFix !== 'function') return null;
+  const F = tfJamFix(s, { i: w.i });
+  // (a jam's fix she draws herself, a road or a lane, is the Traffic legend's: here only one she can tap)
+  if (!F.plan) return null;
+  return { text: lead + 'in the jam at ' + where + ': ' + F.text + '.', btn: toolLabel(F.tool), act: F.plan ? { plan: F.plan, tool: F.tool, at: F.at } : { tool: F.tool, at: F.at } };
+}
+
+// Food a month: what the open groves and huts make at their staff, what the homes eat.
+function foodMade(s) {
+  let t = 0;
+  for (const b of s.b) { const d = defOf(b); if (b.open !== false && d.food && d.makes && d.kind === 'producer') t += (d.rate || 0) * (b.workers || 0) / (d.jobs || 1); }
+  return t * outputMult(s);
+}
+function foodEaten(s) { return homesOccupied(s).reduce((t, h) => t + eatRate(h, 'food') * h.res / LEVELS[h.level].people, 0); }
+
+// The food: the markets that reach the hungry homes, the fish and fruit carts on their way to them. When the way is
+// not slow but the groves' and huts' yards stand full while the markets are empty, the food is made and waits: its carts
+// drive far to the few markets that still take a load (each market keeps room for the loads on their way), and another
+// market near the hungry homes is the fix (measured: the on-screen-only player's 25 groves had full yards and their carts
+// drove up to 62 tiles to 4 empty markets while the cook asked for more groves; the island before T3 had 6 markets).
+function slowFood(s) {
+  if (!t3On()) return null;
+  const c = simCache(s), key = s.month + ':' + s.ver + ':' + (t3State(s).rv || 0);
+  if (c.slowF && c.slowF.key === key) return c.slowF.v;
+  let v = null;
+  const hungry = homesOccupied(s).filter((h) => (h.miss || []).includes('food'));
+  if (hungry.length) {
+    const reach = homeReach(s), mids = new Set();
+    for (const h of hungry) for (const id of reach[h.id].markets) mids.add(id);
+    // (the slow way is the cause only when the island makes the food its homes eat: else more groves are the fix.
+    // Her-play's town of 1915 made 70 a month for 376 people and Rosa spoke of a jam by the fruit grove for 5 years)
+    const w = foodMade(s) >= foodEaten(s) ? slowWay(s, mids, SLOW_FOOD) : null, L = w && slowLine(s, w, 'Your markets run short of food: the carts that bring it');
+    if (L) v = L;
+    else if (!w) {
+      const farms = s.b.filter((b) => b.open && defOf(b).food && defOf(b).makes), full = farms.filter((b) => b.blocked === 'yard');
+      const ms = s.b.filter((b) => defOf(b).kind === 'market' && b.open && b.workers > 0);
+      const trips = s.carts.filter((q) => q.st === 'go' && q.path && SLOW_FOOD.includes(q.good));
+      if (ms.length && full.length * 2 >= farms.length && full.length >= 2 && ms.filter((m) => marketFood(m) < 1).length * 2 >= ms.length && trips.length >= SLOW.carts) {
+        const len = Math.round(trips.reduce((q, x) => q + x.path.length, 0) / trips.length), nm = defOf(full[0]).name.toLowerCase();
+        v = { text: 'Your markets run short of food, though ' + full.length + ' of the ' + plural(farms.length, nm, nm.endsWith('y') ? nm.slice(0, -1) + 'ies' : nm + 's').replace(/^\d+ /, '') + ' have full yards: their carts drive ' + len + ' tiles on average to ' + plural(ms.length, 'market', 'markets') + ' for ' + plural(homesOccupied(s).length, 'home', 'homes') + '. Another market near the hungry homes takes their loads.',
+          btn: 'Market', act: { tool: 'market', at: homesAt(hungry), slowFull: 1 } };
+      }
+    }
+  }
+  return (c.slowF = { key, v }).v;
+}
+// The shut food makers come first: when the markets run short of food (not stuck: most open groves' and huts' yards
+// are not full) while groves or huts stand shut, Rosa asks to open them again (their wages are the whole price), not
+// for new ones. (Measured: her-play's council asked to shut 8 fruit groves with full yards on the thin paydays of the
+// 1940s; in the 1950s its markets ran short and Rosa and the cook asked for new groves, with no lot by a road, while the
+// 8 stood shut: up to 62 homes without food for ten years.) With T3 only (NOVA_NO_T3=1: the guidance before).
+function shutFood(s) {
+  if (!t3On()) return null;
+  const c = simCache(s), key = s.month + ':' + s.ver;
+  if (c.shutF && c.shutF.key === key) return c.shutF.v;
+  let v = null;
+  const hungry = homesOccupied(s).filter((h) => (h.miss || []).includes('food'));
+  const maker = (b) => defOf(b).food && defOf(b).makes && defOf(b).kind === 'producer';
+  const shut = s.b.filter((b) => b.open === false && maker(b)), open = s.b.filter((b) => b.open !== false && maker(b));
+  if (hungry.length >= 2 && shut.length && open.filter((b) => b.blocked === 'yard').length * 2 < Math.max(1, open.length)) {
+    const at = homesAt(hungry), d = (b) => Math.hypot(b.x - at[0], b.y - at[1]);
+    shut.sort((a, b) => d(a) - d(b) || a.id - b.id);
+    const ids = shut.map((b) => b.id), cost = shut.reduce((t, b) => t + shutCost(s, b), 0), made = shut.reduce((t, b) => t + (defOf(b).rate || 0), 0);
+    const kinds = [...new Set(shut.map((b) => b.type))], goods = [...new Set(shut.map((b) => defOf(b).makes))];
+    const nm = (t, n) => { const w = BUILDINGS[t].name.toLowerCase(); return plural(n, w, w + 's'); };
+    const what = kinds.map((t) => nm(t, shut.filter((b) => b.type === t).length)).join(' and '), them = shut.length > 1 ? 'them' : 'it';
+    v = { text: 'Your markets run short of food (' + plural(hungry.length, 'home', 'homes') + ' without) while ' + what + (shut.length > 1 ? ' stand' : ' stands') + ' shut. Open ' + them + ' again: ' + (shut.length > 1 ? 'their ' : 'its ') + listAnd(goods) + ' (about ' + made + ' a month at full work) goes to the markets, for ' + money$(cost) + ' a month in wages and upkeep.',
+      btn: 'Open ' + them + ' · ' + money$(cost) + ' a month', act: { reopen: ids, select: ids[0], at: [shut[0].x, shut[0].y] } };
+  }
+  return (c.shutF = { key, v }).v;
+}
+// What opening a shut workplace adds to the month: its wages at full work and the rest of its upkeep.
+function shutCost(s, b) {
+  const o = b.open, w = b.workers, k = (x) => x.wages + x.upkeep;
+  b.open = true; b.workers = defOf(b).jobs || 0;
+  const a = k(bNumber(s, b));
+  b.open = o; b.workers = w;
+  return Math.max(0, a - k(bNumber(s, b)));
+}
+// Her [Open them]: those groves and huts open again (their cards can shut them).
+function shutReopen(s, ids) {
+  const bs = (ids || []).map((id) => bById(s, id)).filter((b) => b && b.open === false);
+  if (!bs.length) return false;
+  for (const b of bs) b.open = true;
+  jobsAssign(s); s.ver++;
+  const w = BUILDINGS[bs[0].type].name.toLowerCase();
+  simLog(s, 'Open again on your word: ' + (bs.length > 1 ? bs.length + ' food makers (' + listAnd([...new Set(bs.map((b) => BUILDINGS[b.type].name.toLowerCase() + 's'))]) + ')' : 'the ' + w) + ': their food goes to the markets.', [bs[0].x + defOf(bs[0]).w / 2, bs[0].y + defOf(bs[0]).h / 2]);
+  if (s.guide.msg && s.guide.msg.act && s.guide.msg.act.reopen) s.guide.msg = null;
+  return true;
+}
+{
+  const _sr = screenRosa;
+  screenRosa = function (s, m, arm) {
+    if (m && m.act && m.act.reopen) return shutReopen(s, m.act.reopen);
+    return _sr.apply(this, arguments);
+  };
+}
+{
+  // Rosa's food line: where she would ask for another grove or fishing hut, the shut ones and the slow way come first
+  const P = GUIDE_PROBLEMS.find((p) => p.key === 'food');
+  const FOOD_T = ['grove', 'fishing'], forFood = (a) => !!a && (FOOD_T.includes(a.tool) || FOOD_T.includes(a.then) || FOOD_T.includes(a.open) || (!!a.plan && FOOD_T.includes(a.plan.type)));
+  if (P) {
+    const _ck = P.check;
+    P.check = function (s) {
+      const m = _ck.apply(this, arguments);
+      if (!m || !forFood(m.act)) return m;
+      return shutFood(s) || (FOOD_T.includes(m.act.tool) && slowFood(s)) || m;
+    };
+  }
+  // the cook's ask says the same (comMake keeps its plan; done when the stretch is repaved or the rule stands)
+  const T = COMMISSIONS.find((q) => q.key === 'food');
+  if (T) {
+    const _w = T.when;
+    T.when = function (s) {
+      // (the shut groves first: Rosa says it herself, with her button; the cook waits)
+      if (shutFood(s)) return null;
+      const pr = GUIDE_PROBLEMS.find((q) => q.key === 'food'), m = pr && pr.check(s), p = m && m.act && m.act.plan;
+      if (!p || (p.kind !== 'repave' && p.kind !== 'jfix') || !countType(s, 'market')) return _w.apply(this, arguments);
+      return { tool: '', need: 0, near: m.act.at, plan: p, ask: m.text.replace(/^Your markets run short of food: the carts that bring it/, 'Our market runs short of food: the carts that bring it').replace(/\.$/, '') + ', and the plates are full again.',
+        praise: 'The carts come in on time again: full plates.', joy: 1 };
+    };
+  }
+  const _cm = comMake;
+  comMake = function (s, T, r) {
+    const q = _cm.apply(this, arguments);
+    if (q && T.key === 'food' && r && r.plan) { q.plan = r.plan; q.spots = []; q.road = null; q.move = 0; q.sv = s.ver; }
+    return q;
+  };
+  const _cd = comIsDone;
+  comIsDone = function (s, q) {
+    if (q && q.key === 'food' && q.plan && (q.plan.kind === 'repave' || q.plan.kind === 'jfix')) return q.plan.kind === 'jfix' ? tfCtl(s, q.plan.i) === q.plan.k : !planOf(s, q.plan);
+    return _cd.apply(this, arguments);
+  };
+  const _cg = comGone;
+  comGone = function (s, q) {
+    // (only the cook's slow-way asks: a food ask with A7's plan for its grove's lot is the base ask's)
+    if (!q || q.key !== 'food' || !q.plan || (q.plan.kind !== 'repave' && q.plan.kind !== 'jfix')) return _cg.apply(this, arguments);
+    const T2 = COMMISSIONS.find((o) => o.key === 'food'), r = T2 && T2.when(s);
+    return !r || !r.plan || r.plan.kind !== q.plan.kind || !planOf(s, q.plan);
+  };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -18248,6 +19451,47 @@ const ISO = (() => {
       drum(1.5, 1.2, 1.43, 1.75, 0.5, '#efe4cc'); dome(1.5, 1.2, 1.75, 0.5, 0.55, '#8aa7a0');
       for (const [x, y] of [[0.15, 0.2], [2.85, 0.25]]) royalPalm(x, y, 2.2, 0.9);
     }
+  }
+  // T3: the road depot (the Obras Públicas yard): a timber shed with its wide door, heaps of crushed stone and gravel,
+  // tar barrels by the boiler, and the steam roller (Aveling & Porter's kind, the camineros' machine) in the yard
+  function paintRoadyard(def) {
+    const W = def.w, D = def.h;
+    const yard = rrPts(0.06, 0.06, W - 0.06, D - 0.06, 0.18).map((p) => P(p[0], p[1]));
+    poly(yard, '#cdbf9f', '#a8977a', 1 * S);
+    for (let k = 0; k < 26; k++) { const q = P(0.15 + h2(k, 3) * (W - 0.3), 0.15 + h2(7, k) * (D - 0.3)); circ(q[0], q[1], 0.9 * S, k % 2 ? 'rgba(120,105,85,.45)' : 'rgba(250,240,220,.5)'); }
+    // the shed at the back
+    const x = 0.12, y = 0.12, w = W - 0.5, d = 0.72, h = 0.62, wood = '#c9a77a';
+    boxShadow(x, y, x + w, y + d, 1.1);
+    const wv = walls(x, y, w, d, 0, h, wood, true);
+    for (const [f, L, c] of [[wv.fl, w, wood], [wv.fr, d, wv.cS]]) { ctx.beginPath(); for (let q = 0.09; q < L; q += 0.09) { const a = fp(f, q, 0), b = fp(f, q, h); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); } ctx.strokeStyle = rgba(dk(c, 0.45), 0.4); ctx.lineWidth = 0.8 * S; ctx.stroke(); }
+    poly(fq(wv.fl, w * 0.18, w * 0.62, 0, 0.5), '#5a3e2a', ln('#5a3e2a'), 0.9 * S);
+    win(wv.fr, d * 0.5, 0.3, 0.16, 0.18, null);
+    wallsOutline(wv);
+    gableX(x, y, w, d, h, 0.32, 0.07, '#7f8a8c', wood, { rows: 4 });
+    // its sign: OBRAS PÚBLICAS
+    poly(fq(wv.fl, w * 0.66, w * 0.97, 0.36, 0.52), '#f4ecd8', INK, 0.8 * S); faceText(wv.fl, w * 0.815, 0.44, 'O.P.', 9, '#24786f');
+    // crushed stone and gravel in heaps, tar barrels
+    for (const [hx, hy, r, c] of [[W - 0.3, 0.42, 0.26, '#a8a294'], [W - 0.32, 0.98, 0.22, '#8f8a80']]) {
+      const b0 = P(hx, hy, 0), top = P(hx, hy, r * 0.9);
+      ell(b0[0], b0[1], r * hw * 1.1, r * hh * 1.1, 'rgba(37,28,56,.12)');
+      poly([[b0[0] - r * hw, b0[1]], [top[0], top[1]], [b0[0] + r * hw, b0[1]], [b0[0], b0[1] + r * hh * 0.8]], c, ln(c), 0.8 * S);
+      for (let k = 0; k < 8; k++) { const u = h2(k, hx * 10) - 0.5, v = h2(hy * 10, k); circ(b0[0] + u * r * hw, b0[1] - v * (b0[1] - top[1]) * 0.8, 0.9 * S, 'rgba(255,255,255,.35)'); }
+    }
+    for (const [bx, by] of [[0.3, D - 0.42], [0.48, D - 0.3], [0.3, D - 0.22]]) { drum(bx, by, 0, 0.26, 0.085, '#2f2a28'); const t = P(bx, by, 0.26); ell(t[0], t[1], 0.085 * hw, 0.085 * hh, '#4a4440'); }
+    // the steam roller: its big front roll, the boiler and its chimney, the driver's canopy, the two rear wheels
+    const rx = W * 0.58, ry = D - 0.5;
+    blobShadow(rx, ry, 0.36);
+    const rearA = P(rx + 0.2, ry - 0.16, 0.13), rearB = P(rx + 0.2, ry + 0.16, 0.13);
+    circ(rearB[0], rearB[1], 5.2 * S, '#3a3a38', INK, 1 * S); circ(rearB[0], rearB[1], 2 * S, '#9a8a6a');
+    boxAt(rx - 0.18, ry - 0.11, 0.42, 0.22, 0.12, 0.2, '#2f4a40');
+    drum(rx - 0.02, ry, 0.32, 0.46, 0.08, '#2f4a40');
+    const ch0 = P(rx - 0.12, ry, 0.46), ch1 = P(rx - 0.12, ry, 0.86); seg(ch0, ch1, '#1f2a26', 3 * S); seg([ch1[0] - 2 * S, ch1[1]], [ch1[0] + 2 * S, ch1[1]], '#1f2a26', 3 * S);
+    const cp = [P(rx + 0.08, ry - 0.13, 0.78), P(rx + 0.3, ry - 0.13, 0.78), P(rx + 0.3, ry + 0.13, 0.78), P(rx + 0.08, ry + 0.13, 0.78)];
+    seg(P(rx + 0.1, ry + 0.11, 0.32), cp[3], '#3a2a1f', 1.2 * S); seg(P(rx + 0.28, ry + 0.11, 0.32), cp[2], '#3a2a1f', 1.2 * S);
+    poly(cp, '#7f8a8c', ln('#7f8a8c'), 0.8 * S);
+    const fr = P(rx - 0.3, ry, 0.15);
+    ell(fr[0], fr[1], 0.16 * hw, 0.17 * hh * 1.9, '#4a4a46'); ell(fr[0] - 0.05 * hw, fr[1], 0.12 * hw, 0.15 * hh * 1.9, '#6a6a64');
+    circ(rearA[0], rearA[1], 5.2 * S, '#3a3a38', INK, 1 * S); circ(rearA[0], rearA[1], 2 * S, '#9a8a6a');
   }
   function paintCivic(def, sea) {
     if (def.gives === 'church') { if (def.w >= 3) paintCathedral(def); else paintChapel(); return; }
@@ -20998,6 +22242,7 @@ const ISO = (() => {
     if (art === 'pier') return sprite(R, 'pier|' + def.w + '|' + r, [vd.w, vd.h, 0.45, 0.45], H, () => paintPier(def, r));
     if (art === 'airfield') { const sea = seaView(s, b, r); return sprite(R, 'airfield|' + (sea ? sea.join(',') : '-'), foot, H, () => paintAirfield(vd, sea)); }
     if (art === 'station') { const side = stationView(s, b, r); return sprite(R, 'station|' + vd.w + 'x' + vd.h + '|' + (side ? side.join(',') : '-'), foot, H, () => paintStation(vd, side)); }
+    if (art === 'roadyard') return sprite(R, 'roadyard|' + vd.w + 'x' + vd.h, foot, H, () => paintRoadyard(vd));
     return sprite(R, 'box|' + b.type + '|' + vd.w + 'x' + vd.h, foot, H, () => boxAt(0.15, 0.15, vd.w - 0.3, vd.h - 0.3, 0, 0.6, '#d9c7a4'));
   }
   // Where a building keeps its piles (local tile coordinates of each pile's centre).
@@ -21565,7 +22810,8 @@ const ISO = (() => {
       if (!s.road[i]) continue;
       const x = i % MAP_W, y = (i / MAP_W) | 0;
       if (keep && !keep(x, y)) continue;
-      const l = trafficLevel(s, i), k = l >= TR.jam ? 2 : l > TR.busy ? 1 : 0, cx = x + 0.5, cy = y + 0.5;
+      // (T3, roadcare_ui.js: the condition view colours a tile by its wear: good, worn, poor)
+      const ck = typeof rcLayerK === 'function' ? rcLayerK(s, i) : -1, l = ck >= 0 ? 0 : trafficLevel(s, i), k = ck >= 0 ? ck : l >= TR.jam ? 2 : l > TR.busy ? 1 : 0, cx = x + 0.5, cy = y + 0.5;
       const nb = [rd(x + 1, y), rd(x, y + 1), rd(x - 1, y), rd(x, y - 1)];
       let any = false;
       n++;
@@ -23132,6 +24378,8 @@ const ISO = (() => {
     rlOverlay(R, s, ui, t);
     // T2: the plans the junction card offers (turn lanes, a bridge), dashed on the map before she taps (streets_ui.js)
     if (typeof stOverlay === 'function') stOverlay(R, s, ui, t, stHook(R));
+    // T3: accident markers, the way a producer's carts go, the stretch a road card offers (roadcare_ui.js)
+    if (typeof rcOverlay === 'function') rcOverlay(R, s, ui, t, stHook(R));
     // A4: the families' names on the map (the tents, the suitcases, one of them at the door of a tapped home)
     famMarks(R, s, ui, t, now);
     // A10: a new quarter's street sign (two years), the far town's name (always)
@@ -33062,6 +34310,475 @@ function wkCardHtml(s, b) {
     const r = _bd.apply(this, arguments);
     if (b.wl > 1 && b.open) { const p = flatToScreen(R, view, b.x, b.y), z = view.z; badgeDraw(ctx, p.x + b.w * z * 0.5, p.y + z * 0.32, b.wl === 2 ? 'II' : 'III', z); }
     return r;
+  };
+}
+
+// ---- src/ui/roadcare_ui.js
+// T3 (23 Oct 2026, nova/t3) on screen: DESIGN.md §43. Sim: src/sim/wear.js, accidents.js, routecost.js.
+// - The Traffic legend: the year's accidents and where most happened ([Show] opens that crossing's card), the roads'
+//   condition and [Condition], which turns the layer into the condition view (good green, worn amber, poor red), with
+//   the worst worn stretch, [Repave · $X] (one tap) and [Road depot] when worn roads lie out of every depot's reach.
+// - A tap on a street with the Traffic layer on opens its card: its condition, what wear does there, its carts, its
+//   accidents, the depot that keeps it, [Repave this stretch · $X] with the stretch outlined on the map before she taps.
+// - The junction card: its accidents and their rate, what each rule would make of them. A producer's card: which way
+//   its carts go and why (the way drawn on the map, the direct way dashed beside it). A home's card: an accident near it.
+//   The depot's card: what it keeps and mended last month.
+// - On the map: a marker where an accident blocks the road now; with the layer on, each place's accidents of the year.
+// A12: nothing is repaired, built or changed unless she taps a priced button (or a glowing place, A8).
+
+Object.assign(ICONS, {
+  // a steam roller: the boiler and chimney over the big front roll, the cab behind
+  roller: 'M3 13.5 A4.5 4.5 0 1 0 3.01 13.5 Z M5.5 13.5 A2 2 0 1 1 5.49 13.5 Z M14 15 A3.5 3.5 0 1 0 14.01 15 Z M16 15 A1.5 1.5 0 1 1 15.99 15 Z M7 7 H10 V3 H12 V7 H15 V5 H21 V13 H18.5 A4.6 4.6 0 0 0 12.2 11.6 L11.5 9.5 H7 Z',
+  // a warning triangle with its bar and dot
+  crash: 'M12 2 L23 21.5 H1 Z M11 9 V15 H13 V9 Z M11 17 V19 H13 V17 Z',
+});
+{
+  const st = document.createElement('style');
+  st.textContent = [
+    '#trlegend .t3l { flex-basis: 100%; display: flex; align-items: center; justify-content: center; gap: 4px 8px; flex-wrap: wrap; margin-top: 4px; font-size: 13px; }',
+    '#trlegend .t3l .t3t { text-align: left; line-height: 1.25; max-width: 360px; }',
+    '#trlegend .t3l .t3t.acc { color: #a33a22; font-weight: 700; }',
+    '#trlegend .t3l button.tl { min-height: 44px; }',
+    '#trlegend .t3l button.tl.on { background: #e3efcf; box-shadow: inset 0 0 0 2px #2e7a3a; }',
+    '#trlegend .t3c { flex-basis: 100%; display: none; align-items: center; justify-content: center; gap: 4px 8px; flex-wrap: wrap; font-size: 13px; }',
+    '#trlegend.cond .t3c { display: flex; }',
+    '#trlegend.cond > .g, #trlegend.cond > .wl, #trlegend.cond > .bri, #trlegend.cond > .rl, #trlegend.cond > small { display: none !important; }',
+    '#trlegend .t3c .gg { white-space: nowrap; }',
+    '#trlegend .t3c .worst { max-width: 360px; text-align: left; line-height: 1.25; }',
+    '#trlegend .t3c button.tl.fix { background: var(--teal); color: #fff7ea; }',
+    '@media (max-width: 600px) { #trlegend .t3l, #trlegend .t3c { font-size: 12px; } #trlegend .t3l .t3t, #trlegend .t3c .worst { max-width: none; flex-basis: 100%; text-align: center; } #trlegend .t3c .wide, #trlegend .t3l .wide { display: none; } }',
+    '#card .rc { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0 4px; }',
+    '#card .rc div { border: 1.5px solid rgba(58,42,31,.22); border-radius: 9px; padding: 5px 8px; font-size: 13px; line-height: 1.25; }',
+    '#card .rc div b { display: block; font-size: 12px; color: var(--ink2); font-weight: 700; }',
+    '#card .rcbar { height: 12px; border-radius: 6px; background: rgba(58,42,31,.12); overflow: hidden; margin: 4px 0 2px; box-shadow: inset 0 0 0 1px rgba(58,42,31,.3); }',
+    '#card .rcbar i { display: block; height: 100%; }',
+    '#card button.rcgo { width: 100%; min-height: 48px; margin-top: 6px; border-radius: 11px; font-weight: 800; background: var(--teal); color: #fff7ea; }',
+    '#card button.rcgo:disabled { opacity: .55; }',
+    '#card button.rcalt { width: 100%; min-height: 44px; margin-top: 6px; border-radius: 10px; font-weight: 800; background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--ink); color: var(--ink); }',
+    '#card .note.route { border-left: 4px solid #2e9a91; }',
+  ].join('\n');
+  document.head.appendChild(st);
+}
+APP.ui.trCond = false;
+const RC_COLS = ['#33a457', '#f2a51c', '#d9301e'];
+
+// ---------- the Traffic layer's condition view (render/iso.js trafficPaths reads this) ----------
+// The colour class of road tile i in the condition view (0 good, 1 worn, 2 poor), or −1 (the traffic view).
+function rcLayerK(s, i) { return APP.ui.trCond && APP.ui.layer === 'traffic' && t3On() ? rcCls(s, i) : -1; }
+function rcCondSet(on) {
+  APP.ui.trCond = !!on;
+  const el = $('trlegend');
+  if (el) { el.dataset.a6 = ''; el.dataset.key = ''; el.dataset.t3 = ''; }
+  trafficLegend();
+}
+{
+  const _tt = trafficToggle;
+  trafficToggle = function (on) { const r = _tt.apply(this, arguments); if (APP.ui.layer !== 'traffic') APP.ui.trCond = false; return r; };
+}
+
+// ---------- the legend ----------
+function rcLegendParts(s) {
+  const A = accLastYear(s), w = accWorst(s), c = rcCounts(s), rp = repaveWorst(s), dn = depotNeed(s);
+  return { A, w, c, rp, dn };
+}
+{
+  const _lg = trafficLegend;
+  trafficLegend = function () {
+    _lg.apply(this, arguments);
+    const el = $('trlegend'), s = APP.state;
+    if (!el || !s) return;
+    const show = el.classList.contains('show') && APP.ui.layer === 'traffic' && t3On() && APP.ui.tool === 'look';
+    el.classList.toggle('cond', !!(show && APP.ui.trCond));
+    let row = el.querySelector('.t3l'), cv = el.querySelector('.t3c');
+    if (!show) { if (row) row.remove(); if (cv) cv.remove(); return; }
+    const P = rcLegendParts(s), phone = innerWidth < 600;
+    const key = [APP.ui.trCond ? 1 : 0, P.A.length, P.w ? P.w.i + ':' + P.w.n : '-', P.c.good, P.c.worn, P.c.poor, P.rp ? P.rp.at + ':' + P.rp.cost : '-', P.dn ? P.dn.n : 0, phone ? 1 : 0, s.money >= (P.rp ? P.rp.cost : 0) ? 1 : 0].join('|');
+    if (!row) { row = document.createElement('div'); row.className = 't3l'; el.appendChild(row); el.dataset.t3 = ''; }
+    else if (row !== el.lastElementChild && !cv) el.appendChild(row);
+    if (!cv) { cv = document.createElement('div'); cv.className = 't3c'; el.insertBefore(cv, row); el.dataset.t3 = ''; }
+    if (el.dataset.t3 === key) return;
+    el.dataset.t3 = key;
+    // the traffic view: the year's accidents and the worst place; the roads' condition and the switch
+    const accT = P.A.length ? plural(P.A.length, 'accident', 'accidents') + ' last year' + (P.w && P.w.n >= 2 ? (phone ? ', ' + P.w.n + ' at one crossing' : ', ' + P.w.n + ' at ' + placeName(s, P.w.i).replace(/^the road by/, 'the crossing by')) : '') : (phone ? 'No accidents last year' : 'No accidents last year (they come at busy crossings without lights or a roundabout, and on worn roads)');
+    const cT = (phone ? '' : 'Roads: ') + P.c.worn + ' worn, ' + P.c.poor + ' poor' + (phone ? '' : ' of ' + P.c.all);
+    // (a phone: one line of words, the two buttons side by side under it)
+    const accB = P.w && P.w.n >= 1 ? '<button class="tl" id="t3AccGo">' + (P.w.x ? 'The crossing' : 'Show') + '</button>' : '';
+    row.innerHTML = APP.ui.trCond ? '' : phone ? '<span class="t3t' + (P.A.length ? ' acc' : '') + '">' + iconSvg('crash') + ' ' + esc((P.A.length ? plural(P.A.length, 'accident', 'accidents') + ' last year' : 'No accidents last year') + ' · ' + P.c.worn + ' worn, ' + P.c.poor + ' poor') + '</span>' + accB + '<button class="tl" id="t3Cond">Condition</button>' :
+      '<span class="t3t' + (P.A.length ? ' acc' : '') + '">' + iconSvg('crash') + ' ' + esc(accT) + '</span>' + accB + '<span class="t3t">' + esc(cT) + '</span><button class="tl" id="t3Cond">Condition</button>';
+    row.style.display = APP.ui.trCond ? 'none' : '';
+    // the condition view: what the colours mean, the worst stretch and its fix
+    const rp = P.rp, poorW = rp && (rp.poor > 0) ? 'poor' : 'worn';
+    let worst = '';
+    if (rp) {
+      const where = placeName(s, rp.at), avg = Math.round(rp.tiles.reduce((a, i) => a + rcOf(s, i), 0) / rp.tiles.length);
+      worst = '<span class="worst ' + (rp.poor ? 'jam' : 'busy') + '">' + esc((phone ? '' : 'Most worn: ') + where + ', ' + plural(rp.tiles.length, 'tile', 'tiles') + ' at ' + avg + ' %' + (phone ? '' : ' (' + rp.load + ' carts a month; carts go ' + Math.round((1 - T3.speed[rp.poor ? 2 : 1]) * 100) + ' % slower on ' + poorW + ' road)') + '.') + '</span>' +
+        '<button class="tl" id="t3RpShow">Show</button><button class="tl fix" id="t3Rp">Repave · ' + esc(money$(rp.cost)) + '</button>';
+    } else worst = '<span class="worst ok">' + esc(phone ? 'Every road is in good repair.' : 'Every road is in good repair: carts go at full speed.') + '</span>';
+    const dep = P.dn && s.stage >= T3.stage ? '<button class="tl" id="t3Dep">Road depot · ' + esc(money$(BUILDINGS.roadyard.cost)) + '</button>' : '';
+    cv.innerHTML = '<b>Roads</b><span class="gg"><span class="k free"></span>good ' + P.c.good + '</span><span class="gg"><span class="k busy"></span>worn ' + P.c.worn + '</span><span class="gg"><span class="k jam"></span>poor ' + P.c.poor + '</span><button class="tl on" id="t3Cond2">Traffic</button>' +
+      '<span class="wide" style="flex-basis:100%;text-align:center;opacity:.75;font-size:12px">' + esc((rcVillage(s) ? 'Until Town the villagers mend their own streets (their days of road work for the council). Then: ' : '') + 'Roads wear with their carts (a lorry as three): dirt lasts about ' + T3.life[1] + ' years, paved ' + T3.life[2] + ', an avenue ' + T3.life[3] + '. Worn roads slow carts, are louder and have more accidents.') + '</span>' +
+      worst + dep;
+    const go = $('t3AccGo');
+    if (go && P.w) go.onclick = () => { const i = P.w.i; cameraFlyTo(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5); if (P.w.x && jctAt(APP.state, i)) jcardOpen(i); else rcardOpen(i); };
+    const cb = $('t3Cond'); if (cb) cb.onclick = () => rcCondSet(true);
+    const cb2 = $('t3Cond2'); if (cb2) cb2.onclick = () => rcCondSet(false);
+    const sh = $('t3RpShow'); if (sh && rp) sh.onclick = () => { cameraFlyTo(rp.at % MAP_W + 0.5, ((rp.at / MAP_W) | 0) + 0.5); rcardOpen(rp.at); };
+    const rb = $('t3Rp'); if (rb && rp) rb.onclick = () => rcRepaveTap(rp.at);
+    const db = $('t3Dep'); if (db && P.dn) db.onclick = () => { toolSet('roadyard'); cameraFlyTo(P.dn.at[0] + 0.5, P.dn.at[1] + 0.5); };
+  };
+}
+// Her tap on a repave button: the stretch through tile `at` is repaved at its price (Undo: none; it is a repair).
+function rcRepaveTap(at) {
+  const s = APP.state, w = repaveStretch(s, at);
+  if (!w) { toastShow('Nothing worn there any more.'); return false; }
+  const r = repave(s, w.tiles);
+  if (!r.ok) { toastShow(r.why + '.'); return false; }
+  const x = at % MAP_W + 0.5, y = ((at / MAP_W) | 0) + 0.5;
+  floaterAdd(x, y, '−' + money$(r.cost), '#c0392b');
+  audioCue('road');
+  toastShow('Repaved ' + plural(r.n, 'tile', 'tiles') + ' at ' + placeName(s, at) + ': ' + money$(r.cost) + '.');
+  APP.cardKey = '';
+  const el = $('trlegend'); if (el) el.dataset.t3 = '';
+  trafficLegend(); guideRender();
+  if (APP.ui.jsel >= 0) jcardRender();
+  return true;
+}
+
+// ---------- the street's card (a tap on a street with the Traffic layer on) ----------
+function rcardOpen(i) {
+  const s = APP.state;
+  if (!s.road[i]) return;
+  if (jctAt(s, i)) { jcardOpen(i); return; }
+  if (APP.ui.sel) cardClose();
+  APP.ui.jsel = i;
+  if (!APP.ui.trayClosed) { APP.ui.trayClosed = true; barBuild(); }
+  APP.cardKey = ''; APP.cardFor = -1 - i;
+  jcardRender();
+  $('card').classList.add('show');
+  document.body.classList.add('carded');
+  roadUndoPlace();
+  // the street and the stretch outlined on it in the free map: below the pill, the legend and the round map buttons
+  // (which step aside for the card, two frames later), beside the card (iPad) or above it (phone), above Rosa's line,
+  // the stack and the build bar (at 1180 the buttons first stood on the stretch's end)
+  requestAnimationFrame(() => requestAnimationFrame(() => rcardFit(i)));
+}
+// A tap on the map opens a card under her finger (and the round map buttons slide aside for it); the click the browser
+// sends after the touch then lands on the button that now stands there. A click whose touch began on the map is the
+// map's own: on anything else it does nothing. (T3's smoke at 1180: a tap on a crossing by the right edge opened its
+// card, and the click set an all-way stop for $500.)
+if (typeof addEventListener === 'function') {
+  let downMap = false;
+  addEventListener('pointerdown', (e) => { downMap = !!(e.target && e.target.id === 'map'); }, true);
+  addEventListener('click', (e) => {
+    if (downMap && e.target && e.target.id !== 'map' && e.target !== document.body && e.target !== document.documentElement) { e.stopPropagation(); e.preventDefault(); }
+    downMap = false;
+  }, true);
+}
+function rcardFit(i) {
+  const s = APP.state, R = APP.R, v = APP.view;
+  if (!s || APP.ui.jsel !== i || !$('card').classList.contains('show')) return;
+  const st = rcCls(s, i) ? repaveStretch(s, i) : null, tiles = st ? st.tiles : [i];
+  // (the tiles' corners, not their middles: T3's balance pass, a tall stretch's end tile lay half under the build bar)
+  const ext = () => {
+    const P = [];
+    for (const t of tiles) { const tx = t % MAP_W, ty = (t / MAP_W) | 0; for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) P.push(tileToScreen(R, v, tx + dx, ty + dy)); }
+    const xs = P.map((p) => p.x), ys = P.map((p) => p.y);
+    return [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  };
+  let [x0, x1, y0, y1] = ext();
+  const box = (id) => {
+    // (the round map buttons: their own boxes, the row's box is not where they stand)
+    if (id === 'rotbtns') { const bs = [...document.querySelectorAll('#rotbtns button')].map((e) => e.getBoundingClientRect()).filter((r) => r.width && r.height); return bs.length ? { left: Math.min(...bs.map((r) => r.left)), top: Math.min(...bs.map((r) => r.top)), right: Math.max(...bs.map((r) => r.right)), bottom: Math.max(...bs.map((r) => r.bottom)) } : null; }
+    const e = $(id), r = e && e.getBoundingClientRect();
+    return r && r.width && r.height && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden' ? r : null;
+  };
+  const card = box('card'), phone = innerWidth <= 900;
+  const right = !phone && card ? card.left : innerWidth;
+  // (the round map buttons one by one, those above where the stretch will stand: on a phone the fifth one hangs below
+  // the row at the right edge, and the row's box left no room above the card)
+  const w = x1 - x0, cx0 = right / 2 - w / 2 - 12, cx1 = right / 2 + w / 2 + 12;
+  const btns = [...document.querySelectorAll('#rotbtns button')].map((e) => e.getBoundingClientRect()).filter((r) => r.width && r.height && r.top < innerHeight / 2 && r.right > cx0 && r.left < cx1);
+  const top = Math.max(90, ...['top', 'pill', 'trlegend'].map(box).filter((r) => r && r.left < right && r.top < innerHeight / 2).map((r) => r.bottom), ...btns.map((r) => r.bottom)) + 12;
+  const bottom = Math.min(innerHeight, ...(phone && card ? [card] : []).concat(['bar', 'guide', 'comstack'].map(box).filter((r) => r && r.top > innerHeight / 2)).map((r) => r.top)) - 12;
+  if (bottom - top < 60) return;
+  if (x0 >= 12 && x1 <= right - 12 && y0 >= top && y1 <= bottom) return;
+  // too long for the free part of the screen: the view steps back until it fits (as far as the zoom goes)
+  const k = Math.min((right - 24) / Math.max(1, x1 - x0), (bottom - top) / Math.max(1, y1 - y0));
+  if (k < 1) { v.z = Math.max(ZOOM_MIN, v.z * k * 0.95); viewClamp(); [x0, x1, y0, y1] = ext(); }
+  viewNudge((x0 + x1) / 2 - right / 2, (y0 + y1) / 2 - (top + bottom) / 2);
+}
+function rcBar(c) { const k = rcClass(c); return '<div class="rcbar"><i style="width:' + Math.max(3, Math.round(c)) + '%;background:' + RC_COLS[k] + '"></i></div>'; }
+function rcardHtml(s, i) {
+  const head = '<button class="x" id="cardX" aria-label="Close">' + iconSvg('close') + '</button>';
+  const k = s.road[i], kind = k === 3 ? 'Avenue' : k === 2 ? 'Paved road' : 'Dirt road', name = placeName(s, i).replace(/^the road /, '');
+  const c = rcOf(s, i), cls = rcClass(c), W = rcWearOf(s, i), dep = depotOf(s, i), st = cls ? repaveStretch(s, i) : null;
+  const acc = accLastYear(s, i), rate = accRate(s, i);
+  let h = head + '<h3>' + iconSvg('road') + esc(kind + ' ' + name) + '</h3>';
+  h += '<div class="line"><span>Condition</span><b>' + Math.round(c) + ' % · ' + RC_WORD[cls] + '</b></div>' + rcBar(c);
+  const fx = cls ? 'carts go ' + Math.round((1 - T3.speed[cls]) * 100) + ' % slower here, it is ' + (cls === 2 ? '4' : '2') + ' dB louder and has more accidents' : 'carts go at full speed';
+  if (rcVillage(s)) h += '<p class="why">' + esc('In good repair: the villagers mend their own streets until Town (their days of road work for the council). From Town it wears with its carts and the weather.') + '</p>';
+  else h += '<p class="why">' + esc((cls ? (cls === 2 ? 'Broken up: ' : 'Worn: ') : 'In good repair: ') + fx + '. It wears ' + (Math.round(W.w * 10) / 10) + ' a month with ' + Math.round(W.load) + ' carts' + (W.lorries ? ' (' + Math.round(W.lorries) + ' lorries, each wears it like ' + T3.lorry + ' carts)' : '') + ' and the weather; ' + (k === 1 ? 'dirt lasts' : k === 2 ? 'a paved road lasts' : 'an avenue lasts') + ' about ' + T3.life[k] + ' years at ' + T3.typical[k] + ' carts a month, ' + Math.round(T3.life[k] / T3.weather) + ' with none.') + '</p>';
+  h += '<div class="rc"><div><b>Carts a month</b>' + Math.round(W.load) + (W.lorries ? ' · ' + Math.round(W.lorries) + ' lorries' : '') + '</div><div><b>Accidents last year</b>' + acc.length + (rate > 0.02 ? ' · ' + accRateWords(rate) : '') + '</div></div>';
+  if (dep) { const d = dep.dk; h += '<p class="note good">' + esc('Kept by the road depot ' + placeName(s, tileIdx(dep.x, dep.y)).replace(/^the road /, '') + ': it mends what falls under ' + T3.depot.mend + ' %, worst first' + (d ? ' (' + d.done + ' of ' + d.want + ' points last month)' : '') + '.') + '</p>'; }
+  if (st) {
+    const can = s.money >= st.cost;
+    h += '<button class="rcgo" id="rcRepave"' + (can ? '' : ' disabled') + '>' + esc('Repave this stretch · ' + money$(st.cost)) + '<small style="display:block;font-weight:600;font-size:12px">' + esc(plural(st.tiles.length, 'tile', 'tiles') + ' back to new (outlined on the map)' + (can ? '' : ' · not enough money yet')) + '</small></button>';
+    APP.ui.rcPlan = st.tiles;
+  } else APP.ui.rcPlan = null;
+  if (!dep && s.stage >= T3.stage) h += '<button class="rcalt" id="rcDepot">' + esc('Road depot · ' + money$(BUILDINGS.roadyard.cost) + ': keeps every road within ' + T3.depot.reach + ' tiles in repair') + '</button>';
+  else if (!dep && cls) h += '<p class="why">' + esc('Road depots open at ' + STAGES[T3.stage].name + ': one keeps every road within ' + T3.depot.reach + ' tiles of it in repair for its upkeep.') + '</p>';
+  return h;
+}
+{
+  const _jr = jcardRender;
+  jcardRender = function () {
+    const s = APP.state, i = APP.ui.jsel;
+    if (i === undefined || i < 0 || !s.road[i] || jctAt(s, i) || (typeof brAt === 'function' && brAt(s, i)) || (typeof rlCrossAt === 'function' && rlCrossAt(s, i)) || !t3On()) { if (i < 0 || jctAt(s, i)) APP.ui.rcPlan = null; return _jr.apply(this, arguments); }
+    const html = rcardHtml(s, i), el = $('card');
+    if (html === APP.cardKey) return;
+    if (APP.cardKey && el.classList.contains('show') && uiHeld('card')) return;
+    APP.cardKey = html; el.innerHTML = html; cardHold(el); roadUndoPlace();
+    $('cardX').addEventListener('click', cardClose);
+    const b = $('rcRepave'); if (b) b.addEventListener('click', () => rcRepaveTap(i));
+    const d = $('rcDepot'); if (d) d.addEventListener('click', () => { cardClose(); toolSet('roadyard'); });
+  };
+  const _cc = cardClose;
+  cardClose = function () { APP.ui.rcPlan = null; return _cc.apply(this, arguments); };
+  // with the Traffic layer on, a tap on a street (no building, no crossing under the finger) opens its card
+  const _tap = tapAt;
+  tapAt = function (sx, sy) {
+    const s = APP.state;
+    if (s && t3On() && APP.ui.tool === 'look' && APP.ui.layer === 'traffic' && !renderPick(APP.R, APP.view, s, sx, sy) && !bubbleAt(sx, sy)) {
+      const p = screenToTile(APP.R, APP.view, sx, sy), x = Math.floor(p.x), y = Math.floor(p.y), t = inMap(x, y) ? tileIdx(x, y) : -1;
+      const near = (j) => (j >= 0 ? Math.hypot(j % MAP_W + 0.5 - p.x, ((j / MAP_W) | 0) + 0.5 - p.y) : 9);
+      const j = jctNear(s, sx, sy, true), bq = typeof brNear === 'function' ? brNear(s, sx, sy) : -1;
+      if (t >= 0 && s.road[t] && !jctAt(s, t) && near(j) > 0.6 && near(bq) > 0.6) { $('pop').classList.remove('show'); rcardOpen(t); trafficLegend(); return; }
+    }
+    return _tap.apply(this, arguments);
+  };
+}
+
+// ---------- the junction card: its accidents ----------
+{
+  const _jh = jcardHtml;
+  jcardHtml = function (s, i) {
+    const h = _jh.apply(this, arguments);
+    if (!t3On() || !jctAt(s, i)) return h;
+    const acc = accLastYear(s, i), n0 = accRate(s, i), cur = tfCtl(s, i), c = rcOf(s, i), ck = accCondAt(s, i);
+    let x = '<h4>' + iconSvg('crash') + 'Accidents and the road</h4>';
+    x += '<div class="line"><span>Accidents last year</span><b>' + acc.length + (acc.length ? ' · ' + money$(acc.reduce((a, e) => a + e.cost, 0)) : '') + '</b></div>';
+    const { M, C } = accFlows(s, i), other = ['yield', 'stop', 'lights', 'rbt'].filter((k) => k !== cur && !jctlWhy(s, i, k, true)).map((k) => JC_RULE[k].toLowerCase() + ' ' + accRateWords(accRate(s, i, k)));
+    x += '<p class="why">' + esc('At this traffic (' + Math.round(M) + ' carts a month along the main road, ' + Math.round(C) + ' across or into it) ' + accRateWords(n0) + ' as it is' + (other.length ? '; ' + other.join(', ') : '') + (ck ? '. Its road is ' + RC_WORD[ck] + ': that raises them ×' + ACC.cond[ck] + '.' : '.')) + '</p>';
+    x += '<div class="line"><span>Its road</span><b>' + Math.round(c) + ' % · ' + RC_WORD[rcClass(c)] + '</b></div>';
+    const wn = rcCls(s, i) ? i : [i + 1, i - 1, i + MAP_W, i - MAP_W].find((j) => j >= 0 && j < s.road.length && s.road[j] && rcCls(s, j)), st = ck && wn !== undefined ? repaveStretch(s, wn) : null;
+    if (st) { x += '<button class="rcalt" id="jcRepave">' + esc('Repave the worn road here · ' + money$(st.cost) + ' (' + plural(st.tiles.length, 'tile', 'tiles') + ')') + '</button>'; APP.ui.rcPlan = st.tiles; APP.ui.rcPlanAt = st.tiles[0]; }
+    const at = h.indexOf('<h4>Carts coming in</h4>');
+    return at >= 0 ? h.slice(0, at) + x + h.slice(at) : h + x;
+  };
+  const _jr2 = jcardRender;
+  jcardRender = function () {
+    const key0 = APP.cardKey, r = _jr2.apply(this, arguments), i = APP.ui.jsel;
+    if (i >= 0 && APP.cardKey !== key0 && jctAt(APP.state, i)) { const b = $('jcRepave'); if (b) b.addEventListener('click', () => rcRepaveTap(APP.ui.rcPlanAt)); }
+    return r;
+  };
+}
+
+// ---------- the building cards: the way its carts go, an accident near a home, the depot ----------
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    let h = _ch.apply(this, arguments);
+    if (!t3On()) return h;
+    const def = defOf(b), add = [];
+    if (def.kind === 'producer') {
+      const w = rcWhy(s, b);
+      APP.ui.rcRoute = w ? { id: b.id, A: w.A, B: w.B } : null;
+      if (w) add.push('<p class="note route">' + esc(w.text + ' (The way is chosen by its time as measured, its comfort — dirt and worn road, crossings, turns — and the carters’ fee by the tile.)') + '</p>');
+    }
+    if (def.kind === 'home' && b.res) {
+      const near = accLastYear(s).filter((a) => footDist(b, { x: a.i % MAP_W, y: (a.i / MAP_W) | 0, w: 1, h: 1 }) <= ACC.near);
+      if (near.length) add.push('<p class="note risk">' + esc(plural(near.length, 'accident', 'accidents') + ' last year at ' + placeName(s, near[near.length - 1].i) + ', beside this home: the families here feel the street is unsafe (' + accNearHomes(s).v + ' happiness for the island).') + '</p>');
+    }
+    if (b.type === 'roadyard') {
+      const d = b.dk, tiles = depotTiles(s, b), worn = tiles.filter((i) => rcCls(s, i)).length;
+      add.push('<p class="note good">' + esc('Keeps the ' + tiles.length + ' road tiles within ' + T3.depot.reach + ' tiles in repair: its camineros mend up to ' + depotRate(b) + ' points a month (' + T3.depot.rate + ' with all ' + def.jobs + ' workers), worst first, whatever falls under ' + T3.depot.mend + ' %.' + (d ? ' Last month ' + d.done + ' of the ' + d.want + ' points they needed' + (d.fixed ? ', ' + plural(d.fixed, 'tile', 'tiles') + ' back to new' : '') + '.' : '') + ' Now ' + worn + ' of them are worn.' + (d && d.flow !== undefined ? ' Its roads wear about ' + d.flow + ' a month.' : '') + (d && (d.flow || 0) > d.rate ? ' More wear than it can mend: a second depot nearby, or pave the dirt (paved roads last longer).' : d && d.want > d.done ? ' It works through the worn roads worst first: about ' + plural(Math.max(1, Math.ceil((d.want - d.done) / Math.max(1, d.rate - (d.flow || 0)))), 'month', 'months') + ' more.' : '')) + '</p>');
+      // (a depot reaches roads, not homes)
+      h = h.replace(/<div class="line"><span>Homes in reach \(\d+ tiles\)<\/span><span>\d+<\/span><\/div>/, '');
+    }
+    if (!add.length) return h;
+    // (the way its carts go near the top, where T1's trip line stands: under the month's number, above its workers)
+    const top = def.kind === 'producer' ? h.indexOf('<div class="line"><span>Workers</span>') : -1, at = top >= 0 ? top : h.indexOf('<div class="btns">');
+    return at >= 0 ? h.slice(0, at) + add.join('') + h.slice(at) : h + add.join('');
+  };
+  const _bs = bStatus;
+  bStatus = function (s, b) {
+    if (b.type === 'roadyard' && t3On() && b.open && b.workers > 0) return { text: 'Keeping the roads within ' + T3.depot.reach + ' tiles in repair (' + depotRate(b) + ' points a month).', good: true };
+    return _bs.apply(this, arguments);
+  };
+  const _cc2 = cardClose;
+  cardClose = function () { APP.ui.rcRoute = null; return _cc2.apply(this, arguments); };
+  // a depot's reach: the square of the roads it keeps (no homes: it serves the streets)
+  const _rp = reachPicture;
+  reachPicture = function (s, b) { const r = _rp.apply(this, arguments); if (r && (b.type === 'roadyard')) { r.homes = []; r.name = 'Road depot: the roads it keeps'; } return r; };
+}
+
+// ---------- the map: accident markers, the way a producer's carts go, the stretch a card offers ----------
+// (render/iso.js calls this after T2's plans; H: stHook(R) = { xf, P, top, zsc, k })
+function rcOverlay(R, s, ui, t, H) {
+  if (!t3On()) return;
+  const g = R.ctx, P = H.P, now = s.tick;
+  R.stats.t3Marks = 0; R.stats.t3Route = 0; R.stats.t3Plan = 0;
+  // the way the selected producer's carts go (teal) and the direct way (dashed), while its card is open
+  const rt = APP.ui.rcRoute;
+  if (rt && APP.ui.sel === rt.id && $('card').classList.contains('show')) {
+    const line = (path, col, w, dash) => {
+      if (!path || path.length < 2) return;
+      g.save(); g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
+      path.forEach((i, k) => { const p = P(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5, 0); if (k) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); });
+      g.strokeStyle = 'rgba(255,250,236,.85)'; g.lineWidth = w + 4; g.setLineDash(dash || []); g.stroke();
+      g.strokeStyle = col; g.lineWidth = w; g.lineDashOffset = -t * 10; g.stroke(); g.restore();
+    };
+    if (rt.B) line(rt.B, 'rgba(90,80,70,.75)', Math.max(3, R.hw * 0.12), [6, 6]);
+    line(rt.A, '#1f8f85', Math.max(4, R.hw * 0.18), [2, Math.max(7, R.hw * 0.35)]);
+    R.stats.t3Route = rt.B ? 2 : 1;
+  }
+  // the stretch a road card offers to repave: outlined, before she taps
+  const plan = APP.ui.rcPlan;
+  if (plan && plan.length && $('card').classList.contains('show')) {
+    const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+    g.save();
+    for (const i of plan) {
+      const x = i % MAP_W, y = (i / MAP_W) | 0, q = [P(x + 0.06, y + 0.06, 0), P(x + 0.94, y + 0.06, 0), P(x + 0.94, y + 0.94, 0), P(x + 0.06, y + 0.94, 0)];
+      g.beginPath(); q.forEach((p, k) => (k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath();
+      g.fillStyle = 'rgba(255,214,102,' + (0.18 + 0.14 * pulse).toFixed(3) + ')'; g.fill();
+      g.setLineDash([5, 4]); g.strokeStyle = '#f2b632'; g.lineWidth = 2.4; g.stroke();
+    }
+    g.restore();
+    R.stats.t3Plan = plan.length;
+  }
+  // accidents: where one blocks the road now (always), the year's count a place (with the Traffic layer on)
+  const T = s.t3, B = (T && T.blk) || {}, layer = ui.layer === 'traffic' && !ui.money;
+  const marks = new Map();
+  if (layer) for (const a of accLastYear(s)) marks.set(a.i, (marks.get(a.i) || 0) + 1);
+  for (const k in B) if (B[k] > now && !marks.has(+k)) marks.set(+k, 0);
+  for (const [i, n] of marks) {
+    const x = i % MAP_W, y = (i / MAP_W) | 0, p = P(x + 0.5, y + 0.5, 0);
+    if (p[0] < -40 || p[0] > R.w + 40 || p[1] < -60 || p[1] > R.h + 40) continue;
+    const live = B[i] > now, sc = Math.max(0.75, Math.min(1.3, R.hw / 40)), bob = live ? Math.abs(Math.sin(t * 4)) * 4 : 0;
+    R.stats.t3Marks++;
+    const cx = p[0], cy = p[1] - 16 * sc - bob;
+    g.save();
+    if (live) { g.beginPath(); g.ellipse(p[0], p[1], 15 * sc, 8 * sc, 0, 0, Math.PI * 2); g.fillStyle = 'rgba(217,48,30,' + (0.25 + 0.2 * Math.sin(t * 5)).toFixed(3) + ')'; g.fill(); }
+    // the triangle
+    const r = (live ? 12 : 9) * sc;
+    g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r * 1.05, cy + r * 0.8); g.lineTo(cx - r * 1.05, cy + r * 0.8); g.closePath();
+    g.fillStyle = live ? '#d9301e' : '#f2b632'; g.fill(); g.lineJoin = 'round'; g.strokeStyle = '#3a2a1f'; g.lineWidth = 2; g.stroke();
+    g.fillStyle = live ? '#fffaf0' : '#3a2a1f'; g.fillRect(cx - 1.3 * sc, cy - r * 0.45, 2.6 * sc, r * 0.7); g.fillRect(cx - 1.3 * sc, cy + r * 0.38, 2.6 * sc, 2.4 * sc);
+    if (n > 1) {
+      g.font = '800 ' + Math.round(11 * sc) + 'px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const bx = cx + r * 1.15, by = cy - r * 0.55;
+      g.beginPath(); g.arc(bx, by, 7.5 * sc, 0, Math.PI * 2); g.fillStyle = '#3a2a1f'; g.fill();
+      g.fillStyle = '#fffaf0'; g.fillText(String(n), bx, by + 0.5);
+    }
+    g.restore();
+  }
+}
+
+// ---------- events: an accident, a repaved stretch; the first accident explains the rule once ----------
+{
+  const _eh = eventsHandle;
+  eventsHandle = function () {
+    const s = APP.state, evs = s && s.ev ? s.ev.slice() : [];
+    const r = _eh.apply(this, arguments);
+    for (const e of evs) {
+      if (e.kind !== 'accident') continue;
+      const x = e.i % MAP_W + 0.5, y = ((e.i / MAP_W) | 0) + 0.5;
+      floaterAdd(x, y, e.vk === 'lorry' ? 'A lorry crashed' : 'A cart overturned', '#c0392b');
+      const el = $('trlegend'); if (el) el.dataset.t3 = '';
+      if (!(s.notices && s.notices.acc1)) {
+        (s.notices || (s.notices = {})).acc1 = { m: s.month, on: s.month };
+        toastShow('An accident at ' + placeName(s, e.i) + ': ' + (e.vk === 'lorry' ? 'a lorry' : 'a cart') + ' overturned: the carts squeeze past it at a walking pace for a while (' + money$(e.cost) + ' on the payday). Accidents come at busy crossings without lights or a roundabout, and on worn roads: the Traffic layer counts them.', { at: [e.i % MAP_W, (e.i / MAP_W) | 0] });
+      }
+    }
+    return r;
+  };
+}
+// the build bar: the depot's line (the ghost's words)
+if (typeof BUILD_WHY !== 'undefined') BUILD_WHY.roadyard = 'Road depot: keeps every road within ' + T3.depot.reach + ' tiles in repair';
+// the stack: what the T3 asks are for, with the price
+{
+  const _cs = comShort;
+  comShort = function (q) {
+    if (q && (q.key === 'repave' || q.key === 'acc') && q.plan) {
+      let p = null;
+      try { p = planOf(APP.state, q.plan); } catch (e) { p = null; }
+      if (q.key === 'repave') return 'asks to repave a worn road' + (p ? ' · ' + money$(p.cost) : '');
+      return 'asks for ' + ((p && p.name) || 'a safer crossing') + (p ? ' · ' + money$(p.cost) : '');
+    }
+    return _cs.apply(this, arguments);
+  };
+}
+
+// ---------- a phone with the Traffic legend open (T3 part B) ----------
+// At 390 × 844 the legend (the counts, the worst place and its fix, the railway's idle line, T3's lines) took half the
+// phone, and rotPlace put the round map buttons under it, over Rosa's line (LOG V2, "still weak"). On a phone, while the
+// legend is open: Rosa's line stays (her traffic advice, the jam's [Roundabout], is read with the legend), the legend
+// keeps to a third of the height and above her line the room the round buttons need under it (it scrolls inside when
+// it is longer), and the
+// commission stack's faces wait (the legend's ✕ or the Traffic button brings them back; Rosa still says the main ask).
+// iPad sizes are as they were (the rule is under 600 px wide). (A first version hid Rosa's line too: smoke rbt's 390
+// then could not tap her [Roundabout].)
+{
+  const st = document.createElement('style');
+  st.textContent = '@media (max-width: 600px) { body.trlay #comstack { display: none !important; } body.trlay #trlegend { overflow-y: auto; overscroll-behavior: contain; } }';
+  document.head.appendChild(st);
+  const _lg = trafficLegend;
+  trafficLegend = function () {
+    const r = _lg.apply(this, arguments), el = $('trlegend');
+    // (APP.ui.trlayOff: the layout before the fix, for smoke rbt's check that it fails without it)
+    const on = !!(el && el.classList.contains('show') && APP.ui.layer === 'traffic') && !APP.ui.trlayOff;
+    if (document.body.classList.contains('trlay') !== on) {
+      // (the stack is a panel that just went: a tap where it stood is not a tap on the map, Q1)
+      if (on && innerWidth <= 600) { const g = $('comstack'); if (g && g.classList.contains('show')) uiGone(g); }
+      document.body.classList.toggle('trlay', on);
+      if (!on && el) el.style.maxHeight = '';
+      APP.rotKey = '';
+    }
+    return r;
+  };
+  // every frame, before the round buttons are placed: the legend's height so that it, the buttons under it and Rosa's
+  // line stand one above the other
+  const _rp = rotPlace;
+  rotPlace = function () {
+    const el = $('trlegend');
+    if (el && document.body.classList.contains('trlay') && innerWidth <= 600) {
+      const bs = [...document.querySelectorAll('#rotbtns button')].map((e) => e.getBoundingClientRect()).filter((q) => q.width && q.height);
+      const bh = bs.length ? Math.max(...bs.map((q) => q.bottom)) - Math.min(...bs.map((q) => q.top)) : 110;
+      const g = $('guide'), gs = g && getComputedStyle(g).display !== 'none' ? g.getBoundingClientRect() : null, bar = $('bar').getBoundingClientRect();
+      const floor = gs && gs.height ? gs.top : bar.top, lt = el.getBoundingClientRect().top;
+      // (at most a third of the phone's height: the map stays for a finger, a stroke of the Lanes tool)
+      const mh = Math.max(110, Math.floor(Math.min(innerHeight * 0.34, floor - lt - bh - 30))) + 'px';
+      if (el.style.maxHeight !== mh) { el.style.maxHeight = mh; APP.rotKey = ''; }
+    }
+    return _rp.apply(this, arguments);
+  };
+}
+
+// ---------- T3's balance pass: Rosa's [Open them] opens the shut groves and huts she names (slowcarts.js) ----------
+{
+  const _ga = guideAct;
+  guideAct = function () {
+    const m = guideMsg();
+    if (m && m.act && m.act.reopen && performance.now() - (APP.guideT || 0) >= 900) {
+      const s = APP.state, b = bById(s, m.act.reopen[0]), n = m.act.reopen.length;
+      if (shutReopen(s, m.act.reopen)) {
+        if (b) { cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2); floaterAdd(b.x + b.w / 2, b.y + b.h / 2, n > 1 ? n + ' open again' : 'open again', '#2e8b3e', false, b.id); }
+        toastShow((n > 1 ? n + ' food makers are' : 'The ' + defOf(b).name.toLowerCase() + ' is') + ' open again: their food goes to the markets (their cards can shut them).', { id: b ? b.id : 0, logged: true });
+        guideRender(); hudUpdate();
+      }
+      return;
+    }
+    return _ga.apply(this, arguments);
   };
 }
 
