@@ -781,6 +781,88 @@ body.titled #gzslip, body.titled #gazette { display: none !important; }
   #card .fam .fo { font-size: 12.5px; } #card .fam .fp { font-size: 13.5px; margin-top: 3px; } #card .fam .fm { font-size: 13.5px; margin-top: 4px; }
   #card .fam .fx { display: none; }
 }
+
+/* H1 (nova/h1): the facility screen (src/ui/facility.js; the harbour: src/ui/harbour_ui.js). The island's top bar stays
+   (money, the date, the clock's speed); the plan, its side panel and its own build bar take the rest. Wide screens: the
+   side panel on the right; tall ones: under the plan. The island's own panels rest while it is open. */
+#fac { position: fixed; z-index: 5; left: calc(var(--gap) + var(--sl)); right: calc(var(--gap) + var(--sr)); top: calc(var(--gap) + 64px + var(--st));
+  bottom: calc(var(--gap) + var(--sb)); display: none; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(200px, 55fr) minmax(120px, 45fr) auto; gap: 8px; }
+body.fac-on #fac { display: grid; }
+/* the island rests behind the screen, dimmed (its last picture, labels and all, is not redrawn while it is open) */
+body.fac-on::after { content: ''; position: fixed; inset: 0; z-index: 3; background: rgba(18, 44, 54, 0.62); pointer-events: none; }
+#fac.fac-wide { grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: auto minmax(0, 1fr) auto; }
+#fac.fac-wide .fac-head { grid-column: 1 / 3; }
+#fac.fac-wide .fac-plan { grid-column: 1; grid-row: 2; }
+#fac.fac-wide .fac-side { grid-column: 2; grid-row: 2 / 4; }
+#fac.fac-wide .fac-bar { grid-column: 1; grid-row: 3; }
+body.fac-on #bar, body.fac-on #rotbtns, body.fac-on #pill, body.fac-on #lower, body.fac-on #guide, body.fac-on #receipt, body.fac-on #card, body.fac-on #done,
+body.fac-on #comstack, body.fac-on #trlegend, body.fac-on #lvlegend, body.fac-on #moneyLegend, body.fac-on #gzslip, body.fac-on #undoRoad, body.fac-on .turnbtn,
+body.fac-on #todo, body.fac-on #glance, body.fac-on #pop, body.fac-on #facPins, body.fac-on #nowplay { display: none !important; }
+.fac-head { display: flex; align-items: center; gap: 10px; padding: 4px 6px; min-height: 54px; min-width: 0; }
+.fac-x { min-height: 44px; padding: 0 14px 0 10px; border-radius: 11px; background: var(--teal); color: #fff7ea; font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 6px;
+  border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink); flex: none; }
+.fac-x .ic { width: 18px; height: 18px; fill: #fff7ea; }
+.fac-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.fac-title b { font: italic 700 19px/1.15 var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fac-title span { font-size: 12px; color: var(--ink2); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fac-legbtn { width: 44px; height: 44px; border-radius: 50%; background: var(--paper2); font-weight: 800; font-size: 18px; box-shadow: inset 0 0 0 2px var(--ink); flex: none; }
+.fac-plan { position: relative; border: 2px solid var(--ink); border-radius: 16px; overflow: hidden; background: #2793ad; min-height: 0; min-width: 0;
+  box-shadow: 0 3px 0 rgba(58, 42, 31, 0.30), 0 10px 24px rgba(30, 20, 10, 0.18); }
+.fac-plan canvas { display: block; position: absolute; left: 0; top: 0; touch-action: none; }
+.fac-legend { position: absolute; top: 8px; right: 8px; width: min(310px, calc(100% - 16px)); padding: 8px 44px 8px 12px; font-size: 12.5px; line-height: 1.3; display: none; flex-direction: column; gap: 4px; z-index: 2; }
+.fac-legend.show { display: flex; }
+.fac-legend b { font: italic 700 15px var(--serif); }
+.fac-legx { position: absolute; top: 4px; right: 4px; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.fac-legx .ic { width: 16px; fill: var(--ink2); }
+.lg { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; border: 1.5px solid var(--ink); margin-right: 3px; }
+.lg.teal { background: rgba(46, 154, 145, 0.55); } .lg.gold { background: #f2c14e; } .lg.red { background: #fbe3da; border-color: #b5402c; }
+.fac-hint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); max-width: calc(100% - 16px); padding: 6px 12px; border-radius: 10px; background: var(--paper);
+  border: 2px solid var(--ink); font-size: 13px; font-weight: 700; opacity: 0; transition: opacity 0.25s; pointer-events: none; text-align: center; z-index: 2; }
+.fac-hint.show { opacity: 1; }
+.fac-side { overflow-y: auto; padding: 4px 12px 10px; min-height: 0; min-width: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; font-variant-numeric: tabular-nums; }
+.fac-bar { display: flex; align-items: center; gap: 6px; padding: 6px; min-width: 0; }
+.fac-tray { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: none; overscroll-behavior: contain; }
+.fac-tray::-webkit-scrollbar { display: none; }
+.fac-tool { min-width: 66px; min-height: 64px; border-radius: 12px; background: var(--paper2); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; padding: 3px 6px; font-weight: 700; font-size: 11.5px; flex: none; position: relative; }
+.fac-tool img { height: 30px; width: auto; max-width: 54px; object-fit: contain; }
+.fac-tool .ic { width: 26px; height: 26px; fill: #7a604b; stroke: var(--ink); stroke-width: 1.1px; paint-order: stroke; }
+.fac-tool small { font-size: 10.5px; color: var(--ink2); font-weight: 700; }
+.fac-tool.on { background: var(--coral-soft); box-shadow: inset 0 0 0 2px var(--ink), 0 3px 0 var(--ink); }
+.fac-tool.locked { opacity: 0.45; }
+.fac-tool.poor small { color: var(--red); }
+.fac-done { min-height: 56px; padding: 0 14px; border-radius: 12px; background: var(--teal); color: #fff7ea; font-weight: 800; font-size: 15px; border: 2px solid var(--ink); flex: none; box-shadow: 0 2px 0 var(--ink); }
+.fac-sec h4 { font: italic 700 16px/1.2 var(--serif); margin: 8px 0 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fac-sec h4 small { font: 700 11.5px var(--sans); color: var(--ink2); }
+.fac-why { font-size: 13px; line-height: 1.3; padding: 8px 10px; border-radius: 10px; background: var(--paper2); margin-bottom: 6px; }
+.fac-why.bad { background: #fbe3da; color: #7a2e1c; box-shadow: inset 0 0 0 1.5px #b5402c; }
+.fac-why.good { color: var(--green); font-weight: 700; }
+.fac-why button, .fac-btns button { display: block; margin-top: 6px; min-height: 44px; padding: 0 12px; border-radius: 11px; background: var(--teal); color: #fff7ea; font-weight: 800; font-size: 14px;
+  border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink); }
+.fac-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.fac-btns button { margin-top: 0; flex: 1 1 auto; }
+.fac-btns button.alt { background: var(--paper2); color: var(--ink); }
+.fac-why button.poor, .fac-btns button.poor { background: #c79a8a; }
+.fac-step { display: grid; grid-template-columns: 86px minmax(0, 1fr); column-gap: 8px; row-gap: 2px; align-items: center; font-size: 12.5px; padding: 5px 0; border-top: 1px dotted var(--line); }
+.fac-step > span { font-weight: 800; } .fac-step em { grid-column: 1 / 3; font-style: normal; color: var(--ink2); }
+.fac-meter { display: block; height: 10px; border-radius: 5px; background: rgba(58, 42, 31, 0.12); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(58, 42, 31, 0.2); }
+.fac-meter b { display: block; height: 100%; background: var(--teal); } .fac-meter.bad b { background: var(--coral); }
+.fac-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 8px; font-size: 12.5px; padding: 5px 0; border-top: 1px dotted var(--line); }
+.fac-row b { white-space: nowrap; } .fac-row small { grid-column: 1 / 3; color: var(--ink2); font-size: 12px; }
+.fac-row.late small { color: #a8562a; font-weight: 700; } .fac-row.done { opacity: 0.85; }
+.fac-sub { font-size: 11.5px; font-weight: 800; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 8px; }
+.fac-p { font-size: 13px; line-height: 1.32; margin: 4px 0; }
+.fac-card { background: #fff8e8; border-radius: 12px; padding: 2px 10px 10px; margin: 6px -4px 8px; box-shadow: inset 0 0 0 2px var(--coral); }
+.fac-cx { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; }
+.fac-cx .ic { width: 16px; fill: var(--ink2); }
+#facPins { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+.fac-pin { position: absolute; transform: translate(-50%, -100%); pointer-events: auto; min-height: 42px; min-width: 42px; padding: 0 12px 0 8px; border-radius: 21px; background: var(--paper);
+  border: 2px solid var(--ink); display: flex; align-items: center; gap: 4px; font-weight: 800; font-size: 13px; box-shadow: 0 3px 0 rgba(58, 42, 31, 0.3), 0 6px 14px rgba(30, 20, 10, 0.16); }
+.fac-pin .ic { width: 20px; height: 20px; fill: var(--teal2); }
+.fac-pin.warn { background: #fbe3da; }
+.fac-pin i { font-style: normal; color: #fff7ea; background: var(--red); border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+#card .btns button.facopen { background: var(--teal); color: #fff7ea; display: flex; align-items: center; justify-content: center; gap: 6px; }
+#card .btns button.facopen .ic { width: 18px; height: 18px; fill: #fff7ea; }
 </style>
 </head>
 <body>
@@ -18082,6 +18164,909 @@ function shutReopen(s, ids) {
   };
 }
 
+// ---- src/sim/harbour.js
+// H1 (29 Oct 2026, `nova/h1`): the harbour as a game of its own. Tomáš, 29 Oct (from Slovak): "the airport and the
+// harbour become games of their own: tapping the harbour opens its own screen, its own space and layout, and the island
+// sees the results (exports, imports, settlers, visitors)"; the heart of it: lines and contracts, layout and flow,
+// timetable and arrivals, people and tourists; the harbour first, the airport after it on the same screen.
+// H1 builds the harbour's own ground and its flow; H2 adds the lines, the contracts, passengers and tourists.
+// DESIGN.md §44; history: docs/research/harbour.md. UI: src/ui/facility.js (the shared screen), src/ui/harbour_ui.js.
+//
+// The ground (state.port[id], saved whole): 12 cells along the water, 6 inland, 4 of water. Row 0 is the apron (the
+// cranes' and the gangs' strip along the water), rows 1-4 hold the sheds, row 5 is the yard's lane (the gate from the
+// island's road and, when the railway reaches the harbour, its siding). Berths stand on the waterline: a wooden jetty
+// (2 cells: the jetty and the ship's lane beside it) or a stone quay berth (4 cells, the ship alongside).
+// The flow, step by step, each with its own capacity (shown on the screen, named where it piles up):
+//   gate (and siding)  -> sheds and yards  -> the gangs and cranes at a berth  -> the ship's hold
+//   400 loads a month     of each good, what   a load a tick each, times the        40 / 60 / 100 a call
+//   (+400 by train)       they hold (a bay     ship's days at the berth (15 ticks)
+//                         for every good)
+// The timetable: one call a month at every berth (the biggest berth calls at the month's end, the second at mid-month,
+// then 75, 25 ...: an untouched harbour's ships sail exactly when they did before H1). A ship arrives 15 ticks (4.5 days)
+// before it sails and loads what the gangs and cranes manage in that time; a norte (Nov-Apr) holds it outside up to a
+// day; a hurricane (the real ones: 1910, 1924, 1926, 1932, 1933, 1944, 1952, 1963) closes the harbour two days, is
+// announced two months ahead, spoils what waits in open yards and breaks wooden jetties not made fast (moorings doubled,
+// sheds boarded up: her tap) unless a breakwater shelters them.
+// Calibration: an untouched harbour of every A9 level opens with the layout it already was (the pier, the sheds, the
+// second berth with its derrick, the steamship quay with its two cranes) and its sheds hold exactly what it held, its
+// gangs load more than its ship takes even a day late: it earns what it did, to the load, until she changes it (or a
+// hurricane breaks a jetty she did not make fast).
+// TUNE.h1Off (NOVA_NO_H1=1 in the tests): the rules before H1, to the minute (make_save.js plays without H1 unless
+// NOVA_H1=1, so the earlier smokes' islands are laid out as before).
+
+const PORT = {
+  W: 12, LAND: 6, WATER: 4,
+  stay: 15,            // ticks a ship lies at its berth before it sails on time (4.5 days)
+  gate: 400,           // loads a month the gate takes from the island's carts (the siding as many again by train)
+  norteDelay: 3,       // a norte holds a ship outside at most this many ticks (about a day)
+  warn: 6,             // months ahead a hurricane is announced (the observatory's warning, in game time: a month passes
+                       // in 7 to 20 seconds, so its days of warning are six months here: 40 s at 3x. Her-play looks up
+                       // every 3 to 6 game months (half a minute of her time and her taps): three or four months were
+                       // missed in most of its hurricanes; "expects" from three months out, "warns" in the last two)
+  clear: 4,            // ticks after a hurricane before the harbour opens again (wreckage, a blocked mouth: 1944)
+  feedFar: 0.75,       // a berth with no shed or yard within two rows behind it loads at this share (hand trucks)
+  dmg: 0.5,            // a broken jetty's gangs and cranes work at this share until it is repaired
+  fastPct: 0.02, fastMin: 200, // making the harbour fast before a storm: 2 % of what its parts are worth
+  repairPct: 0.3,      // a broken jetty's repair: 30 % of its price
+  movePct: 0.1,        // moving a part: 10 % of its price
+  dep: [100, 50, 75, 25, 88, 63, 38, 13], // the berths' sailings (ticks of the month), the biggest berth first
+  log: 8,              // sailings kept for the screen
+};
+function h1On() { return !TUNE.h1Off; }
+
+// The parts she builds on the harbour's ground. k: the price in harbors (A9's H, the town-month: $3,500 at first,
+// $17,500 in a 1947 capital), so the ladder keeps its proportions in every era. A9's levels are packages of these at
+// the same price: the longer pier = lengthen the jetty (0.4) + an annex (0.1); the second berth = a jetty lengthened
+// (0.6) + a shed (0.3) + an annex (0.1); the steamship quay = two stone berths with a steam crane each and the sheds.
+const PORT_PARTS = {
+  jetty:    { name: 'Wooden jetty', short: 'Jetty', berth: 1, w: 2, len: 3, hold: 40, gang: 4, slots: 1, k: 0.6, stage: 1, year: 1900, ship: 'schooner', wood: 1, icon: 'anchor',
+    gives: 'a schooner a month (40 loads); the gangs load 4 a tick with the ship’s own tackle' },
+  ljetty:   { name: 'Long jetty', short: 'Long jetty', berth: 1, w: 2, len: 4, hold: 60, gang: 6, slots: 2, k: 1.0, stage: 2, year: 1900, ship: 'schooner', wood: 1, icon: 'anchor', ext: 0.4,
+    gives: 'a big schooner a month (60 loads); two gangs load 6 a tick' },
+  quayb:    { name: 'Stone quay berth', short: 'Quay berth', berth: 1, w: 4, len: 1, hold: 100, gang: 3, slots: 2, k: 1.5, stage: 4, year: 1910, ship: 'steamer', stone: 1, icon: 'ship',
+    gives: 'a steamship a month (100 loads); the gangs load 3 a tick, the cranes the rest' },
+  derrick:  { name: 'Derrick', short: 'Derrick', crane: 3, k: 0.15, stage: 1, year: 1900, icon: 'crane', gives: '+3 loads a tick at its berth' },
+  steam:    { name: 'Steam crane', short: 'Steam crane', crane: 6, k: 0.5, stage: 2, year: 1910, icon: 'crane', gives: '+6 loads a tick at its berth' },
+  electric: { name: 'Electric crane', short: 'Electric crane', crane: 10, k: 0.8, stage: 3, year: 1925, power: 1, icon: 'crane', gives: '+10 loads a tick at its berth (it needs the power station)' },
+  shed:     { name: 'Transit shed', short: 'Shed', w: 2, h: 2, store: 40, roof: 1, k: 0.3, stage: 1, year: 1900, icon: 'barrel', gives: 'holds 40 of each good under a roof' },
+  annex:    { name: 'Shed annex', short: 'Annex', w: 1, h: 2, store: 20, roof: 1, k: 0.1, stage: 1, year: 1900, icon: 'barrel', gives: 'holds 20 of each good under a roof' },
+  yard:     { name: 'Open yard', short: 'Open yard', w: 2, h: 2, store: 40, roof: 0, k: 0.05, stage: 1, year: 1900, icon: 'barrel', gives: 'holds 40 of each good under tarpaulins (a hurricane spoils them)' },
+  ware:     { name: 'Bonded warehouse', short: 'Warehouse', w: 3, h: 2, store: 100, roof: 1, k: 0.6, stage: 2, year: 1905, icon: 'barrel', gives: 'holds 100 of each good on two floors' },
+  mole:     { name: 'Breakwater', short: 'Breakwater', mole: 1, k: 2, stage: 3, year: 1912, icon: 'anchor', gives: 'shelters the berths: no jetty breaks in a hurricane, no norte holds a ship outside' },
+};
+const PORT_BUILD = ['jetty', 'quayb', 'derrick', 'steam', 'electric', 'shed', 'annex', 'yard', 'ware', 'mole'];
+// The lines that call in H1 (one a berth; H2 lets her choose lines and sign contracts: data model below).
+const PORT_LINES = {
+  coast: { name: 'Coastal schooners', to: 'Havana', kind: 'schooner' },
+  ny: { name: 'New York steamers', to: 'New York', kind: 'steamer' },
+};
+// The real hurricanes of the period that reached Cuba's western and northern coasts (docs/research/harbour.md: the
+// Weather Bureau's and the observatories' records as summarised by NOAA and the List of Cuba hurricanes). sev 2: a
+// major one (open yards lose everything, jetties break); sev 1: open yards lose half, jetties break.
+const PORT_HURRICANES = [
+  { y: 1910, m: 9, d: 14, sev: 2, name: 'the Cyclone of the Five Days', what: 'Havana, Oct 1910: the customs sheds blown down, goods on the wharves and lighters ruined, scores of ships wrecked' },
+  { y: 1924, m: 9, d: 19, sev: 1, name: 'the October hurricane', what: 'western Cuba, Oct 1924: a category 5 over Pinar del Río' },
+  { y: 1926, m: 9, d: 20, sev: 2, name: 'the Havana hurricane', what: 'Havana, 20 Oct 1926: the sea over the Malecón, ships sunk in the harbour, 600 dead' },
+  { y: 1932, m: 10, d: 9, sev: 2, name: 'the Santa Cruz del Sur hurricane', what: 'Camagüey, 9 Nov 1932: a 6.5 m surge swept the port town away' },
+  { y: 1933, m: 8, d: 1, sev: 1, name: 'the September hurricane', what: 'the north coast, 1 Sep 1933: ships and houses damaged' },
+  { y: 1944, m: 9, d: 18, sev: 2, name: 'the Havana hurricane', what: 'Havana, 18 Oct 1944: a 262 km/h gust, schooners sunk in the harbour, its mouth blocked' },
+  { y: 1952, m: 9, d: 24, sev: 1, name: 'hurricane Fox', what: 'central Cuba, 24 Oct 1952' },
+  { y: 1963, m: 9, d: 4, sev: 2, name: 'hurricane Flora', what: 'eastern Cuba, Oct 1963: four days over the island' },
+];
+
+// ---------- the ground ----------
+function portAll(state) { return state.port || (state.port = {}); }
+function portParts(P, kind) { return P.parts.filter((p) => !kind || (kind === 'berth' ? PORT_PARTS[p.k].berth : kind === 'crane' ? PORT_PARTS[p.k].crane : kind === 'store' ? PORT_PARTS[p.k].store : p.k === kind)); }
+function portHarbours(state) { return state.b.filter((b) => defOf(b) && defOf(b).kind === 'harbor'); }
+function portYear(state) { return TUNE.startYear + Math.floor(state.month / 12); }
+// A part's price now (read at use time: the town-month moves at payday).
+function portPrice(state, k) {
+  const H = BUILDINGS.harbor.cost, d = PORT_PARTS[k];
+  return Math.max(Math.round(d.k * 3500 / 50) * 50, purseRoundAny(d.k * H));
+}
+// The harbour's layout (made at first sight from what it is: an old save's harbour, a new one, a quay).
+function portOf(state, b) {
+  const A = portAll(state);
+  return A[b.id] || (A[b.id] = portDefault(state, b));
+}
+function portAdd(P, k, o) { const p = Object.assign({ id: P.nid++, k }, o); P.parts.push(p); return p; }
+// The layout an untouched harbour of each A9 level is (and what it holds and loads: exactly A9's numbers).
+function portDefault(state, b) {
+  const lv = hbLevel(state, b);
+  // lines: null in H1 (each berth's default line, PORT_LINES); H2 keeps her chosen lines and contracts here
+  // ({ id, port, kind, goods, price, calls, pax }) and the calls take them instead
+  const P = { v: 1, nid: 1, parts: [], at: state.month, gate: 7, m: {}, last: null, log: [], carry: [], done: {}, lines: null };
+  if (lv >= 3) {
+    // the steamship quay: two stone berths with a steam crane each, three transit sheds (120)
+    const a = portAdd(P, 'quayb', { x: 2, pk: 3 }), c = portAdd(P, 'quayb', { x: 6, pk: 3 });
+    portAdd(P, 'steam', { s: a.id, slot: 0, pk: 3 }); portAdd(P, 'steam', { s: c.id, slot: 0, pk: 3 });
+    portAdd(P, 'shed', { x: 2, y: 1, pk: 3 }); portAdd(P, 'shed', { x: 4, y: 1, pk: 3 }); portAdd(P, 'shed', { x: 6, y: 1, pk: 3 });
+    return P;
+  }
+  portAdd(P, lv >= 1 ? 'ljetty' : 'jetty', { x: 4, pk: lv >= 1 ? 1 : 0 });
+  portAdd(P, 'shed', { x: 4, y: 1, pk: 0 });
+  if (lv >= 1) portAdd(P, 'annex', { x: 6, y: 1, pk: 1 });
+  if (lv >= 2) {
+    const j = portAdd(P, 'ljetty', { x: 7, pk: 2 });
+    portAdd(P, 'derrick', { s: j.id, slot: 0, pk: 2 });
+    portAdd(P, 'shed', { x: 7, y: 1, pk: 2 }); portAdd(P, 'annex', { x: 9, y: 1, pk: 2 });
+  }
+  return P;
+}
+// The cells a land part covers, a berth's span along the waterline.
+function portRect(p) { const d = PORT_PARTS[p.k]; return d.berth ? [p.x, 0, d.w, 0] : [p.x, p.y, d.w, d.h]; }
+function portBerthAt(P, x) { return P.parts.find((p) => PORT_PARTS[p.k].berth && x >= p.x && x < p.x + PORT_PARTS[p.k].w); }
+function portLandAt(P, x, y) { return P.parts.find((p) => { const d = PORT_PARTS[p.k]; return d.store && x >= p.x && x < p.x + d.w && y >= p.y && y < p.y + d.h; }); }
+function portCranesOn(P, berth) { return P.parts.filter((p) => PORT_PARTS[p.k].crane && p.s === berth.id); }
+function portMole(P) { return P.parts.some((p) => p.k === 'mole'); }
+// Whether the railway reaches the harbour (A14: a line within reach, or a siding): its trains unload at the siding.
+function portRail(state, b) { try { return typeof railLineOf === 'function' && !!railLineOf(state, b); } catch (e) { return false; } }
+
+// What can stand where (her tap): '' or why not.
+function portCanPlace(state, b, k, x, y, opt) {
+  const P = portOf(state, b), d = PORT_PARTS[k], yr = portYear(state), o = opt || {};
+  if (!d) return 'No such part';
+  if (d.stage > state.stage) return 'Opens at ' + STAGES[d.stage].name;
+  if (d.year > yr) return 'Not before ' + d.year;
+  if (d.power && !projectOn(state, 'power')) return 'It needs the power station';
+  if (k === 'quayb' && b.type !== 'quay') return 'Stone quay berths come with the steamship quay (the harbor’s last level)';
+  if (k === 'ljetty') return 'Lengthen a jetty on its card';
+  if (d.mole) return portMole(P) ? 'The breakwater stands' : '';
+  if (d.berth) {
+    if (x < 0 || x + d.w > PORT.W) return 'Not on the harbour’s water';
+    for (let i = x; i < x + d.w; i++) { const o2 = portBerthAt(P, i); if (o2 && o2.id !== o.not) return 'Another berth is there'; }
+    return '';
+  }
+  if (d.crane) {
+    const s = P.parts.find((p) => p.id === x && PORT_PARTS[p.k].berth);
+    if (!s) return 'A crane stands on a berth';
+    const used = portCranesOn(P, s).filter((c) => c.id !== o.not);
+    if (y === undefined || y === null) y = [0, 1].find((sl) => sl < PORT_PARTS[s.k].slots && !used.some((c) => c.slot === sl));
+    if (y === undefined || y >= PORT_PARTS[s.k].slots) return 'No room for another crane on this berth';
+    if (used.some((c) => c.slot === y)) return 'A crane stands there';
+    return '';
+  }
+  if (x < 0 || y < 1 || x + d.w > PORT.W || y + d.h > PORT.LAND - 1) return y + d.h > PORT.LAND - 1 && y < PORT.LAND ? 'The back row is the yard’s lane (the gate and the siding)' : 'Not on the harbour’s ground';
+  for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) { const o2 = portLandAt(P, xx, yy); if (o2 && o2.id !== o.not) return 'Something stands there'; }
+  return '';
+}
+// Every place a part can go now: [{ x, y }] (a berth: its waterline cell; a crane: its berth's id and slot).
+function portSpots(state, b, k) {
+  const P = portOf(state, b), d = PORT_PARTS[k], out = [];
+  if (!d) return out;
+  if (d.mole) return portCanPlace(state, b, k, 0, 0) ? out : [{ x: 0, y: -PORT.WATER }];
+  if (d.crane) { for (const s of portParts(P, 'berth')) if (!portCanPlace(state, b, k, s.id)) out.push({ x: s.id, y: [0, 1].find((sl) => !portCanPlace(state, b, k, s.id, sl)) }); return out; }
+  if (d.berth) { for (let x = 0; x + d.w <= PORT.W; x++) if (!portCanPlace(state, b, k, x, 0)) out.push({ x, y: 0 }); return out; }
+  for (let y = 1; y < PORT.LAND - 1; y++) for (let x = 0; x < PORT.W; x++) if (!portCanPlace(state, b, k, x, y)) out.push({ x, y });
+  return out;
+}
+function portTouch(state, P) { P.v = (P.v || 0) + 1; P.touched = 1; state.ver++; }
+// Build a part (her tap on a glowing cell): { ok, cost, part } or { ok: false, why, poor }.
+function portBuild(state, b, k, x, y) {
+  const why = portCanPlace(state, b, k, x, y);
+  if (why) return { ok: false, why };
+  const cost = portPrice(state, k), P = portOf(state, b), d = PORT_PARTS[k];
+  if (state.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  state.money -= cost;
+  let p;
+  if (d.crane) { const s = P.parts.find((q) => q.id === x), sl = y !== undefined && y !== null ? y : [0, 1].find((v) => !portCanPlace(state, b, k, x, v)); p = portAdd(P, k, { s: s.id, slot: sl, paid: cost }); }
+  else if (d.mole) p = portAdd(P, k, { paid: cost });
+  else if (d.berth) p = portAdd(P, k, { x, paid: cost });
+  else p = portAdd(P, k, { x, y, paid: cost });
+  portTouch(state, P);
+  simLog(state, 'The harbour’s new ' + d.name.toLowerCase() + ' stands: ' + d.gives + '.', [b.x + b.w / 2, b.y + b.h / 2]);
+  simEvent(state, { kind: 'portBuild', id: b.id, part: k, cost });
+  return { ok: true, cost, part: p };
+}
+// A jetty lengthened (the longer pier): 60 loads a call, two gangs.
+function portLengthen(state, b, pid, free) {
+  const P = portOf(state, b), p = P.parts.find((q) => q.id === pid);
+  if (!p || p.k !== 'jetty') return { ok: false, why: 'Not a short jetty' };
+  if (PORT_PARTS.ljetty.stage > state.stage) return { ok: false, why: 'Opens at ' + STAGES[PORT_PARTS.ljetty.stage].name };
+  const cost = free ? 0 : Math.max(Math.round(PORT_PARTS.ljetty.ext * 3500 / 50) * 50, purseRoundAny(PORT_PARTS.ljetty.ext * BUILDINGS.harbor.cost));
+  if (state.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  state.money -= cost;
+  p.k = 'ljetty'; p.paid = (p.paid || 0) + cost;
+  portTouch(state, P);
+  if (!free) simLog(state, 'The harbour’s jetty is lengthened: ' + PORT_PARTS.ljetty.gives + '.', [b.x + b.w / 2, b.y + b.h / 2]);
+  return { ok: true, cost };
+}
+function portLengthenCost(state) { return Math.max(Math.round(PORT_PARTS.ljetty.ext * 3500 / 50) * 50, purseRoundAny(PORT_PARTS.ljetty.ext * BUILDINGS.harbor.cost)); }
+// Remove a part: half of what she paid back (a part that came with a harbor level: nothing; it was the level's).
+function portRemove(state, b, pid) {
+  const P = portOf(state, b), p = P.parts.find((q) => q.id === pid);
+  if (!p) return { ok: false, why: 'Nothing there' };
+  const refund = Math.floor((p.paid || 0) * TUNE.refund);
+  const drop = [p].concat(PORT_PARTS[p.k].berth ? portCranesOn(P, p) : []);
+  let back = refund;
+  for (const c of drop) if (c !== p) back += Math.floor((c.paid || 0) * TUNE.refund);
+  P.parts = P.parts.filter((q) => !drop.includes(q));
+  state.money += back;
+  // goods over what the sheds now hold stay where they are (they leave with the next ships; no more come in meanwhile)
+  portTouch(state, P);
+  return { ok: true, refund: back, n: drop.length };
+}
+// Move a part to another place (10 % of its price).
+function portMove(state, b, pid, x, y) {
+  const P = portOf(state, b), p = P.parts.find((q) => q.id === pid);
+  if (!p) return { ok: false, why: 'Nothing there' };
+  const why = portCanPlace(state, b, p.k === 'ljetty' ? 'jetty' : p.k, x, y, { not: p.id });
+  if (why && !(p.k === 'ljetty' && /Lengthen/.test(why))) return { ok: false, why };
+  if (p.k === 'ljetty') { for (let i = x; i < x + 2; i++) { const o = portBerthAt(P, i); if (o && o.id !== p.id) return { ok: false, why: 'Another berth is there' }; } if (x < 0 || x + 2 > PORT.W) return { ok: false, why: 'Not on the harbour’s water' }; }
+  const cost = Math.round(portPrice(state, p.k === 'ljetty' ? 'jetty' : p.k) * PORT.movePct / 50) * 50;
+  if (state.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  state.money -= cost;
+  if (PORT_PARTS[p.k].crane) { p.s = x; p.slot = y !== undefined && y !== null ? y : [0, 1].find((v) => !portCanPlace(state, b, p.k, x, v, { not: p.id })); }
+  else { p.x = x; if (!PORT_PARTS[p.k].berth) p.y = y; }
+  portTouch(state, P);
+  return { ok: true, cost };
+}
+
+// ---------- the flow ----------
+// A berth's loading rate (loads a tick): its gangs and its cranes, fed from the sheds behind it, halved while broken.
+function portFeed(P, berth) {
+  const d = PORT_PARTS[berth.k], x0 = berth.x - 1, x1 = berth.x + d.w;
+  for (const p of P.parts) {
+    const e = PORT_PARTS[p.k];
+    if (!e.store || p.y > 2) continue;
+    if (p.x + e.w - 1 >= x0 && p.x <= x1) return 1;
+  }
+  return PORT.feedFar;
+}
+function portRate(state, P, berth) {
+  const d = PORT_PARTS[berth.k];
+  let r = d.gang;
+  for (const c of portCranesOn(P, berth)) if (!(PORT_PARTS[c.k].power && !projectOn(state, 'power'))) r += PORT_PARTS[c.k].crane;
+  return r * portFeed(P, berth) * (berth.dmg ? PORT.dmg : 1);
+}
+// What the sheds and yards hold, and what of it is under a roof.
+function portStore(P) {
+  let n = 0, roof = 0;
+  for (const p of P.parts) { const d = PORT_PARTS[p.k]; if (d.store) { n += d.store; if (d.roof) roof += d.store; } }
+  return { n, roof };
+}
+// The berths in calling order: the biggest first (it calls at the month's end), then from the left.
+function portBerths(P) { return portParts(P, 'berth').sort((a, c) => PORT_PARTS[c.k].hold - PORT_PARTS[a.k].hold || a.x - c.x); }
+// The harbour's numbers as a building's (A9's hbDef): its sheds' hold (cap), the biggest ship's hold, its calls a month.
+const PORT_DEF = new WeakMap();
+function portDef(state, b) {
+  const P = portOf(state, b), c = PORT_DEF.get(b);
+  if (c && c.v === P.v && c.P === P) return c.d;
+  const berths = portBerths(P), st = portStore(P);
+  const d = Object.assign({}, defOf(b), { cap: st.n, hold: berths.length ? PORT_PARTS[berths[0].k].hold : 0, ships: berths.length });
+  PORT_DEF.set(b, { v: P.v, P, d });
+  return d;
+}
+
+// ---------- the weather ----------
+function portHash(a, b) { let h = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+// how many days the harbour is shut for a hurricane of this severity (PORT.stay's 15 ticks are 4½ days)
+function portShutDays(sev) { return Math.round((3 + 4 + 2 * sev + PORT.clear) * 0.3); }
+function portHurricaneAt(month) {
+  const y = TUNE.startYear + Math.floor(month / 12), m = month % 12;
+  return PORT_HURRICANES.find((h) => h.y === y && h.m === m) || null;
+}
+// The month's weather: a norte (Nov-Apr: a cold front from the north, about every other winter month strong enough to
+// hold ships outside) and the hurricane, each with its ticks. Deterministic from the island's seed and the month.
+function portWeather(state, month) {
+  const m = month % 12, out = { norte: null, storm: null };
+  if (m >= 10 || m <= 3) {
+    const h = portHash((state.seed || 0) * 31 + 7, month);
+    if (h < 0.5) { const t = 8 + Math.floor(portHash(month, (state.seed || 0) + 11) * 84); out.norte = { t, len: 3 + (t % 4) }; }
+  }
+  const H = portHurricaneAt(month);
+  if (H) { const t = Math.round((H.d - 1) / 30 * TUNE.ticksPerMonth); out.storm = Object.assign({ t, len: 4 + 2 * H.sev, month }, H); }
+  return out;
+}
+// The next hurricane announced (within PORT.warn months), or null: { h, month, t, months (ahead) }.
+function portStormAhead(state) {
+  for (let k = 0; k <= PORT.warn; k++) {
+    const w = portWeather(state, state.month + k).storm;
+    if (w && !(k === 0 && state.mt > w.t + w.len)) return Object.assign({ ahead: k }, w);
+  }
+  return null;
+}
+function portDateOf(month, t) { return Math.min(30, 1 + Math.floor(t / TUNE.ticksPerMonth * 30)) + ' ' + MONTHS[month % 12] + ' ' + (TUNE.startYear + Math.floor(month / 12)); }
+
+// ---------- the timetable ----------
+// The month's calls at one harbour: [{ b (berth id), i, kind, line, hold, ship, arr, dep, rate, load, delay, why, late }].
+// arr/dep are ticks of the month (dep may pass 100: the ship sails early next month). load: what the gangs and cranes
+// can put aboard in its days at the berth.
+function portShipName(state, hb, i, kind) {
+  const steam = kind === 'steamer', list = steam ? STEAM_NAMES : SHIP_NAMES;
+  const k = state.b.filter((o) => (defOf(o).ships > 1) === (defOf(hb).ships > 1) && defOf(o).kind === 'harbor' && o.id < hb.id).length;
+  return list[(k + i * 3) % list.length];
+}
+const PORT_CALLS = new WeakMap();
+function portCalls(state, hb, month) {
+  const P = portOf(state, hb), key = P.v + '|' + month + '|' + state.ver + '|' + (P.carry || []).length + '|' + (P.carry || []).filter((c) => c.gone).length;
+  let C = PORT_CALLS.get(P);
+  if (!C) PORT_CALLS.set(P, C = {});
+  if (C[month] && C[month].key === key) return C[month].out;
+  const out = portCallsNow(state, hb, month, P);
+  C[month] = { key, out };
+  return out;
+}
+function portCallsNow(state, hb, month, P) {
+  const W = portWeather(state, month), out = [], mole = portMole(P);
+  const busy = {};
+  for (const c of P.carry || []) if (c.m === month - 1) busy[c.b] = c.dep - TUNE.ticksPerMonth;
+  portBerths(P).forEach((berth, i) => {
+    const d = PORT_PARTS[berth.k], dep0 = PORT.dep[i] || PORT.dep[PORT.dep.length - 1];
+    let arr = dep0 - PORT.stay, dep = dep0, delay = 0, why = '';
+    // a ship from last month still at this berth: this one waits at anchor until she sails
+    if (busy[berth.id] !== undefined && busy[berth.id] > arr) { delay = busy[berth.id] - arr; why = 'berth'; }
+    if (W.norte && !mole && arr + delay >= W.norte.t - 1 && arr + delay <= W.norte.t + W.norte.len) { const k = Math.min(PORT.norteDelay, W.norte.t + W.norte.len - arr - delay + 1); if (k > 0) { delay += k; why = 'norte'; } }
+    let late = 0;
+    // the hurricane closes the harbour from three ticks before it until the wreckage is cleared (PORT.clear after it):
+    // a ship due then stays out (or stands out to sea) until it reopens, then lies its full days at the berth
+    const shut0 = W.storm ? W.storm.t - 3 : 0, shut1 = W.storm ? W.storm.t + W.storm.len + PORT.clear : 0;
+    if (W.storm && arr + delay < shut1 && dep > shut0) {
+      const a2 = Math.max(arr + delay, shut1);
+      late = a2 + PORT.stay - dep; delay = a2 - arr; why = 'storm'; dep = a2 + PORT.stay;
+    }
+    const rate = portRate(state, P, berth), stayN = dep - (arr + delay);
+    out.push({ b: berth.id, i, kind: d.ship, line: d.ship === 'steamer' ? 'ny' : 'coast', hold: d.hold, ship: portShipName(state, hb, i, d.ship),
+      arr: arr + delay, dep, rate, load: Math.floor(rate * stayN + 1e-9), delay, why, late: Math.max(0, late), first: i === 0 });
+  });
+  return out;
+}
+// The sailings due now (tick `t` of the month: 100 = the month's end) at one harbour.
+function portDue(state, hb, t) {
+  const P = portOf(state, hb), done = P.done && P.done.m === state.month ? P.done.ids : [];
+  const out = portCalls(state, hb, state.month).filter((c) => c.dep === t && !done.includes(c.b));
+  for (const c of P.carry || []) if (c.m === state.month - 1 && c.dep - TUNE.ticksPerMonth === t && !c.gone) out.push(Object.assign({}, c, { carried: 1 }));
+  return out;
+}
+
+// One ship sails with what waits (up to its hold, and what the gangs and cranes loaded): A9's shipSail for one call.
+function portSail(state, hb, call, mid) {
+  const P = portOf(state, hb);
+  if (!P.done || P.done.m !== state.month) P.done = { m: state.month, ids: [] };
+  if (call.carried) { const c = P.carry.find((o) => o.b === call.b && o.m === state.month - 1); if (c) c.gone = 1; } else P.done.ids.push(call.b);
+  if (!call.first && !(hb.workers > 0)) return;
+  const wait = harborWaiting(state, hb), goods = Object.keys(wait.goods).sort(), take = {};
+  const cap = Math.min(call.hold, Math.max(0, call.load));
+  let room = cap, more = true;
+  while (room > 0 && more) {
+    more = false;
+    for (const g of goods) if (room > 0 && (take[g] || 0) < wait.goods[g]) { take[g] = (take[g] || 0) + 1; room--; more = true; }
+  }
+  let money = 0, units = 0;
+  for (const g in take) {
+    const n = take[g], v = n * exportPrice(state, g);
+    hb.stock[g] -= n;
+    hb.sold += v; money += v; units += n;
+    hb.soldUnits[g] = (hb.soldUnits[g] || 0) + n;
+    state.exported[g] = (state.exported[g] || 0) + n;
+    state.monthExported[g] = (state.monthExported[g] || 0) + n;
+    if (!state.monthExpV) state.monthExpV = {};
+    state.monthExpV[g] = (state.monthExpV[g] || 0) + v;
+    shipCredit(state, hb, g, n, v);
+  }
+  const left = harborWaiting(state, hb);
+  // the hold was the limit: "ships are full" (A9's asks: a bigger ship); the gangs and cranes were: the harbour's own
+  const byHold = room === 0 && cap === call.hold && left.n > 0, byCrane = room === 0 && cap < call.hold && left.n > 0;
+  hb.full = byHold;
+  hb.left = byHold ? left.goods : {};
+  const M = P.m || (P.m = {});
+  M.out = (M.out || 0) + units; M.calls = (M.calls || 0) + 1;
+  if (byCrane) { M.crane = (M.crane || 0) + Math.min(left.n, call.hold - cap); M.craneB = call.b; }
+  if (byHold) M.hold = (M.hold || 0) + left.n;
+  const rec = { m: state.month, t: call.carried ? call.dep - TUNE.ticksPerMonth : call.dep, b: call.b, ship: call.ship, kind: call.kind, line: call.line, n: units, hold: call.hold, load: call.load, money, left: left.n, why: call.why, delay: call.delay, crane: byCrane ? 1 : 0, cargo: take };
+  P.log = [rec].concat(P.log || []).slice(0, PORT.log);
+  if (!units) return;
+  const dep = { m: state.month, mid: !!mid, ship: call.ship, cargo: take, money, n: units, hold: call.hold, left: hb.full ? left.n : 0 };
+  hb.deps = [dep].concat(hb.deps || []).slice(0, 3);
+  simEvent(state, Object.assign({ kind: 'sail', id: hb.id }, dep));
+}
+
+// The hurricane strikes (its tick): open yards spoil (all in a major one, half otherwise), wooden jetties not made fast
+// and not behind a breakwater break (half speed until repaired). The goods under a roof are safe.
+function portStrike(state, hb, W) {
+  const P = portOf(state, hb), st = portStore(P), M = P.m || (P.m = {});
+  // each good's bay: what is over the roofed part of it stands in the open
+  let lost = 0, wait = 0;
+  for (const g of Object.keys(hb.stock || {})) {
+    const n = Math.max(0, hb.stock[g]); wait += n;
+    const open = Math.max(0, Math.min(n - st.roof, st.n - st.roof));
+    const k = Math.floor(open * (W.sev >= 2 ? 1 : 0.5) + 1e-9);
+    if (k <= 0) continue;
+    hb.stock[g] -= k; lost += k;
+    const c = hb.cons && hb.cons[g];
+    if (c) { const tot = Object.values(c).reduce((a, v) => a + v, 0); for (const id in c) { c[id] -= k * c[id] / Math.max(1e-9, tot); if (c[id] < 1e-6) delete c[id]; } }
+  }
+  const safe = portMole(P) || P.fast === state.month;
+  let broke = 0;
+  if (!safe) for (const p of portParts(P, 'berth')) if (PORT_PARTS[p.k].wood && !p.dmg) { p.dmg = 1; broke++; }
+  if (broke) P.brokeM = state.month;
+  M.storm = { name: W.name, lost, broke, wait, roof: st.roof, safe: safe ? (portMole(P) ? 'mole' : 'fast') : '' };
+  if (broke || lost) { P.v = (P.v || 0) + 1; state.ver++; }
+  const at = [hb.x + hb.w / 2, hb.y + hb.h / 2];
+  simLog(state, 'The hurricane (' + W.name + ') struck the harbour' + (lost ? ': ' + lost + ' loads spoiled in the open yards' : '') + (broke ? (lost ? ', ' : ': ') + plural(broke, 'jetty broke', 'jetties broke') + ' (half speed until repaired)' : '') + (!lost && !broke ? ': ' + (safe ? (portMole(P) ? 'the breakwater held' : 'made fast, nothing broke') : 'nothing broke') : '') + '.', at);
+  simEvent(state, { kind: 'portStorm', id: hb.id, lost, broke });
+}
+// Make the harbour fast before an announced hurricane (her tap): its price, and whether it is needed.
+function portFastCost1(state, hb) {
+  const P = portOf(state, hb);
+  let v = 0;
+  for (const p of P.parts) v += p.paid || portPrice(state, p.k);
+  return Math.max(PORT.fastMin, Math.round(v * PORT.fastPct / 50) * 50);
+}
+// One tap makes every harbour fast that the hurricane would hurt (an island with two or three harbours gets one line,
+// one button, the sum of their prices)
+function portFastAll(state, hb) {
+  const out = hb && portFastNeed(state, hb) ? [hb] : [];
+  for (const o of portHarbours(state)) if (o !== hb && o.open && portFastNeed(state, o)) out.push(o);
+  return out;
+}
+function portFastCost(state, hb) {
+  const all = portFastAll(state, hb);
+  return all.length ? all.reduce((a, o) => a + portFastCost1(state, o), 0) : portFastCost1(state, hb);
+}
+function portFastNeed(state, hb) {
+  const P = portOf(state, hb), w = portStormAhead(state);
+  if (!w || portMole(P) || P.fast === w.month) return null;
+  if (!portParts(P, 'berth').some((p) => PORT_PARTS[p.k].wood && !p.dmg)) return null;
+  return w;
+}
+function portMakeFast(state, hb) {
+  const w = portFastNeed(state, hb), all = portFastAll(state, hb);
+  if (!w || !all.length) return { ok: false, why: 'Nothing to make fast now' };
+  const cost = portFastCost(state, hb);
+  if (state.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  state.money -= cost;
+  for (const o of all) { const P = portOf(state, o); P.fast = w.month; P.v = (P.v || 0) + 1; }
+  state.ver++;
+  simLog(state, (all.length > 1 ? 'The island’s ' + all.length + ' harbours are' : 'The harbour is') + ' made fast for ' + w.name + ': moorings doubled, the sheds boarded up.', [hb.x + hb.w / 2, hb.y + hb.h / 2]);
+  return { ok: true, cost, n: all.length };
+}
+function portRepairCost(state, p) { return Math.max(100, Math.round(portPrice(state, p.k === 'ljetty' ? 'jetty' : p.k) * PORT.repairPct / 50) * 50); }
+function portRepair(state, hb, pid) {
+  const P = portOf(state, hb), p = P.parts.find((q) => q.id === pid && q.dmg);
+  if (!p) return { ok: false, why: 'Nothing broken there' };
+  const cost = portRepairCost(state, p);
+  if (state.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  state.money -= cost; p.dmg = 0; P.v = (P.v || 0) + 1; state.ver++;
+  simLog(state, 'The harbour’s ' + PORT_PARTS[p.k].name.toLowerCase() + ' is repaired.', [hb.x + hb.w / 2, hb.y + hb.h / 2]);
+  return { ok: true, cost };
+}
+
+// ---------- the tick, the month ----------
+// Before each tick: the month's books start, the sheds' fullness is counted, the sailings that are not at mid-month or
+// the month's end (those stay where shipSail ran before H1, so an untouched harbour sells at the same moment) sail, and
+// the hurricane strikes at its tick.
+function portTick(state) {
+  const t = state.mt, W = portWeather(state, state.month);
+  for (const hb of portHarbours(state)) {
+    const P = portOf(state, hb);
+    if (t === 0) {
+      if (P.mm !== state.month) { if (P.mm !== undefined) P.last = P.m; P.m = {}; P.mm = state.month; }
+      // the sailings carried over into this month: kept until they have sailed
+      P.carry = (P.carry || []).filter((c) => c.m >= state.month - 1 && !c.gone);
+    }
+    const M = P.m || (P.m = {}), def = portDef(state, hb);
+    M.t = (M.t || 0) + 1;
+    // a good's bay is full (what waits and what is on its way): the makers of that good wait
+    let full = '', top = 0;
+    for (const g in hb.stock || {}) { const n = (hb.stock[g] || 0) + ((hb.incoming || {})[g] || 0); if (state.exp[g] && n > top) { top = n; full = g; } }
+    if (hb.open && def.cap && top >= def.cap - 0.5) {
+      M.full = (M.full || 0) + 1; M.fullG = full;
+      // the makers of that good whose yards are full meanwhile (their carts have nowhere to go): every 5 ticks
+      if (t % 5 === 0) { let n = 0; for (const o of state.b) if (o.blocked === 'yard' && defOf(o).makes === full) n += Math.floor(o.yard); M.wait = Math.max(M.wait || 0, n); M.waitG = full; }
+    }
+    M.peak = Math.max(M.peak || 0, top);
+    if (W.storm && t === W.storm.t) portStrike(state, hb, W.storm);
+    if (!hb.open) continue;
+    if (t !== TUNE.ticksPerMonth / 2) for (const c of portDue(state, hb, t)) portSail(state, hb, c, false);
+  }
+}
+// The month's end: sailings late past it are carried into next month (they sail then, from the same berth).
+function portCarry(state) {
+  for (const hb of portHarbours(state)) {
+    const P = portOf(state, hb);
+    for (const c of portCalls(state, hb, state.month)) if (c.dep > TUNE.ticksPerMonth && !(P.carry || []).some((o) => o.b === c.b && o.m === state.month)) (P.carry || (P.carry = [])).push(Object.assign({ m: state.month }, c));
+  }
+}
+
+// What holds the harbour back now, in her words, with its fix: { key, text, fix: { k, x, y, cost, name } | null }.
+// 'broken' a jetty to repair · 'crane' a ship sailed short of its hold · 'store' the sheds are full and the makers'
+// yards wait · 'hold' the ship was full (A9's next level) · 'gate' the gate turned carts away · null.
+function portWhy(state, hb) {
+  if (!h1On()) return null;
+  const P = portOf(state, hb), L = P.last || {}, M = P.m || {}, def = portDef(state, hb), at = [hb.x + hb.w / 2, hb.y + hb.h / 2];
+  const broken = P.parts.find((p) => p.dmg);
+  if (broken) return { key: 'broken', text: 'The ' + PORT_PARTS[broken.k].name.toLowerCase() + ' broke in the hurricane: its gangs and cranes load at half speed until it is repaired', fix: { act: 'repair', pid: broken.id, cost: portRepairCost(state, broken), name: 'Repair it' }, at };
+  if (!portParts(P, 'berth').length) return { key: 'berth', text: 'The harbour has no berth: no ship can call', fix: portFix(state, hb, 'jetty'), at };
+  const crane = Math.max(L.crane || 0, M.crane || 0);
+  const bid = M.craneB || L.craneB, cb = P.parts.find((p) => p.id === bid) || portBerths(P)[0];
+  // a short sailing she has fixed since (a crane, the jetty lengthened or repaired) is not named again: its berth
+  // loads the hold in its days now
+  if (crane > 0 && !(cb && !cb.dmg && portRate(state, P, cb) * PORT.stay >= PORT_PARTS[cb.k].hold)) {
+    const berth = cb, rate = berth ? portRate(state, P, berth) : 0;
+    const fix = berth ? portFix(state, hb, 'crane', berth) : null;
+    return { key: 'crane', n: crane, text: 'The ship sailed ' + crane + ' loads short of its hold: the gangs and cranes at the ' + (berth ? PORT_PARTS[berth.k].short.toLowerCase() : 'berth') + ' load ' + Math.round(rate * 10) / 10 + ' a tick, ' + Math.floor(rate * PORT.stay) + ' in its days at the berth', fix, at };
+  }
+  const t = Math.max(1, L.t || M.t || 1), fullShare = Math.max((L.full || 0) / Math.max(1, L.t || 1), (M.full || 0) / Math.max(1, M.t || 1));
+  const g = M.waitG || L.waitG, n = Math.max(M.wait || 0, L.wait || 0);
+  if (fullShare >= 0.3 && g && n > 0 && !hb.full) {
+    const u = (GOOD_UNIT[g] || GOODS[g].name.toLowerCase());
+    return { key: 'store', n, g, text: 'The sheds are full of ' + GOODS[g].name.toLowerCase() + ' (' + def.cap + ' ' + u + ' a good) and ' + n + ' more wait in the makers’ yards: the ships could take more than the sheds hold between calls', fix: portFix(state, hb, 'store'), at };
+  }
+  if (hb.full) return { key: 'hold', text: 'The ship was full: more waits than it takes', fix: null, at };
+  void t;
+  return null;
+}
+// The fix for a cause: the part, where it goes (the best spot), its price.
+function portFix(state, hb, what, berth) {
+  const P = portOf(state, hb);
+  if (what === 'crane' && berth) {
+    // the cheapest crane that loads the ship's hold in its days at the berth, else the strongest she can build; else
+    // lengthen a short jetty (two gangs)
+    const r = portRate(state, P, berth), need = PORT_PARTS[berth.k].hold / PORT.stay, mult = portFeed(P, berth) * (berth.dmg ? PORT.dmg : 1);
+    const can = ['derrick', 'steam', 'electric'].filter((k) => !portCanPlace(state, hb, k, berth.id));
+    const k = can.find((c) => r + PORT_PARTS[c].crane * mult >= need) || can[can.length - 1];
+    if (k) return { k, x: berth.id, y: [0, 1].find((sl) => !portCanPlace(state, hb, k, berth.id, sl)), cost: portPrice(state, k), name: PORT_PARTS[k].name };
+    if (berth.k === 'jetty' && PORT_PARTS.ljetty.stage <= state.stage) return { act: 'lengthen', pid: berth.id, k: 'ljetty', cost: portLengthenCost(state), name: 'Lengthen the jetty' };
+    return null;
+  }
+  if (what === 'jetty') { const sp = portSpots(state, hb, 'jetty')[0]; return sp ? { k: 'jetty', x: sp.x, y: 0, cost: portPrice(state, 'jetty'), name: PORT_PARTS.jetty.name } : null; }
+  if (what === 'store') {
+    // a shed (or the warehouse, or an annex) as near the busiest berth as it fits
+    const b0 = portBerths(P)[0], cx = b0 ? b0.x + PORT_PARTS[b0.k].w / 2 : PORT.W / 2;
+    for (const k of ['shed', 'ware', 'annex', 'yard']) {
+      if (portCanPlace(state, hb, k, -9, -9) && /Opens|Not before|power/.test(portCanPlace(state, hb, k, -9, -9))) continue;
+      const sp = portSpots(state, hb, k).sort((a, c) => (a.y - c.y) * 2 + Math.abs(a.x + PORT_PARTS[k].w / 2 - cx) - Math.abs(c.x + PORT_PARTS[k].w / 2 - cx))[0];
+      if (sp) return { k, x: sp.x, y: sp.y, cost: portPrice(state, k), name: PORT_PARTS[k].name };
+    }
+  }
+  return null;
+}
+// Runs a fix (the ask's plan, Rosa's button): { ok, cost } or { ok: false, why }.
+function portFixRun(state, hb, f) {
+  if (!f) return { ok: false, why: 'Nothing to do here now' };
+  if (f.act === 'repair') return portRepair(state, hb, f.pid);
+  if (f.act === 'lengthen') return portLengthen(state, hb, f.pid);
+  if (f.act === 'fast') return portMakeFast(state, hb);
+  return portBuild(state, hb, f.k, f.x, f.y);
+}
+
+// The screen's numbers (facility.js, harbour_ui.js): the flow step by step, the timetable, the weather.
+function portFlow(state, hb) {
+  const P = portOf(state, hb), def = portDef(state, hb), st = portStore(P), M = P.m || {}, L = P.last || {};
+  const have = Object.keys(hb.stock || {}).reduce((a, g) => a + Math.max(0, hb.stock[g]), 0);
+  let topG = '', top = 0;
+  for (const g in hb.stock || {}) if (state.exp[g] && hb.stock[g] > top) { top = hb.stock[g]; topG = g; }
+  const rail = portRail(state, hb), gate = PORT.gate * (rail ? 2 : 1);
+  const berths = portBerths(P).map((p) => ({ p, rate: portRate(state, P, p), feed: portFeed(P, p), cranes: portCranesOn(P, p), hold: PORT_PARTS[p.k].hold }));
+  // the other way (H1 shows them; H2 moves them through the passenger shed and customs): the settlers' boat at the
+  // pier steps and the flour the ships bring for the bakeries (unloaded with the ship's own gear, outside the cranes' time)
+  const pax = { boat: typeof shipSettlers === 'function' ? shipSettlers(state) : 0, came: (state.lastMoves && state.lastMoves.came) || 0, waiting: state.waiting || 0 };
+  const flour = Math.round((state.monthImports && state.monthImports.flour) || 0);
+  return { pax, flour, def, cap: st.n, roof: st.roof, have, top, topG, gate, rail, in: M.in || 0, inLast: L.in || 0, berths, why: portWhy(state, hb), calls: portCalls(state, hb, state.month), next: portCalls(state, hb, state.month + 1), log: P.log || [], M, L, ahead: portStormAhead(state), weather: portWeather(state, state.month) };
+}
+
+// ---------- hooks into the island ----------
+{
+  // the harbour's numbers come from its layout (A9's levels are packages of parts)
+  const _hd = hbDef;
+  hbDef = function (state, b) { return h1On() && b && defOf(b).kind === 'harbor' ? portDef(state, b) : _hd.apply(this, arguments); };
+  // the gate (and the siding) take so many loads a month
+  const _rf = roomFor;
+  roomFor = function (state, d, g) {
+    const r = _rf.apply(this, arguments);
+    if (r <= 0 || !h1On() || defOf(d).kind !== 'harbor') return r;
+    const P = portOf(state, d), inc = Object.keys(d.incoming || {}).reduce((a, k) => a + (d.incoming[k] || 0), 0);
+    const gate = PORT.gate * (P.railM === state.month ? 2 : 1) - ((P.m && P.m.in) || 0) - inc;
+    return Math.max(0, Math.min(r, gate));
+  };
+  const _db = deliverBook;
+  deliverBook = function (state, src, d, g, n) {
+    if (h1On() && d && defOf(d).kind === 'harbor') { const P = portOf(state, d), M = P.m || (P.m = {}); M.in = (M.in || 0) + n; }
+    return _db.apply(this, arguments);
+  };
+  // the sailings: at mid-month and at the month's end where shipSail ran (the rest in portTick)
+  const _ss = shipSail;
+  shipSail = function (state, mid) {
+    if (!h1On()) return _ss.apply(this, arguments);
+    const t = mid ? TUNE.ticksPerMonth / 2 : TUNE.ticksPerMonth;
+    for (const hb of state.b) {
+      if (defOf(hb).kind !== 'harbor' || !hb.open) continue;
+      for (const c of portDue(state, hb, t)) portSail(state, hb, c, mid);
+    }
+    if (!mid) portCarry(state);
+  };
+  const _st = simTick;
+  simTick = function (state) {
+    if (h1On()) portTick(state);
+    return _st.apply(this, arguments);
+  };
+  // a part she bought pays its upkeep (1 % a month of what it cost), like every building and A9's levels
+  const _bn = bNumber;
+  bNumber = function (state, b) {
+    const x = _bn.apply(this, arguments);
+    if (!h1On() || !b || defOf(b).kind !== 'harbor' || !b.open || !state.port || !state.port[b.id]) return x;
+    let paid = 0;
+    for (const p of state.port[b.id].parts) paid += p.paid || 0;
+    const u = Math.round(paid * TUNE.upkeepPct);
+    if (u) { x.upkeep += u; x.n -= u; }
+    return x;
+  };
+  // a harbour that is gone forgets its ground
+  const _pr = paydayRun;
+  paydayRun = function (state) {
+    const r = _pr.apply(this, arguments);
+    if (state.port) for (const id in state.port) if (!bById(state, +id)) delete state.port[id];
+    return r;
+  };
+  // A9's levels are packages of parts: the longer pier lengthens the jetty and adds an annex, the second berth adds a
+  // long jetty with its derrick, a shed and an annex, the steamship quay rebuilds the waterfront in stone
+  const _he = harborExpand;
+  harborExpand = function (state, b, lv) {
+    if (!h1On() || !b || defOf(b).kind !== 'harbor') return _he.apply(this, arguments);
+    const P = portOf(state, b), plan = portPackage(state, b, lv, true);
+    if (!plan) return { ok: false, why: 'No room on the harbour’s ground for the ' + (HB_LEVELS[lv] ? HB_LEVELS[lv].name.toLowerCase() : 'level') + ': open the harbour and make room' };
+    const r = _he.apply(this, arguments);
+    if (r.ok) { portPackage(state, b, lv, false); P.v = (P.v || 0) + 1; }
+    return r;
+  };
+}
+// A9's level as parts (dry: whether it fits). Package parts are the level's (pk): their price and upkeep are A9's.
+function portPackage(state, b, lv, dry) {
+  const P = portOf(state, b), Q = dry ? JSON.parse(JSON.stringify(P)) : P;
+  const land = (k, near) => {
+    const d = PORT_PARTS[k];
+    for (let r = 0; r < 12; r++) for (let y = 1; y + d.h <= PORT.LAND - 1; y++) for (let x = 0; x + d.w <= PORT.W; x++) {
+      if (Math.abs(x - near) !== r) continue;
+      let ok = true;
+      for (let yy = y; yy < y + d.h && ok; yy++) for (let xx = x; xx < x + d.w && ok; xx++) if (portLandAt(Q, xx, yy)) ok = false;
+      if (ok) return portAdd(Q, k, { x, y, pk: lv });
+    }
+    return null;
+  };
+  const water = (k, near) => {
+    const d = PORT_PARTS[k];
+    for (let r = 0; r < PORT.W; r++) for (const x of [near + r, near - r]) {
+      if (x < 0 || x + d.w > PORT.W) continue;
+      let ok = true;
+      for (let i = x; i < x + d.w; i++) if (portBerthAt(Q, i)) ok = false;
+      if (ok) return portAdd(Q, k, { x, pk: lv });
+    }
+    return null;
+  };
+  if (lv === 1) {
+    const j = portParts(Q, 'jetty')[0];
+    if (j) { j.k = 'ljetty'; j.pk = 1; } else if (!water('ljetty', 4)) return null;
+    if (!land('annex', j ? j.x + 2 : 6)) return null;
+  } else if (lv === 2) {
+    const j0 = portBerths(Q)[0], j = water('ljetty', j0 ? j0.x + 3 : 7);
+    if (!j) return null;
+    portAdd(Q, 'derrick', { s: j.id, slot: 0, pk: 2 });
+    if (!land('shed', j.x) || !land('annex', j.x + 2)) return null;
+  } else if (lv === 3) {
+    // the stone quay replaces the jetties; their cranes move to the quay's apron (two a berth), sheds to 120
+    const cranes = portParts(Q, 'crane').filter((c) => { const s = Q.parts.find((p) => p.id === c.s); return s && PORT_PARTS[s.k].wood; });
+    Q.parts = Q.parts.filter((p) => !PORT_PARTS[p.k].wood && !cranes.includes(p));
+    const a = water('quayb', 2), c = water('quayb', 6);
+    if (!a || !c) return null;
+    const slots = [[a, 0], [c, 0], [a, 1], [c, 1]];
+    portAdd(Q, 'steam', { s: a.id, slot: 0, pk: 3 }); portAdd(Q, 'steam', { s: c.id, slot: 0, pk: 3 });
+    let k = 2;
+    for (const cr of cranes) { if (k >= slots.length) { if (!dry) state.money += Math.floor((cr.paid || 0) * TUNE.refund); continue; } const [s, sl] = slots[k++]; Q.parts.push(Object.assign(cr, { s: s.id, slot: sl })); }
+    // sheds (and an annex) until the quay holds A9's 120, never more than needed
+    let st = portStore(Q).n;
+    while (st + PORT_PARTS.shed.store <= 120) { if (!land('shed', 4)) break; st += PORT_PARTS.shed.store; }
+    if (st + PORT_PARTS.annex.store <= 120 && land('annex', 6)) st += PORT_PARTS.annex.store;
+  }
+  return Q;
+}
+
+// ---------- the guidance: Rosa, the harbour master, the brain ----------
+// The harbour that needs her most now, with its cause: { hb, why } or null.
+function portWorst(state) {
+  let best = null;
+  const order = { broken: 0, berth: 1, crane: 2, store: 3, hold: 4 };
+  for (const hb of portHarbours(state)) {
+    if (!hb.open) continue;
+    const w = portWhy(state, hb);
+    if (w && w.key !== 'hold' && (!best || order[w.key] < order[best.why.key])) best = { hb, why: w };
+  }
+  return best;
+}
+// The plan (A8's plans: the harbour glows on the map, one tap): build a part, repair, lengthen, make fast.
+function portPlanOf(state, d) {
+  const hb = bById(state, d.id);
+  if (!hb || defOf(hb).kind !== 'harbor') return null;
+  let f = null;
+  if (d.kind === 'hfast') { const w = portFastNeed(state, hb); if (!w) return null; f = { act: 'fast', cost: portFastCost(state, hb), name: 'Make the harbour fast' }; }
+  else if (d.act === 'repair') { const p = portOf(state, hb).parts.find((q) => q.id === d.pid && q.dmg); if (!p) return null; f = { act: 'repair', pid: p.id, cost: portRepairCost(state, p), name: 'Repair the ' + PORT_PARTS[p.k].short.toLowerCase() }; }
+  else if (d.act === 'lengthen') { const p = portOf(state, hb).parts.find((q) => q.id === d.pid && q.k === 'jetty'); if (!p) return null; f = { act: 'lengthen', pid: p.id, k: 'ljetty', cost: portLengthenCost(state), name: 'Lengthen the jetty' }; }
+  else { if (portCanPlace(state, hb, d.k, d.x, d.y)) return null; f = { k: d.k, x: d.x, y: d.y, cost: portPrice(state, d.k), name: PORT_PARTS[d.k].name }; }
+  const line = [];
+  for (let y = hb.y; y < hb.y + hb.h; y++) for (let x = hb.x; x < hb.x + hb.w; x++) line.push(tileIdx(x, y));
+  return { kind: d.kind, id: hb.id, line, glow: [hb.id], cost: f.cost, name: f.name, f, at: [hb.x, hb.y] };
+}
+function portPlanD(hb, f) { return f.act === 'fast' ? { kind: 'hfast', id: hb.id } : { kind: 'hpart', id: hb.id, k: f.k, x: f.x, y: f.y, act: f.act || '', pid: f.pid || 0 }; }
+{
+  if (typeof A8_KINDS !== 'undefined' && typeof a8PlanOf === 'function') {
+    A8_KINDS.hpart = 1; A8_KINDS.hfast = 1;
+    const _ap = a8PlanOf;
+    a8PlanOf = function (s, d) { return d && (d.kind === 'hpart' || d.kind === 'hfast') ? portPlanOf(s, d) : _ap.apply(this, arguments); };
+    const _pr = planRun;
+    planRun = function (s, d) {
+      if (!d || (d.kind !== 'hpart' && d.kind !== 'hfast')) return _pr.apply(this, arguments);
+      const p = planOf(s, d), hb = bById(s, d.id);
+      if (!p || !hb) return { ok: false, why: 'Nothing to do here now' };
+      const r = portFixRun(s, hb, p.f);
+      return r.ok ? { ok: true, cost: r.cost, at: p.at, built: hb.id } : r;
+    };
+    const _pl = planLabel;
+    planLabel = function (p) { return p && (p.kind === 'hpart' || p.kind === 'hfast') ? 'Tap the harbour: ' + p.name.toLowerCase() + ' · ' + money$(p.cost) : _pl.apply(this, arguments); };
+    const _pb = planBtn;
+    planBtn = function (p) { return p && p.kind === 'hfast' ? 'Make fast' : p && p.kind === 'hpart' ? (p.f && p.f.act === 'repair' ? 'Repair' : p.f && p.f.act === 'lengthen' ? 'Lengthen' : 'Open the harbour') : _pb.apply(this, arguments); };
+    const _ps = planSay;
+    planSay = function (s, p) { return p && (p.kind === 'hpart' || p.kind === 'hfast') ? '· ' + money$(p.cost) : _ps.apply(this, arguments); };
+  }
+  // planOf knows A8's kinds through a8PlanOf (offers.js); make sure ours are reached even if planOf is asked first
+  const _po = planOf;
+  planOf = function (s, d) {
+    if (d && (d.kind === 'hpart' || d.kind === 'hfast')) { try { const p = portPlanOf(s, d); return p ? Object.assign({ d }, p) : null; } catch (e) { return null; } }
+    return _po.apply(this, arguments);
+  };
+  // Rosa: the hurricane (at once: it is announced) and the harbour's own bottleneck, before "ships are full".
+  // A broken jetty, repaired with one tap: Rosa says it at once in the hurricane's month and the next (the news, in the
+  // warning's place); after that it is an ordinary line beside the harbour's others (a broken jetty only slows the
+  // loading), so it does not hold her voice for years over a protest, a strike or a hungry town (smoke gazette: a jetty
+  // broken in 1910 and never repaired took the 1913 protest's one line)
+  function portRepairSay(s) {
+    for (const hb of portHarbours(s)) {
+      const P = hb.open && portOf(s, hb), p = P && P.parts.find((q) => q.dmg);
+      if (!p) continue;
+      const cost = portRepairCost(s, p), last = (P.log || [])[0];
+      return { recent: P.brokeM != null && s.month - P.brokeM <= 1, m: { text: 'The hurricane broke the harbour’s ' + PORT_PARTS[p.k].name.toLowerCase() + ': its gangs and cranes load at half speed' + (last && last.crane ? ' (the last ship sailed ' + Math.max(0, Math.min(last.hold, last.n + last.left) - last.n) + ' loads short)' : '') + ' until it is repaired · ' + money$(cost) + '.',
+        btn: 'Repair · ' + money$(cost), act: { plan: { kind: 'hpart', id: hb.id, act: 'repair', pid: p.id, k: p.k, x: 0, y: 0 }, select: hb.id, at: [hb.x, hb.y], fac: { id: hb.id, pid: p.id } } } };
+    }
+    return null;
+  }
+  const storm = { key: 'storm', now: true, check(s) {
+    if (!h1On()) return null;
+    for (const hb of portHarbours(s)) {
+      const w = portFastNeed(s, hb);
+      if (!w) continue;
+      const cost = portFastCost(s, hb), nh = portFastAll(s, hb).length, when = w.ahead === 0 ? 'this month' : w.ahead === 1 ? 'next month' : 'in ' + w.ahead + ' months';
+      return { text: (w.ahead >= 3 ? 'The observatory expects a hurricane ' : 'The observatory warns: a hurricane ') + when + ', about ' + portDateOf(w.month, w.t) + ' (' + w.name + '). It will break ' + (nh > 1 ? 'the wooden jetties of the island’s ' + nh + ' harbours' : 'the harbour’s wooden jetties') + ' unless they are made fast (moorings doubled, the sheds boarded up) · ' + money$(cost) + '. Goods under a roof are safe; open yards ' + (w.sev >= 2 ? 'lose everything' : 'lose half') + '; no ship calls for about ' + portShutDays(w.sev) + ' days.',
+        btn: 'Make fast · ' + money$(cost), act: { plan: { kind: 'hfast', id: hb.id }, select: hb.id, at: [hb.x, hb.y], fac: { id: hb.id } } };
+    }
+    const r = portRepairSay(s);
+    return r && r.recent ? r.m : null;
+  } };
+  const hrep = { key: 'hrepair', check(s) {
+    if (!h1On()) return null;
+    const r = portRepairSay(s);
+    return r && !r.recent ? r.m : null;
+  } };
+  // the warning comes after the council's shut works, the treasury in the red, a strike and the protest (Rosa's urgent
+  // lines about the town's money and its own people), before the fund that is back, the money and food lines; the
+  // repair just before the harbour's "ships" line
+  const ip = GUIDE_PROBLEMS.findIndex((p) => p.key === 'protest'), i = ip >= 0 ? ip + 1 : GUIDE_PROBLEMS.findIndex((p) => p.key === 'loss');
+  GUIDE_PROBLEMS.splice(i >= 0 ? i : GUIDE_PROBLEMS.length, 0, storm);
+  const ir = GUIDE_PROBLEMS.findIndex((p) => p.key === 'ships');
+  GUIDE_PROBLEMS.splice(ir >= 0 ? ir : GUIDE_PROBLEMS.length, 0, hrep);
+  // the hurricane's warning keeps Rosa's voice over the month's other news (homes stepped down, settlers who sailed, a
+  // ready home, a commission, a fund that is back), not over an urgent line before it in the list (a shut works, the
+  // red, a strike, the protest). The first warning of each storm is also a notice (portWarn: the page shows it at the top)
+  const urgent = (k) => { const j = GUIDE_PROBLEMS.findIndex((p) => p.key === k), js = GUIDE_PROBLEMS.indexOf(storm); return k === 'storm' || (j >= 0 && j < js && !!GUIDE_PROBLEMS[j].now); };
+  const _gm = guideMonth;
+  guideMonth = function (state) {
+    const r = _gm.apply(this, arguments);
+    if (!h1On()) return r;
+    const g = state.guide, m = storm.check(state);
+    if (m && /observatory/.test(m.text) && !(g.msg && urgent(g.msg.key))) guideSay(state, Object.assign({ key: 'storm' }, m));
+    const w = portStormAhead(state);
+    if (w && m && /observatory/.test(m.text) && state.portWarned !== w.month) { state.portWarned = w.month; simEvent(state, { kind: 'portWarn', text: m.text, id: m.act.select }); }
+    return r;
+  };
+  const G = GUIDE_PROBLEMS.find((p) => p.key === 'ships');
+  if (G) {
+    const _ck = G.check;
+    G.check = function (s) {
+      if (h1On()) {
+        const w = portWorst(s);
+        if (w && w.why.fix) {
+          const f = w.why.fix, hb = w.hb;
+          return { text: w.why.text + '. ' + portFixWords(f) + ' · ' + money$(f.cost) + '.', btn: 'Harbour', act: { plan: portPlanD(hb, f), select: hb.id, at: [hb.x, hb.y], fac: { id: hb.id, k: f.k, x: f.x, y: f.y, act: f.act || '', pid: f.pid || 0 } } };
+        }
+      }
+      return _ck.apply(this, arguments);
+    };
+  }
+  // the harbour master: the same cause, the same fix (the harbour glows; a tap opens it at the place)
+  if (typeof COMMISSIONS !== 'undefined') {
+    const SH = COMMISSIONS.find((t) => t.key === 'ships');
+    if (SH) {
+      const _w = SH.when;
+      SH.when = function (s) {
+        if (h1On()) {
+          const w = portWorst(s);
+          if (w && w.why.fix && w.why.key !== 'broken') {
+            const f = w.why.fix, hb = w.hb, d = portPlanD(hb, f);
+            return { tool: 'harbor', plan: d, near: [hb.x, hb.y], glowB: hb.id, select: hb.id, sub: w.why.key,
+              ask: w.why.text.replace(/^./, (c) => c.toUpperCase()) + '. ' + portFixWords(f) + ' (' + money$(f.cost) + '). Tap the glowing harbour.',
+              praise: 'The harbour’s ' + f.name.toLowerCase() + ' works: the goods move again.', gift: comGift(f.cost, 0.05),
+              done: (q) => { const b2 = bById(q, hb.id); const w2 = b2 && portWhy(q, b2); return !b2 || !w2 || w2.key !== w.why.key; } };
+          }
+        }
+        return _w.apply(this, arguments);
+      };
+    }
+    if (typeof comIsDone === 'function') {
+      const _cd = comIsDone;
+      comIsDone = function (s, q) {
+        if (q && q.plan && (q.plan.kind === 'hpart' || q.plan.kind === 'hfast')) return !planOf(s, q.plan);
+        return _cd.apply(this, arguments);
+      };
+    }
+    if (typeof comMake === 'function') {
+      const _cm = comMake;
+      comMake = function (s, T, r) {
+        const q = _cm.apply(this, arguments);
+        if (r && r.plan && (r.plan.kind === 'hpart' || r.plan.kind === 'hfast') && q) { q.plan = r.plan; q.sv = -1; if (typeof comRespot === 'function') comRespot(s, q); }
+        return q;
+      };
+    }
+    if (typeof comRespot === 'function') {
+      const _cr = comRespot;
+      comRespot = function (s, q) {
+        if (q && q.plan && (q.plan.kind === 'hpart' || q.plan.kind === 'hfast')) { if (q.sv === s.ver) return; if (planOf(s, q.plan)) { q.sv = s.ver; q.spots = []; q.road = null; q.move = 0; return; } }
+        return _cr.apply(this, arguments);
+      };
+    }
+  }
+  // Q2: an ask for a part is tried on a copy of the harbour first: it must ease what it names
+  if (typeof brCheck === 'function') {
+    const _bc = brCheck;
+    brCheck = function (s, a) {
+      const d = a && a.plan;
+      if (!d || d.kind !== 'hpart') return _bc.apply(this, arguments);
+      const hb = bById(s, d.id);
+      if (!hb) return { ok: false, kind: 'harbour', why: 'the harbour is gone' };
+      return portTry(s, hb, d) ? { ok: true, kind: 'harbour' } : { ok: false, kind: 'harbour', why: 'the part would not ease what holds the harbour back' };
+    };
+  }
+}
+function portFixWords(f) {
+  if (f.act === 'repair') return 'Repair it';
+  if (f.act === 'lengthen') return 'Lengthen the jetty: two gangs load 6 a tick and a bigger schooner calls';
+  const d = PORT_PARTS[f.k];
+  if (d.crane) return 'A ' + d.name.toLowerCase() + ' on that berth: ' + d.gives;
+  if (d.store) return (/^[aeiou]/i.test(d.name) ? 'An ' : 'A ') + d.name.toLowerCase() + ' behind the berths: ' + d.gives;
+  return (/^[aeiou]/i.test(d.name) ? 'An ' : 'A ') + d.name.toLowerCase() + ': ' + d.gives;
+}
+// Q2's trial: on a copy of the harbour, does the part ease the named cause? (a crane: the ship loads more in its days;
+// a shed: the sheds hold more; a berth: a ship can call; a repair: the berth loads at full speed)
+function portTry(s, hb, d) {
+  const P = portOf(s, hb), keep = JSON.stringify(P);
+  try {
+    const before = portCalls(s, hb, s.month), st0 = portStore(P).n;
+    if (d.act === 'repair') return !!P.parts.find((p) => p.id === d.pid && p.dmg);
+    if (d.act === 'lengthen') { const p = P.parts.find((q) => q.id === d.pid && q.k === 'jetty'); if (!p) return false; p.k = 'ljetty'; }
+    else {
+      if (portCanPlace(s, hb, d.k, d.x, d.y)) return false;
+      const e = PORT_PARTS[d.k];
+      if (e.crane) portAdd(P, d.k, { s: d.x, slot: d.y }); else if (e.berth) portAdd(P, d.k, { x: d.x }); else if (!e.mole) portAdd(P, d.k, { x: d.x, y: d.y }); else portAdd(P, d.k, {});
+    }
+    P.v = -1e9 - Math.random();
+    const after = portCalls(s, hb, s.month), st1 = portStore(P).n;
+    const load = (cs) => cs.reduce((a, c) => a + Math.min(c.hold, c.load), 0);
+    return load(after) > load(before) || st1 > st0 || after.length > before.length;
+  } finally {
+    const o = JSON.parse(keep);
+    for (const k of Object.keys(P)) delete P[k];
+    Object.assign(P, o);
+    PORT_DEF.delete(hb);
+  }
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -34779,6 +35764,1180 @@ if (typeof BUILD_WHY !== 'undefined') BUILD_WHY.roadyard = 'Road depot: keeps ev
       return;
     }
     return _ga.apply(this, arguments);
+  };
+}
+
+// ---- src/ui/facility.js
+// H1 (29 Oct 2026, `nova/h1`): the facility screen, shared by the harbour (H1, H2) and the airport after it. DESIGN.md §44.
+// Tomáš (29 Oct): "tapping the harbour opens its own screen (its own space and layout), and the island sees the results".
+// - Opens from the building's card ([Open the harbour]), from a button standing over the building on the map (⚓), from
+//   Rosa's and the asks' buttons at the right place (a tool armed, its spot glowing; or a part selected). Closes with
+//   [✕ Island] (top left), Escape, or when the building is gone.
+// - Its own space: an isometric plan of the facility's ground (the same 2:1 view as the island, a fixed facing), its own
+//   build bar (the facility's parts, each with its price and the year or stage it opens), its own side panel (the kind's
+//   numbers: for the harbour the flow, the timetable and the weather; a selected part's card), its own legend.
+// - Time runs while it is open, at the speed she set in the top bar (which stays): ships come and go, paydays fall, the
+//   island grows behind it. The island's own panels (build bar, Rosa, the pill, the round buttons, the receipt) rest.
+// - Memory: the island's still ground and gesture picture are freed when it opens (renderTrim); its one canvas is the
+//   plan's area at the screen's DPR (at most 2), drawn anew each frame with the island's pen (no sprite cache); the
+//   build bar's small pictures are drawn once. facMem() counts them.
+// A kind registers { title(s, b), grid: { x0, x1, y0, y1 }, tools(s, b), draw(ctx, F), panel(s, b, F), tap(F, x, y),
+// legend(s, b), card(s, b, sel), hit(F, sx, sy), open(F, at), close(F) }.
+
+const FAC = { kinds: {}, on: false, kind: '', id: 0, tool: 'look', sel: 0, view: { hw: 36, ox: 0, oy: 0, pan: 0, panY: 0 }, cv: null, ctx: null, dpr: 1, w: 0, h: 0, glow: [], labels: [], t0: 0 };
+function facRegister(kind, impl) { FAC.kinds[kind] = impl; }
+function facImpl() { return FAC.kinds[FAC.kind] || null; }
+function facB() { return FAC.on ? bById(APP.state, FAC.id) : null; }
+
+// The page's elements (made once).
+function facDom() {
+  if ($('fac')) return $('fac');
+  const el = document.createElement('div');
+  el.id = 'fac';
+  el.setAttribute('role', 'dialog');
+  el.innerHTML = '<div class="fac-head panel"><button id="facX" class="fac-x" aria-label="Back to the island">' + iconSvg('close') + '<span>Island</span></button>' +
+    '<div class="fac-title"><b id="facTitle"></b><span id="facSub"></span></div><button id="facLeg" class="fac-legbtn" aria-label="Legend">?</button></div>' +
+    '<div class="fac-plan"><canvas id="facCv"></canvas><div id="facLegend" class="fac-legend panel"></div><div id="facHint" class="fac-hint"></div></div>' +
+    '<div class="fac-side panel" id="facSide"></div>' +
+    '<div class="fac-bar panel" id="facBar"></div>';
+  document.body.appendChild(el);
+  $('facX').addEventListener('click', () => facClose());
+  $('facLeg').addEventListener('click', () => { FAC.legend = !FAC.legend; facLegendRender(true); });
+  const cv = $('facCv');
+  FAC.cv = cv; FAC.ctx = cv.getContext('2d');
+  facInput(cv);
+  $('facSide').addEventListener('click', (e) => { const t = e.target.closest('[data-fa]'); if (t && !t.disabled) facAct(t.dataset.fa, t.dataset); });
+  $('facBar').addEventListener('click', (e) => { const t = e.target.closest('[data-ft]'); if (t) facToolSet(t.dataset.ft); });
+  $('facLegend').addEventListener('click', (e) => { if (e.target.closest('.fac-legx')) { FAC.legend = false; facLegendRender(true); } });
+  window.addEventListener('keydown', (e) => { if (FAC.on && e.key === 'Escape') { if (FAC.tool !== 'look') facToolSet('look'); else facClose(); e.preventDefault(); } });
+  window.addEventListener('resize', () => { if (FAC.on) { facLayout(); facRender(true); } });
+  return el;
+}
+
+// Opens a facility's screen. at: { k, x, y, pid, act }: a part's tool armed with that spot glowing, or a part selected.
+function facOpen(kind, id, at) {
+  const s = APP.state, b = bById(s, id), K = FAC.kinds[kind];
+  if (!b || !K) return false;
+  facDom();
+  Object.assign(FAC, { on: true, kind, id, tool: 'look', sel: 0, want: null, confirm: 0, legend: !!FAC.legend });
+  FAC.view.pan = 0; FAC.view.panY = 0;
+  try { cardClose(); } catch (e) { /* no card */ }
+  try { if (APP.ui.tool !== 'look') toolSet('look', true); } catch (e) { /* no tool */ }
+  document.body.classList.add('fac-on');
+  $('fac').setAttribute('aria-label', K.title(s, b));
+  // the island's still ground and gesture picture go (the plan's canvas takes their place); the map redraws on return
+  try { renderTrim(APP.R); } catch (e) { /* flat renderer */ }
+  facLayout();
+  if (K.open) K.open(FAC, at || null);
+  facBarRender(true); facSideRender(true); facLegendRender(true);
+  FAC.t0 = performance.now();
+  return true;
+}
+function facClose() {
+  if (!FAC.on) return;
+  const K = facImpl();
+  if (K && K.close) K.close(FAC);
+  FAC.on = false; FAC.tool = 'look'; FAC.sel = 0; FAC.want = null;
+  document.body.classList.remove('fac-on');
+  // the plan's canvas gives its pixels back
+  if (FAC.cv) { FAC.cv.width = 1; FAC.cv.height = 1; }
+  if (APP.R) { APP.R.groundDirty = true; APP.R.terrainKey = ''; }
+  APP.hudFast = '';
+  try { guideRender(); } catch (e) { /* none */ }
+}
+
+// The plan fills its area at the screen's DPR (at most 2); the projection fits the kind's grid to it, at least `min` CSS
+// px for half a tile (a phone pans across the rest).
+function facLayout() {
+  const el = $('fac'), cv = FAC.cv;
+  el.classList.toggle('fac-wide', innerWidth >= 900 && innerWidth > innerHeight);
+  const box = cv.parentElement.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.max(1, Math.round(box.width)), h = Math.max(1, Math.round(box.height));
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  FAC.dpr = dpr; FAC.w = w; FAC.h = h;
+  const K = facImpl(), g = K.grid;
+  // the grid's extent in half-tile units: u = x - y, v = (x + y) / 2, plus the tallest things over the far rows
+  const u0 = g.x0 - g.y1, u1 = g.x1 - g.y0, v0 = (g.x0 + g.y0) / 2 - (g.top || 3), v1 = (g.x1 + g.y1) / 2 + 0.3;
+  const fit = Math.min((w - 12) / (u1 - u0), (h - 8) / (v1 - v0));
+  const hw = Math.max(g.min || 26, Math.min(g.max || 36, fit));
+  FAC.view.hw = hw;
+  FAC.view.ox = (w - (u1 - u0) * hw) / 2 - u0 * hw;
+  FAC.view.oy = (h - (v1 - v0) * hw) / 2 - v0 * hw;
+  // when the plan is wider (or taller) than its area: it pans, centred first on the kind's focus
+  FAC.view.panMax = Math.max(0, ((u1 - u0) * hw - w) / 2 + 12);
+  FAC.view.panYMax = Math.max(0, ((v1 - v0) * hw - h) / 2 + 8);
+  if (FAC.view.panMax === 0) FAC.view.pan = 0;
+  if (FAC.view.panYMax === 0) FAC.view.panY = 0;
+}
+// Grid (x, y, z: tiles, z up) -> CSS px on the plan; and back (z = 0).
+function facP(x, y, z) {
+  const v = FAC.view, hw = v.hw;
+  return [v.ox + v.pan + (x - y) * hw, v.oy + v.panY + (x + y) * hw / 2 - (z || 0) * hw * 1.2247];
+}
+// Pans the plan (a phone's) so that grid point (x, y) stands in the middle of its area.
+function facCenter(x, y) {
+  const v = FAC.view, hw = v.hw, sx = v.ox + (x - y) * hw, sy = v.oy + (x + y) * hw / 2;
+  v.pan = Math.max(-v.panMax, Math.min(v.panMax, FAC.w / 2 - sx));
+  v.panY = Math.max(-v.panYMax, Math.min(v.panYMax, FAC.h / 2 - sy));
+}
+function facUnP(sx, sy) {
+  const v = FAC.view, hw = v.hw, u = (sx - v.ox - v.pan) / hw, w = (sy - v.oy - v.panY) / (hw / 2);
+  return [(u + w) / 2, (w - u) / 2];
+}
+
+// ---------- input: pan by dragging, tap ----------
+function facInput(cv) {
+  let g = null;
+  cv.addEventListener('pointerdown', (e) => {
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* no capture */ }
+    const r = cv.getBoundingClientRect();
+    g = { id: e.pointerId, x0: e.clientX - r.left, y0: e.clientY - r.top, p0: FAC.view.pan, q0: FAC.view.panY, moved: false, t: performance.now() };
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!g || g.id !== e.pointerId) return;
+    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (Math.hypot(x - g.x0, y - g.y0) > 9) g.moved = true;
+    if (g.moved) {
+      FAC.view.pan = Math.max(-FAC.view.panMax, Math.min(FAC.view.panMax, g.p0 + x - g.x0));
+      FAC.view.panY = Math.max(-FAC.view.panYMax, Math.min(FAC.view.panYMax, g.q0 + y - g.y0));
+    }
+  });
+  const up = (e) => {
+    if (!g || g.id !== e.pointerId) return;
+    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, moved = g.moved;
+    g = null;
+    if (!moved && e.type === 'pointerup') facTap(x, y);
+  };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+}
+function facTap(sx, sy) {
+  const K = facImpl(), s = APP.state, b = facB();
+  if (!K || !b) return;
+  // a label on the plan (a pile-up's name, its fix)
+  for (const L of FAC.labels) if (sx >= L.x0 - 4 && sx <= L.x1 + 4 && sy >= L.y0 - 4 && sy <= L.y1 + 4 && L.act) { facAct(L.act, L.data || {}); return; }
+  if (FAC.tool !== 'look') {
+    // the glowing spot nearest the finger (within 44 px): a finger is wide, a cell is small
+    let best = null;
+    for (const G of FAC.glow) { const d = Math.hypot(G.sx - sx, G.sy - sy); if (d < (G.r || 44) && (!best || d < best.d)) best = { G, d }; }
+    if (best) { K.tap(FAC, best.G); facRender(true); return; }
+    facHint(K.miss ? K.miss(FAC) : 'Tap a glowing spot.');
+    return;
+  }
+  const hit = K.hit(FAC, sx, sy);
+  FAC.sel = hit ? hit.id : 0; FAC.confirm = 0;
+  facRender(true);
+}
+function facHint(text) { const el = $('facHint'); if (!el) return; el.textContent = text; el.classList.add('show'); FAC.hintT = performance.now(); }
+
+// ---------- the bar, the side panel, the legend ----------
+function facToolSet(t) {
+  FAC.tool = t || 'look'; FAC.sel = 0; FAC.confirm = 0;
+  if (FAC.tool !== 'look') FAC.want = null;
+  const K = facImpl();
+  if (K && K.toolHint) facHint(K.toolHint(FAC));
+  facRender(true);
+}
+function facBarRender(force) {
+  const K = facImpl(), s = APP.state, b = facB();
+  if (!K || !b) return;
+  const tools = K.tools(s, b), key = JSON.stringify(tools) + '|' + FAC.tool;
+  if (!force && key === FAC.barKey) return;
+  FAC.barKey = key;
+  const btn = (t) => '<button class="fac-tool' + (t.id === FAC.tool ? ' on' : '') + (t.locked ? ' locked' : '') + (t.poor ? ' poor' : '') + '" data-ft="' + esc(t.id) + '" aria-label="' + esc(t.label) + '">' +
+    (t.img ? '<img alt="" src="' + t.img + '">' : iconSvg(t.icon || 'look')) + '<span>' + esc(t.short) + '</span><small>' + esc(t.sub || '') + '</small></button>';
+  const html = '<div class="fac-tray">' + tools.map(btn).join('') + '</div>' + (FAC.tool !== 'look' ? '<button class="fac-done" data-ft="look">✓ Done</button>' : '');
+  const el = $('facBar');
+  if (!domPatch(el, html)) el.innerHTML = html;
+}
+function facSideRender(force) {
+  const K = facImpl(), s = APP.state, b = facB();
+  if (!K || !b) return;
+  const html = K.panel(s, b, FAC);
+  if (!force && html === FAC.sideKey) return;
+  FAC.sideKey = html;
+  const el = $('facSide');
+  if (uiHeld('facSide') && !force) return;
+  if (!domPatch(el, html)) el.innerHTML = html;
+  $('facTitle').textContent = K.title(s, b);
+  $('facSub').textContent = K.sub ? K.sub(s, b) : '';
+}
+function facLegendRender(force) {
+  const K = facImpl(), s = APP.state, b = facB(), el = $('facLegend');
+  if (!K || !b || !el) return;
+  if (!FAC.legend) { el.classList.remove('show'); return; }
+  const html = '<button class="fac-legx" aria-label="Close the legend">' + iconSvg('close') + '</button>' + K.legend(s, b, FAC);
+  if (force || html !== FAC.legKey) { FAC.legKey = html; el.innerHTML = html; }
+  el.classList.add('show');
+}
+// A button in the side panel or a label on the plan: the kind's action.
+function facAct(what, data) {
+  const K = facImpl();
+  if (!K || !K.act) return;
+  K.act(FAC, what, data || {});
+  facRender(true);
+}
+function facRender(force) {
+  if (!FAC.on) return;
+  facBarRender(force); facSideRender(force); facLegendRender(false);
+}
+
+// ---------- the frame ----------
+function facFrame(now) {
+  const K = facImpl(), s = APP.state, b = facB();
+  if (!K || !b) { facClose(); return; }
+  if (FAC.cv.width < 2) facLayout();
+  const ctx = FAC.ctx, d = FAC.dpr;
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  ctx.clearRect(0, 0, FAC.w, FAC.h);
+  FAC.glow = []; FAC.labels = [];
+  K.draw(ctx, FAC, now);
+  if (now - (FAC.panelT || 0) > 450) { FAC.panelT = now; facRender(false); }
+  const h = $('facHint');
+  if (h && h.classList.contains('show') && now - (FAC.hintT || 0) > 3200) h.classList.remove('show');
+}
+// The colour of the hour over the plan (A1's tint: multiply), and the soft glow sprite for lights at night.
+function facTint(ctx) {
+  const s = APP.state;
+  if (typeof dayTint !== 'function' || s.tod === undefined || APP.dayOff) return [255, 255, 255];
+  const c = dayTint(s.tod);
+  if (c[0] + c[1] + c[2] >= 762) return c;
+  ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(' + c.join(',') + ')'; ctx.fillRect(0, 0, FAC.w, FAC.h); ctx.restore();
+  return c;
+}
+function facNight() { const s = APP.state; if (typeof dayTint !== 'function' || s.tod === undefined) return 0; const c = dayTint(s.tod); return Math.max(0, Math.min(1, (255 - (c[0] + c[1] + c[2]) / 3) / 110)); }
+function facGlowSprite() {
+  if (FAC.glowCv) return FAC.glowCv;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, 'rgba(255,214,140,0.95)'); r.addColorStop(0.35, 'rgba(255,190,110,0.45)'); r.addColorStop(1, 'rgba(255,170,90,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+  return (FAC.glowCv = c);
+}
+// What the facility screen holds in canvas pixels (bytes), for smoke rotate's peak: the plan, the glow, the bar's pictures.
+function facMem() {
+  const cv = FAC.cv ? FAC.cv.width * FAC.cv.height * 4 : 0, glow = FAC.glowCv ? 64 * 64 * 4 : 0, th = Object.keys(FAC.thumbs || {}).length * 108 * 64 * 4;
+  return { canvas: cv, glow, thumbs: th, total: cv + glow + th };
+}
+
+// ---------- the island around it ----------
+{
+  // while the screen is open the island is not drawn (its own frame draws the plan instead)
+  const _rd = renderDraw;
+  renderDraw = function (R, s, view, ui) {
+    if (FAC.on) { facFrame(performance.now()); return; }
+    return _rd.apply(this, arguments);
+  };
+  // Rosa's and the asks' buttons with a place in a facility: they open it there
+  const _ga = guideAct;
+  guideAct = function () {
+    const m = guideMsg();
+    if (m && performance.now() - (APP.guideT || 0) >= 900 && m.act && m.act.fac && !(m.act.plan && m.act.plan.kind === 'hfast')) {
+      const a = m.act.fac, b = bById(APP.state, a.id);
+      if (b) { facOpen(b.type === 'airfield' ? 'airport' : 'harbour', b.id, a); return; }
+    }
+    return _ga.apply(this, arguments);
+  };
+  // a commission's plan for a facility part (the glowing harbour on the map): the tap opens the facility there
+  if (typeof landRunUi === 'function') {
+    const _lr = landRunUi;
+    landRunUi = function (d, then) {
+      if (d && d.kind === 'hpart') {
+        const b = bById(APP.state, d.id);
+        if (b) { facOpen('harbour', b.id, { k: d.k, x: d.x, y: d.y, act: d.act, pid: d.pid }); return; }
+      }
+      return _lr.apply(this, arguments);
+    };
+  }
+}
+
+// ---------- the button over the building on the map ----------
+// "⚓ Harbour" stands over each facility on screen (at a zoom where it reads, not while a tool is armed or a card or
+// sheet covers the map); one tap opens its screen. Placed every frame, written only when it moved.
+function facPins() {
+  let el = $('facPins');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'facPins'; document.body.appendChild(el);
+    el.addEventListener('click', (e) => { const t = e.target.closest('[data-fp]'); if (t) { const b = bById(APP.state, +t.dataset.fp); if (b) facOpen(t.dataset.kind, b.id); } });
+  }
+  const s = APP.state, R = APP.R, out = [];
+  const quiet = FAC.on || APP.titleOn || !R || R.kind === 'flat' || APP.ui.tool !== 'look' || APP.gesturing || APP.fly || $('sheet').classList.contains('show') || (APP.view.z || 0) < 14;
+  if (!quiet) {
+    for (const k in FAC.kinds) {
+      const K = FAC.kinds[k];
+      if (!K.pins) continue;
+      for (const b of K.pins(s)) {
+        const p = renderToScreen(R, APP.view, b.x + b.w / 2, b.y + b.h / 2);
+        if (p.x < 30 || p.y < 90 || p.x > innerWidth - 30 || p.y > innerHeight - 110) continue;
+        out.push({ id: b.id, kind: k, x: Math.round(p.x), y: Math.round(p.y - Math.min(110, APP.view.z * 2.4)), label: K.pinLabel(s, b), warn: K.pinWarn ? K.pinWarn(s, b) : '' });
+      }
+    }
+  }
+  const key = JSON.stringify(out);
+  if (key === APP.facPinKey) return;
+  APP.facPinKey = key;
+  el.innerHTML = out.map((o) => '<button class="fac-pin' + (o.warn ? ' warn' : '') + '" data-fp="' + o.id + '" data-kind="' + o.kind + '" style="left:' + o.x + 'px;top:' + o.y + 'px" aria-label="' + esc(o.label) + '">' + iconSvg('anchor') + '<span>' + esc(o.label) + '</span>' + (o.warn ? '<i>!</i>' : '') + '</button>').join('');
+}
+{
+  const _rp = rotPlace;
+  rotPlace = function () { const r = _rp.apply(this, arguments); try { facPins(); } catch (e) { /* none */ } return r; };
+}
+// The island's screen point of a tile (the renderer's projection; the flat fallback has none).
+function renderToScreen(R, view, x, y) { return tileToScreen(R, view, x, y); }
+
+// ---- src/ui/harbour_ui.js
+// H1 (29 Oct 2026, `nova/h1`): the harbour's own screen (facility.js's first kind). DESIGN.md §44; the rules:
+// src/sim/harbour.js. What she sees:
+// - The plan: the harbour's ground in the island's 2:1 view: the sea with its waves (whitecaps in a norte, rain and dark
+//   cloud in a hurricane), the breakwater, the berths along the water (wooden jetties on piles, the stone quay with its
+//   bollards), the cranes on them, the sheds and the warehouse behind, the open yards with their stacks, the yard's lane
+//   with the gate (the island's carts come up the road) and the siding (when the railway reaches the harbour), the fence.
+//   Ships come by the timetable: they sail in through the harbour's mouth, wait outside when a norte or a busy berth
+//   holds them, lie at their berth while the cranes swing loads aboard, and sail out. Everything is drawn here with the
+//   island's pen (paper and ink, the sun from the upper left: +y faces lit, +x faces in shade): the schooner and the
+//   steamship in four headings, the derrick, the steam crane and the electric crane (their jibs swing between the ship
+//   and the quay while she loads), the wooden transit shed, the annex, the masonry warehouse. By night the colour of
+//   the hour (A1's tint) lies over it all and the lamps, the ships' lanterns and the sheds' doors are lit.
+// - Where it piles up it is drawn and named on the spot: a queue of carts at the gate with a red label when the sheds
+//   are full, a red stack on the quay when a ship sailed short, broken planks on a jetty after a hurricane; the label
+//   is a button: it arms the fix with its place glowing.
+// - The side panel: the flow step by step (gate, sheds, each berth's gangs and cranes, the ships) with its bottleneck
+//   in a line and its fix; the timetable (the coming calls: date, ship, line, berth, what waits for it, on time or why
+//   late; the last sailings with what they took); the weather (the season, the announced hurricane and what protects);
+//   a tapped part's card (what it does in numbers, Lengthen, Repair, Move, Remove).
+// - Its build bar: jetty, derrick, steam crane, electric crane, shed, annex, open yard, warehouse, breakwater (each with
+//   its price, or the year or stage it opens); armed, the places it can go glow; one tap builds there.
+
+const PORT_UI = { stayIn: 5, stayOut: 5 };
+const PORT_INK = '#3a2a1f';
+function portMix(a, b, t) {
+  const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16), m = (sh) => Math.round(((A >> sh) & 255) + ((((B >> sh) & 255) - ((A >> sh) & 255)) * t));
+  return '#' + [16, 8, 0].map((sh) => m(sh).toString(16).padStart(2, '0')).join('');
+}
+const portLt = (c, t) => portMix(c, '#fffaf0', t === undefined ? 0.22 : t);
+const portDk = (c, t) => portMix(c, '#2a1c14', t === undefined ? 0.22 : t);
+function portLw() { return Math.max(0.7, FAC.view.hw / 34); }
+function portPoly(ctx, pts, fill, stroke, lw) {
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
+}
+function portRectZ(x, y, w, h, z) { return [facP(x, y, z), facP(x + w, y, z), facP(x + w, y + h, z), facP(x, y + h, z)]; }
+// A box on the ground: top, the lit face toward +y (lower left), the shaded face toward +x (lower right).
+function portBox(ctx, x, y, w, h, z0, z1, top, side, shade, ink) {
+  const I = ink === undefined ? '#3a2a1f' : ink, lw = Math.max(0.6, FAC.view.hw / 36);
+  portPoly(ctx, [facP(x, y + h, z0), facP(x + w, y + h, z0), facP(x + w, y + h, z1), facP(x, y + h, z1)], side, I, lw);
+  portPoly(ctx, [facP(x + w, y, z0), facP(x + w, y + h, z0), facP(x + w, y + h, z1), facP(x + w, y, z1)], shade, I, lw);
+  portPoly(ctx, portRectZ(x, y, w, h, z1), top, I, lw);
+}
+function portSeg(ctx, a, b, col, lw) { ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.stroke(); }
+function portH(i, j) { let h = (Math.imul(i | 0, 374761393) + Math.imul(j | 0, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+
+// ---------- the painters: ships, cranes, sheds (grid units; z up; the island's pen) ----------
+// A local frame for a thing facing (fx, fy): a along its keel or jib, c across it.
+function portFrame(x, y, fx, fy) { return { P: (a, c, z) => facP(x + fx * a - fy * c, y + fy * a + fx * c, z), G: (a, c) => [x + fx * a - fy * c, y + fy * a + fx * c] }; }
+const PORT_FACE = [[1, 0], [0, -1], [-1, 0], [0, 1]];
+// A box given in the local frame (a0..a1 along, c0..c1 across): axis-aligned on the grid for the four headings.
+function portLBox(ctx, Fr, a0, a1, c0, c1, z0, z1, col) {
+  const p = [Fr.G(a0, c0), Fr.G(a1, c1)], x0 = Math.min(p[0][0], p[1][0]), y0 = Math.min(p[0][1], p[1][1]);
+  portBox(ctx, x0, y0, Math.abs(p[1][0] - p[0][0]), Math.abs(p[1][1] - p[0][1]), z0, z1, col, portLt(col, 0.12), portDk(col, 0.18));
+}
+// A hull (an outline in the local frame) from z0 to z1: the faces turned to the eye, lit by the sun, the deck on top.
+function portHull(ctx, Fr, outline, z0, z1, col) {
+  const g = outline.map((q) => Fr.G(q[0], q[1]));
+  let area = 0;
+  for (let i = 0; i < g.length; i++) { const p = g[i], q = g[(i + 1) % g.length]; area += p[0] * q[1] - q[0] * p[1]; }
+  const faces = [];
+  for (let i = 0; i < g.length; i++) {
+    const p = g[i], q = g[(i + 1) % g.length], dx = q[0] - p[0], dy = q[1] - p[1];
+    const nx = area > 0 ? dy : -dy, ny = area > 0 ? -dx : dx;
+    if (nx + ny <= 1e-6) continue;
+    const L = Math.hypot(nx, ny), lit = (ny - nx) / L;
+    faces.push({ d: p[0] + p[1] + q[0] + q[1], p, q, c: lit > 0 ? portLt(col, 0.2 * lit) : portDk(col, -0.25 * lit) });
+  }
+  faces.sort((u, v) => u.d - v.d);
+  const lw = portLw();
+  for (const f of faces) portPoly(ctx, [facP(f.p[0], f.p[1], z0), facP(f.q[0], f.q[1], z0), facP(f.q[0], f.q[1], z1), facP(f.p[0], f.p[1], z1)], f.c, PORT_INK, lw);
+  return g;
+}
+function portDeck(ctx, g, z, col) { portPoly(ctx, g.map((q) => facP(q[0], q[1], z)), col, PORT_INK, portLw()); }
+// A vertical cylinder (a funnel, a stack) at grid (x, y).
+function portCyl(ctx, x, y, r, z0, z1, col, band) {
+  const hw = FAC.view.hw, a = facP(x, y, z0), b = facP(x, y, z1), rx = r * hw * 1.414, ry = r * hw * 0.707;
+  ctx.beginPath(); ctx.moveTo(a[0] - rx, a[1]); ctx.lineTo(b[0] - rx, b[1]); ctx.ellipse(b[0], b[1], rx, ry, 0, Math.PI, 0, true); ctx.lineTo(a[0] + rx, a[1]); ctx.ellipse(a[0], a[1], rx, ry, 0, 0, Math.PI, false); ctx.closePath();
+  const gr = ctx.createLinearGradient(a[0] - rx, 0, a[0] + rx, 0); gr.addColorStop(0, portLt(col, 0.25)); gr.addColorStop(1, portDk(col, 0.25));
+  ctx.fillStyle = gr; ctx.fill(); ctx.strokeStyle = PORT_INK; ctx.lineWidth = portLw(); ctx.stroke();
+  if (band) { const c = facP(x, y, z1 - (z1 - z0) * 0.18); ctx.beginPath(); ctx.moveTo(c[0] - rx, c[1]); ctx.lineTo(b[0] - rx, b[1]); ctx.ellipse(b[0], b[1], rx, ry, 0, Math.PI, 0, true); ctx.lineTo(c[0] + rx, c[1]); ctx.ellipse(c[0], c[1], rx, ry, 0, 0, Math.PI, false); ctx.fillStyle = band; ctx.fill(); }
+  ctx.beginPath(); ctx.ellipse(b[0], b[1], rx, ry, 0, 0, Math.PI * 2); ctx.fillStyle = band ? '#1b1410' : portDk(col, 0.4); ctx.fill(); ctx.strokeStyle = PORT_INK; ctx.stroke();
+}
+// A spar or a rope between two points in the local frame (ink under the colour, like the island's masts).
+function portSpar(ctx, Fr, a, b, col, w) {
+  const p = Fr.P(a[0], a[1], a[2]), q = Fr.P(b[0], b[1], b[2]), k = FAC.view.hw / 36;
+  ctx.lineCap = 'round';
+  if (col) { portSeg(ctx, p, q, PORT_INK, (w + 1.4) * k); portSeg(ctx, p, q, col, w * k); } else portSeg(ctx, p, q, PORT_INK, w * k);
+}
+function portSailDraw(ctx, Fr, pts, col) {
+  const q = pts.map((t) => Fr.P(t[0], 0, t[1]));
+  ctx.beginPath(); ctx.moveTo(q[0][0], q[0][1]);
+  for (let i = 1; i < q.length; i++) ctx.lineTo(q[i][0], q[i][1]);
+  ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = '#9c8f78'; ctx.lineWidth = portLw(); ctx.stroke();
+}
+
+// The two-masted coasting schooner (the island's and Key West's coasters, 1900s-1930s): a black hull with a white
+// sheer strake and a red boot top, gaff sails set under way and furled at the berth, a jib on the bowsprit.
+function portSchooner(ctx, x, y, face, k, furled) {
+  const [fx, fy] = PORT_FACE[face], Fr = portFrame(x, y, fx * k, fy * k), K = k;
+  const out = [[-1.15, -0.26], [0.55, -0.3], [1.0, -0.18], [1.25, 0], [1.0, 0.18], [0.55, 0.3], [-1.15, 0.26], [-1.25, 0.12], [-1.25, -0.12]];
+  const sh = out.map((q) => Fr.P(q[0] + 0.12, q[1] + 0.25, 0));
+  ctx.save(); ctx.globalAlpha *= 0.22; ctx.beginPath(); sh.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.fillStyle = '#0f4d63'; ctx.fill(); ctx.restore();
+  portHull(ctx, Fr, out, 0, 0.07 * K, '#b5473a');
+  portHull(ctx, Fr, out, 0.07 * K, 0.29 * K, '#2c3b42');
+  const g = portHull(ctx, Fr, out, 0.29 * K, 0.35 * K, '#f2ead6');
+  portDeck(ctx, g, 0.35 * K, '#c79a63');
+  const boxes = [[-0.98, -0.52, -0.16, 0.16, 0.35, 0.5, '#efe4c8'], [0.1, 0.42, -0.13, 0.13, 0.35, 0.42, '#8a603c']];
+  for (const [a0, a1, c0, c1, z0, z1, col] of boxes) portLBox(ctx, Fr, a0, a1, c0, c1, z0 * K, z1 * K, col);
+  portSpar(ctx, Fr, [1.1, 0, 0.4 * K], [1.7, 0, 0.62 * K], '#8a603c', 1.6);
+  const masts = [[0.45, 2.0], [-0.35, 2.25]];
+  if (furled) {
+    for (const [a, h] of masts) portSpar(ctx, Fr, [a, 0, 0.35 * K], [a, 0, (0.35 + h) * K], '#8a603c', 2.2);
+    portSpar(ctx, Fr, [0.45, 0, 0.6 * K], [-0.25, 0, 0.62 * K], '#efe4c8', 3);
+    portSpar(ctx, Fr, [-0.35, 0, 0.65 * K], [-1.3, 0, 0.66 * K], '#efe4c8', 3.4);
+  } else {
+    const fore = [[0.47, 0.55], [-0.25, 0.55], [-0.2, 2.0], [0.47, 2.25]], main = [[-0.33, 0.6], [-1.35, 0.6], [-1.25, 2.1], [-0.33, 2.5]], jib = [[0.55, 0.5], [1.6, 0.6], [0.5, 2.15]];
+    const lit = (fx - fy) > 0 ? '#fbf5e6' : '#ece2cc';
+    for (const S of [main, fore, jib]) portSailDraw(ctx, Fr, S.map((q) => [q[0], q[1] * K]), lit);
+    for (const [a, h] of masts) portSpar(ctx, Fr, [a, 0, 0.35 * K], [a, 0, (0.35 + h) * K], '#8a603c', 2);
+  }
+  // the pennant at the main truck
+  const t = Fr.P(-0.35, 0, 2.6 * K);
+  ctx.beginPath(); ctx.moveTo(t[0], t[1]); ctx.lineTo(t[0] + FAC.view.hw * 0.35, t[1] + 2); ctx.lineTo(t[0], t[1] + FAC.view.hw * 0.12); ctx.closePath(); ctx.fillStyle = '#df684c'; ctx.fill();
+}
+// The coastal passenger and cargo steamship (the New York and Havana lines of the 1910s-1930s): a black hull, a red
+// boot top, white decks with the bridge forward, one buff funnel with a black top, two masts with their derricks.
+function portSteamer(ctx, x, y, face, k) {
+  const [fx, fy] = PORT_FACE[face], Fr = portFrame(x, y, fx, fy);
+  const out = [[-1.7, -0.36], [1.1, -0.38], [1.65, -0.12], [1.85, 0], [1.65, 0.12], [1.1, 0.38], [-1.7, 0.36], [-1.85, 0.2], [-1.85, -0.2]];
+  const sh = out.map((q) => Fr.P(q[0] + 0.15, q[1] + 0.3, 0));
+  ctx.save(); ctx.globalAlpha *= 0.22; ctx.beginPath(); sh.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.fillStyle = '#0f4d63'; ctx.fill(); ctx.restore();
+  portHull(ctx, Fr, out, 0, 0.1, '#b5473a');
+  const g = portHull(ctx, Fr, out, 0.1, 0.48, '#2a3236');
+  portDeck(ctx, g, 0.48, '#c9a46b');
+  const parts = [
+    [1.25, 1.65, -0.2, 0.2, 0.48, 0.6, '#f4eee2'], [0.85, 1.15, -0.18, 0.18, 0.48, 0.55, '#7a604b'], [-1.38, -1.02, -0.18, 0.18, 0.48, 0.55, '#7a604b'],
+    [-0.9, 0.4, -0.29, 0.29, 0.48, 0.8, '#f4eee2'], [-0.5, 0.3, -0.24, 0.24, 0.8, 1.0, '#f8f4ea'], [0.21, 0.45, -0.28, 0.28, 0.98, 1.14, '#f4eee2'],
+  ];
+  const sorted = parts.map((q) => { const c = Fr.G((q[0] + q[1]) / 2, (q[2] + q[3]) / 2); return { q, d: c[0] + c[1] + q[4] * 0.01 }; }).sort((u, v) => u.d - v.d);
+  for (const { q } of sorted) portLBox(ctx, Fr, q[0], q[1], q[2], q[3], q[4], q[5], q[6]);
+  // the lifeboats, the funnel, the masts and their derricks
+  for (const c of [-0.27, 0.27]) portLBox(ctx, Fr, -0.62, -0.2, c - 0.05, c + 0.05, 1.0, 1.08, '#f8f4ea');
+  const fu = Fr.G(-0.25, 0);
+  portCyl(ctx, fu[0], fu[1], 0.15, 1.0, 1.66, '#d9a35b', '#2a2420');
+  for (const a of [1.0, -1.2]) { portSpar(ctx, Fr, [a, 0, 0.5], [a, 0, 1.85], '#8a5a3c', 1.8); portSpar(ctx, Fr, [a, 0, 0.62], [a + (a < 0 ? 0.55 : -0.55), 0, 1.15], '#8a5a3c', 1.2); }
+  portSpar(ctx, Fr, [1.0, 0, 1.85], [-1.2, 0, 1.85], null, 0.8);
+  void k;
+}
+
+// Cranes: the derrick (1900s), the steam portal crane (1910s), the electric level-luffing crane (1920s-50s), at grid
+// (x, y) on ground at z0, their jib along the facing turned by `sw` (radians: it swings while a ship loads).
+function portCrane(ctx, kind, x, y, z0, face, sw) {
+  const [fx0, fy0] = PORT_FACE[face], c = Math.cos(sw || 0), s2 = Math.sin(sw || 0);
+  const fx = fx0 * c - fy0 * s2, fy = fy0 * c + fx0 * s2, Fr = portFrame(x, y, fx, fy), F0 = portFrame(x, y, fx0, fy0);
+  if (kind === 'derrick') {
+    portBox(ctx, x - 0.25, y - 0.25, 0.5, 0.5, z0, z0 + 0.08, '#6b4a33', '#7a5a40', '#5a4030');
+    portSpar(ctx, F0, [-0.9, -0.45, z0], [0, 0, z0 + 1.85], '#8a603c', 1.6);
+    portSpar(ctx, F0, [-0.9, 0.45, z0], [0, 0, z0 + 1.85], '#8a603c', 1.6);
+    portLBox(ctx, F0, -0.5, -0.18, 0.15, 0.45, z0, z0 + 0.3, '#efe4c8');
+    portLBox(ctx, F0, -0.53, -0.15, 0.12, 0.48, z0 + 0.3, z0 + 0.36, '#c9573f');
+    portSpar(ctx, Fr, [0, 0, z0], [0, 0, z0 + 1.9], '#8a603c', 2.4);
+    portSpar(ctx, Fr, [0.05, 0, z0 + 0.35], [1.5, 0, z0 + 1.42], '#8a603c', 2);
+    portSpar(ctx, Fr, [0, 0, z0 + 1.9], [1.5, 0, z0 + 1.42], null, 0.8);
+    portSpar(ctx, Fr, [1.5, 0, z0 + 1.42], [1.5, 0, z0 + 0.62], null, 0.8);
+    const h = Fr.G(1.5, 0); portBox(ctx, h[0] - 0.08, h[1] - 0.08, 0.16, 0.16, z0 + 0.48, z0 + 0.62, '#c99a5e', '#b07d4a', '#8a603c');
+    return;
+  }
+  const el = kind === 'electric', H = el ? 1.12 : 0.86, leg = el ? '#8d9aa3' : '#5a6b78';
+  // the rails, the portal's four legs, its deck
+  for (const q of [-0.34, 0.34]) { const a = F0.P(-0.65, q, z0 + 0.02), b = F0.P(0.65, q, z0 + 0.02); portSeg(ctx, a, b, '#4a5560', 1.4); }
+  const legs = [[-0.32, -0.32], [0.32, -0.32], [-0.32, 0.32], [0.32, 0.32]].map((q) => ({ q, g: F0.G(q[0], q[1]) })).sort((u, v) => u.g[0] + u.g[1] - v.g[0] - v.g[1]);
+  for (const L of legs) portBox(ctx, L.g[0] - 0.04, L.g[1] - 0.04, 0.08, 0.08, z0, z0 + H, leg, portLt(leg, 0.1), portDk(leg, 0.2));
+  if (el) { portSpar(ctx, F0, [-0.32, -0.32, z0 + 0.1], [0.32, -0.32, z0 + H - 0.1], leg, 0.9); portSpar(ctx, F0, [-0.32, 0.32, z0 + 0.1], [0.32, 0.32, z0 + H - 0.1], leg, 0.9); }
+  portBox(ctx, x - 0.4, y - 0.4, 0.8, 0.8, z0 + H, z0 + H + 0.08, leg, portLt(leg, 0.1), portDk(leg, 0.2));
+  const zc = z0 + H + 0.08, tipA = el ? 1.75 : 1.45, tipZ = zc + (el ? 1.35 : 1.1);
+  // the house turns with the jib: the counterweight or the boiler behind, the cab in front
+  const back = el ? [-0.62, -0.2, -0.18, 0.18, zc, zc + 0.36, '#2c3b42'] : null;
+  const cab = el ? [-0.2, 0.42, -0.22, 0.22, zc, zc + 0.44, '#e6e1d4'] : [-0.34, 0.24, -0.24, 0.24, zc, zc + 0.42, '#efe4c8'];
+  const parts = [cab].concat(back ? [back] : []).map((q) => { const g = Fr.G((q[0] + q[1]) / 2, 0); return { q, d: g[0] + g[1] }; }).sort((u, v) => u.d - v.d);
+  for (const { q } of parts) portLBox(ctx, Fr, q[0], q[1], q[2], q[3], q[4], q[5], q[6]);
+  portLBox(ctx, Fr, cab[0] - 0.03, cab[1] + 0.03, cab[2] - 0.03, cab[3] + 0.03, cab[5], cab[5] + 0.06, el ? '#5a6b78' : '#c9573f');
+  if (!el) { const st = Fr.G(-0.22, 0.12); portCyl(ctx, st[0], st[1], 0.05, zc + 0.42, zc + 0.85, '#2c3b42'); }
+  if (el) { const w = Fr.P(0.43, 0, zc + 0.26); ctx.fillStyle = '#5f8f9a'; ctx.fillRect(w[0] - 3, w[1] - 3, 6, 5); }
+  // the jib: a riveted beam (steam), a lattice of two chords (electric), the tie and the rope with its hook
+  if (el) {
+    for (const c2 of [-0.07, 0.07]) portSpar(ctx, Fr, [0.3, c2, zc + 0.3], [tipA, c2 * 0.4, tipZ], '#8d9aa3', 1.6);
+    for (let i = 1; i < 7; i++) { const u = i / 7, a = 0.3 + (tipA - 0.3) * u, z = zc + 0.3 + (tipZ - zc - 0.3) * u; portSpar(ctx, Fr, [a, -0.06, z], [a + 0.12, 0.06, z + 0.09], null, 0.6); }
+    portSpar(ctx, Fr, [-0.2, 0, zc + 0.85], [tipA, 0, tipZ], null, 0.8);
+    portSpar(ctx, Fr, [-0.12, 0, zc + 0.36], [-0.12, 0, zc + 0.9], '#8d9aa3', 1.4);
+  } else {
+    portSpar(ctx, Fr, [0.2, 0, zc + 0.2], [tipA, 0, tipZ], '#8a5a3c', 2.4);
+    portSpar(ctx, Fr, [-0.12, 0, zc + 0.66], [tipA, 0, tipZ], null, 0.8);
+  }
+  portSpar(ctx, Fr, [tipA, 0, tipZ], [tipA, 0, z0 + 0.95], null, 0.7);
+  const h = Fr.G(tipA, 0); portBox(ctx, h[0] - 0.06, h[1] - 0.06, 0.12, 0.12, z0 + 0.86, z0 + 0.95, '#5a6b78', '#6b7d8a', '#4a5560');
+}
+
+// Sheds: the wooden transit shed (plank walls, a corrugated iron gable roof, sliding doors), its lean-to annex, the
+// masonry bonded warehouse (two floors, arched doors, a hipped tile roof). (x, y): the lot's corner; w x h cells.
+function portShed(ctx, kind, x, y, w, h, fill) {
+  const lw = portLw(), e = 0.08, X = x + e, Y = y + e, W = w - 2 * e, Hh = h - 2 * e;
+  if (kind === 'ware') {
+    const col = '#e2c48e', z1 = 1.5;
+    portBox(ctx, X - 0.03, Y - 0.03, W + 0.06, Hh + 0.06, 0, 0.12, '#d8cdb4', '#e3d9c2', '#c4b89c');
+    portBox(ctx, X, Y, W, Hh, 0.12, z1, col, portLt(col, 0.1), portDk(col, 0.16));
+    // windows above, arched doors below, on the two faces turned to the eye
+    for (let i = 0; i < Math.round(W * 1.2); i++) {
+      const u = X + (i + 0.5) * W / Math.round(W * 1.2);
+      portPoly(ctx, [facP(u - 0.12, Y + Hh, 0.95), facP(u + 0.12, Y + Hh, 0.95), facP(u + 0.12, Y + Hh, 1.25), facP(u - 0.12, Y + Hh, 1.25)], '#4e6a73', PORT_INK, lw * 0.8);
+      portPoly(ctx, [facP(u - 0.17, Y + Hh, 0.12), facP(u + 0.17, Y + Hh, 0.12), facP(u + 0.17, Y + Hh, 0.6), facP(u, Y + Hh, 0.72), facP(u - 0.17, Y + Hh, 0.6)], '#6b4a33', PORT_INK, lw * 0.8);
+    }
+    for (let i = 0; i < Math.round(Hh * 1.2); i++) {
+      const v = Y + (i + 0.5) * Hh / Math.round(Hh * 1.2);
+      portPoly(ctx, [facP(X + W, v - 0.12, 0.95), facP(X + W, v + 0.12, 0.95), facP(X + W, v + 0.12, 1.25), facP(X + W, v - 0.12, 1.25)], '#3f5960', PORT_INK, lw * 0.8);
+      portPoly(ctx, [facP(X + W, v - 0.16, 0.12), facP(X + W, v + 0.16, 0.12), facP(X + W, v + 0.16, 0.6), facP(X + W, v, 0.72), facP(X + W, v - 0.16, 0.6)], '#5a3d2b', PORT_INK, lw * 0.8);
+    }
+    portSeg(ctx, facP(X, Y + Hh, 0.82), facP(X + W, Y + Hh, 0.82), 'rgba(58,42,31,0.35)', 1);
+    portSeg(ctx, facP(X + W, Y, 0.82), facP(X + W, Y + Hh, 0.82), 'rgba(58,42,31,0.35)', 1);
+    // the hipped roof: eaves a little out, the ridge along the long side
+    const o = 0.08, zr = z1 + 0.62, a0 = [X - o, Y - o], a1 = [X + W + o, Y + Hh + o], r0 = [X + Hh / 2, Y + Hh / 2], r1 = [X + W - Hh / 2, Y + Hh / 2], T = '#c0603f';
+    const E = (q) => facP(q[0], q[1], z1), R = (q) => facP(q[0], q[1], zr);
+    portPoly(ctx, [E([a0[0], a0[1]]), E([a1[0], a0[1]]), R(r1), R(r0)], portDk(T, 0.12), PORT_INK, lw);
+    portPoly(ctx, [E([a0[0], a0[1]]), E([a0[0], a1[1]]), R(r0)], portDk(T, 0.05), PORT_INK, lw);
+    portPoly(ctx, [E([a0[0], a1[1]]), E([a1[0], a1[1]]), R(r1), R(r0)], portLt(T, 0.12), PORT_INK, lw);
+    portPoly(ctx, [E([a1[0], a0[1]]), E([a1[0], a1[1]]), R(r1)], portDk(T, 0.2), PORT_INK, lw);
+    return;
+  }
+  const wall = '#d7b98a', iron = '#a9b4bb', z1 = kind === 'annex' ? 0.68 : 0.84;
+  portBox(ctx, X, Y, W, Hh, 0, z1, wall, portLt(wall, 0.1), portDk(wall, 0.15));
+  // plank seams and the doors on the faces turned to the eye
+  for (let u = X + 0.2; u < X + W - 0.05; u += 0.2) portSeg(ctx, facP(u, Y + Hh, 0.02), facP(u, Y + Hh, z1 - 0.02), 'rgba(120,90,50,0.35)', 0.8);
+  for (let v = Y + 0.2; v < Y + Hh - 0.05; v += 0.2) portSeg(ctx, facP(X + W, v, 0.02), facP(X + W, v, z1 - 0.02), 'rgba(90,65,35,0.35)', 0.8);
+  const dc = '#8a603c', dw = Math.min(0.6, W * 0.5), dv = Math.min(0.55, Hh * 0.45);
+  portPoly(ctx, [facP(X + W / 2 - dw / 2, Y + Hh, 0), facP(X + W / 2 + dw / 2, Y + Hh, 0), facP(X + W / 2 + dw / 2, Y + Hh, z1 * 0.72), facP(X + W / 2 - dw / 2, Y + Hh, z1 * 0.72)], dc, PORT_INK, lw);
+  portPoly(ctx, [facP(X + W, Y + Hh / 2 - dv / 2, 0), facP(X + W, Y + Hh / 2 + dv / 2, 0), facP(X + W, Y + Hh / 2 + dv / 2, z1 * 0.72), facP(X + W, Y + Hh / 2 - dv / 2, z1 * 0.72)], portDk(dc, 0.15), PORT_INK, lw);
+  if (kind === 'annex') {
+    // a lean-to: one slope falling toward +x
+    portPoly(ctx, [facP(X - 0.06, Y - 0.06, z1 + 0.26), facP(X + W + 0.08, Y - 0.06, z1 - 0.02), facP(X + W + 0.08, Y + Hh + 0.06, z1 - 0.02), facP(X - 0.06, Y + Hh + 0.06, z1 + 0.26)], iron, PORT_INK, lw);
+    portPoly(ctx, [facP(X, Y + Hh, z1), facP(X + W, Y + Hh, z1), facP(X, Y + Hh, z1 + 0.24)], portLt(wall, 0.1), PORT_INK, lw);
+  } else {
+    // a gable roof, its ridge along y; corrugations down the near slope
+    const o = 0.08, zr = z1 + 0.42, xm = X + W / 2, y0 = Y - o, y1 = Y + Hh + o;
+    portPoly(ctx, [facP(X - o, y0, z1), facP(xm, y0, zr), facP(xm, y1, zr), facP(X - o, y1, z1)], portLt(iron, 0.15), PORT_INK, lw);
+    portPoly(ctx, [facP(xm, y0, zr), facP(X + W + o, y0, z1), facP(X + W + o, y1, z1), facP(xm, y1, zr)], portDk(iron, 0.12), PORT_INK, lw);
+    for (let v = y0 + 0.12; v < y1 - 0.05; v += 0.12) portSeg(ctx, facP(xm, v, zr), facP(X + W + o, v, z1), 'rgba(40,50,60,0.25)', 0.7);
+    portPoly(ctx, [facP(X, Y + Hh, z1), facP(X + W, Y + Hh, z1), facP(xm, Y + Hh, zr - 0.02)], portLt(wall, 0.12), PORT_INK, lw);
+  }
+  // how full the harbour's bays are: a small chalk board on the near face (the side panel has the numbers)
+  if (fill !== undefined) {
+    const a = facP(X + W * 0.12, Y + Hh, z1 * 0.92), q = facP(X + W * 0.12 + W * 0.3, Y + Hh, z1 * 0.92), k = Math.max(0, Math.min(1, fill));
+    portSeg(ctx, a, q, 'rgba(58,42,31,0.35)', 4);
+    portSeg(ctx, a, [a[0] + (q[0] - a[0]) * k, a[1] + (q[1] - a[1]) * k], k >= 0.98 ? '#df684c' : '#2e9a91', 3);
+  }
+}
+// A part drawn small for the build bar (a canvas once per kind, as a picture).
+function portThumb(k) {
+  const T = FAC.thumbs || (FAC.thumbs = {});
+  if (T[k] !== undefined) return T[k];
+  try {
+    const c = document.createElement('canvas'); c.width = 108; c.height = 64;
+    const g = c.getContext('2d'), keep = FAC.view;
+    FAC.view = { hw: 13, ox: 54, oy: 40, pan: 0, panY: 0 };
+    const d = PORT_PARTS[k];
+    if (d.store) { FAC.view.oy = 38; portShed(g, k, -d.w / 2, -d.h / 2, d.w, d.h); }
+    else if (d.crane) { FAC.view.hw = 15; FAC.view.oy = 52; FAC.view.ox = 46; portCrane(g, k === 'steam' ? 'steam' : k === 'electric' ? 'electric' : 'derrick', 0, 0, 0, 1, 0); }
+    else if (k === 'quayb') { FAC.view.hw = 11; portSteamer(g, 0, 0, 0, 1); }
+    else { FAC.view = keep; T[k] = ''; return ''; }
+    FAC.view = keep;
+    T[k] = c.toDataURL();
+  } catch (e) { T[k] = ''; }
+  return T[k];
+}
+
+// The flow and the calls, worked out at most once a tick (the plan draws 60 times a second).
+function portView(s, b) {
+  const P = portOf(s, b), key = s.tick + '|' + s.month + '|' + s.mt + '|' + s.ver + '|' + P.v + '|' + b.id;
+  if (FAC.pv && FAC.pv.key === key) return FAC.pv;
+  const F = portFlow(s, b);
+  FAC.pv = { key, F, P };
+  return FAC.pv;
+}
+// Where things stand on the plan. The plan shows the harbour from the sea: the water in front (toward the eye), the
+// quay, then the sheds, the yard's lane and the gate at the back, the island's road behind it. Drawing coordinates:
+// x along the water as in the rules, Y = LAND - y (the rules' y counts inland from the waterline, under water < 0).
+const PY = (y) => PORT.LAND - y;
+function portDR(x, y, w, h) { return [x, PORT.LAND - y - h, w, h]; }
+// A berth's places (drawing coordinates): its ship and her heading at the berth, its crane slots and the heading of
+// their jibs, its deck (a jetty) or apron (a quay).
+function portBerthGeo(p) {
+  const d = PORT_PARTS[p.k], L = PORT.LAND;
+  if (d.stone) return { ship: [p.x + 2, L + 0.62], face: 0, slots: [[p.x + 1.15, L - 0.5], [p.x + 2.85, L - 0.5]], craneFace: 3, apron: [p.x, L - 1, d.w, 1], name: 'quay' };
+  const len = d.len;
+  return { ship: [p.x + 1.5, L + len / 2 + 0.15], face: 1, slots: [[p.x + 0.5, L + 0.75], [p.x + 0.5, L + 2.35]], craneFace: 0, deck: [p.x + 0.14, L - 0.15, 0.72, len + 0.15], name: 'jetty', len };
+}
+function portBerthNo(P, p) { return portBerths(P).findIndex((q) => q.id === p.id) + 1; }
+function portCap(t) { return String(t).replace(/^./, (c) => c.toUpperCase()); }
+function portPartName(P, p) {
+  const d = PORT_PARTS[p.k];
+  if (d.berth) return d.name + ' ' + portBerthNo(P, p);
+  if (d.crane) { const s = P.parts.find((q) => q.id === p.s); return d.name + (s ? ' on ' + PORT_PARTS[s.k].short.toLowerCase() + ' ' + portBerthNo(P, s) : ''); }
+  return d.name;
+}
+function portDay(t) { return Math.min(30, 1 + Math.floor(Math.max(0, t) * 30 / TUNE.ticksPerMonth)); }
+function portWhen(s, month, t) { const m = month + Math.floor(t / TUNE.ticksPerMonth), tt = t % TUNE.ticksPerMonth; return portDay(tt) + ' ' + MONTHS[m % 12].slice(0, 3); }
+function portNow(s) { return s.mt + (APP.speed ? Math.min(1, APP.acc / (TUNE.secondsPerMonth / TUNE.ticksPerMonth)) : 0); }
+
+// ---------- the ground ----------
+function portDrawGround(ctx, s, b, P, F, now) {
+  const W = PORT.W, L = PORT.LAND, hw = FAC.view.hw, lw = portLw();
+  // the sea, deeper toward the open water (the front)
+  const g = ctx.createLinearGradient(0, 0, FAC.w * 0.6, FAC.h);
+  g.addColorStop(0, '#3aa9bf'); g.addColorStop(0.5, '#2793ad'); g.addColorStop(1, '#1d6f88');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, FAC.w, FAC.h);
+  const wx = F.weather, norte = wx.norte && s.mt >= wx.norte.t - 1 && s.mt <= wx.norte.t + wx.norte.len + 1, storm = wx.storm && s.mt >= wx.storm.t - 3 && s.mt <= wx.storm.t + wx.storm.len;
+  // waves: short strokes on the water cells, drifting
+  ctx.lineCap = 'round';
+  const ph = now / 1700;
+  ctx.beginPath();
+  for (let Y = L; Y < L + 10; Y++) for (let x = -6; x < W + 8; x++) {
+    const h = portH(x * 7 + 3, Y * 13 + 1);
+    if (h > (storm ? 0.85 : norte ? 0.62 : 0.4)) continue;
+    const u = x + 0.2 + 0.6 * portH(x, Y), v = Y + 0.4 + 0.5 * portH(Y, x) + 0.06 * Math.sin(ph + h * 6);
+    const a = facP(u, v, 0), c = facP(u + 0.32, v - 0.08, 0);
+    ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]);
+  }
+  ctx.strokeStyle = storm || norte ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.32)'; ctx.lineWidth = storm ? 2 : 1.2; ctx.stroke();
+  // the land behind: the island's grass, the beach beside the plot, the plot's packed earth
+  portPoly(ctx, [facP(-7, -8), facP(W + 7, -8), facP(W + 7, L), facP(-7, L)], '#a9c47c');
+  portPoly(ctx, [facP(-7, L - 0.7), facP(0, L - 0.7), facP(0, L + 0.25), facP(-7, L + 0.25)], '#ead7a6');
+  portPoly(ctx, [facP(W, L - 0.7), facP(W + 7, L - 0.7), facP(W + 7, L + 0.25), facP(W, L + 0.25)], '#ead7a6');
+  portPoly(ctx, portRectZ(0, 0, W, L, 0), '#dcc79c', PORT_INK, lw);
+  // the quay's stone face toward the water, foam at its foot
+  portPoly(ctx, [facP(0, L, 0), facP(W, L, 0), facP(W, L, -0.32), facP(0, L, -0.32)], '#cfc3a6', PORT_INK, lw);
+  for (let x = 0.5; x < W; x += 0.75) portSeg(ctx, facP(x, L, -0.02), facP(x, L, -0.3), 'rgba(58,42,31,0.22)', 0.8);
+  portSeg(ctx, facP(0, L, -0.16), facP(W, L, -0.16), 'rgba(58,42,31,0.22)', 0.8);
+  portSeg(ctx, facP(-7, L + 0.32, -0.32), facP(W + 7, L + 0.32, -0.32), 'rgba(255,255,255,0.5)', 2);
+  // the apron (the strip along the water): stone along a quay berth, planks and earth elsewhere
+  portPoly(ctx, portRectZ(0, L - 1, W, 1, 0), '#d2bd93');
+  for (const p of portParts(P, 'berth')) {
+    const G = portBerthGeo(p);
+    if (!G.apron) continue;
+    portPoly(ctx, portRectZ(G.apron[0], G.apron[1], G.apron[2], 1, 0.02), '#d8cdb4', PORT_INK, lw);
+    for (let i = 1; i < G.apron[2] * 2; i++) portSeg(ctx, facP(G.apron[0] + i / 2, G.apron[1], 0.02), facP(G.apron[0] + i / 2, G.apron[1] + 1, 0.02), 'rgba(58,42,31,0.18)', 0.8);
+    for (const ry of [0.32, 0.68]) portSeg(ctx, facP(G.apron[0] + 0.05, G.apron[1] + ry, 0.03), facP(G.apron[0] + G.apron[2] - 0.05, G.apron[1] + ry, 0.03), '#5a6b78', 1.2);
+  }
+  // the kerb and the bollards along the edge
+  portSeg(ctx, facP(0, L - 0.02, 0.02), facP(W, L - 0.02, 0.02), PORT_INK, 1.6 * lw);
+  for (let x = 0.5; x < W; x += 1.5) { const q = facP(x, L - 0.12, 0.08); ctx.fillStyle = PORT_INK; ctx.beginPath(); ctx.arc(q[0], q[1], Math.max(1.4, hw / 22), 0, Math.PI * 2); ctx.fill(); }
+  // the yard's lane at the back and the road from the gate to the island
+  portPoly(ctx, portRectZ(-7, 0.1, W + 7, 0.78, 0), '#c9a978');
+  portPoly(ctx, portRectZ(P.gate + 0.12, -8, 0.78, 8, 0), '#c9a978');
+  for (const ry of [0.38, 0.62]) portSeg(ctx, facP(-7, ry, 0), facP(W, ry, 0), 'rgba(110,80,50,0.25)', 1);
+  // the siding: rails from the island's line to a buffer stop by the sheds
+  if (F.rail) {
+    for (const ry of [0.3, 0.7]) portSeg(ctx, facP(-7, ry, 0.02), facP(5.6, ry, 0.02), '#4a4038', 1.6);
+    for (let x = -6.8; x < 5.6; x += 0.35) portSeg(ctx, facP(x, 0.2, 0.01), facP(x, 0.8, 0.01), '#7a604b', 1.4);
+    portBox(ctx, 5.55, 0.25, 0.18, 0.5, 0, 0.25, '#b5473a', '#c9573f', '#8a3a22');
+  }
+  // the fence round the plot's land sides, the gate at the back
+  const post = (x, y) => portSeg(ctx, facP(x, y, 0), facP(x, y, 0.32), '#6b4a33', Math.max(1.4, hw / 18));
+  const rail = (x0, y0, x1, y1) => { for (const z of [0.12, 0.24]) portSeg(ctx, facP(x0, y0, z), facP(x1, y1, z), '#8a603c', Math.max(1, hw / 30)); };
+  for (let x = 0; x <= W; x += 1) if (x !== P.gate && x !== P.gate + 1) post(x, 0);
+  rail(0, 0, P.gate, 0); rail(P.gate + 1, 0, W, 0);
+  for (let y = 0; y <= L - 0.2; y += 1) { post(0, y); post(W, y); }
+  rail(0, 0, 0, L - 0.2); rail(W, 0, W, L - 0.2);
+  portBox(ctx, P.gate - 0.08, -0.08, 0.16, 0.16, 0, 0.55, '#8a603c', '#a07a50', '#6b4a33');
+  portBox(ctx, P.gate + 0.92, -0.08, 0.16, 0.16, 0, 0.55, '#8a603c', '#a07a50', '#6b4a33');
+  portBox(ctx, P.gate + 1.25, 0.2, 0.5, 0.55, 0, 0.45, '#c9573f', '#efe4c8', '#d9c9a8');
+  // the breakwater: a stone mole across the open water in front, the harbour's mouth open at the right
+  if (portMole(P)) {
+    for (let x = -5; x < 9; x += 1) portBox(ctx, x, L + 4.08, 1, 0.62, -0.05, 0.28, '#c9c0a8', '#b3a98f', '#9b917a');
+    for (let x = -5; x < 9; x += 1.3) portSeg(ctx, facP(x, L + 4.85, 0), facP(x + 0.7, L + 4.87, 0), 'rgba(255,255,255,0.8)', 2);
+    portBox(ctx, 8.55, L + 4.15, 0.5, 0.5, 0.28, 0.95, '#f4efe2', '#e9e1cc', '#d8cdb4');
+  }
+}
+
+// ---------- a jetty on its piles ----------
+function portDrawJetty(ctx, p, P, now) {
+  const G = portBerthGeo(p), d = G.deck, hw = FAC.view.hw, lw = portLw();
+  for (let y = d[1] + 0.35; y < d[1] + d[3]; y += 0.55) for (const x of [d[0] + 0.05, d[0] + d[2] - 0.05]) portSeg(ctx, facP(x, y, -0.3), facP(x, y, 0.12), '#5a4030', Math.max(1.6, hw / 16));
+  if (!p.dmg) portBox(ctx, d[0], d[1], d[2], d[3], 0.08, 0.16, '#c79a63', '#a87a48', '#8f6539');
+  else {
+    // broken: the outer half of the deck has fallen and hangs into the water
+    const cut = d[1] + d[3] * 0.55;
+    portBox(ctx, d[0], d[1], d[2], cut - d[1], 0.08, 0.16, '#c79a63', '#a87a48', '#8f6539');
+    portPoly(ctx, [facP(d[0], cut + 0.25, 0.1), facP(d[0] + d[2], cut + 0.25, 0.14), facP(d[0] + d[2], d[1] + d[3], 0.02), facP(d[0], d[1] + d[3], -0.04)], '#a8834f', PORT_INK, lw);
+  }
+  for (let y = d[1] + 0.12; y < d[1] + d[3]; y += 0.22) portSeg(ctx, facP(d[0] + 0.03, y, 0.165), facP(d[0] + d[2] - 0.03, y, 0.165), 'rgba(90,60,30,0.35)', 0.8);
+  for (let y = d[1] + 0.6; y < d[1] + d[3]; y += 1.2) { const q = facP(d[0] + d[2] - 0.08, y, 0.2); ctx.fillStyle = PORT_INK; ctx.beginPath(); ctx.arc(q[0], q[1], Math.max(1.2, hw / 26), 0, Math.PI * 2); ctx.fill(); }
+}
+
+// ---------- the ships by the timetable ----------
+// Each call's ship (drawing coordinates): away, sailing in through the mouth (PORT_UI.stayIn ticks before it is due),
+// at anchor outside (a norte, a busy berth), at its berth from arrival to sailing, sailing out.
+function portShipAt(s, P, c, now, k) {
+  const berth = P.parts.find((q) => q.id === c.b);
+  if (!berth) return null;
+  const G = portBerthGeo(berth), L = PORT.LAND, t = portNow(s), lane = L + 4.9;
+  const arr0 = c.arr - c.delay, quay = G.name === 'quay';
+  const path = [[10.8, L + 7.4], [10.8, lane], [G.ship[0], lane], [G.ship[0], G.ship[1] + (quay ? 0.7 : 0)], G.ship];
+  const along = (u) => {
+    const Ls = []; let tot = 0;
+    for (let i = 1; i < path.length; i++) { const l = Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); Ls.push(l); tot += l; }
+    let dd = u * tot;
+    for (let i = 1; i < path.length; i++) {
+      if (dd <= Ls[i - 1] || i === path.length - 1) {
+        const a = path[i - 1], b2 = path[i], f = Ls[i - 1] ? Math.min(1, dd / Ls[i - 1]) : 1, dx = b2[0] - a[0], dy = b2[1] - a[1];
+        const face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 0 : 2) : (dy > 0 ? 3 : 1);
+        return { x: a[0] + dx * f, y: a[1] + dy * f, face: Ls[i - 1] < 1e-6 ? G.face : face };
+      }
+      dd -= Ls[i - 1];
+    }
+    return { x: G.ship[0], y: G.ship[1], face: G.face };
+  };
+  if (c.delay > 0 && t >= arr0 - PORT_UI.stayIn && t < c.arr - PORT_UI.stayIn) return { x: 11.4 + k * 0.9, y: L + 7.6 + k * 0.5, face: 2, alpha: 1, at: 'anchor' };
+  if (t >= c.arr - PORT_UI.stayIn && t < c.arr) { const u = (t - (c.arr - PORT_UI.stayIn)) / PORT_UI.stayIn, q = along(u * u * (3 - 2 * u)); return Object.assign(q, { alpha: Math.min(1, u * 4), at: 'in' }); }
+  if (t >= c.arr && t < c.dep) return { x: G.ship[0], y: G.ship[1], face: G.face, alpha: 1, at: 'berth' };
+  if (t >= c.dep && t < c.dep + PORT_UI.stayOut) { const u = (t - c.dep) / PORT_UI.stayOut, q = along(1 - u * u); q.face = (q.face + 2) % 4; return Object.assign(q, { alpha: Math.min(1, (1 - u) * 4), at: 'out' }); }
+  return null;
+}
+
+// ---------- the parts, in depth order (drawing coordinates) ----------
+function portDrawParts(ctx, s, b, P, F, now) {
+  const items = [], t = portNow(s), fill = F.cap ? Math.min(1, F.top / F.cap) : 0;
+  for (const p of P.parts) {
+    const d = PORT_PARTS[p.k];
+    if (d.berth && !d.stone) { const G = portBerthGeo(p); items.push({ dz: G.deck[0] + G.deck[1] - 0.5, f: () => { portDrawJetty(ctx, p, P, now); portSelMark(ctx, p, G.deck[0] + 0.4, G.deck[1] + G.deck[3] / 2, 0.8); } }); }
+    else if (d.berth) { const G = portBerthGeo(p); if (FAC.sel === p.id) items.push({ dz: -50, f: () => portPoly(ctx, portRectZ(G.apron[0] + 0.04, G.apron[1] + 0.04, G.apron[2] - 0.08, 0.92, 0.04), null, '#df684c', 3) }); }
+    else if (d.crane) {
+      const s0 = P.parts.find((q) => q.id === p.s);
+      if (!s0) continue;
+      const G = portBerthGeo(s0), at = G.slots[p.slot || 0] || G.slots[0];
+      // the jib swings between the ship and the shore while a ship lies at its berth
+      const busy = F.calls.some((c) => c.b === s0.id && t >= c.arr && t < c.dep), sw = busy ? 0.6 * Math.sin(now / 1500 + p.id) : -0.35;
+      items.push({ dz: at[0] + at[1] + 0.3, f: () => { portCrane(ctx, p.k, at[0], at[1], G.name === 'jetty' ? 0.16 : 0.03, G.craneFace, sw); portSelMark(ctx, p, at[0], at[1], 0.6); } });
+    } else if (d.store) {
+      const r = portDR(p.x, p.y, d.w, d.h);
+      items.push({ dz: r[0] + r[1] + Math.min(d.w, d.h), f: () => {
+        if (p.k === 'yard') portDrawYard(ctx, r, fill);
+        else portShed(ctx, p.k, r[0], r[1], r[2], r[3], fill);
+        portSelMark(ctx, p, r[0] + r[2] / 2, r[1] + r[3] / 2, Math.max(d.w, d.h) / 2);
+      } });
+    }
+  }
+  // ships: this month's calls, last month's late ones, and last month's last ship still sailing out
+  const calls = F.calls.concat((P.carry || []).filter((c) => c.m === s.month - 1 && !c.gone).map((c) => Object.assign({}, c, { arr: c.arr - TUNE.ticksPerMonth, dep: c.dep - TUNE.ticksPerMonth })));
+  for (const c of F.calls) if (c.dep >= TUNE.ticksPerMonth - PORT_UI.stayOut) calls.push(Object.assign({}, c, { arr: c.arr - TUNE.ticksPerMonth, dep: c.dep - TUNE.ticksPerMonth, ghost: 1 }));
+  calls.forEach((c, k) => {
+    const at = portShipAt(s, P, c, now, k);
+    if (!at) return;
+    const big = c.hold > 40 && c.kind === 'schooner' ? 1.15 : 1;
+    items.push({ dz: at.x + at.y, f: () => {
+      ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, at.alpha));
+      if (c.kind === 'steamer') portSteamer(ctx, at.x, at.y, at.face, 1); else portSchooner(ctx, at.x, at.y, at.face, big, at.at === 'berth');
+      ctx.restore();
+      // the loads going aboard while she lies at her berth: a crate on its way every second
+      if (at.at === 'berth' && c.load > 0 && F.have > 0) {
+        const u = (now / 900 + k * 0.37) % 1, berth = P.parts.find((q) => q.id === c.b), G = berth && portBerthGeo(berth);
+        if (G) {
+          const from = G.name === 'quay' ? [at.x - 0.6 + (k % 2), PORT.LAND - 0.5] : [berth.x + 0.5, PORT.LAND + 0.9], to = [at.x, at.y];
+          const x = from[0] + (to[0] - from[0]) * u, y = from[1] + (to[1] - from[1]) * u, z = 0.3 + Math.sin(u * Math.PI) * 1.1;
+          portBox(ctx, x - 0.09, y - 0.09, 0.18, 0.18, z, z + 0.16, '#c99a5e', '#b07d4a', '#8a603c');
+        }
+      }
+    } });
+  });
+  // carts on the road down to the gate (as many as came this month, a few at a time)
+  const carts = Math.min(4, Math.ceil(((F.M.in || 0) + (F.L.in || 0) * 0.3) / 12));
+  for (let k = 0; k < carts; k++) {
+    const u = ((now / 5200) + k / carts) % 1, y = -5.5 + u * 6, x = P.gate + 0.5;
+    if (y > 0.4) continue;
+    items.push({ dz: x + y, f: () => portCart(ctx, x, y, false) });
+  }
+  // the queue at the gate when the sheds are full: the carts wait outside on the road
+  if (F.why && F.why.key === 'store') for (let k = 0; k < 3; k++) items.push({ dz: P.gate - 1 - k, f: () => portCart(ctx, P.gate + 0.5, -0.9 - k * 0.85, true) });
+  // a goods train on the siding when the railway brought loads this month
+  if (F.rail && (F.M.in || 0) > 0) items.push({ dz: 1.5, f: () => { for (let k = 0; k < 3; k++) portBox(ctx, 1.2 + k * 1.05, 0.3, 0.9, 0.4, 0.05, 0.42, '#8a5a3c', '#a06a48', '#6b4a33'); } });
+  items.sort((a, c) => a.dz - c.dz);
+  for (const it of items) it.f();
+}
+function portCart(ctx, x, y, wait) {
+  // an ox and its cart, coming down the road
+  portBox(ctx, x - 0.18, y - 0.12, 0.36, 0.22, 0.12, 0.32, wait ? '#e07a5f' : '#c99a5e', '#a07a50', '#8a603c');
+  portBox(ctx, x - 0.12, y + 0.16, 0.24, 0.26, 0.04, 0.24, '#e8dcc4', '#d6c7a8', '#c4b393');
+  if (wait) { const q = facP(x, y, 0.6); ctx.fillStyle = '#b5402c'; ctx.beginPath(); ctx.arc(q[0], q[1], Math.max(3, FAC.view.hw / 9), 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff7ea'; ctx.font = '700 ' + Math.max(8, FAC.view.hw / 4) + 'px ' + FAC_SANS; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', q[0], q[1] + 0.5); }
+}
+function portDrawYard(ctx, r, fill) {
+  // an open yard: a rope border, stacks of barrels and crates under tarpaulins as full as the harbour's bays are
+  portPoly(ctx, portRectZ(r[0] + 0.08, r[1] + 0.08, r[2] - 0.16, r[3] - 0.16, 0.01), 'rgba(160,120,70,0.25)', '#8a603c', 1.2);
+  const n = Math.round(fill * 8);
+  for (let k = 0; k < n; k++) { const x = r[0] + 0.2 + (k % 3) * 0.55, y = r[1] + 0.2 + Math.floor(k / 3) * 0.55; portBox(ctx, x, y, 0.42, 0.42, 0, 0.34, k % 2 ? '#7d8f6a' : '#c99a5e', k % 2 ? '#6b7d5a' : '#b07d4a', k % 2 ? '#5a6b4a' : '#8a603c'); }
+}
+function portSelMark(ctx, p, x, y, r) {
+  if (FAC.sel !== p.id) return;
+  const q = facP(x, y, 0);
+  ctx.save(); ctx.strokeStyle = '#df684c'; ctx.lineWidth = 2.5; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.ellipse(q[0], q[1], r * FAC.view.hw * 1.6, r * FAC.view.hw * 0.8, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+}
+const FAC_SANS = '"Avenir Next", Avenir, "Trebuchet MS", "Segoe UI", Carlito, "DejaVu Sans", sans-serif';
+
+// ---------- glowing spots, the place she was sent to, pile-ups named on the spot ----------
+// A spot's centre and its outline (drawing coordinates).
+function portSpotGeo(P, k, sp) {
+  const d = PORT_PARTS[k], L = PORT.LAND;
+  if (d.crane) { const s0 = P.parts.find((q) => q.id === sp.x), G = s0 && portBerthGeo(s0), at = G ? G.slots[sp.y || 0] : [0, 0]; return { c: at, rect: [at[0] - 0.4, at[1] - 0.4, 0.8, 0.8] }; }
+  if (d.mole) return { c: [3.5, L + 4.4], rect: [-5, L + 4.08, 14, 0.62] };
+  if (d.berth) return { c: [sp.x + d.w / 2, L + 1.2], rect: [sp.x, L, d.w, (d.len || 1.4)] };
+  const r = portDR(sp.x, sp.y, d.w, d.h);
+  return { c: [r[0] + r[2] / 2, r[1] + r[3] / 2], rect: r };
+}
+function portDrawGlow(ctx, s, b, P, now) {
+  const tool = FAC.tool, pulse = 0.55 + 0.35 * Math.sin(now / 260);
+  let k = tool, spots = [], moving = null;
+  if (tool.startsWith('move:')) { moving = P.parts.find((q) => q.id === +tool.slice(5)); if (!moving) return; k = moving.k === 'ljetty' ? 'jetty' : moving.k; spots = portMoveSpots(s, b, moving); }
+  else if (PORT_PARTS[tool]) spots = portSpots(s, b, tool);
+  for (const sp of spots) {
+    const G = portSpotGeo(P, k, sp), r = G.rect, wantHere = FAC.want && FAC.want.k === k && FAC.want.x === sp.x && (FAC.want.y === sp.y || PORT_PARTS[k].berth || FAC.want.y === undefined);
+    ctx.save(); ctx.globalAlpha = wantHere ? 0.55 + 0.4 * Math.sin(now / 200) : pulse * 0.6;
+    portPoly(ctx, portRectZ(r[0] + 0.06, r[1] + 0.06, r[2] - 0.12, r[3] - 0.12, 0.05), wantHere ? 'rgba(234,179,62,0.55)' : 'rgba(46,154,145,0.35)', wantHere ? '#eab33e' : '#24786f', wantHere ? 3 : 2);
+    ctx.restore();
+    const q = facP(G.c[0], G.c[1], 0.1);
+    FAC.glow.push({ sx: q[0], sy: q[1], r: Math.max(34, FAC.view.hw * 1.2), sp, k, moving: moving ? moving.id : 0, want: !!wantHere });
+    if (wantHere) portLabel(ctx, q[0], q[1] - FAC.view.hw * 0.6, 'Tap here: ' + PORT_PARTS[k].name.toLowerCase() + ' · ' + money$(portPrice(s, k)), 'gold', null);
+  }
+}
+// The plan pans (on a phone) to where a part is wanted.
+function portCenterOn(s, b, k, sp) { try { const G = portSpotGeo(portOf(s, b), k === 'ljetty' ? 'jetty' : k, sp); facCenter(G.c[0], G.c[1]); } catch (e) { /* no spot */ } }
+function portMoveSpots(s, b, p) {
+  const d = PORT_PARTS[p.k], P = portOf(s, b), out = [];
+  if (d.crane) { for (const q of portParts(P, 'berth')) for (const sl of [0, 1]) if (!(q.id === p.s && sl === p.slot) && !portCanPlace(s, b, p.k, q.id, sl, { not: p.id })) out.push({ x: q.id, y: sl }); return out; }
+  if (d.berth) { for (let x = 0; x + d.w <= PORT.W; x++) { if (x === p.x) continue; let ok = true; for (let i = x; i < x + d.w; i++) { const o = portBerthAt(P, i); if (o && o.id !== p.id) ok = false; } if (ok) out.push({ x, y: 0 }); } return out; }
+  if (d.mole) return out;
+  for (let y = 1; y < PORT.LAND - 1; y++) for (let x = 0; x < PORT.W; x++) if (!(x === p.x && y === p.y) && !portCanPlace(s, b, p.k, x, y, { not: p.id })) out.push({ x, y });
+  return out;
+}
+// A label on the plan: a paper slip with an ink border (gold: where she was sent; red: what piles up; it can be tapped).
+function portLabel(ctx, x, y, text, tone, act, data) {
+  const fs = Math.max(11, Math.min(13.5, FAC.view.hw / 2.7));
+  ctx.font = '700 ' + fs + 'px ' + FAC_SANS;
+  const maxW = Math.min(FAC.w - 16, 340), words = text.split(' '), lines = [];
+  let cur = '';
+  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > maxW - 18 && cur) { lines.push(cur); cur = w; } else cur = t; }
+  if (cur) lines.push(cur);
+  const lh = fs * 1.25, bw = Math.min(maxW, Math.max(...lines.map((l) => ctx.measureText(l).width)) + 18), bh = Math.max(40, lines.length * lh + 12);
+  let x0 = Math.round(x - bw / 2), y0 = Math.round(y - bh);
+  x0 = Math.max(6, Math.min(FAC.w - bw - 6, x0)); y0 = Math.max(6, Math.min(FAC.h - bh - 6, y0));
+  const col = tone === 'red' ? '#b5402c' : tone === 'gold' ? '#8a5a12' : PORT_INK, bg = tone === 'red' ? '#fbe3da' : tone === 'gold' ? '#fdf0cf' : '#f8eed6';
+  ctx.save();
+  ctx.fillStyle = 'rgba(30,20,10,0.18)'; ctx.fillRect(x0 + 2, y0 + 3, bw, bh);
+  ctx.fillStyle = bg; ctx.strokeStyle = col; ctx.lineWidth = 2;
+  ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 8); else ctx.rect(x0, y0, bw, bh); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  const top = y0 + (bh - lines.length * lh) / 2;
+  lines.forEach((l, i) => ctx.fillText(l, x0 + 9, top + i * lh));
+  ctx.restore();
+  FAC.labels.push({ x0, y0, x1: x0 + bw, y1: y0 + bh, act, data, text });
+}
+function portDrawWhy(ctx, s, b, P, F, now) {
+  const w = F.why;
+  if (!w || FAC.tool !== 'look') return;
+  const hw = FAC.view.hw, fix = w.fix, L = PORT.LAND, tail = fix ? ' · ' + (fix.act === 'repair' ? 'repair it' : fix.act === 'lengthen' ? 'lengthen the jetty' : (/^[aeiou]/i.test(fix.name) ? 'an ' : 'a ') + fix.name.toLowerCase()) + ' ' + money$(fix.cost) : '';
+  if (w.key === 'store') {
+    const q = facP(P.gate + 0.5, -1.4, 0.6);
+    portLabel(ctx, q[0], q[1] - hw * 0.4, 'The sheds are full of ' + GOODS[w.g].name.toLowerCase() + ': ' + w.n + ' more wait in the makers’ yards' + tail, 'red', 'fix');
+  } else if (w.key === 'crane' || w.key === 'broken') {
+    const berth = w.key === 'broken' ? P.parts.find((p) => p.dmg) : P.parts.find((p) => p.id === (F.M.craneB || F.L.craneB)) || portBerths(P)[0];
+    if (!berth) return;
+    const G = portBerthGeo(berth), at = G.name === 'quay' ? [berth.x + 2, L - 0.5] : [berth.x + 0.5, L + 0.45];
+    if (w.key === 'crane') for (let k = 0; k < 4; k++) portBox(ctx, at[0] - 0.4 + (k % 2) * 0.32, at[1] - 0.3 + Math.floor(k / 2) * 0.32, 0.28, 0.28, 0.02, 0.3, '#e07a5f', '#c9573f', '#a8432d');
+    const o = F.berths.find((q) => q.p.id === berth.id), q = facP(at[0], at[1], 1.2);
+    portLabel(ctx, q[0], q[1] - hw * 0.2, (w.key === 'crane' ? 'Sailed ' + w.n + ' loads short: loads ' + (o ? Math.floor(o.rate * PORT.stay) : 0) + ' a call' : 'Broken in the hurricane: half speed') + tail, 'red', 'fix');
+  } else if (w.key === 'berth') {
+    const q = facP(6, L + 1.5, 0);
+    portLabel(ctx, q[0], q[1], 'No berth: no ship can call' + tail, 'red', 'fix');
+  }
+}
+
+// ---------- weather over the plan ----------
+function portDrawSky(ctx, s, F, now) {
+  const wx = F.weather, storm = wx.storm && s.mt >= wx.storm.t - 3 && s.mt <= wx.storm.t + wx.storm.len;
+  const norte = wx.norte && s.mt >= wx.norte.t - 1 && s.mt <= wx.norte.t + wx.norte.len + 1;
+  if (storm || norte) {
+    ctx.save();
+    ctx.fillStyle = storm ? 'rgba(40,50,70,0.35)' : 'rgba(120,140,160,0.14)'; ctx.fillRect(0, 0, FAC.w, FAC.h);
+    ctx.strokeStyle = storm ? 'rgba(220,230,240,0.55)' : 'rgba(240,245,250,0.35)'; ctx.lineWidth = 1;
+    const n = storm ? 160 : 40, ph = now / (storm ? 140 : 400);
+    ctx.beginPath();
+    for (let k = 0; k < n; k++) { const x = (portH(k, 3) * FAC.w + ph * 37 * (1 + portH(k, 5))) % FAC.w, y = (portH(k, 7) * FAC.h + ph * 90) % FAC.h; ctx.moveTo(x, y); ctx.lineTo(x - (storm ? 7 : 12), y + (storm ? 14 : 3)); }
+    ctx.stroke(); ctx.restore();
+  }
+}
+function portDrawLights(ctx, s, b, P, F, now) {
+  const night = facNight();
+  if (night < 0.25) return;
+  const spr = facGlowSprite(), hw = FAC.view.hw, a = Math.min(1, (night - 0.25) / 0.5), L = PORT.LAND;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a;
+  const lamp = (x, y, z, r) => { const q = facP(x, y, z), R = r * hw; ctx.drawImage(spr, q[0] - R, q[1] - R, 2 * R, 2 * R); };
+  for (let x = 1; x < PORT.W; x += 3) lamp(x, L - 0.3, 0.9, 0.9);
+  lamp(P.gate + 1.5, 0.45, 0.5, 0.7);
+  for (const p of portParts(P, 'store')) if (p.k !== 'yard') { const d = PORT_PARTS[p.k], r = portDR(p.x, p.y, d.w, d.h); lamp(r[0] + r[2] / 2, r[1] + r[3], 0.35, 0.6); }
+  for (const p of portParts(P, 'crane')) { const s0 = P.parts.find((q) => q.id === p.s); if (!s0) continue; const at = portBerthGeo(s0).slots[p.slot || 0]; lamp(at[0], at[1], 1.6, 0.5); }
+  F.calls.forEach((c, k) => { const at = portShipAt(s, P, c, now, k); if (at) { lamp(at.x, at.y, 2.1, 0.45); lamp(at.x + 0.6, at.y - 0.3, 0.6, 0.35); } });
+  if (portMole(P)) lamp(8.8, L + 4.4, 1.2, 1.4);
+  ctx.restore();
+}
+
+// ---------- the kind ----------
+facRegister('harbour', {
+  grid: { x0: -1, x1: PORT.W + 1, y0: -2.2, y1: PORT.LAND + 6.2, top: 2.2, min: 26, max: 40 },
+  title(s, b) {
+    const n = portHarbours(s).findIndex((o) => o.id === b.id);
+    return (b.type === 'quay' ? 'The steamship quay' : 'The harbour') + (portHarbours(s).length > 1 ? ' ' + (n + 1) : '');
+  },
+  sub(s, b) {
+    const P = portOf(s, b), F = portView(s, b).F;
+    return plural(F.berths.length, 'berth', 'berths') + ' · sheds hold ' + F.cap + ' · ' + plural(F.calls.length, 'ship', 'ships') + ' a month · ' + dateLabel(s.month);
+  },
+  pins(s) { return h1On() ? portHarbours(s) : []; },
+  pinLabel(s, b) { return b.type === 'quay' ? 'Quay' : 'Harbour'; },
+  pinWarn(s, b) { const w = portWhy(s, b); return (w && w.key !== 'hold') || portFastNeed(s, b) ? '!' : ''; },
+  open(F, at) {
+    const s = APP.state, b = facB();
+    if (!at) return;
+    if (at.act === 'repair' || at.pid) { F.sel = at.pid || 0; return; }
+    if (at.act === 'lengthen') { F.sel = at.pid || 0; return; }
+    if (at.k && PORT_PARTS[at.k]) { F.tool = at.k === 'ljetty' ? 'look' : at.k; F.want = { k: at.k, x: at.x, y: at.y }; portCenterOn(s, b, at.k, at); facHint('Tap the gold spot: ' + PORT_PARTS[at.k].name.toLowerCase() + ' · ' + money$(portPrice(s, at.k)) + '. ' + portCap(PORT_PARTS[at.k].gives) + '.'); }
+    void b;
+  },
+  tools(s, b) {
+    const yr = portYear(s), out = [{ id: 'look', short: 'Look', sub: 'tap a part', icon: 'look', label: 'Look: tap a part' }];
+    for (const k of PORT_BUILD) {
+      const d = PORT_PARTS[k];
+      if (k === 'quayb' && b.type !== 'quay') continue;
+      const why = d.stage > s.stage ? STAGES[d.stage].name : d.year > yr ? String(d.year) : d.power && !projectOn(s, 'power') ? 'power' : '';
+      const cost = portPrice(s, k);
+      out.push({ id: k, short: d.short, sub: why || money$(cost), locked: !!why, poor: !why && s.money < cost, icon: d.icon, img: portThumb(k), label: d.name + (why ? ' (opens ' + why + ')' : ' · ' + money$(cost)) });
+    }
+    return out;
+  },
+  toolHint(F) {
+    const s = APP.state, k = F.tool;
+    if (k === 'look') return 'Tap a part to see what it does.';
+    if (k.startsWith('move:')) return 'Tap a glowing spot to move it there.';
+    const d = PORT_PARTS[k], b = facB(), why = b ? portCanPlace(s, b, k, -99, -99) : '';
+    if (/Opens|Not before|power|steamship/.test(why)) return d.name + ': ' + why + '.';
+    return d.name + ' · ' + money$(portPrice(s, k)) + ': ' + d.gives + '. Tap a glowing spot.';
+  },
+  miss(F) { return F.tool.startsWith('move:') ? 'Tap a glowing spot to move it there.' : 'Tap a glowing spot (the ' + PORT_PARTS[F.tool].name.toLowerCase() + ' fits only there).'; },
+  tap(F, G) {
+    const s = APP.state, b = facB();
+    if (G.moving) {
+      const r = portMove(s, b, G.moving, G.sp.x, G.sp.y);
+      if (r.ok) { facHint('Moved · ' + money$(r.cost) + '.'); F.tool = 'look'; F.sel = G.moving; } else facHint(r.why + '.');
+      return;
+    }
+    const r = portBuild(s, b, G.k, G.sp.x, G.sp.y);
+    if (r.ok) {
+      facHint(PORT_PARTS[G.k].name + ' built · ' + money$(r.cost) + '. ' + portCap(PORT_PARTS[G.k].gives) + '.');
+      try { audioCue('place'); } catch (e) { /* no sound */ }
+      F.want = null;
+      if (PORT_PARTS[G.k].mole || PORT_PARTS[G.k].berth) F.tool = 'look';
+      F.sel = r.part.id;
+    } else facHint(r.why + '.');
+  },
+  hit(F, sx, sy) {
+    // the part under the finger: cranes first (they stand over the ground), then sheds, then berths (drawing coordinates)
+    const s = APP.state, b = facB(), P = portOf(s, b), L = PORT.LAND;
+    const near = [];
+    for (const p of P.parts) {
+      const d = PORT_PARTS[p.k];
+      let c = null, r = 0.8;
+      if (d.crane) { const s0 = P.parts.find((q) => q.id === p.s); if (!s0) continue; const at = portBerthGeo(s0).slots[p.slot || 0]; c = facP(at[0], at[1], 0.9); r = 0.7; }
+      else if (d.store) { const q = portDR(p.x, p.y, d.w, d.h); c = facP(q[0] + q[2] / 2, q[1] + q[3] / 2, 0.5); r = Math.max(d.w, d.h) * 0.6; }
+      else if (d.berth) { const G = portBerthGeo(p); c = d.stone ? facP(p.x + 2, L - 0.3, 0.2) : facP(G.deck[0] + 0.4, G.deck[1] + G.deck[3] / 2, 0.2); r = d.stone ? 1.6 : 1.2; }
+      else if (d.mole) { c = facP(3.5, L + 4.4, 0.3); r = 2; }
+      const dist = Math.hypot(c[0] - sx, c[1] - sy) / FAC.view.hw;
+      if (dist < r + 0.3) near.push({ p, dist: dist - (d.crane ? 0.4 : 0) });
+    }
+    near.sort((a, c) => a.dist - c.dist);
+    return near.length ? near[0].p : null;
+  },
+  draw(ctx, F, now) {
+    const s = APP.state, b = facB(), V = portView(s, b), P = V.P, FL = V.F;
+    portDrawGround(ctx, s, b, P, FL, now);
+    portDrawParts(ctx, s, b, P, FL, now);
+    portDrawSky(ctx, s, FL, now);
+    facTint(ctx);
+    portDrawLights(ctx, s, b, P, FL, now);
+    if (F.tool !== 'look') portDrawGlow(ctx, s, b, P, now);
+    portDrawWhy(ctx, s, b, P, FL, now);
+    // the stats for the tests: what was drawn
+    APP.facStats = { parts: P.parts.length, ships: FL.calls.map((c, k) => { const a = portShipAt(s, P, c, now, k); return a ? a.at : ''; }), glow: F.glow.length, labels: F.labels.length, night: facNight() };
+  },
+  legend(s, b, F) {
+    return '<b>The harbour</b><span>Goods come in at the gate, wait in the sheds, the gangs and cranes load them aboard at the berths. Each step holds or moves so much; the side panel has the numbers.</span>' +
+      '<span><i class="lg teal"></i>where the armed part fits · <i class="lg gold"></i>where Rosa or the harbour master sent you</span>' +
+      '<span><i class="lg red"></i>what piles up, and what helps: tap the red label</span>' +
+      '<span>Ships come by the timetable: one a month at each berth, 4½ days at the berth. A norte (Nov–Apr) holds a ship outside up to a day; a hurricane is announced ' + PORT.warn + ' months ahead.</span>';
+  },
+  panel(s, b, F) { return portPanel(s, b, F); },
+  act(F, what, data) { portAct(F, what, data); },
+  close(F) { F.want = null; },
+});
+
+// ---------- the side panel ----------
+function portBar(v, max, bad) { const p = max > 0 ? Math.max(0, Math.min(100, Math.round(100 * v / max))) : 0; return '<i class="fac-meter' + (bad ? ' bad' : '') + '"><b style="width:' + p + '%"></b></i>'; }
+function portPanel(s, b, F) {
+  const V = portView(s, b), P = V.P, FL = V.F, out = [];
+  // a tapped part first
+  const sel = F.sel && P.parts.find((p) => p.id === F.sel);
+  if (sel) out.push(portCard(s, b, P, FL, sel));
+  // the flow, step by step
+  const w = FL.why, fix = w && w.fix;
+  let h = '<section class="fac-sec"><h4>Flow <small>gate → sheds → gangs and cranes → ships</small></h4>';
+  if (w && w.key !== 'hold') h += '<div class="fac-why bad">' + esc(w.text.replace(/^./, (c) => c.toUpperCase()) + '.') + (fix ? '<button data-fa="fix">' + esc((fix.act === 'repair' ? 'Repair it' : fix.act === 'lengthen' ? 'Lengthen the jetty' : fix.name) + ' · ' + money$(fix.cost)) + '</button>' : '') + '</div>';
+  else if (w && w.key === 'hold') h += '<div class="fac-why">' + esc('The ships leave full: more waits than they take. A bigger ship needs a longer jetty or a second berth (the harbor’s levels on its card), or another jetty here.') + '</div>';
+  else h += '<div class="fac-why good">Nothing piles up: every step takes what comes.</div>';
+  const gIn = (FL.M.in || 0);
+  h += '<div class="fac-step"><span>Gate' + (FL.rail ? ' and siding' : '') + '</span>' + portBar(gIn, FL.gate) + '<em>' + gIn + ' loads in this month · takes ' + FL.gate + ' a month' + (FL.rail ? ' (the siding half)' : '') + '</em></div>';
+  const fullPct = Math.round(100 * Math.max((FL.M.full || 0) / Math.max(1, FL.M.t || 1), 0));
+  const topU = FL.topG ? (GOOD_UNIT[FL.topG] || GOODS[FL.topG].name.toLowerCase()) : '';
+  h += '<div class="fac-step"><span>Sheds</span>' + portBar(FL.top, FL.cap, FL.top >= FL.cap - 0.5) + '<em>' + esc('hold ' + FL.cap + ' of each good' + (FL.cap > FL.roof ? ' (' + (FL.cap - FL.roof) + ' of it in the open)' : ', under a roof') + (FL.topG ? ' · fullest: ' + Math.floor(FL.top) + ' ' + topU + ' of ' + GOODS[FL.topG].name.toLowerCase() : ' · empty') + ' · ' + Math.floor(FL.have) + ' loads wait in all' + (fullPct ? ' · a bay full ' + fullPct + ' % of this month' : '')) + '</em></div>';
+  FL.berths.forEach((o, i) => {
+    const cranes = o.cranes.map((c) => PORT_PARTS[c.k].short.toLowerCase());
+    const per = Math.floor(o.rate * PORT.stay + 1e-9);
+    h += '<div class="fac-step"><span>' + esc(PORT_PARTS[o.p.k].short + ' ' + (i + 1)) + '</span>' + portBar(per, o.hold * 1.5, per < o.hold) + '<em>' + esc('loads ' + (Math.round(o.rate * 10) / 10) + ' a tick (gangs ' + PORT_PARTS[o.p.k].gang + (cranes.length ? ' + ' + cranes.join(', ') : '') + (o.feed < 1 ? ', no shed near: ×' + o.feed : '') + (o.p.dmg ? ', broken: ×' + PORT.dmg : '') + ') · ' + per + ' in a ship’s days; its ship takes ' + o.hold) + '</em></div>';
+  });
+  if (!FL.berths.length) h += '<div class="fac-step"><span>Berths</span><em>none: no ship can call</em></div>';
+  const sailed = (FL.log || []).filter((r) => r.m === s.month);
+  h += '<div class="fac-step"><span>Ships</span>' + portBar(sailed.reduce((a, r) => a + r.n, 0), FL.calls.reduce((a, c) => a + c.hold, 0)) + '<em>' + esc(plural(FL.calls.length, 'call', 'calls') + ' a month, ' + FL.calls.reduce((a, c) => a + c.hold, 0) + ' loads · this month ' + sailed.reduce((a, r) => a + r.n, 0) + ' sailed') + '</em></div>';
+  h += '<div class="fac-step"><span>Landing</span><em>' + esc('The settlers’ boat lands up to ' + FL.pax.boat + ' at the pier steps (last month ' + FL.pax.came + (FL.pax.waiting ? ', ' + FL.pax.waiting + ' wait in tents' : '') + ') · the ships bring flour for the bakeries' + (FL.flour ? ' (' + FL.flour + ' sacks this month)' : '') + ', unloaded with their own gear') + '</em></div>';
+  h += '</section>';
+  out.push(h);
+  // the timetable
+  let t = '<section class="fac-sec"><h4>Timetable <small>' + esc('today ' + portWhen(s, s.month, s.mt)) + '</small></h4><div class="fac-tt">';
+  const rows = [];
+  for (const c of FL.calls) { const done = (FL.log || []).find((r) => r.m === s.month && r.b === c.b); if (!done && c.dep > s.mt) rows.push({ c, m: s.month }); }
+  rows.sort((a, c) => a.c.arr - c.c.arr);
+  for (const c of FL.next.slice().sort((a, c2) => a.arr - c2.arr)) rows.push({ c, m: s.month + 1 });
+  const waiting = Math.floor(FL.have);
+  rows.slice(0, 4).forEach(({ c, m }) => {
+    const late = c.why === 'norte' ? 'a norte: ' + c.delay + (c.delay === 1 ? ' tick' : ' ticks') + ' late' : c.why === 'storm' ? 'the hurricane: ' + Math.round(c.delay * 0.3) + ' days late' : c.why === 'berth' ? 'waits for the berth' : 'on time';
+    const now = m === s.month && s.mt >= c.arr && s.mt < c.dep ? 'at the berth' : m === s.month && s.mt >= c.arr - PORT_UI.stayIn && s.mt < c.arr ? 'coming in' : '';
+    const berth = P.parts.find((q) => q.id === c.b), name = berth ? PORT_PARTS[berth.k].short.toLowerCase() + ' ' + portBerthNo(P, berth) : '';
+    t += '<div class="fac-row' + (c.why && c.why !== '' ? ' late' : '') + '"><b>' + esc(portWhen(s, m, c.arr) + '–' + portWhen(s, m, c.dep)) + '</b><span>' + esc('the ' + c.ship + ' (' + (c.kind === 'steamer' ? 'steamship' : 'schooner') + ', ' + c.hold + ' loads) · ' + PORT_LINES[c.line].to + ' · ' + name) + '</span><small>' + esc((now ? now + ' · ' : '') + late + ' · loads up to ' + Math.min(c.hold, c.load) + (m === s.month ? ' of the ' + waiting + ' waiting' : '')) + '</small></div>';
+  });
+  if (!rows.length) t += '<div class="fac-row"><span>No ship calls: the harbour has no berth.</span></div>';
+  const done = (FL.log || []).slice(0, 3);
+  if (done.length) t += '<div class="fac-sub">Sailed</div>' + done.map((r) => '<div class="fac-row done"><b>' + esc(portWhen(s, r.m, r.t)) + '</b><span>' + esc('the ' + r.ship + ': ' + r.n + ' of ' + r.hold + ' loads' + (r.money ? ', ' + money$(r.money) : '')) + '</span><small>' + esc(Object.keys(r.cargo || {}).map((g) => r.cargo[g] + ' ' + GOODS[g].name.toLowerCase()).join(', ') + (r.crane ? ' · sailed short: the cranes' : r.left ? ' · ' + r.left + ' left for the next' : '')) + '</small></div>').join('');
+  t += '</div></section>';
+  out.push(t);
+  // the weather
+  const A = FL.ahead;
+  let wx = '<section class="fac-sec"><h4>Weather</h4>';
+  if (A) {
+    const fast = portFastNeed(s, b), safe = portMole(P) ? 'The breakwater shelters the jetties.' : P.fast === A.month ? 'Made fast: moorings doubled, the sheds boarded up.' : '';
+    wx += '<div class="fac-why bad">' + esc('A hurricane ' + (A.ahead === 0 ? 'this month' : A.ahead === 1 ? 'next month' : 'in ' + A.ahead + ' months') + ', about ' + portDateOf(A.month, A.t) + ': ' + A.name + ' (' + A.what + '). No ship calls for about ' + portShutDays(A.sev) + ' days; open yards ' + (A.sev >= 2 ? 'lose everything' : 'lose half') + '; wooden jetties break unless made fast or behind a breakwater. Goods under a roof are safe.') + (safe ? '<br><b>' + esc(safe) + '</b>' : '') + (fast ? (portFastAll(s, b).length > 1 ? '<div class="fac-sub">' + esc('One tap makes all ' + portFastAll(s, b).length + ' harbours fast.') + '</div>' : '') + '<button data-fa="fast">' + esc('Make fast · ' + money$(portFastCost(s, b))) + '</button>' : '') + '</div>';
+  } else wx += '<p class="fac-p">' + esc('Nortes (November to April) hold a ship outside up to a day. Hurricanes (August to November) are announced ' + PORT.warn + ' months ahead: the real ones of 1910, 1924, 1926, 1932, 1933, 1944, 1952 and 1963.') + '</p>';
+  const L = FL.L && FL.L.storm;
+  if (L) wx += '<p class="fac-p">' + esc('Last month: ' + L.name + (L.lost ? ', ' + L.lost + ' loads spoiled in the open' : '') + (L.broke ? ', ' + plural(L.broke, 'jetty broke', 'jetties broke') : '') + (L.safe ? ', ' + (L.safe === 'mole' ? 'the breakwater held' : 'made fast: nothing broke') : '') + '.') + '</p>';
+  wx += '</section>';
+  out.push(wx);
+  // the lines (H2 will let her choose them)
+  const lines = [...new Set(FL.calls.map((c) => c.line))].map((k) => PORT_LINES[k]);
+  if (lines.length) out.push('<section class="fac-sec"><h4>Lines</h4><p class="fac-p">' + esc(lines.map((l) => l.name + ' to ' + l.to).join(' · ') + '. They buy at the island’s export prices (the desk).') + '</p></section>');
+  return out.join('');
+}
+// A tapped part's card.
+function portCard(s, b, P, FL, p) {
+  const d = PORT_PARTS[p.k], parts = [];
+  let h = '<section class="fac-sec fac-card"><h4>' + esc(portPartName(P, p)) + '<button class="fac-cx" data-fa="unsel" aria-label="Close">' + iconSvg('close') + '</button></h4>';
+  if (d.berth) {
+    const o = FL.berths.find((q) => q.p.id === p.id), c = FL.calls.find((q) => q.b === p.id);
+    parts.push(d.gives + '.');
+    if (o) parts.push('Loads ' + (Math.round(o.rate * 10) / 10) + ' a tick: ' + Math.floor(o.rate * PORT.stay) + ' in a ship’s ' + PORT.stay + ' ticks at the berth' + (o.feed < 1 ? ' (no shed within two rows behind it: hand trucks, ×' + o.feed + ')' : ' (fed from the sheds behind it)') + '.');
+    parts.push('Cranes: ' + (o && o.cranes.length ? o.cranes.map((q) => PORT_PARTS[q.k].name.toLowerCase()).join(', ') : 'none') + ' (room for ' + d.slots + ').');
+    if (c) parts.push('Its ship: the ' + c.ship + ', ' + portWhen(s, s.month, c.arr) + '–' + portWhen(s, s.month, c.dep) + '.');
+    if (p.dmg) parts.push('Broken in the hurricane: half speed until repaired.');
+  } else if (d.crane) parts.push(d.gives + '.' + (d.power && !projectOn(s, 'power') ? ' Idle: the power station is not running.' : ''));
+  else if (d.store) parts.push(d.gives + '. The harbour holds ' + FL.cap + ' in all; ' + Math.floor(FL.have) + ' wait now.');
+  else if (d.mole) parts.push(d.gives + '.');
+  if (p.pk !== undefined && !p.paid) parts.push('It came with the harbor’s level (its upkeep is the level’s).');
+  else if (p.paid) parts.push('Upkeep ' + money$(Math.round(p.paid * TUNE.upkeepPct)) + ' a month (1 % of its price).');
+  h += parts.map((t) => '<p class="fac-p">' + esc(t) + '</p>').join('');
+  const btns = [];
+  if (p.dmg) btns.push('<button data-fa="repair" data-pid="' + p.id + '"' + (s.money < portRepairCost(s, p) ? ' class="poor"' : '') + '>' + esc('Repair · ' + money$(portRepairCost(s, p))) + '</button>');
+  if (p.k === 'jetty' && PORT_PARTS.ljetty.stage <= s.stage) btns.push('<button data-fa="lengthen" data-pid="' + p.id + '"' + (s.money < portLengthenCost(s) ? ' class="poor"' : '') + '>' + esc('Lengthen · ' + money$(portLengthenCost(s))) + '</button>');
+  if (!d.mole) btns.push('<button class="alt" data-fa="move" data-pid="' + p.id + '">Move</button>');
+  const back = Math.floor((p.paid || 0) * TUNE.refund);
+  btns.push('<button class="alt" data-fa="remove" data-pid="' + p.id + '">' + esc(FAC.confirm === p.id ? 'Tap again to remove' : 'Remove' + (back ? ' · +' + money$(back) + ' back' : '')) + '</button>');
+  h += '<div class="fac-btns">' + btns.join('') + '</div></section>';
+  return h;
+}
+function portAct(F, what, data) {
+  const s = APP.state, b = facB();
+  if (!b) return;
+  const P = portOf(s, b), pid = +(data.pid || 0);
+  const said = (r, ok) => { if (r.ok) { facHint(ok + ' · ' + money$(r.cost) + '.'); try { audioCue('place'); } catch (e) { /* no sound */ } } else facHint(r.why + '.'); };
+  if (what === 'unsel') { F.sel = 0; F.confirm = 0; return; }
+  if (what === 'fix') {
+    const w = portWhy(s, b), f = w && w.fix;
+    if (!f) return;
+    if (f.act === 'repair') { said(portRepair(s, b, f.pid), 'Repaired'); return; }
+    if (f.act === 'lengthen') { F.sel = f.pid; said(portLengthen(s, b, f.pid), 'Lengthened'); return; }
+    F.tool = f.k; F.want = { k: f.k, x: f.x, y: f.y }; F.sel = 0; portCenterOn(s, b, f.k, f);
+    facHint('Tap the gold spot: ' + f.name.toLowerCase() + ' · ' + money$(f.cost) + '. ' + portCap(PORT_PARTS[f.k].gives) + '.');
+    return;
+  }
+  if (what === 'fast') { said(portMakeFast(s, b), 'Made fast'); return; }
+  if (what === 'repair') { said(portRepair(s, b, pid), 'Repaired'); return; }
+  if (what === 'lengthen') { said(portLengthen(s, b, pid), 'Lengthened'); return; }
+  if (what === 'move') { F.tool = 'move:' + pid; facHint('Tap a glowing spot to move it there (' + money$(Math.round(portPrice(s, (P.parts.find((q) => q.id === pid) || {}).k === 'ljetty' ? 'jetty' : (P.parts.find((q) => q.id === pid) || {}).k || 'shed') * PORT.movePct / 50) * 50) + ').'); return; }
+  if (what === 'remove') {
+    if (F.confirm !== pid) { F.confirm = pid; return; }
+    const r = portRemove(s, b, pid);
+    F.confirm = 0; F.sel = 0;
+    facHint(r.ok ? 'Removed' + (r.refund ? ' · +' + money$(r.refund) + ' back' : '') + '.' : r.why + '.');
+  }
+}
+
+// ---------- the island: the harbour's card opens its screen ----------
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!h1On() || !b || !defOf(b) || defOf(b).kind !== 'harbor') return h;
+    const F = portView(s, b).F, w = F.why, c = F.calls[0];
+    const line = (c ? 'Next: the ' + c.ship + ', ' + portWhen(s, s.month, c.dep) + ' (' + c.hold + ' loads)' : 'No berth: no ship calls') + ' · sheds ' + Math.floor(F.have) + ' / ' + F.cap + (w && w.key !== 'hold' ? ' · ' + w.text : '');
+    const add = '<div class="btns"><button id="cardFac" class="facopen">' + iconSvg('anchor') + esc(b.type === 'quay' ? 'Open the quay' : 'Open the harbour') + '</button></div><p class="note' + (w && w.key !== 'hold' ? ' risk' : '') + '">' + esc(line + '.') + '</p>';
+    const at = h.indexOf('</h3>');
+    return at >= 0 ? h.slice(0, at + 5) + add + h.slice(at + 5) : h + add;
+  };
+  const _cr = cardRender;
+  cardRender = function () {
+    const r = _cr.apply(this, arguments), el = $('cardFac');
+    if (el && !el.dataset.w) { el.dataset.w = '1'; el.addEventListener('click', () => { const b = bById(APP.state, APP.ui.sel); if (b) facOpen('harbour', b.id); }); }
+    return r;
+  };
+}
+
+// The hurricane's first warning is a notice too (at the top, kept in the log with Show).
+{
+  const _eh = eventsHandle;
+  eventsHandle = function () {
+    const s = APP.state;
+    if (s && s.ev && s.ev.length) for (const e of s.ev) if (e.kind === 'portWarn') toastShow('⚠ ' + e.text, { important: true, id: e.id, logged: true });
+    return _eh.apply(this, arguments);
   };
 }
 
