@@ -165,6 +165,7 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
 .tool.nospot small { color: var(--red); font-size: 10px; line-height: 1.05; text-align: center; white-space: normal; }
 #card .btns button.shut { background: transparent; box-shadow: inset 0 0 0 1.5px rgba(58, 42, 31, 0.45); color: var(--ink2); font-weight: 700; font-size: 14px; }
 #card .btns button.shut.sure, #card .btns button.danger.sure { background: var(--red); color: #fff7ea; }
+#card .btns button.shut small { display: block; font-size: 12px; font-weight: 600; opacity: 0.8; margin-top: 1px; }
 #card .btns + .btns { margin-top: 8px; }
 #card .btns button.move { background: var(--paper2); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); font-weight: 800; }
 #card .link { min-height: 40px; padding: 0 12px; margin-top: 6px; border-radius: 10px; background: var(--paper); font-weight: 800; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); display: inline-flex; align-items: center; }
@@ -2956,6 +2957,21 @@ function bEarns(state, def) {
 function closeSaves(state, b) {
   const def = defOf(b);
   return bNumber(state, b).wages + Math.round(upkeepOf(def) * (1 - TUNE.closedUpkeep));
+}
+// Fix4 (the hotel's card said "Shut down · saves $553 a month" while it earned +$685): what shutting a building with
+// an income of its own does to its number, from the numbers its card shows (last month's payday line for a maker or
+// a harbour, else its month): { save, inc, net }. save: the costs that stop (wages, the upkeep but the half a shut
+// building still pays, what it buys, its parts' upkeep); inc: what it earns and would not any more (the ship, its
+// sales, its guests or visitors); net = save − inc, a month. With no income it is closeSaves, as before.
+function closeInc(state, b, L) { return Math.round((L.exports || 0) + (L.sales || 0) + (L.ws || 0) + (L.retail || 0) + (L.local || 0)); }
+function closeNet(state, b) {
+  const def = defOf(b), save0 = closeSaves(state, b);
+  if (!def.jobs) return { save: save0, inc: 0, net: save0 };
+  const x = bNumber(state, b), L = (def.kind === 'producer' || def.kind === 'harbor') && b.last ? b.last : x;
+  const inc0 = Math.round((L.exports || 0) + (L.sales || 0) + (L.ws || 0) + (L.retail || 0) + (L.local || 0)), inc = closeInc(state, b, L);
+  if (inc <= 0) return { save: save0, inc: 0, net: save0 };
+  const save = Math.max(0, Math.round(inc0 - (L.n || 0)) - Math.round(upkeepOf(def) * TUNE.closedUpkeep));
+  return { save, inc, net: save - inc };
 }
 
 // M3: the month's story of one building, kept at payday as b.last (the card's "Last month: made 30 cigars · 24
@@ -7625,8 +7641,12 @@ function jamSecond(s, at) {
       // a workshop or field that lost money last month (or stopped): one tap shuts it, as she says
       const lost = b && b.last && s.month - b.last.m <= 2 && b.last.n < 0;
       if (!b || !b.open || !(b.blocked || lost) || !closable(b) || defOf(b).kind !== 'producer') return r;
+      // (Fix4: the net, as its card's Shut down button says it; a workshop that earns more than shutting saves is not
+      // offered as one tap)
+      const c = closeNet(s, b);
+      if (c.net <= 0) return r;
       const why = b.blocked === 'input' ? 'nothing comes in' : b.blocked === 'yard' ? 'its yard is full' : 'it lost ' + money$(-b.last.n) + ' last month';
-      return Object.assign({}, r, { text: r.text.replace(/ Shut it down for now/, ' It ' + (b.blocked ? 'stopped' : 'loses money') + ' (' + why + '): shut it down for now (+' + money$(closeSaves(s, b)) + ' a month; open it again on its card)'), btn: 'Shut it', act: { select: b.id, close: b.id } });
+      return Object.assign({}, r, { text: r.text.replace(/ Shut it down for now/, ' It ' + (b.blocked ? 'stopped' : 'loses money') + ' (' + why + '): shut it down for now (+' + money$(c.net) + ' a month; open it again on its card)'), btn: 'Shut it', act: { select: b.id, close: b.id } });
     };
   }
   const _sr = screenRosa;
@@ -10437,6 +10457,117 @@ function scarceFundPlan(s, w) {
   };
 }
 
+// ---------- Fix4: rule 7 keeps the makers of what the homes eat, and what would save nothing ----------
+// (Her-play seeds 1902 and 1905 ended near 1,250 people: the council asked 40 and 45 times to shut workplaces that lost
+// $9 to $760 a month, mostly fruit groves, bakeries and cane fields; she tapped [Shut them] 14 and 12 times; the food
+// and the bread fell short, homes stepped down, Rosa asked for groves again 37 and 47 times.) Rule 7 (A11's own
+// shutting and A12's ask alike) no longer names:
+//  - a maker of a good the homes eat (food, bread, rum, meat, coffee, cigars) while homes lack it, or when without it
+//    (and the others named with it) the island would make less of it than its homes eat + 5 % (Rosa's own measure:
+//    "the island makes 180 food a month and its homes eat 176: build another fruit grove");
+//  - (SCARCE.keep7 2) a field whose crop a workshop turns into such a good (cane for the rum distillery, tobacco for
+//    the cigars, beans for the roastery, cattle for the butcher), while homes lack that good, or when without it the
+//    island would grow less of the crop than those workshops use at full work + 5 % (seed 1905: 44 homes stepped
+//    down for want of rum after the cane fields were shut);
+//  - a workplace whose shutting would save nothing: what it earns (its sales, the ship) is more than the wages and
+//    upkeep that would stop (closeNet: the card's Shut down button says the same net).
+// What the council keeps is said: Rosa's line of the ask (or of the shutting) adds it, and the log has the numbers.
+// SCARCE.keep7: 0 is the rule before Fix4; 1 the goods the homes eat only.
+SCARCE.keep7 = 2;
+// The candidates rule 7 would consider this payday, and those it keeps: { ids: Set, by: [{ b, g, sup, dem, lack, for,
+// save, inc }] } (g: the good; for: the workshops a crop feeds, '' for a good the homes eat; no g: it would save nothing).
+function scarceKeep7(s, r, red) {
+  const out = { ids: new Set(), by: [] };
+  const rows = r.lines.filter((l) => l.n < 0).map((l) => ({ l, b: bById(s, l.id) }))
+    .filter((o) => o.b && o.b.open !== false && defOf(o.b).kind === 'producer' && (o.b.blocked === 'yard' || red))
+    .sort((a, c) => a.l.n - c.l.n);
+  const gone = {}, sd = {}, lackOf = (n) => homesOccupied(s).filter((h) => (h.miss || []).includes(n)).length;
+  const D = (g) => {
+    if (sd[g] !== undefined) return sd[g];
+    const n = goodNeed(g);
+    if (NEED_GOODS.includes(n)) return (sd[g] = { g: n, sup: goodSupply(s, n), dem: goodDemand(s, n), lack: lackOf(n), for: '' });
+    if (SCARCE.keep7 < 2) return (sd[g] = null);
+    // a crop: the open workshops that turn it into a good the homes eat (and eat now), and what they use at full work
+    const users = s.b.filter((m) => { const d = defOf(m), u = d.makes && NEED_GOODS.includes(goodNeed(d.makes)); return m.open !== false && u && d.uses && d.uses[g] !== undefined && goodDemand(s, goodNeed(d.makes)) > 0; });
+    if (!users.length) return (sd[g] = null);
+    const goods = [...new Set(users.map((m) => goodNeed(defOf(m).makes)))];
+    return (sd[g] = { g, sup: goodSupply(s, g), dem: users.reduce((t, m) => t + defOf(m).uses[g] * defOf(m).rate, 0), lack: goods.reduce((t, n) => t + lackOf(n), 0), lackG: goods,
+      for: [...new Set(users.map((m) => defOf(m).name.toLowerCase()))] });
+  };
+  for (const o of rows) {
+    const def = defOf(o.b), d = def.makes ? D(def.makes) : null;
+    if (d && d.dem > 0) {
+      const left = d.sup - (gone[d.g] || 0) - (def.rate || 0);
+      if (d.lack > 0 || left < d.dem * 1.05) { out.ids.add(o.b.id); out.by.push({ b: o.b, g: d.g, sup: Math.round(d.sup), dem: Math.round(d.dem), lack: d.lack, lackG: d.lackG, for: d.for }); continue; }
+      gone[d.g] = (gone[d.g] || 0) + (def.rate || 0);
+    }
+    const c = closeNet(s, o.b);
+    if (c.inc > 0 && c.net <= 0) { out.ids.add(o.b.id); out.by.push({ b: o.b, save: c.save, inc: c.inc }); }
+  }
+  return out;
+}
+// What the council keeps, in words. long (the log): "16 fishing huts and 13 fruit groves (the homes eat their food: 41
+// homes lack food) and 3 cane fields (the rum distillery needs their cane: the island grows 36 cane a month, it uses
+// 36) and the bakery (it earns more than shutting it would save: saves $448, loses $453)". Short (Rosa's line):
+// "13 fruit groves open: the homes eat their food", or for several kinds "32 others open (fishing huts, fruit groves
+// and cane fields): the homes need what they make".
+function scarceKeepWords(K, long) {
+  const pl = (n) => (n.endsWith('y') ? n.slice(0, -1) + 'ies' : n + 's');
+  const gw = (n) => (n === 'food' ? 'food' : GOODS[n].name.toLowerCase());
+  const kinds = (list) => { const by = {}; for (const o of list) by[o.b.type] = (by[o.b.type] || 0) + 1; return by; };
+  const names = (list) => { const by = kinds(list); return listAnd(Object.keys(by).map((t) => by[t] > 1 ? by[t] + ' ' + pl(BUILDINGS[t].name.toLowerCase()) : 'the ' + BUILDINGS[t].name.toLowerCase())); };
+  const nums = (list) => [...new Set(list.map((o) => o.g))].map((n) => { const o = list.find((q) => q.g === n);
+    return o.lack ? plural(o.lack, 'home lacks', 'homes lack') + ' ' + listAnd((o.lackG || [n]).map(gw)) : (o.for ? 'the island grows ' + o.sup + ' ' + gw(n) + ' a month, ' + (o.for.length > 1 ? 'they use ' : 'it uses ') + o.dem : 'the island makes ' + o.sup + ' ' + gw(n) + ' a month, they eat ' + o.dem); });
+  const eat = K.by.filter((o) => o.g && !o.for), crop = K.by.filter((o) => o.g && o.for), nil = K.by.filter((o) => !o.g), parts = [];
+  const why = [];
+  if (eat.length) why.push(['the homes eat their ' + listAnd([...new Set(eat.map((o) => o.g))].map(gw)), eat]);
+  if (crop.length) { const fw = [...new Set(crop.flatMap((o) => o.for))]; why.push([listAnd(fw.map((n) => 'the ' + n)) + ' ' + (fw.length > 1 ? 'need' : 'needs') + ' their ' + listAnd([...new Set(crop.map((o) => o.g))].map(gw)), crop]); }
+  if (nil.length) why.push([(nil.length > 1 ? 'they earn' : 'it earns') + ' more than shutting ' + (nil.length > 1 ? 'them' : 'it') + ' would save', nil]);
+  if (long) {
+    for (const [w, list] of why) parts.push(names(list) + ' (' + w + ': ' + (list === nil ? (nil.length === 1 ? 'saves ' + money$(nil[0].save) + ', loses ' + money$(nil[0].inc) : nil.map((o) => money$(o.save - o.inc)).join(', ') + ' a month') : nums(list).join('; ')) + ')');
+    return parts.join(' and ');
+  }
+  const by = kinds(K.by), ks = Object.keys(by);
+  if (ks.length === 1 && why.length === 1) return names(K.by) + ' open: ' + why[0][0];
+  return K.by.length + ' others open (' + listAnd(ks.map((t) => pl(BUILDINGS[t].name.toLowerCase()))) + '): ' + (eat.length || crop.length ? 'the homes need what they make' + (nil.length ? ', or shutting them would save nothing' : '') : 'shutting them would save nothing');
+}
+{
+  const _rs = scarceRedShut;
+  scarceRedShut = function (s, r) {
+    if (!SCARCE.keep7 || !SCARCE.redShut || TUNE.a11Off || s.stage < SCARCE.fromStage || !r || !r.lines) return _rs.apply(this, arguments);
+    // (rule 7's own count of red and thin paydays, as it will make it: only a payday it acts on is filtered)
+    const red = (s.money < 0 && r.result < 0 ? (s.redRun || 0) + 1 : 0) >= SCARCE.redShut;
+    const thin = (r.result < SCARCE.thin * Math.max(0, r.rent + r.exports) ? (s.thinRun || 0) + 1 : 0) >= SCARCE.redShut;
+    if (!red && !thin) return _rs.apply(this, arguments);
+    const K = scarceKeep7(s, r, red);
+    if (!K.ids.size) return _rs.apply(this, arguments);
+    const all = r.lines, last0 = s.log[s.log.length - 1];
+    r.lines = all.filter((l) => !K.ids.has(l.id));
+    try { _rs.apply(this, arguments); } finally { r.lines = all; }
+    s.shutKept = { m: s.month, text: scarceKeepWords(K, false), ids: [...K.ids] };
+    if (r.shut) r.shut.kept = s.shutKept.text;
+    // the log: with every shutting or ask, else once a year (thin paydays come back every three months)
+    if (!r.shut && s.shutKeptLog !== undefined && s.month - s.shutKeptLog < 12) return;
+    s.shutKeptLog = s.month;
+    const head = red ? 'The treasury was in the red for ' + SCARCE.redShut + ' months' : SCARCE.redShut + ' paydays in a row kept under ' + Math.round(100 * SCARCE.thin) + ' % of what came in';
+    simLog(s, head + ': the council keeps ' + scarceKeepWords(K, true) + ' open.', [K.by[0].b.x, K.by[0].b.y]);
+    // (before rule 7's own "the council shut" line: A12 takes that one back, the last, when it turns it into an ask)
+    const n = s.log.length, prev = s.log[n - 2];
+    if (prev && prev !== last0 && /: the council shut /.test(prev.text)) { s.log[n - 2] = s.log[n - 1]; s.log[n - 1] = prev; }
+  };
+}
+// Rosa's line of the shutting (A11) says what the council kept
+{
+  const S7 = GUIDE_PROBLEMS.find((p) => p.key === 'shut');
+  if (S7) {
+    const _c = S7.check;
+    S7.check = function (s) {
+      const k = s.shutKept, o = s.shutSay, r = _c.apply(this, arguments);
+      return r && k && o && k.m === o.m ? Object.assign({}, r, { text: r.text.replace(/ Reopen on the card/, ' It kept ' + k.text + '. Reopen on the card') }) : r;
+    };
+  }
+}
+
 // ---- src/sim/free.js
 // A12 (16 Oct 2026, Tomáš 08:39: "What is this, that instead of tents houses appear? I don't want houses appearing
 // there that I don't approve. I also didn't like that even the first road I must draw along the line — I want to plan
@@ -10840,13 +10971,15 @@ if (typeof scarceRedShut === 'function') {
   const _rs = scarceRedShut;
   scarceRedShut = function (s, r) {
     if (!a12On()) return _rs.apply(this, arguments);
-    const open = new Set(s.b.filter((b) => b.open !== false).map((b) => b.id)), n0 = s.log.length;
+    const open = new Set(s.b.filter((b) => b.open !== false).map((b) => b.id)), last0 = s.log[s.log.length - 1];
     _rs.apply(this, arguments);
     if (!r.shut) return;
     // what the council would have shut, open again: it is her choice
     const ids = s.b.filter((b) => open.has(b.id) && b.open === false).map((b) => b.id);
     for (const id of ids) bById(s, id).open = true;
-    if (s.log.length > n0 && /the council shut/.test(s.log[s.log.length - 1].text)) s.log.pop();
+    // (Fix4: a new last line, not a longer log: a full log keeps its length, and "the council shut" stayed in it)
+    const L = s.log[s.log.length - 1];
+    if (L && L !== last0 && /the council shut/.test(L.text)) s.log.pop();
     const o = r.shut;
     delete r.shut;
     s.shutSay = null;
@@ -10863,7 +10996,8 @@ function freeShutNow(s) {
   if (!a || !a12On() || s.month - a.m > FREE.shutKeep) return null;
   const ids = a.ids.filter((id) => { const b = bById(s, id); return b && b.open !== false; });
   if (!ids.length) return null;
-  const save = ids.reduce((t, id) => t + closeSaves(s, bById(s, id)), 0);
+  // (Fix4: the net, as the card's Shut down button says it: a workplace's sales count against what shutting saves)
+  const save = ids.reduce((t, id) => t + closeNet(s, bById(s, id)).net, 0);
   return { ids, save };
 }
 // Her [Shut them]: those workplaces shut (no wages, half the upkeep), reopened on their cards.
@@ -10895,6 +11029,14 @@ GUIDE_PROBLEMS.splice(0, 0, { key: 'shutask', now: true, check(s) {
   return { text: a.head + ': ' + a.name + a.why + ' cost ' + money$(-a.n) + ' a month in wages and upkeep. The council asks: shut ' + (w.ids.length > 1 ? 'them' : 'it') + ' for now? You can reopen ' + (w.ids.length > 1 ? 'them' : 'it') + ' on the card.',
     btn: 'Shut ' + (w.ids.length > 1 ? 'them' : 'it') + ' · +' + money$(w.save) + ' a month', act: { shut: w.ids.slice(), select: w.ids[0], at: b ? [b.x, b.y] : undefined } };
 } });
+// Fix4: the ask says what the council keeps open (scarce.js: the makers of what the homes eat, what would save nothing)
+{
+  const SA = GUIDE_PROBLEMS.find((p) => p.key === 'shutask'), _c = SA.check;
+  SA.check = function (s) {
+    const r = _c.apply(this, arguments), a = s.shutAsk, k = s.shutKept;
+    return r && a && k && k.m === a.m ? Object.assign({}, r, { text: r.text.replace(/ You can reopen/, ' It keeps ' + k.text + '. You can reopen') }) : r;
+  };
+}
 {
   const _sr = screenRosa;
   screenRosa = function (s, m, arm) {
@@ -19475,6 +19617,13 @@ function portLanding(state) {
     if (b && b.type === 'hotel' && h2On()) { const v = (b.mGuests || 0) * H2.spend; x.exports += v; x.n += v; x.guests = b.mGuests || 0; }
     return x;
   };
+  // Fix4: the hotel's Shut down button counts its guests' spending: this month's so far, or last month's when that
+  // was more (its card shows both: early in the month the guests have not all landed yet)
+  const _ci = closeInc;
+  closeInc = function (state, b, L) {
+    const v = _ci.apply(this, arguments);
+    return b && b.type === 'hotel' && h2On() ? Math.max(v, Math.round((b.lastGuests || 0) * H2.spend)) : v;
+  };
   const _pr = paydayRun;
   paydayRun = function (state) {
     const r = _pr.apply(this, arguments);
@@ -20020,7 +20169,7 @@ function apLack(g, k, used) {
   return '';
 }
 // The month's plan of the airfield's routes, in the order she signed them: each with the plane that flies (the newest
-// the ground takes, a stand of its own), the newest plane history offers and what it lacks.
+// the ground takes, a stand of its own), the newest plane history offers and what it lacks; `slot`: its flight days.
 function apAssign(state, b, A, month) {
   const g = apGround(A), used = { apron: 0, ramp: 0, moor: 0 }, out = [];
   (A.routes || []).forEach((L, i) => {
@@ -20028,13 +20177,27 @@ function apAssign(state, b, A, month) {
     let fly = null;
     for (let j = list.length - 1; j >= 0; j--) if (!apLack(g, list[j], used)) { fly = list[j]; break; }
     if (fly) { const n = AP_PLANES[fly].need; if (n.ramp) used.ramp++; else if (n.moor) used.moor++; else used.apron++; }
-    out.push({ k: L.k, i, fly, best, lack: best && best !== fly ? apLack(g, best, used) || apLack(g, best) : '' });
+    out.push({ k: L.k, i, slot: apSlotOf(L, i), fly, best, lack: best && best !== fly ? apLack(g, best, used) || apLack(g, best) : '' });
   });
   return { g, routes: out };
 }
 // The flights of a month at one airfield: [{ rk, i, t, plane, seats, fuel, name, why ('' | norte | storm | fuel) }].
 // Two a route (its slot's ticks), checked in tick order against the weather and the month's fuel.
 function apSlot(i) { const t = 10 + ((i * 12 + 12) % 48); return [t, t + 50]; }
+// Fix4: a route keeps the slot it was given when she signed it (L.slot), so ending one route never moves another's
+// flight days (before, the slot was its place in her list). A new route takes the first slot no signed route holds
+// (apSlot repeats every four: the four routes of the board each have days of their own). An old save's routes get
+// their place at load (apSlotMigrate): the timetable it showed stays as it was.
+function apSlotOf(L, i) { return L && L.slot !== undefined ? L.slot : i; }
+function apSlotFree(A) {
+  const held = new Set((A.routes || []).map((L, i) => apSlotOf(L, i) % 4));
+  for (let k = 0; k < 4; k++) if (!held.has(k)) return k;
+  return (A.routes || []).length;
+}
+function apSlotMigrate(state) {
+  if (state && state.air) for (const id in state.air) { const A = state.air[id]; (A && A.routes || []).forEach((L, i) => { if (L.slot === undefined) L.slot = i; }); }
+  return state;
+}
 const AP_CALLS = new WeakMap();
 function apCalls(state, b, month) {
   const A = apOf(state, b), key = A.v + '|' + month + '|' + (A.routes || []).length;
@@ -20052,8 +20215,8 @@ function apCallsNow(state, b, A, month) {
     const R = AP_ROUTES[r.k];
     if (!r.fly || y < R.open || (R.y1 && y > R.y1)) continue;
     const P = AP_PLANES[r.fly], nm = (R.names && R.names[r.fly]) || null;
-    apSlot(r.i).forEach((t, j) => {
-      out.push({ rk: r.k, i: r.i, m: month, t, plane: r.fly, seats: P.seats, fuel: P.fuel, name: nm ? nm[(month * 2 + j + r.i) % nm.length] : '', why: apShut(asg.g, W, t) });
+    apSlot(r.slot).forEach((t, j) => {
+      out.push({ rk: r.k, i: r.slot, m: month, t, plane: r.fly, seats: P.seats, fuel: P.fuel, name: nm ? nm[(month * 2 + j + r.slot) % nm.length] : '', why: apShut(asg.g, W, t) });
     });
   }
   out.sort((a, c) => a.t - c.t);
@@ -20148,7 +20311,7 @@ function apOfferWhy(state, rk) {
 function apSigned(A, rk) { return (A.routes || []).find((l) => l.k === rk) || null; }
 // What a route would fly here now if she signed it (its plane, or what the ground lacks for its first plane).
 function apTrial(state, b, rk) {
-  const A = apOf(state, b), Q = { parts: A.parts, routes: (A.routes || []).concat(apSigned(A, rk) ? [] : [{ k: rk }]) };
+  const A = apOf(state, b), Q = { parts: A.parts, routes: (A.routes || []).concat(apSigned(A, rk) ? [] : [{ k: rk, slot: apSlotFree(A) }]) };
   const r = apAssign(state, b, Q, state.month).routes.find((o) => o.k === rk);
   const list = apRoutePlanes(state, rk, state.month), g = apGround(A);
   return { fly: r ? r.fly : null, best: r ? r.best : null, lack: r && !r.fly ? apLack(g, list[0]) || apLack(g, list[list.length - 1]) || 'stand' : r ? r.lack : '', term: g.term };
@@ -20171,7 +20334,7 @@ function apSign(state, b, rk) {
   const why = apSignWhy(state, b, rk);
   if (why) return { ok: false, why };
   const A = apOf(state, b);
-  (A.routes || (A.routes = [])).push({ k: rk, since: state.month });
+  (A.routes || (A.routes = [])).push({ k: rk, since: state.month, slot: apSlotFree(A) });
   apTouch(state, A);
   const R = AP_ROUTES[rk];
   simLog(state, portCap1(R.the) + ' are signed: ' + AP.flights + ' flights a month from ' + apTo(R, apYear(state)) + '.', [b.x + b.w / 2, b.y + b.h / 2]);
@@ -20338,6 +20501,9 @@ function apFlow(state, b) {
     if (state.air) for (const id in state.air) if (!bById(state, +id)) delete state.air[id];
     return r;
   };
+  // Fix4: an old save's routes keep the flight days they had (each its place in the list, now its own slot)
+  const _lg = loadGame;
+  loadGame = function (obj) { return apSlotMigrate(_lg.apply(this, arguments)); };
   // the year's turn of the routes: a route whose airline stopped flying it ends (said in the log)
   const _pt = portTick;
   portTick = function (state) {
@@ -28759,7 +28925,12 @@ function cardButtons(s, b) {
   let h = '<div class="btns"><button class="danger' + (cf === 'remove' ? ' sure' : '') + '" id="cardRemove">' +(cf === 'remove' ? 'Tap again to remove · +' + money$(refund) : 'Remove · +' + money$(refund)) + '</button></div>';
   if (def.jobs) {
     const x = bNumber(s, b), save = x.wages + Math.round(upkeepOf(def) * (1 - TUNE.closedUpkeep));
-    if (b.open) h += '<div class="btns"><button class="shut' + (cf === 'shut' ? ' sure' : '') + '" id="cardOpen">' + (cf === 'shut' ? 'Tap again to shut it down' : 'Shut down · saves ' + money$(save) + ' a month') + '</button></div>';
+    // Fix4: a building with an income of its own says the net, and under it what stops and what it stops earning
+    // ("Shut down · −$798 a month / saves $552, loses $1,350": the hotel said "saves $553" while it earned $1,350)
+    const c = b.open ? closeNet(s, b) : null, net = c && c.inc > 0 ? (c.net < 0 ? '−' : '+') + money$(Math.abs(c.net)) + ' a month' : '';
+    const sub = net ? 'saves ' + money$(c.save) + ', loses ' + money$(c.inc) : '';
+    const say = net ? 'Shut down · ' + net + '<small>' + sub + '</small>' : 'Shut down · saves ' + money$(save) + ' a month';
+    if (b.open) h += '<div class="btns"><button class="shut' + (cf === 'shut' ? ' sure' : '') + '" id="cardOpen"' + (net ? ' aria-label="' + esc('Shut down: ' + net + ', ' + sub) + '"' : '') + '>' + (cf === 'shut' ? 'Tap again to shut it down' + (net ? ' · ' + net : '') : say) + '</button></div>';
     else h += '<div class="btns"><button class="shut" id="cardOpen">Open it again</button></div>';
   }
   return h;
@@ -39714,8 +39885,11 @@ function apAct(F, what, data) {
 {
   const _ch = cardHtml;
   cardHtml = function (s, b) {
-    const h = _ch.apply(this, arguments);
+    let h = _ch.apply(this, arguments);
     if (!apOn() || !b || b.type !== 'airfield') return h;
+    // (the card's money line named the visitors' spending "ship +$2700", as for a maker's exports; the hotel's says
+    // "guests", the airfield's "visitors")
+    h = h.replace('ship +$', 'visitors +$');
     const A = s.air && s.air[b.id], n = A ? (A.routes || []).length : 0, w = A ? apWhy(s, b) : null;
     let line;
     if (!n) line = 'No route signed: the open service only. Its board offers the airlines’ routes of the era.';
@@ -39723,7 +39897,7 @@ function apAct(F, what, data) {
       const F = apView(s, b).F, c = F.calls.find((o) => o.t >= s.mt && !o.why) || F.next.find((o) => !o.why), L = F.L || {};
       line = plural(n, 'route', 'routes') + (c ? ' · next: ' + apPlaneWords(c.plane, c.name) + ', ' + apWhen(c.t >= s.mt && F.calls.includes(c) ? s.month : s.month + 1, c.t) : '') + (L.flights ? ' · last month ' + L.came + ' visitors, ' + L.guests + ' in the hotels' + (L.turned ? ', ' + L.turned + ' flew home' : '') : '') + (w ? ' · ' + w.text : '');
     }
-    const add = '<div class="btns"><button id="cardAir" class="facopen">' + iconSvg('plane') + 'Open the airfield</button></div><p class="note' + (w && w.key !== 'next' ? ' risk' : '') + '">' + esc(line + '.') + '</p>';
+    const add = '<div class="btns"><button id="cardAir" class="facopen">' + iconSvg('plane') + 'Open the airfield</button></div><p class="note' + (w && w.key !== 'next' ? ' risk' : '') + '">' + esc(line.replace(/\.$/, '') + '.') + '</p>';
     const at = h.indexOf('</h3>');
     return at >= 0 ? h.slice(0, at + 5) + add + h.slice(at + 5) : h + add;
   };
