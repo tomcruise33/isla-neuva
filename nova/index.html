@@ -20718,6 +20718,125 @@ function apRouteAsk(state) {
   };
 }
 
+// ---- src/sim/pace.js
+// P1 (3 Nov 2026, `nova/pace`): the pace pass. Measured first (her-play, seeds 1902-1905, and the on-screen player at her
+// pace; the tables are in docs/LOG.md "P1 — pace"): where her minutes go per stage, what holds the pill in every
+// stretch of more than 3 minutes without progress, when money sits idle and why. What emptied her evenings was not the
+// prices but the landmark's fund (A11's rule 5, scarce.js):
+// - The payday the treasury and the fund together pay for the landmark, the fund comes back and Rosa says "Build it now?"
+//   once, for one game month (6.7 s of her time at 3x; she looks every half minute). She missed it most of the time, spent
+//   the money on homes and upgrades, and the fund started again from nothing: on seed 1902 the Governor's villa came back
+//   4 times, the quay 3 times; on seed 1903 the Governor's mansion 7 times in 17 of her minutes. The pill fell from
+//   "$30,000 of $30,000" to "$0 of $30,000" with no word why.
+// - A red payday gave back the whole fund: on seed 1902 the palace's $63,642 came back when the treasury stood at −$364
+//   (one thin month), and was gone on upgrades a round later; on 1903 $34,112 and $75,837 the same way. The palace, the
+//   only goal of her second evening, was never built on 1902 and came at minute 111 on 1903.
+// Two rules, each visible, both on the fund (no price, no stage requirement and no land changes):
+// 1. Rosa keeps the fund's line while the treasury holds the landmark's price (it was said once): "The fund for the
+//    steamship quay is back: the treasury holds its $45,000. Build it now? Spent on something else, the fund starts
+//    again." Her ✕ rests it three months, as any of Rosa's lines; it goes when it is built or the money is spent. (The
+//    fund comes back only when the payday leaves the treasury holding the whole price: its later parts could take $95
+//    after the fund's turn and leave $99,905 of $100,000, no line, and the money spent elsewhere.)
+// 2. A red payday takes from the fund only what the red needs: the treasury comes back to $0 and the rest stays set
+//    aside (the receipt: "From the fund: the red covered ($63,278 still set aside) +$364"; the
+//    pill keeps counting it); the residence's card and the Town's stage card say so. A fund smaller than the red comes
+//    back whole, as before. What the payday's later parts take after the fund's turn is covered the same way.
+// TUNE.paceOff (NOVA_NO_PACE=1 leaves this file out of the tests' sim): the rules before P1, line for line. make_save.js
+// and make_rivals.js play without it unless NOVA_PACE=1.
+
+const PACE = {
+  keepLine: 1,      // 1. the fund's line stays while the treasury holds the price (0: said once, as before)
+  redPart: 1,       // 2. a red payday takes from the fund only what the red needs (0: the whole fund, as before)
+};
+function paceOn() { return !TUNE.paceOff && typeof a11On === 'function' && a11On(); }
+
+// ---------- 2. a red payday takes from the fund only what the red needs ----------
+{
+  const _fp = scarceFundPay;
+  scarceFundPay = function (s, r) {
+    const F = s.fund;
+    if (!paceOn() || !PACE.redPart || !F || !F.n || s.money >= 0) return _fp.apply(this, arguments);
+    const w = scarceWish(s);
+    // (the wish changed, or the two pay for it: as before)
+    if (!w || w.k !== F.k || s.money + F.n >= w.cost) return _fp.apply(this, arguments);
+    const need = Math.ceil(-s.money);
+    // a fund smaller than the red comes back whole (as before)
+    if (F.n <= need) return _fp.apply(this, arguments);
+    s.money += need; F.n -= need;
+    r.fund = { back: need, what: F.what, cost: 0, red: true, part: 1, left: F.n };
+    return undefined;
+  };
+  // (what the payday's later parts take after the fund's turn, the harbour's, the airfield's, the roads': the fund
+  // covers that red too, so the treasury never shows −$150 while thousands are set aside)
+  const _pr = paydayRun;
+  paydayRun = function (state) {
+    const r = _pr.apply(this, arguments);
+    if (paceOn() && PACE.redPart && r && state.money < 0) paceRedCover(state, r);
+    if (paceOn() && PACE.keepLine && r) paceShortBack(state, r);
+    return r;
+  };
+}
+// (the fund came back because the two paid for the landmark, but the payday's later parts took a little after: the
+// treasury holds $99,905 of $100,000, Rosa cannot say "Build it" and the money went elsewhere on seed 1903. The fund
+// keeps it until a payday leaves the treasury holding the whole price)
+function paceShortBack(s, r) {
+  const f = r.fund, F = s.fund, w = scarceWish(s);
+  if (!f || !f.back || !f.cost || f.red || !F || !w || w.k !== F.ready || s.money >= w.cost || s.money - f.back < 0) return;
+  s.money -= f.back; F.n = (F.n || 0) + f.back; F.ready = '';
+  delete r.fund;
+}
+function paceRedCover(s, r) {
+  const F = s.fund, w = scarceWish(s);
+  if (!F || !F.n || !w || w.k !== F.k || (r.fund && !r.fund.part)) return;
+  const need = Math.min(F.n, Math.ceil(-s.money));
+  s.money += need; F.n -= need;
+  if (r.fund) { r.fund.back += need; r.fund.left = F.n; if (!F.n) r.fund.part = 0; }
+  else r.fund = { back: need, what: F.what, cost: 0, red: true, part: F.n ? 1 : 0, left: F.n };
+}
+
+// ---------- 1. Rosa keeps the fund's line while the treasury holds the price ----------
+// (scarce.js clears state.fund.ready once the line was said; here it stays while the wish is the same and the treasury
+// still holds its price)
+function paceFundHeld(s, k) {
+  if (!k) return false;
+  const w = scarceWish(s);
+  return !!w && w.k === k && s.money >= w.cost;
+}
+{
+  const _gm = guideMonth;
+  guideMonth = function (state) {
+    const F = state.fund, on = paceOn() && PACE.keepLine;
+    // (spent below the price, or built: the line goes, and the fund starts again at the next payday)
+    if (on && F && F.ready && !paceFundHeld(state, F.ready)) F.ready = '';
+    const keep = on && F ? F.ready : '';
+    const r = _gm.apply(this, arguments);
+    if (keep && F && !F.ready && paceFundHeld(state, keep)) F.ready = keep;
+    return r;
+  };
+  const G = GUIDE_PROBLEMS.find((p) => p.key === 'fund');
+  if (G) {
+    const _ck = G.check;
+    G.check = function (s) {
+      const m = _ck.apply(this, arguments);
+      if (!m || !paceOn() || !PACE.keepLine) return m;
+      return Object.assign({}, m, { text: m.text + ' Spent on something else, the fund starts again.' });
+    };
+  }
+}
+
+// ---------- what she sees: the stage card (Town) says both rules ----------
+{
+  const _so = stageOpens;
+  stageOpens = function (stage) {
+    const list = _so.apply(this, arguments);
+    if (!paceOn() || typeof SCARCE === 'undefined' || !SCARCE.fund || stage !== SCARCE.fromStage) return list;
+    const i = list.findIndex((t) => / is set aside for the next landmark/.test(t));
+    const add = (PACE.redPart ? '; a red payday takes from it only what the red needs' : '') + (PACE.keepLine ? '; Rosa reminds you while the treasury holds the price' : '');
+    if (i >= 0 && add) list[i] += add;
+    return list;
+  };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -39940,6 +40059,29 @@ function apAct(F, what, data) {
     const r = _hs.apply(this, arguments);
     if (b && b.type === 'hotel' && apOn() && r && !r.good && /no passenger line/.test(r.text)) return { text: 'Open, no guests yet: no passenger line or air route brings visitors.', good: false };
     return r;
+  };
+}
+
+// ---- src/ui/pace_ui.js
+// P1 (sim/pace.js): what she sees of the pace rules. Rosa's kept line is the sim's own (guide); here the receipt's fund
+// row when a red payday took only what the red needed, and the residence's card.
+{
+  // the receipt: "From the fund: the red covered ($63,278 still set aside) +$364" (the pill names what it is for)
+  const _rs = receiptShow;
+  receiptShow = function (r) {
+    const out = _rs.apply(this, arguments);
+    const f = r && r.fund;
+    if (!f || !f.part || !paceOn()) return out;
+    const row = $('receipt').querySelector('.row.fund span');
+    if (row) row.textContent = 'From the fund: the red covered (' + money$(f.left) + ' still set aside)';
+    return out;
+  };
+  // the residence's card: the fund's line says the red rule
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!h || !b || b.type !== 'residence' || !paceOn() || !PACE.redPart) return h;
+    return h.replace(/(until the two pay for it\.)/, '$1 A red payday takes from it only what the red needs.');
   };
 }
 
