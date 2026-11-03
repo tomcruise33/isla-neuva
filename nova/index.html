@@ -863,6 +863,30 @@ body.fac-on #todo, body.fac-on #glance, body.fac-on #pop, body.fac-on #facPins, 
 .fac-pin i { font-style: normal; color: #fff7ea; background: var(--red); border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
 #card .btns button.facopen { background: var(--teal); color: #fff7ea; display: flex; align-items: center; justify-content: center; gap: 6px; }
 #card .btns button.facopen .ic { width: 18px; height: 18px; fill: #fff7ea; }
+/* H2: the side panel's tabs (Harbour | Lines) and the board of lines and offers */
+.fac-tabs { display: flex; gap: 6px; position: sticky; top: -4px; z-index: 1; background: var(--panel); padding: 6px 0 6px; margin-top: -4px; }
+.fac-tabs button { flex: 1; min-height: 42px; border-radius: 11px; background: var(--paper2); font-weight: 800; font-size: 14px; color: var(--ink); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.fac-tabs button.on { background: var(--teal); color: #fff7ea; box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
+.fac-tabs button i { font-style: normal; background: var(--gold); color: var(--ink); border-radius: 10px; min-width: 20px; height: 20px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+.fac-line { border-top: 1px dotted var(--line); padding: 6px 0 4px; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; font-size: 13px; }
+.fac-line > b { white-space: nowrap; } .fac-line > span { color: var(--ink2); font-size: 12px; font-weight: 700; align-self: center; }
+.fac-line > p, .fac-line > div { grid-column: 1 / 3; }
+.fac-line.signed { background: #fff8e8; border-radius: 10px; padding: 6px 8px; margin: 4px -4px; box-shadow: inset 0 0 0 1.5px var(--teal); border-top: 0; }
+.fac-offer { background: var(--paper2); border-radius: 12px; padding: 8px 10px; margin: 6px -2px 8px; font-size: 13px; }
+.fac-offer.hi { box-shadow: inset 0 0 0 2.5px #eab33e, 0 0 0 3px rgba(234, 179, 62, 0.35); background: #fdf0cf; }
+.fac-offer > b { font: italic 700 15px var(--serif); } .fac-offer > span { color: var(--ink2); font-weight: 700; } .fac-offer > small { color: var(--ink2); font-weight: 700; font-size: 11.5px; }
+.fac-p.dim { color: var(--ink2); font-size: 12px; } .fac-p.bad { color: #7a2e1c; font-weight: 700; } .fac-p.good { color: var(--green); font-weight: 700; }
+.fac-trade { font-size: 12.5px; line-height: 1.3; padding: 6px 8px; border-radius: 9px; background: rgba(255, 255, 255, 0.55); margin: 6px 0; }
+.fac-trade.good { box-shadow: inset 0 0 0 1.5px var(--teal); } .fac-trade.bad { box-shadow: inset 0 0 0 1.5px #b5402c; color: #7a2e1c; }
+.fac-q { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.fac-q button { width: 44px; height: 44px; border-radius: 50%; background: var(--teal); color: #fff7ea; font-weight: 800; font-size: 22px; border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink); }
+.fac-q button:disabled { opacity: 0.35; }
+.fac-q span { font-weight: 800; font-size: 14px; min-width: 104px; text-align: center; } .fac-q small { color: var(--ink2); font-size: 11.5px; flex-basis: 100%; }
+.fac-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.fac-chips button { min-height: 40px; padding: 0 12px; border-radius: 20px; background: var(--paper); font-weight: 700; font-size: 13px; box-shadow: inset 0 0 0 1.5px var(--line); }
+.fac-chips button.on { background: #fff8e8; box-shadow: inset 0 0 0 2px var(--teal); color: var(--teal2); }
+.fac-btns button:disabled { background: #cdbf9f; color: var(--ink2); box-shadow: none; }
+.fac-btns button.alt.warn { background: #fbe3da; color: #7a2e1c; box-shadow: inset 0 0 0 2px #b5402c; }
 </style>
 </head>
 <body>
@@ -19067,6 +19091,652 @@ function portTry(s, hb, d) {
   }
 }
 
+// ---- src/sim/harbour2.js
+// H2 (3 Nov 2026, `nova/h2`): the harbour's lines and contracts, its passengers, tourists and customs. DESIGN.md §45;
+// history: docs/research/harbour.md ("H2"). UI: src/ui/harbour2_ui.js (the board, the new parts, the hotel's card).
+// Tomáš (29 Oct): the heart of the harbour is lines and contracts (where ships go, what they carry, at what price) and
+// people and tourists (passengers, tourists, customs, settlers). His standing rules decide every doubt: she plans
+// (nothing signed, built or ended without her tap, its price and consequence shown before it); every rule visible;
+// history is real; money stays meaningful (a contract is a trade-off, not a bonus); old saves keep earning what they did.
+//
+// Lines. Each berth's monthly call (H1's timetable) is the open line's ship, buying what waits at the desk's export
+// prices, until she signs a line for that berth on the board (the side panel's Lines). Two kinds of line:
+// - a CONTRACT (the sugar charter in the Munson Line's manner, the fruit contract with United Fruit's reefers): a fixed
+//   quantity of one good a call at a fixed rate above the desk's price; the ship fills the rest of her hold at the desk's
+//   prices as before; every load short of the quantity costs DEAD FREIGHT (the charterers' lost freight); the other
+//   ships leave the contract's quantity in the sheds for its call; it runs three years; ending it early costs three
+//   calls' dead freight.
+// - a PASSENGER line (the P&O's Key West packet and the Ward Line's New York steamers from 1920, when Prohibition sent
+//   the Americans south; the emigrant steamers from Spain, 1902-1931): its ship keeps decks for people, so her hold for
+//   goods is smaller; she lands tourists (who spend in the town if a hotel has a bed for them) or settlers (who come for
+//   the free homes). It needs a passenger shed and a customs house at the harbour; she ends it when she likes.
+// An unsigned harbour is H1's, to the dollar. TUNE.h2Off (NOVA_NO_H2=1 in the tests): the rules before H2 (sim_test's
+// output is H1's, line for line); make_save.js and make_rivals.js play without H2 unless NOVA_H2=1.
+
+const H2 = {
+  term: 36,            // a contract runs three years (36 calls)
+  endCalls: 3,         // ending a contract early: three calls' dead freight on its full quantity (the charterers' notice)
+  qStep: 10,           // the quantity a call is chosen in steps of 10 loads
+  tourYear: 1920,      // tourists from 1920 (the Volstead Act: Prohibition in the United States from 16 January 1920)
+  beds: 30,            // a hotel's guests a month at full staff
+  spend: 45,           // what a tourist spends in the town (the airfield's visitors spend as much: TR.visitSpend)
+  ask: 3,              // Rosa asks for a contract at most three months running (she speaks from the second), then rests
+  rest: 24,            //   for two years
+  hist: 6,             // months of shipments the trial and Rosa read
+};
+function h2On() { return h1On() && !TUNE.h2Off; }
+
+// The new parts on the harbour's ground (land parts like the sheds; prices in A9's H, upkeep 1 % a month).
+PORT_PARTS.pshed = { name: 'Passenger shed', short: 'Pass. shed', w: 2, h: 1, land: 1, pax: 50, k: 0.25, stage: 1, year: 1900, icon: 'people',
+  gives: 'lands 50 passengers a call: the settlers’ boat and the passenger lines put their people ashore here, out of the sun and the rain' };
+PORT_PARTS.customs = { name: 'Customs house', short: 'Customs', w: 2, h: 2, land: 1, cust: 40, k: 0.5, stage: 2, year: 1900, icon: 'desk',
+  gives: 'clears 40 passengers a call (papers, luggage, duties): no passenger line calls without it' };
+PORT_BUILD.push('pshed', 'customs');
+
+// The offers on the board, by era. kind 'contract': g (the good), prem (the rate over the desk's price), dead (dead
+// freight a load short, a share of the desk's price). kind 'pax': hold (her hold for goods), pax (tourists a call),
+// settlers (a month), quay (a stone quay berth only). ship: her kind ('' = the berth's own: a schooner at a jetty, a
+// steamship at a quay). open: the year the game opens it (y0 its history's first year), y1 its last year.
+const PORT_OFFERS = {
+  sugar: { kind: 'contract', g: 'sugar', name: 'Sugar charter', to: 'New York', y0: 1899, open: 1900, y1: 1960, stage: 3, prem: 0.1, dead: 1 / 3, ship: '',
+    who: (y) => (y < 1937 ? 'the Munson Line' : 'the New York refiners’ tramp steamers'),
+    hist: 'Walter D. Munson’s line (1899–1937) carried the sugar ports’ cargo to New York, more than 60 ships at its height; bankrupt in 1937, after which the refiners chartered tramp steamers.' },
+  fruit: { kind: 'contract', g: 'fruit', name: 'Fruit contract', to: 'Boston and New York', y0: 1899, open: 1900, y1: 1960, stage: 1, prem: 0.25, dead: 1 / 3, ship: 'reefer', names: ['Quirigua'],
+    who: () => 'United Fruit',
+    hist: 'The United Fruit Company (1899) and its Great White Fleet: refrigerated ships, once a hundred of them, that carried bananas and passengers for over a century.' },
+  pando: { kind: 'pax', name: 'Key West packet', to: 'Key West', y0: 1900, open: 1920, y1: 1960, stage: 2, hold: 20, pax: 30, ship: 'packet', names: (y) => (y < 1931 ? ['Cuba', 'Governor Cobb'] : y < 1942 ? ['Florida', 'Cuba'] : ['Florida']),
+    who: () => 'the P&O',
+    hist: 'The Peninsular & Occidental (1900: Plant’s and Flagler’s steamers) sailed Key West–Havana for over five decades, until 1960; at Key West the railway ran on to New York.' },
+  ward: { kind: 'pax', name: 'New York mail and passengers', to: 'New York', y0: 1881, open: 1920, y1: 1954, stage: 4, hold: 60, pax: 60, quay: 1, ship: 'steamer', names: ['Havana', 'Morro Castle', 'Orizaba', 'Siboney', 'Oriente'],
+    who: () => 'the Ward Line',
+    hist: 'The New York and Cuba Mail Steamship Company (1881) sailed New York–Havana from its Manhattan piers with the mail and passengers; liquidated in 1954.' },
+  spain: { kind: 'pax', name: 'Emigrant steamers', to: 'Vigo, Coruña and Cádiz', y0: 1902, open: 1902, y1: 1931, stage: 1, hold: 30, settlers: 8, ship: '',
+    who: () => 'the Spanish lines',
+    hist: '780,400 Spaniards came to Cuba between 1902 and 1931 (six of every ten immigrants), most from Galicia, Asturias and the Canaries; the Depression ended it.' },
+};
+const PORT_OFFER_ORDER = ['sugar', 'fruit', 'spain', 'pando', 'ward'];
+for (const k in PORT_OFFERS) PORT_LINES[k] = { name: PORT_OFFERS[k].name, to: PORT_OFFERS[k].to, kind: PORT_OFFERS[k].ship || 'schooner' };
+const PORT_SHIP_WORDS = { schooner: 'schooner', steamer: 'steamship', reefer: 'reefer', packet: 'packet steamer' };
+
+// The hotel (an island building): tourists who land need a bed; each spends H2.spend in the town (rooms, meals, rum,
+// guides), on the hotel's own number. Havana's tourist hotels: the Sevilla (1908), the Plaza (1909), the Nacional (1930).
+BUILDINGS.hotel = { name: 'Hotel', kind: 'service', w: 2, h: 2, cost: 15000, jobs: 10, stage: 3, year: H2.tourYear, gives: 'hotel',
+  icon: 'bed', art: 'hotel', color: '#f1d9b5', group: 'harbor' };
+BUILD_ORDER.push('hotel');
+
+// ---------- the lines ----------
+function portLinesOf(P) { return P.lines || []; }
+function portLineOn(P, berthId) { return portLinesOf(P).find((l) => l.at === berthId) || null; }
+function portYearOf(state, month) { return TUNE.startYear + Math.floor((month === undefined ? state.month : month) / 12); }
+// The passengers a call can land: the sheds' and the customs houses' capacity (the smaller), 0 without either.
+function portPaxCap(P) {
+  let shed = 0, cust = 0;
+  for (const p of P.parts) { const d = PORT_PARTS[p.k]; shed += d.pax || 0; cust += d.cust || 0; }
+  return { shed, cust, n: Math.min(shed, cust) };
+}
+// A good's bay: what the sheds hold of each good.
+function portBay(state, hb) { return portDef(state, hb).cap || TUNE.harborCap; }
+// The ship a line sends to a berth.
+function portLineShip(k, berth) { const O = PORT_OFFERS[k]; return O.ship || PORT_PARTS[berth.k].ship; }
+function portLineShipName(state, hb, L, month) {
+  const O = PORT_OFFERS[L.k];
+  const nm = typeof O.names === 'function' ? O.names(portYearOf(state, month)) : O.names;
+  if (nm) return nm[(month + hb.id) % nm.length];
+  const y = portYearOf(state, month);
+  const berth = portOf(state, hb).parts.find((p) => p.id === L.at), steam = berth && PORT_PARTS[berth.k].ship === 'steamer';
+  if (O.kind !== 'contract') return steam ? 'emigrant steamer' : 'emigrant packet';
+  return steam ? (y < 1937 ? 'Munson freighter' : 'tramp steamer') : 'chartered schooner';
+}
+// Whether an offer is open now (era, stage), and why not.
+function portOfferWhy(state, k) {
+  const O = PORT_OFFERS[k], y = portYearOf(state);
+  if (y < O.open) return 'Opens in ' + O.open;
+  if (y > O.y1) return 'Ended in ' + O.y1;
+  if (O.stage > state.stage) return 'Opens at ' + STAGES[O.stage].name;
+  return '';
+}
+// What she would sign: { rate, dead, hold, pax, settlers, q, qMax, ship } for this berth (and quantity).
+function portTerms(state, hb, k, berth, q) {
+  const O = PORT_OFFERS[k], d = berth ? PORT_PARTS[berth.k] : null, hold = d ? d.hold : 0;
+  if (O.kind === 'contract') {
+    const desk = exportPrice(state, O.g), qMax = Math.max(0, Math.floor(Math.min(hold, portBay(state, hb)) / H2.qStep) * H2.qStep);
+    const qq = Math.max(H2.qStep, Math.min(qMax, q || Math.min(qMax, 2 * H2.qStep)));
+    return { desk, rate: Math.round(desk * (1 + O.prem)), dead: Math.round(desk * O.dead), q: qq, qMax, hold, ship: berth ? portLineShip(k, berth) : '' };
+  }
+  return { hold: Math.min(hold, O.hold), full: hold, pax: O.pax || 0, settlers: O.settlers || 0, ship: berth ? portLineShip(k, berth) : (O.ship || '') };
+}
+// Why this berth cannot take this line now ('' when it can).
+function portSignWhy(state, hb, k, berthId) {
+  const P = portOf(state, hb), O = PORT_OFFERS[k], berth = P.parts.find((p) => p.id === berthId && PORT_PARTS[p.k].berth);
+  const w = portOfferWhy(state, k);
+  if (w) return w;
+  if (!berth) return 'Choose a berth';
+  if (portLineOn(P, berthId)) return 'That berth has its line';
+  if (portLinesOf(P).some((l) => l.k === k)) return 'Signed already';
+  if (O.quay && !PORT_PARTS[berth.k].stone) return 'Its steamships need a stone quay berth';
+  if (O.kind === 'pax') {
+    const c = portPaxCap(P);
+    if (!c.shed && !c.cust) return 'It needs a passenger shed and a customs house here';
+    if (!c.shed) return 'It needs a passenger shed here';
+    if (!c.cust) return 'It needs a customs house here';
+  }
+  if (O.kind === 'contract' && portTerms(state, hb, k, berth).qMax < H2.qStep) return 'The berth’s ship or the sheds are too small';
+  return '';
+}
+// The berths that can take this line now.
+function portSignBerths(state, hb, k) { return portBerths(portOf(state, hb)).filter((p) => !portSignWhy(state, hb, k, p.id)); }
+// Sign (her tap): a contract's quantity and rate are fixed for its three years; signing a contract on a good kept at the
+// desk sets it to export (the markets are still served first: the ship takes what they leave).
+function portSign(state, hb, k, berthId, q) {
+  const why = portSignWhy(state, hb, k, berthId);
+  if (why) return { ok: false, why };
+  const P = portOf(state, hb), O = PORT_OFFERS[k], berth = P.parts.find((p) => p.id === berthId), t = portTerms(state, hb, k, berth, q);
+  const L = { k, at: berthId, since: state.month };
+  if (O.kind === 'contract') {
+    Object.assign(L, { q: t.q, rate: t.rate, dead: t.dead, until: state.month + H2.term });
+    if (!state.exp[O.g]) { state.exp[O.g] = true; L.exp = 1; }
+  }
+  (P.lines || (P.lines = [])).push(L);
+  portTouch(state, P);
+  const who = O.who(portYearOf(state));
+  simLog(state, portCap1(who) + ': ' + O.name.toLowerCase() + ' signed' + (O.kind === 'contract' ? ', ' + t.q + ' ' + portUnit(O.g) + ' a call at ' + money$(t.rate) + ' until ' + dateLabel(L.until) : '') + '.', [hb.x + hb.w / 2, hb.y + hb.h / 2]);
+  simEvent(state, { kind: 'portSign', id: hb.id, line: k });
+  return { ok: true, cost: 0, line: L, exp: !!L.exp };
+}
+// What ending a line costs now: three calls' dead freight on a contract's full quantity (fewer if fewer are left).
+function portEndCost(state, L) {
+  const O = PORT_OFFERS[L.k];
+  if (O.kind !== 'contract') return 0;
+  return Math.max(0, Math.min(H2.endCalls, L.until - state.month)) * L.q * L.dead;
+}
+function portEnd(state, hb, k, why) {
+  const P = portOf(state, hb), L = portLinesOf(P).find((l) => l.k === k);
+  if (!L) return { ok: false, why: 'No such line' };
+  const cost = why ? 0 : portEndCost(state, L);
+  if (cost && state.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  state.money -= cost;
+  P.lines = P.lines.filter((l) => l !== L);
+  portTouch(state, P);
+  const O = PORT_OFFERS[k];
+  simLog(state, portCap1(O.who(portYearOf(state))) + ': the ' + O.name.toLowerCase() + ' ' + (why || 'is ended' + (cost ? ' (' + money$(cost) + ' to the charterers)' : '')) + '; its berth’s call is the open line again.', [hb.x + hb.w / 2, hb.y + hb.h / 2]);
+  return { ok: true, cost };
+}
+// Move a line to another berth (her tap; free: the berth's ticks become its calls from the next one).
+function portLineMove(state, hb, k, berthId) {
+  const P = portOf(state, hb), L = portLinesOf(P).find((l) => l.k === k);
+  if (!L) return { ok: false, why: 'No such line' };
+  const berth = P.parts.find((p) => p.id === berthId && PORT_PARTS[p.k].berth), O = PORT_OFFERS[k];
+  if (!berth || berthId === L.at) return { ok: false, why: 'Choose another berth' };
+  if (portLineOn(P, berthId)) return { ok: false, why: 'That berth has its line' };
+  if (O.quay && !PORT_PARTS[berth.k].stone) return { ok: false, why: 'Its steamships need a stone quay berth' };
+  if (O.kind === 'contract' && L.q > Math.min(PORT_PARTS[berth.k].hold, portBay(state, hb))) return { ok: false, why: 'That berth’s ship is too small for ' + L.q + ' a call' };
+  L.at = berthId;
+  portTouch(state, P);
+  return { ok: true, cost: 0 };
+}
+function portUnit(g) { return GOOD_UNIT[g] || GOODS[g].name.toLowerCase(); }
+function portCap1(t) { return String(t).replace(/^./, (c) => c.toUpperCase()); }
+
+// The month's shipments of each good at a harbour, and the loads each berth's ship took (the trial, Rosa and the board
+// read the last H2.hist months).
+function portShipRec(state, P, cargo, berthId) {
+  const R = P.h2 || (P.h2 = { mo: {}, bo: {} }), m = state.month, o = R.mo[m] || (R.mo[m] = {}), bo = R.bo || (R.bo = {}), ob = bo[m] || (bo[m] = {});
+  let n = 0;
+  for (const g in cargo || {}) { o[g] = (o[g] || 0) + cargo[g]; n += cargo[g]; }
+  if (berthId) ob[berthId] = Math.max(ob[berthId] || 0, n);
+  for (const k of Object.keys(R.mo)) if (+k < m - H2.hist - 2) delete R.mo[k];
+  for (const k of Object.keys(bo)) if (+k < m - H2.hist - 2) delete bo[k];
+}
+function portShipped(P, month, g) { const o = P.h2 && P.h2.mo[month]; return o ? o[g] || 0 : 0; }
+
+// ---------- the calls take their lines ----------
+{
+  const _pcn = portCallsNow;
+  portCallsNow = function (state, hb, month, P) {
+    const out = _pcn.apply(this, arguments);
+    if (!h2On() || !P.lines || !P.lines.length) return out;
+    for (const c of out) {
+      const L = portLineOn(P, c.b), berth = L && P.parts.find((p) => p.id === c.b);
+      if (!L || !berth) continue;
+      const O = PORT_OFFERS[L.k];
+      c.lk = L.k; c.line = L.k; c.kind = portLineShip(L.k, berth); c.ship = portLineShipName(state, hb, L, month);
+      if (O.kind === 'contract') Object.assign(c, { q: L.q, g: O.g, price: L.rate, dead: L.dead });
+      else Object.assign(c, { hold: Math.min(PORT_PARTS[berth.k].hold, O.hold), pax: portYearOf(state, month) >= H2.tourYear ? O.pax || 0 : 0, settlers: O.settlers || 0 });
+    }
+    return out;
+  };
+  const _ps = portSail;
+  portSail = function (state, hb, call, mid) {
+    if (!h2On()) return _ps.apply(this, arguments);
+    const P = portOf(state, hb);
+    if (!P.lines || !P.lines.length) {
+      const l0 = P.log && P.log[0], r = _ps.apply(this, arguments);
+      if (P.log && P.log[0] && P.log[0] !== l0) portShipRec(state, P, P.log[0].cargo, P.log[0].b);
+      return r;
+    }
+    return portSail2(state, hb, call, mid);
+  };
+}
+// A sailing at a harbour with lines: H1's portSail with the contract's goods first at its rate, the other contracts'
+// quantities left in the sheds for their calls, dead freight for a contract's loads short, and the passengers landed.
+function portSail2(state, hb, call, mid) {
+  const P = portOf(state, hb);
+  if (!P.done || P.done.m !== state.month) P.done = { m: state.month, ids: [] };
+  if (call.carried) { const c = P.carry.find((o) => o.b === call.b && o.m === state.month - 1); if (c) c.gone = 1; } else P.done.ids.push(call.b);
+  if (!call.first && !(hb.workers > 0)) return;
+  const reserve = {};
+  for (const L of portLinesOf(P)) { const O = PORT_OFFERS[L.k]; if (O.kind === 'contract' && L.k !== call.lk) reserve[O.g] = (reserve[O.g] || 0) + L.q; }
+  const wait = harborWaiting(state, hb), avail = {};
+  for (const g in wait.goods) avail[g] = Math.max(0, wait.goods[g] - (reserve[g] || 0));
+  const cap = Math.min(call.hold, Math.max(0, call.load)), take = {}, priceOf = {};
+  let room = cap, cN = 0, short = 0;
+  if (call.q) {
+    cN = Math.min(call.q, avail[call.g] || 0, room);
+    if (cN > 0) { take[call.g] = cN; avail[call.g] -= cN; room -= cN; }
+    short = call.q - cN;
+  }
+  const goods = Object.keys(avail).sort(), more0 = {};
+  let more = true;
+  while (room > 0 && more) {
+    more = false;
+    for (const g of goods) if (room > 0 && (more0[g] || 0) < avail[g]) { more0[g] = (more0[g] || 0) + 1; room--; more = true; }
+  }
+  let money = 0, units = 0;
+  const book = (g, n, p) => {
+    const v = n * p;
+    hb.stock[g] -= n;
+    hb.sold += v; money += v; units += n;
+    hb.soldUnits[g] = (hb.soldUnits[g] || 0) + n;
+    state.exported[g] = (state.exported[g] || 0) + n;
+    state.monthExported[g] = (state.monthExported[g] || 0) + n;
+    if (!state.monthExpV) state.monthExpV = {};
+    state.monthExpV[g] = (state.monthExpV[g] || 0) + v;
+    shipCredit(state, hb, g, n, v);
+  };
+  if (cN > 0) { book(call.g, cN, call.price); priceOf[call.g] = call.price; }
+  for (const g in more0) { book(g, more0[g], exportPrice(state, g)); take[g] = (take[g] || 0) + more0[g]; }
+  const left = harborWaiting(state, hb);
+  let leftN = 0;
+  for (const g in left.goods) leftN += Math.max(0, left.goods[g] - (reserve[g] || 0));
+  const byHold = room === 0 && cap === call.hold && leftN > 0, byCrane = room === 0 && cap < call.hold && leftN > 0;
+  hb.full = byHold;
+  hb.left = {};
+  if (byHold) for (const g in left.goods) { const n = left.goods[g] - (reserve[g] || 0); if (n > 0) hb.left[g] = n; }
+  const M = P.m || (P.m = {});
+  M.out = (M.out || 0) + units; M.calls = (M.calls || 0) + 1;
+  if (byCrane) { M.crane = (M.crane || 0) + Math.min(leftN, call.hold - cap); M.craneB = call.b; }
+  if (byHold) M.hold = (M.hold || 0) + leftN;
+  // dead freight: the charterers are paid for the space she booked and did not fill (on the harbour's number)
+  let pen = 0;
+  if (call.q && short > 0) {
+    pen = short * call.dead;
+    hb.mFee = (hb.mFee || 0) - pen;
+    M.dead = (M.dead || 0) + pen; M.deadN = (M.deadN || 0) + short; M.deadG = call.g;
+    simLog(state, 'The ' + PORT_OFFERS[call.lk].name.toLowerCase() + ' sailed ' + short + ' ' + portUnit(call.g) + ' short of its ' + call.q + ': dead freight ' + money$(pen) + '.', [hb.x + hb.w / 2, hb.y + hb.h / 2]);
+  }
+  if (call.q) { M.cq = (M.cq || 0) + call.q; M.cn = (M.cn || 0) + cN; M.prem = (M.prem || 0) + cN * (call.price - exportPrice(state, call.g)); }
+  const land = call.pax ? portLand(state, hb, P, call) : null;
+  const rec = { m: state.month, t: call.carried ? call.dep - TUNE.ticksPerMonth : call.dep, b: call.b, ship: call.ship, kind: call.kind, line: call.line, n: units, hold: call.hold, load: call.load, money, left: left.n, why: call.why, delay: call.delay, crane: byCrane ? 1 : 0, cargo: take };
+  if (call.lk) Object.assign(rec, { lk: call.lk, q: call.q || 0, cn: cN, short, pen, price: priceOf, land });
+  P.log = [rec].concat(P.log || []).slice(0, PORT.log);
+  portShipRec(state, P, take, call.b);
+  if (!units) return;
+  const dep = { m: state.month, mid: !!mid, ship: call.ship, cargo: take, money, n: units, hold: call.hold, left: hb.full ? leftN : 0 };
+  hb.deps = [dep].concat(hb.deps || []).slice(0, 3);
+  simEvent(state, Object.assign({ kind: 'sail', id: hb.id }, dep));
+}
+
+// ---------- passengers, tourists, the hotel ----------
+function portTour(state) {
+  const T = state.tour || (state.tour = {});
+  if (T.m !== state.month) { if (T.m !== undefined) state.tourLast = { m: T.m, came: T.came || 0, guests: T.guests || 0, turned: T.turned || 0, stayed: T.stayed || 0 }; Object.assign(T, { m: state.month, came: 0, guests: 0, turned: 0, stayed: 0 }); }
+  return T;
+}
+function hotelsOf(state) { return state.b.filter((b) => b.type === 'hotel'); }
+// The last month whose calls have all landed (the month just ended, before the new month's first tick turns it over).
+function portTourDone(state) {
+  if (state.tour && state.tour.m === state.month - 1) return state.tour;
+  if (state.tourLast && state.tourLast.m === state.month - 1) return state.tourLast;
+  return null;
+}
+// A hotel's beds this month: H2.beds at full staff (fewer workers, fewer rooms kept).
+function hotelBeds(state, b) { const d = defOf(b); return b.open && !b.wip && b.workers > 0 ? Math.round(H2.beds * Math.min(1, b.workers / d.jobs)) : 0; }
+// A passenger call lands its tourists: as many as the passenger shed and the customs house clear; each needs a bed.
+function portLand(state, hb, P, call) {
+  const cap = portPaxCap(P), came = Math.min(call.pax, cap.n), T = portTour(state);
+  let left = came, guests = 0;
+  for (const h of hotelsOf(state)) {
+    const free = hotelBeds(state, h) - (h.mGuests || 0);
+    if (free <= 0 || left <= 0) continue;
+    const k = Math.min(free, left);
+    h.mGuests = (h.mGuests || 0) + k; left -= k; guests += k;
+  }
+  T.came += came; T.guests += guests; T.turned += left; T.stayed += call.pax - came;
+  const M = P.m || (P.m = {});
+  M.pax = (M.pax || 0) + came; M.paxOff = (M.paxOff || 0) + call.pax - came; M.turned = (M.turned || 0) + left;
+  if (came) simLog(state, plural(came, 'tourist', 'tourists') + ' landed from the ' + call.ship + (left ? ': ' + left + ' found no hotel bed and sailed on' : '') + (call.pax > came ? ' (' + (call.pax - came) + ' stayed aboard: the ' + (cap.shed <= cap.cust ? 'passenger shed' : 'customs house') + ' clears ' + cap.n + ' a call)' : '') + '.', [hb.x + hb.w / 2, hb.y + hb.h / 2]);
+  return { came, guests, turned: left, off: call.pax - came };
+}
+// The settlers the emigrant lines bring a month (with the boat; they come for the free homes like the boat's).
+function portSettlers(state) {
+  if (!h2On() || !state.port) return 0;
+  let n = 0;
+  for (const hb of portHarbours(state)) {
+    if (!hb.open || !state.port[hb.id]) continue;
+    const P = state.port[hb.id];
+    for (const L of portLinesOf(P)) {
+      const O = PORT_OFFERS[L.k];
+      if (O.settlers && P.parts.some((p) => p.id === L.at)) n += Math.min(O.settlers, portPaxCap(P).n);
+    }
+  }
+  return n;
+}
+// The harbour where the settlers land (the first with a passenger shed), or null: the pier as before.
+function portLanding(state) {
+  if (!h2On() || !state.port) return null;
+  return portHarbours(state).find((hb) => hb.open && state.port[hb.id] && portPaxCap(state.port[hb.id]).shed > 0) || null;
+}
+{
+  const _ss = shipSettlers;
+  shipSettlers = function (state) { const n = _ss.apply(this, arguments); return h2On() ? n + portSettlers(state) : n; };
+  // the families' tents stand by the harbour's customs house (its landward side) when the boat lands there
+  const _ts = tentSpots;
+  tentSpots = function (state) {
+    const hb = portLanding(state);
+    if (!hb) return _ts.apply(this, arguments);
+    const n = Math.min(10, Math.ceil((state.waiting || 0) / TUNE.familySize));
+    if (!n) return [];
+    const occ = occMap(state), cx = hb.x + hb.w / 2, cy = hb.y + hb.h / 2, out = [];
+    for (let y = Math.floor(cy) - 6; y <= cy + 6; y++) for (let x = Math.floor(cx) - 6; x <= cx + 6; x++) {
+      if (!inMap(x, y)) continue;
+      const i = tileIdx(x, y), t = state.terrain[i];
+      if (occ[i] || state.road[i] || t === SEA || t === FOREST) continue;
+      out.push([x, y, Math.hypot(x - cx, y - cy) + (t === BEACH ? 0.4 : 0)]);
+    }
+    out.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+    return out.slice(0, n).map((p) => [p[0], p[1]]);
+  };
+  // the settlers walk up from the harbour's landing (drawn only)
+  const _ws = walkersSpawn;
+  walkersSpawn = function (state, h, n, arriving, tent) {
+    const hb = portLanding(state);
+    if (!hb || !state.walk) return _ws.apply(this, arguments);
+    const path = roadPath(state, hb, h);
+    if (!path || !path.length) return _ws.apply(this, arguments);
+    for (let k = 0; k < Math.min(n, 6); k++) {
+      if (state.walk.length > 60) return;
+      state.walk.push({ path: arriving ? path : path.slice().reverse(), pos: -k * 1.2, off: ((h.id * 7 + k * 3) % 10) / 10 - 0.45, arriving, tent: !!tent });
+    }
+  };
+  // the hotel: its guests' spending on its own number (as the airfield's visitors on the airfield's)
+  const _bn = bNumber;
+  bNumber = function (state, b) {
+    const x = _bn.apply(this, arguments);
+    if (b && b.type === 'hotel' && h2On()) { const v = (b.mGuests || 0) * H2.spend; x.exports += v; x.n += v; x.guests = b.mGuests || 0; }
+    return x;
+  };
+  const _pr = paydayRun;
+  paydayRun = function (state) {
+    const r = _pr.apply(this, arguments);
+    for (const b of state.b) if (b.type === 'hotel') { b.lastGuests = b.mGuests || 0; b.mGuests = 0; }
+    return r;
+  };
+  const _cp = canPlace;
+  canPlace = function (state, type, x, y, opts) {
+    if (type === 'hotel' && !h2On()) return 'Not in this game';
+    return _cp.apply(this, arguments);
+  };
+  // the ghost's month for a hotel: the tourists who found no bed last month (as many as it keeps) at their spending
+  const _bf = bForecast;
+  bForecast = function (state, type) {
+    const v = _bf.apply(this, arguments);
+    if (type !== 'hotel' || !h2On()) return v;
+    const T = portTourDone(state) || (state.tour && state.tour.m === state.month ? state.tour : null);
+    return v + Math.min(H2.beds, (T && T.turned) || 0) * H2.spend;
+  };
+}
+
+// ---------- the parts, the berths and the lines on the ground ----------
+{
+  const _la = portLandAt;
+  portLandAt = function (P, x, y) {
+    return _la.apply(this, arguments) || P.parts.find((p) => { const d = PORT_PARTS[p.k]; return d.land && x >= p.x && x < p.x + d.w && y >= p.y && y < p.y + d.h; });
+  };
+  const _cp = portCanPlace;
+  portCanPlace = function (state, b, k) {
+    if (PORT_PARTS[k] && PORT_PARTS[k].land && !h2On()) return 'Not in this game';
+    return _cp.apply(this, arguments);
+  };
+  // a berth that carries a line is not removed under it: the line is ended or moved first
+  const _rm = portRemove;
+  portRemove = function (state, b, pid) {
+    const P = portOf(state, b), L = h2On() && portLineOn(P, pid);
+    if (L) return { ok: false, why: 'Its berth carries the ' + PORT_OFFERS[L.k].name.toLowerCase() + ': move it to another berth or end it on the board first' };
+    return _rm.apply(this, arguments);
+  };
+  // A9's steamship quay rebuilds the waterfront: lines on the jetties it replaces move to its berths
+  const _he = harborExpand;
+  harborExpand = function (state, b) {
+    const r = _he.apply(this, arguments);
+    if (r && r.ok && h2On() && b && state.port && state.port[b.id]) portLinesSeat(state, b);
+    return r;
+  };
+  // the year's turn of the lines: a contract that has run its three years lapses; a line whose company ended ends
+  const _pt = portTick;
+  portTick = function (state) {
+    if (h2On() && state.mt === 0 && state.port) {
+      portTour(state);
+      for (const hb of portHarbours(state)) {
+        const P = state.port[hb.id];
+        if (!P || !P.lines || !P.lines.length) continue;
+        for (const L of P.lines.slice()) {
+          const O = PORT_OFFERS[L.k];
+          if (O.kind === 'contract' && state.month >= L.until) portEnd(state, hb, L.k, 'ran its three years');
+          else if (portYearOf(state) > O.y1) portEnd(state, hb, L.k, 'ended: ' + O.who(O.y1) + ' stopped calling in ' + O.y1);
+        }
+        portLinesSeat(state, hb);
+      }
+    }
+    return _pt.apply(this, arguments);
+  };
+}
+// Lines whose berth is gone take a free berth that fits, else end (no notice: the berth is gone).
+function portLinesSeat(state, hb) {
+  const P = portOf(state, hb);
+  for (const L of portLinesOf(P).slice()) {
+    if (P.parts.some((p) => p.id === L.at && PORT_PARTS[p.k].berth)) continue;
+    const O = PORT_OFFERS[L.k], free = portBerths(P).find((p) => !portLineOn(P, p.id) && !(O.quay && !PORT_PARTS[p.k].stone) && !(O.kind === 'contract' && L.q > PORT_PARTS[p.k].hold));
+    if (free) { L.at = free.id; portTouch(state, P); } else portEnd(state, hb, L.k, 'ended: its berth is gone');
+  }
+}
+
+// ---------- what holds the harbour back (H1's portWhy): a passenger line that cannot land ----------
+{
+  const _pw = portWhy;
+  portWhy = function (state, hb) {
+    const w = _pw.apply(this, arguments);
+    if (!h2On() || (w && w.key !== 'hold')) return w;
+    const P = portOf(state, hb), pax = portLinesOf(P).filter((l) => PORT_OFFERS[l.k].kind === 'pax');
+    if (!pax.length) return w;
+    const c = portPaxCap(P), k = !c.shed ? 'pshed' : !c.cust ? 'customs' : '';
+    if (!k) return w;
+    const O = PORT_OFFERS[pax[0].k], fix = portFixPax(state, hb, k);
+    return { key: 'paxland', text: 'The ' + O.name.toLowerCase() + ' lands no one: the harbour has no ' + PORT_PARTS[k].name.toLowerCase(), fix, at: [hb.x + hb.w / 2, hb.y + hb.h / 2] };
+  };
+  const _pwo = portWorst;
+  portWorst = function (state) {
+    const r = _pwo.apply(this, arguments);
+    if (r || !h2On()) return r;
+    for (const hb of portHarbours(state)) { if (!hb.open) continue; const w = portWhy(state, hb); if (w && w.key === 'paxland') return { hb, why: w }; }
+    return null;
+  };
+  // Q2's trial for a passenger part: it must let more passengers through a call
+  const _pt = portTry;
+  portTry = function (s, hb, d) {
+    if (!d || !PORT_PARTS[d.k] || !PORT_PARTS[d.k].land) return _pt.apply(this, arguments);
+    if (portCanPlace(s, hb, d.k, d.x, d.y)) return false;
+    const P = portOf(s, hb), before = portPaxCap(P).n, e = PORT_PARTS[d.k];
+    const after = Math.min(portPaxCap(P).shed + (e.pax || 0), portPaxCap(P).cust + (e.cust || 0));
+    return after > before;
+  };
+}
+// The spot for a passenger shed (next to the apron, near the gate side) or a customs house (behind the shed).
+function portFixPax(state, hb, k) {
+  const sp = portSpots(state, hb, k).sort((a, c) => a.y - c.y || Math.abs(a.x - 9) - Math.abs(c.x - 9))[0];
+  return sp ? { k, x: sp.x, y: sp.y, cost: portPrice(state, k), name: PORT_PARTS[k].name } : null;
+}
+
+// ---------- the trial: would this contract have paid over the last months? ----------
+// On a copy of the harbour's records: each month, the contract's call takes min(its quantity, what the ships took of
+// its good that month); premium on what it takes, dead freight on the rest. { months, net, short, fill }
+function portReplay(state, hb, k, q) {
+  const P = portOf(state, hb), O = PORT_OFFERS[k], desk = exportPrice(state, O.g), rate = Math.round(desk * (1 + O.prem)), dead = Math.round(desk * O.dead);
+  let net = 0, short = 0, n = 0, got = 0;
+  for (let m = state.month - H2.hist; m < state.month; m++) {
+    if (m < 0) continue;
+    const had = portShipped(P, m, O.g), take = Math.min(q, had);
+    net += take * (rate - desk) - (q - take) * dead; short += q - take; got += take; n++;
+  }
+  return { months: n, net, short, fill: n ? got / (n * q) : 0, rate, dead, desk };
+}
+// The contract Rosa would propose: the offer, the berth with no line whose ship can carry it, the quantity the ships
+// took every one of the last six months (rounded down to 10s): { hb, k, at, q, r } or null.
+function portLineAsk(state) {
+  if (!h2On() || !state.port) return null;
+  let best = null;
+  for (const hb of portHarbours(state)) {
+    if (!hb.open || !state.port[hb.id]) continue;
+    const P = state.port[hb.id];
+    if (!P.h2) continue;
+    for (const k of PORT_OFFER_ORDER) {
+      const O = PORT_OFFERS[k];
+      if (O.kind !== 'contract' || portOfferWhy(state, k) || portLinesOf(P).some((l) => l.k === k)) continue;
+      let lo = Infinity;
+      for (let m = state.month - H2.hist; m < state.month; m++) lo = Math.min(lo, m < 0 ? 0 : portShipped(P, m, O.g));
+      const berth = portBerths(P).find((p) => !portSignWhy(state, hb, k, p.id));
+      if (!berth) continue;
+      const t = portTerms(state, hb, k, berth), q = Math.min(t.qMax, Math.floor(lo / H2.qStep) * H2.qStep);
+      if (q < H2.qStep) continue;
+      const r = portReplay(state, hb, k, q);
+      if (r.months < H2.hist || r.net <= 0 || r.short > 0) continue;
+      if (!best || r.net > best.r.net) best = { hb, k, at: berth.id, q, r, t };
+    }
+  }
+  return best;
+}
+
+// ---------- Rosa, the plans ----------
+function portLinePlanOf(state, d) {
+  const hb = bById(state, d.id);
+  if (!hb || defOf(hb).kind !== 'harbor' || !h2On()) return null;
+  if (portSignWhy(state, hb, d.k, d.at)) return null;
+  const O = PORT_OFFERS[d.k], line = [];
+  for (let y = hb.y; y < hb.y + hb.h; y++) for (let x = hb.x; x < hb.x + hb.w; x++) line.push(tileIdx(x, y));
+  return { kind: 'hline', id: hb.id, line, glow: [hb.id], cost: 0, name: O.name, at: [hb.x, hb.y], k: d.k, q: d.q, berth: d.at };
+}
+{
+  if (typeof A8_KINDS !== 'undefined' && typeof a8PlanOf === 'function') {
+    A8_KINDS.hline = 1;
+    const _ap = a8PlanOf;
+    a8PlanOf = function (s, d) { return d && d.kind === 'hline' ? portLinePlanOf(s, d) : _ap.apply(this, arguments); };
+    const _pl = planLabel;
+    planLabel = function (p) { return p && p.kind === 'hline' ? 'Tap the harbour: sign the ' + p.name.toLowerCase() : _pl.apply(this, arguments); };
+    const _pb = planBtn;
+    planBtn = function (p) { return p && p.kind === 'hline' ? 'Harbour' : _pb.apply(this, arguments); };
+    const _psy = planSay;
+    planSay = function (s, p) { return p && p.kind === 'hline' ? '' : _psy.apply(this, arguments); };
+  }
+  const _po = planOf;
+  planOf = function (s, d) {
+    if (d && d.kind === 'hline') { try { const p = portLinePlanOf(s, d); return p ? Object.assign({ d }, p) : null; } catch (e) { return null; } }
+    return _po.apply(this, arguments);
+  };
+  const _run = planRun;
+  planRun = function (s, d) {
+    if (!d || d.kind !== 'hline') return _run.apply(this, arguments);
+    const hb = bById(s, d.id);
+    if (!hb) return { ok: false, why: 'Nothing to do here now' };
+    const r = portSign(s, hb, d.k, d.at, d.q);
+    return r.ok ? { ok: true, cost: 0, at: [hb.x, hb.y], built: hb.id } : r;
+  };
+  // Q2: a contract Rosa proposes is tried on the harbour's own records first (it must have paid every month of the
+  // last six, with no load short)
+  if (typeof brCheck === 'function') {
+    const _bc = brCheck;
+    brCheck = function (s, a) {
+      const d = a && a.plan;
+      if (!d || d.kind !== 'hline') return _bc.apply(this, arguments);
+      const hb = bById(s, d.id);
+      if (!hb) return { ok: false, kind: 'harbour', why: 'the harbour is gone' };
+      const r = portReplay(s, hb, d.k, d.q);
+      return r.months >= H2.hist && r.net > 0 && r.short === 0 ? { ok: true, kind: 'harbour' } : { ok: false, kind: 'harbour', why: 'the contract would not have paid over the last six months' };
+    };
+  }
+  // Rosa's lines: the dead freight a contract cost (each month it costs), a contract that would have paid (after the
+  // treasury's project, before "every home is full": a money matter, never over the town's needs), the tourists turned
+  // back for want of a bed. None is urgent (`now`): they wait their two months like her other ordinary lines.
+  const hdead = { key: 'hdead', check(s) {
+    if (!h2On() || !s.port) return null;
+    for (const hb of portHarbours(s)) {
+      const P = s.port[hb.id], L = P && (P.m && P.m.dead ? P.m : P.last);
+      if (!L || !L.dead) continue;
+      const line = portLinesOf(P).find((l) => PORT_OFFERS[l.k].kind === 'contract' && PORT_OFFERS[l.k].g === L.deadG);
+      if (!line) continue;
+      const O = PORT_OFFERS[line.k], end = portEndCost(s, line);
+      return { text: 'The ' + O.name.toLowerCase() + ' sailed ' + L.deadN + ' ' + portUnit(O.g) + ' short of its ' + line.q + ' last month: dead freight ' + money$(L.dead) + '. More ' + GOODS[O.g].name.toLowerCase() + ' for the harbour, or end it on the board (' + money$(end) + ', three calls’ dead freight).',
+        btn: 'Harbour', act: { select: hb.id, at: [hb.x, hb.y], fac: { id: hb.id, tab: 'lines', offer: line.k } } };
+    }
+    return null;
+  } };
+  const hline = { key: 'hline', check(s) {
+    if (!h2On()) return null;
+    const a = portLineAsk(s);
+    if (!a) return null;
+    const A = s.h2ask || (s.h2ask = {}), first = A[a.k];
+    if (first !== undefined && s.month - first >= H2.ask) { if (s.month - first >= H2.ask + H2.rest) A[a.k] = s.month; else return null; }
+    if (A[a.k] === undefined) A[a.k] = s.month;
+    const O = PORT_OFFERS[a.k], u = portUnit(O.g), gain = a.q * (a.t.rate - a.t.desk);
+    return { text: 'The ships took at least ' + a.q + ' ' + u + ' of ' + GOODS[O.g].name.toLowerCase() + ' every month for half a year. A ' + O.name.toLowerCase() + ' with ' + O.who(portYearOf(s)) + ': ' + a.q + ' a call at ' + money$(a.t.rate) + ' (the desk pays ' + money$(a.t.desk) + '), +' + money$(gain) + ' a month for three years; ' + money$(a.t.dead) + ' dead freight for each one short. Sign it on the harbour’s board.',
+      btn: 'Harbour', act: { plan: { kind: 'hline', id: a.hb.id, k: a.k, at: a.at, q: a.q }, select: a.hb.id, at: [a.hb.x, a.hb.y], fac: { id: a.hb.id, tab: 'lines', offer: a.k, q: a.q, berth: a.at } } };
+  } };
+  const hotel = { key: 'hotel', check(s) {
+    if (!h2On()) return null;
+    const T = s.tour && s.tour.m === s.month ? s.tour : null;
+    if (!T || T.turned < 5) return null;
+    return { text: plural(T.turned, 'tourist', 'tourists') + ' found no hotel bed this month and sailed on (each spends about ' + money$(H2.spend) + ' in the town). A hotel · ' + money$(BUILDINGS.hotel.cost) + ': ' + H2.beds + ' guests a month.',
+      btn: toolLabel('hotel'), act: { tool: 'hotel' } };
+  } };
+  const iS = GUIDE_PROBLEMS.findIndex((p) => p.key === 'ships');
+  GUIDE_PROBLEMS.splice(iS >= 0 ? iS + 1 : GUIDE_PROBLEMS.length, 0, hdead);
+  const iB = GUIDE_PROBLEMS.findIndex((p) => p.key === 'beds');
+  GUIDE_PROBLEMS.splice(iB >= 0 ? iB : GUIDE_PROBLEMS.length, 0, hline, hotel);
+  // the families wait by the customs house when the boat lands at the harbour
+  const W = GUIDE_PROBLEMS.find((p) => p.key === 'waiting');
+  if (W) {
+    const _wc = W.check;
+    W.check = function (s) { const r = _wc.apply(this, arguments); return r && portLanding(s) ? Object.assign({}, r, { text: r.text.replace('at the pier in tents', 'in tents by the harbour’s customs house') }) : r; };
+  }
+  // the families who sailed away waited by the customs house when the boat lands at the harbour
+  if (typeof sailSay === 'function') {
+    const _sy = sailSay;
+    sailSay = function (s) { const r = _sy.apply(this, arguments); return r && portLanding(s) ? Object.assign({}, r, { text: r.text.replace('at the pier without a roof', 'by the harbour’s customs house without a roof') }) : r; };
+  }
+  // 1920: the year the tourists come (once, in a month when Rosa has nothing else to say)
+  const _gm = guideMonth;
+  guideMonth = function (state) {
+    const r = _gm.apply(this, arguments);
+    if (!h2On()) return r;
+    const g = state.guide, y = portYearOf(state), hb = portHarbours(state).find((o) => o.open);
+    // (only in a month Rosa has nothing else to say: it never takes another line's voice)
+    if (hb && y >= H2.tourYear && y <= 1958 && state.stage >= 2 && !g.seen.tourists && (!g.msg || /^hint/.test(g.msg.key))) {
+      g.seen.tourists = 1;
+      guideSay(state, { key: 'hint-tourists', text: 'Prohibition: from 1920 the United States is dry, and its people sail south for the winter. A passenger line (the harbour’s Lines) brings tourists who spend ' + money$(H2.spend) + ' each in the town: it needs a passenger shed, a customs house and a hotel. Its ship keeps decks for them, so it carries fewer goods.',
+        btn: 'Harbour', act: { select: hb.id, at: [hb.x, hb.y], fac: { id: hb.id, tab: 'lines' } } });
+    }
+    return r;
+  };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -20485,6 +21155,34 @@ const ISO = (() => {
     if (def.gives === 'light') { paintLighthouse(def, sea); return; }
     if (def.island) { paintProject(def); return; }
     paintSchoolClinic(def);
+  }
+  // H2: the hotel (Havana's Sevilla of 1908 and Plaza of 1909, the Nacional of 1930: rendered walls in a warm cream,
+  // three floors, an arcade of round arches below (the portales), shuttered windows with ledges, a parapet round a roof
+  // terrace with its striped awning, the sign over the door, two royal palms at the front)
+  function paintHotel(def) {
+    const W = def.w, D = def.h, x = 0.2, y = 0.2, w = W - 0.4, d = D - 0.4, h = 1.62, wall = '#f1d9b5', shut = '#2f8f88', trim = '#fbf5e6';
+    poly(rrPts(0.06, 0.06, W - 0.06, D - 0.06, 0.18).map((p) => P(p[0], p[1])), '#e3d6b8', '#b9ad8f', 0.8 * S);
+    boxShadow(x, y, x + w, y + d, h + 0.3);
+    const wv = walls(x, y, w, d, 0, h, wall); bands(wv, w, d, h);
+    for (const [f, L] of [[wv.fl, w], [wv.fr, d]]) {
+      const n = Math.max(3, Math.round(L * 2.4));
+      // the arcade: round arches, the shade behind them
+      for (let k = 0; k < n; k++) { const sx = L * (k + 0.5) / n; poly(farch(f, sx, 0.02, L / n * 0.66, 0.42), f === wv.fl ? '#6b4a33' : '#5a3d2b', ln('#6b4a33'), 0.8 * S); }
+      poly(fq(f, 0, L, 0.5, 0.54), trim, ln(trim), 0.7 * S);
+      // two floors of shuttered windows, each with its ledge
+      for (const t of [0.66, 1.12]) for (let k = 0; k < n; k++) { const sx = L * (k + 0.5) / n; win(f, sx, t, 0.12, 0.26, shut); poly(fq(f, sx - 0.1, sx + 0.1, t - 0.05, t - 0.02), trim, ln(trim), 0.6 * S); }
+    }
+    // the sign over the arcade's middle arch on the front
+    poly(fq(wv.fl, w * 0.5 - 0.3, w * 0.5 + 0.3, 1.44, 1.58), '#24786f', INK, 0.9 * S);
+    faceText(wv.fl, w * 0.5, 1.51, 'HOTEL', 10, '#fbf3df');
+    wallsOutline(wv);
+    // the roof terrace inside its parapet, a striped awning over a corner of it
+    flatRoof(x, y, w, d, h, 0.07, trim, '#d8c7a6');
+    const ax = x + w * 0.2, ay = y + d * 0.2, aw = w * 0.42, ad = d * 0.42, az = h + 0.4;
+    for (const [px, py] of [[ax, ay + ad], [ax + aw, ay + ad], [ax + aw, ay]]) { const a = P(px, py, h - 0.05), b2 = P(px, py, az); seg(a, b2, '#5a4434', 1.4 * S); }
+    const n2 = 6;
+    for (let i = 0; i < n2; i++) { const u0 = i / n2, u1 = (i + 1) / n2, c = i % 2 ? '#f8f2e4' : '#df684c'; poly([P(ax + aw * u0, ay, az + 0.06), P(ax + aw * u1, ay, az + 0.06), P(ax + aw * u1, ay + ad, az), P(ax + aw * u0, ay + ad, az)], c, ln(c), 0.6 * S); }
+    for (const [px, py] of [[0.1, D - 0.12], [W - 0.12, 0.1]]) royalPalm(px, py, 2.0, 0.85);
   }
 
   // ---------- market ----------
@@ -23151,6 +23849,7 @@ const ISO = (() => {
     if (art === 'pier') return 1.3;
     if (art === 'airfield') return 1.6;
     if (art === 'station') return 1.25;
+    if (art === 'hotel') return 2.6;
     return 1.2;
   }
   function pickHeight(b) {
@@ -23168,6 +23867,7 @@ const ISO = (() => {
     if (art === 'workshop') return def.w >= 2 ? 1.35 : 0.9;
     if (art === 'civic') return 1.3;
     if (art === 'station') return 0.95;
+    if (art === 'hotel') return 1.6;
     return 1.3;
   }
   // A square building's last sprite (another turn's look) may stand in for one frame budget at a time (sprite(): ALT).
@@ -23212,6 +23912,7 @@ const ISO = (() => {
     if (art === 'workshop' && def.makes === 'tins' && bigWorks(def)) { const sea = cannerySea(s, b, r); return sprite(R, 'ws|cannery' + wlk + '|' + (sea ? sea.join(',') : '-') + (wlk ? '|' + vd.w + 'x' + vd.h : ''), foot, H, () => paintCanneryBig(vd, sea)); }
     if (art === 'workshop') return sprite(R, 'ws|' + b.type + wlk + '|' + vd.w + 'x' + vd.h, foot, H, () => workshopPaint(vd));
     if (art === 'civic') { const sea = def.gives === 'light' ? seaView(s, b, r) : null; return sprite(R, 'civic|' + b.type + '|' + (sea ? sea.join(',') : '-') + '|' + vd.w + 'x' + vd.h, foot, H, () => paintCivic(vd, sea)); }
+    if (art === 'hotel') return sprite(R, 'hotel|' + vd.w + 'x' + vd.h, foot, H, () => paintHotel(vd));
     // A12: a harbor on its fenced 4 x 4 plot (an old one on its 2 x 2 lot as before)
     if (art === 'harbor' && def.w >= 4 && !(def.ships > 1)) { const lv = typeof hbLevel === 'function' ? Math.max(0, hbLevel(s, b)) : 0, sea = seaView(s, b, r); return sprite(R, 'hplot|' + lv + '|' + (sea ? sea.join(',') : '-') + '|' + vd.w, [foot[0], foot[1], 1.5, 1.5], H, () => paintHarborPlot(vd, lv, sea)); }
     if (art === 'harbor' && def.ships > 1) { const sea = seaView(s, b, r); return sprite(R, 'quay|' + b.type + '|' + (sea ? sea.join(',') : '-'), foot, H, () => paintQuay(vd, sea)); }
@@ -36357,6 +37058,7 @@ function portThumb(k) {
     if (d.store) { FAC.view.oy = 38; portShed(g, k, -d.w / 2, -d.h / 2, d.w, d.h); }
     else if (d.crane) { FAC.view.hw = 15; FAC.view.oy = 52; FAC.view.ox = 46; portCrane(g, k === 'steam' ? 'steam' : k === 'electric' ? 'electric' : 'derrick', 0, 0, 0, 1, 0); }
     else if (k === 'quayb') { FAC.view.hw = 11; portSteamer(g, 0, 0, 0, 1); }
+    else if (d.land && typeof portPaintLand === 'function') { FAC.view.oy = 40; FAC.view.hw = d.h > 1 ? 13 : 15; portPaintLand(g, k, -d.w / 2, -d.h / 2, d.w, d.h); }
     else { FAC.view = keep; T[k] = ''; return ''; }
     FAC.view = keep;
     T[k] = c.toDataURL();
@@ -36544,7 +37246,9 @@ function portDrawParts(ctx, s, b, P, F, now) {
     const big = c.hold > 40 && c.kind === 'schooner' ? 1.15 : 1;
     items.push({ dz: at.x + at.y, f: () => {
       ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, at.alpha));
-      if (c.kind === 'steamer') portSteamer(ctx, at.x, at.y, at.face, 1); else portSchooner(ctx, at.x, at.y, at.face, big, at.at === 'berth');
+      // (H2: the lines' ships, the reefer and the packet, in harbour2_ui.js)
+      if (typeof portShipDraw === 'function') portShipDraw(ctx, c, at, big);
+      else if (c.kind === 'steamer') portSteamer(ctx, at.x, at.y, at.face, 1); else portSchooner(ctx, at.x, at.y, at.face, big, at.at === 'berth');
       ctx.restore();
       // the loads going aboard while she lies at her berth: a crate on its way every second
       if (at.at === 'berth' && c.load > 0 && F.have > 0) {
@@ -36568,6 +37272,8 @@ function portDrawParts(ctx, s, b, P, F, now) {
   if (F.why && F.why.key === 'store') for (let k = 0; k < 3; k++) items.push({ dz: P.gate - 1 - k, f: () => portCart(ctx, P.gate + 0.5, -0.9 - k * 0.85, true) });
   // a goods train on the siding when the railway brought loads this month
   if (F.rail && (F.M.in || 0) > 0) items.push({ dz: 1.5, f: () => { for (let k = 0; k < 3; k++) portBox(ctx, 1.2 + k * 1.05, 0.3, 0.9, 0.4, 0.05, 0.42, '#8a5a3c', '#a06a48', '#6b4a33'); } });
+  // H2: the passenger shed, the customs house, the people ashore, the tents (harbour2_ui.js)
+  if (typeof portDrawExtra === 'function') portDrawExtra(ctx, s, b, P, F, now, items);
   items.sort((a, c) => a.dz - c.dz);
   for (const it of items) it.f();
 }
@@ -36665,7 +37371,7 @@ function portDrawWhy(ctx, s, b, P, F, now) {
   } else if (w.key === 'berth') {
     const q = facP(6, L + 1.5, 0);
     portLabel(ctx, q[0], q[1], 'No berth: no ship can call' + tail, 'red', 'fix');
-  }
+  } else if (typeof portDrawWhy2 === 'function') portDrawWhy2(ctx, s, b, P, F, w, tail);
 }
 
 // ---------- weather over the plan ----------
@@ -36691,6 +37397,8 @@ function portDrawLights(ctx, s, b, P, F, now) {
   for (let x = 1; x < PORT.W; x += 3) lamp(x, L - 0.3, 0.9, 0.9);
   lamp(P.gate + 1.5, 0.45, 0.5, 0.7);
   for (const p of portParts(P, 'store')) if (p.k !== 'yard') { const d = PORT_PARTS[p.k], r = portDR(p.x, p.y, d.w, d.h); lamp(r[0] + r[2] / 2, r[1] + r[3], 0.35, 0.6); }
+  // (H2: the passenger shed's and the customs house's lamps)
+  for (const p of P.parts) { const d = PORT_PARTS[p.k]; if (!d.land) continue; const r = portDR(p.x, p.y, d.w, d.h); lamp(r[0] + r[2] / 2, r[1] + r[3], 0.5, 0.7); }
   for (const p of portParts(P, 'crane')) { const s0 = P.parts.find((q) => q.id === p.s); if (!s0) continue; const at = portBerthGeo(s0).slots[p.slot || 0]; lamp(at[0], at[1], 1.6, 0.5); }
   F.calls.forEach((c, k) => { const at = portShipAt(s, P, c, now, k); if (at) { lamp(at.x, at.y, 2.1, 0.45); lamp(at.x + 0.6, at.y - 0.3, 0.6, 0.35); } });
   if (portMole(P)) lamp(8.8, L + 4.4, 1.2, 1.4);
@@ -36763,7 +37471,7 @@ facRegister('harbour', {
       const d = PORT_PARTS[p.k];
       let c = null, r = 0.8;
       if (d.crane) { const s0 = P.parts.find((q) => q.id === p.s); if (!s0) continue; const at = portBerthGeo(s0).slots[p.slot || 0]; c = facP(at[0], at[1], 0.9); r = 0.7; }
-      else if (d.store) { const q = portDR(p.x, p.y, d.w, d.h); c = facP(q[0] + q[2] / 2, q[1] + q[3] / 2, 0.5); r = Math.max(d.w, d.h) * 0.6; }
+      else if (d.store || d.land) { const q = portDR(p.x, p.y, d.w, d.h); c = facP(q[0] + q[2] / 2, q[1] + q[3] / 2, 0.5); r = Math.max(d.w, d.h) * 0.6; }
       else if (d.berth) { const G = portBerthGeo(p); c = d.stone ? facP(p.x + 2, L - 0.3, 0.2) : facP(G.deck[0] + 0.4, G.deck[1] + G.deck[3] / 2, 0.2); r = d.stone ? 1.6 : 1.2; }
       else if (d.mole) { c = facP(3.5, L + 4.4, 0.3); r = 2; }
       const dist = Math.hypot(c[0] - sx, c[1] - sy) / FAC.view.hw;
@@ -36835,7 +37543,7 @@ function portPanel(s, b, F) {
     const late = c.why === 'norte' ? 'a norte: ' + c.delay + (c.delay === 1 ? ' tick' : ' ticks') + ' late' : c.why === 'storm' ? 'the hurricane: ' + Math.round(c.delay * 0.3) + ' days late' : c.why === 'berth' ? 'waits for the berth' : 'on time';
     const now = m === s.month && s.mt >= c.arr && s.mt < c.dep ? 'at the berth' : m === s.month && s.mt >= c.arr - PORT_UI.stayIn && s.mt < c.arr ? 'coming in' : '';
     const berth = P.parts.find((q) => q.id === c.b), name = berth ? PORT_PARTS[berth.k].short.toLowerCase() + ' ' + portBerthNo(P, berth) : '';
-    t += '<div class="fac-row' + (c.why && c.why !== '' ? ' late' : '') + '"><b>' + esc(portWhen(s, m, c.arr) + '–' + portWhen(s, m, c.dep)) + '</b><span>' + esc('the ' + c.ship + ' (' + (c.kind === 'steamer' ? 'steamship' : 'schooner') + ', ' + c.hold + ' loads) · ' + PORT_LINES[c.line].to + ' · ' + name) + '</span><small>' + esc((now ? now + ' · ' : '') + late + ' · loads up to ' + Math.min(c.hold, c.load) + (m === s.month ? ' of the ' + waiting + ' waiting' : '')) + '</small></div>';
+    t += '<div class="fac-row' + (c.why && c.why !== '' ? ' late' : '') + '"><b>' + esc(portWhen(s, m, c.arr) + '–' + portWhen(s, m, c.dep)) + '</b><span>' + esc('the ' + c.ship + ' (' + ((typeof PORT_SHIP_WORDS !== 'undefined' && PORT_SHIP_WORDS[c.kind]) || (c.kind === 'steamer' ? 'steamship' : 'schooner')) + ', ' + c.hold + ' loads) · ' + PORT_LINES[c.line].to + ' · ' + name) + '</span><small>' + esc((now ? now + ' · ' : '') + late + ' · loads up to ' + Math.min(c.hold, c.load) + (m === s.month ? ' of the ' + waiting + ' waiting' : '')) + '</small></div>';
   });
   if (!rows.length) t += '<div class="fac-row"><span>No ship calls: the harbour has no berth.</span></div>';
   const done = (FL.log || []).slice(0, 3);
@@ -36938,6 +37646,457 @@ function portAct(F, what, data) {
     const s = APP.state;
     if (s && s.ev && s.ev.length) for (const e of s.ev) if (e.kind === 'portWarn') toastShow('⚠ ' + e.text, { important: true, id: e.id, logged: true });
     return _eh.apply(this, arguments);
+  };
+}
+
+// ---- src/ui/harbour2_ui.js
+// H2 (3 Nov 2026, `nova/h2`): the harbour screen's lines and contracts, passengers and customs; the hotel on the island.
+// DESIGN.md §45; the rules: src/sim/harbour2.js. What she sees:
+// - The side panel has two tabs: Harbour (H1's flow, timetable, weather) and Lines: the board. The board lists each
+//   berth with what calls there (the open line, or her line with this month's and last month's numbers, [Move to berth
+//   N] and [End]), then the offers open now (each with its history in a line, what it takes, the price, and the
+//   trade-off in numbers from her own harbour's last six months: premium against dead freight, the goods her hold would
+//   lose against the tourists it lands), the berth she picks, the quantity (− 40 a call +) and [Sign · berth N]. Offers
+//   not open yet are listed greyed with their year or stage. Nothing is signed, ended or moved without her tap.
+// - The new parts on the plan: the passenger shed (a striped awning on posts over the landing steps, benches) and the
+//   customs house (two floors of rendered masonry with an arcade and a flag). The ships of the lines: the reefer (white
+//   hull), the packet steamer, the Ward Line's steamship. A passenger ship at her berth puts her people ashore: a file of
+//   tourists or settlers walks from the berth along the apron to the passenger shed. The families who wait for a home
+//   camp in tents by the customs house.
+// - The hotel (Harbor tab, City, from 1920): its card says its guests, its beds and what the tourists spent; the island
+//   draws it (iso.js paintHotel: three floors, balconies, an arcade, a roof terrace, its sign).
+
+Object.assign(ICONS, {
+  bed: 'M2 6 H4 V12 H22 V19 H20 V16 H4 V19 H2 Z M5 8.5 C5 7.4 5.9 6.5 7 6.5 H9 C10.1 6.5 11 7.4 11 8.5 V11 H5 Z M12 9 C12 8 12.8 7.5 13.8 7.5 H19.5 C20.9 7.5 22 8.6 22 10 V11 H12 Z',
+});
+
+// ---------- the new parts on the plan ----------
+// The passenger shed (2 x 1): a slab, posts, a striped canvas awning over benches; the steps down to the water.
+// The customs house (2 x 2): rendered masonry on two floors, an arcade below, a parapet and a flag above.
+function portPaintLand(ctx, k, X0, Y0, W0, H0) {
+  const lw = portLw(), e = 0.08, X = X0 + e, Y = Y0 + e, W = W0 - 2 * e, Hh = H0 - 2 * e;
+  if (k === 'pshed') {
+    portBox(ctx, X - 0.04, Y - 0.04, W + 0.08, Hh + 0.08, 0, 0.07, '#e3d7bc', '#eadfc6', '#cdbf9f');
+    // benches under the awning
+    for (const u of [0.25, 0.62]) portBox(ctx, X + W * u, Y + Hh * 0.35, W * 0.24, 0.14, 0.07, 0.2, '#8a603c', '#a07a50', '#6b4a33');
+    const zr = 0.82, posts = [[X + 0.05, Y + 0.05], [X + W - 0.05, Y + 0.05], [X + W / 2, Y + 0.05], [X + 0.05, Y + Hh - 0.05], [X + W / 2, Y + Hh - 0.05], [X + W - 0.05, Y + Hh - 0.05]];
+    for (const [px, py] of posts) portSeg(ctx, facP(px, py, 0.07), facP(px, py, zr), '#5a4030', Math.max(1.4, FAC.view.hw / 20));
+    // the awning: a low gable, its ridge along the shed, in teal and cream stripes
+    const o = 0.1, ym = Y + Hh / 2, z1 = zr, z2 = zr + 0.28, n = 8;
+    for (let i = 0; i < n; i++) {
+      const a = X - o + (W + 2 * o) * i / n, c = X - o + (W + 2 * o) * (i + 1) / n, col = i % 2 ? '#f4eee2' : '#2e9a91';
+      portPoly(ctx, [facP(a, ym, z2), facP(c, ym, z2), facP(c, Y + Hh + o, z1), facP(a, Y + Hh + o, z1)], col, null);
+      portPoly(ctx, [facP(a, Y - o, z1), facP(c, Y - o, z1), facP(c, ym, z2), facP(a, ym, z2)], portDk(col, 0.12), null);
+    }
+    portPoly(ctx, [facP(X - o, ym, z2), facP(X + W + o, ym, z2), facP(X + W + o, Y + Hh + o, z1), facP(X - o, Y + Hh + o, z1)], null, PORT_INK, lw);
+    portPoly(ctx, [facP(X + W + o, Y - o, z1), facP(X + W + o, ym, z2), facP(X + W + o, Y + Hh + o, z1)], '#e9e1cc', PORT_INK, lw);
+    // its scalloped edge toward the eye
+    for (let i = 0; i < n; i++) { const a = X - o + (W + 2 * o) * (i + 0.5) / n, q = facP(a, Y + Hh + o, z1); ctx.beginPath(); ctx.arc(q[0], q[1], Math.max(1.5, FAC.view.hw / 22), 0, Math.PI); ctx.fillStyle = i % 2 ? '#f4eee2' : '#2e9a91'; ctx.fill(); }
+    return;
+  }
+  // the customs house
+  const col = '#efd9a0', trim = '#fbf5e6', z1 = 1.35;
+  portBox(ctx, X - 0.03, Y - 0.03, W + 0.06, Hh + 0.06, 0, 0.1, '#d8cdb4', '#e3d9c2', '#c4b89c');
+  portBox(ctx, X, Y, W, Hh, 0.1, z1, col, portLt(col, 0.1), portDk(col, 0.16));
+  // the arcade below (arches on the two faces turned to the eye), windows with white frames above
+  const nA = Math.max(2, Math.round(W * 2)), nB = Math.max(2, Math.round(Hh * 2));
+  for (let i = 0; i < nA; i++) {
+    const u = X + (i + 0.5) * W / nA;
+    portPoly(ctx, [facP(u - 0.15, Y + Hh, 0.1), facP(u + 0.15, Y + Hh, 0.1), facP(u + 0.15, Y + Hh, 0.5), facP(u, Y + Hh, 0.64), facP(u - 0.15, Y + Hh, 0.5)], '#6b4a33', PORT_INK, lw * 0.8);
+    portPoly(ctx, [facP(u - 0.11, Y + Hh, 0.82), facP(u + 0.11, Y + Hh, 0.82), facP(u + 0.11, Y + Hh, 1.15), facP(u - 0.11, Y + Hh, 1.15)], '#4e6a73', trim, lw * 1.2);
+  }
+  for (let i = 0; i < nB; i++) {
+    const v = Y + (i + 0.5) * Hh / nB;
+    portPoly(ctx, [facP(X + W, v - 0.14, 0.1), facP(X + W, v + 0.14, 0.1), facP(X + W, v + 0.14, 0.5), facP(X + W, v, 0.62), facP(X + W, v - 0.14, 0.5)], '#5a3d2b', PORT_INK, lw * 0.8);
+    portPoly(ctx, [facP(X + W, v - 0.1, 0.82), facP(X + W, v + 0.1, 0.82), facP(X + W, v + 0.1, 1.15), facP(X + W, v - 0.1, 1.15)], '#3f5960', trim, lw * 1.2);
+  }
+  portSeg(ctx, facP(X, Y + Hh, 0.72), facP(X + W, Y + Hh, 0.72), trim, 2);
+  portSeg(ctx, facP(X + W, Y, 0.72), facP(X + W, Y + Hh, 0.72), trim, 2);
+  // a flat roof with its parapet, the flagpole and the flag
+  portBox(ctx, X - 0.04, Y - 0.04, W + 0.08, Hh + 0.08, z1, z1 + 0.14, trim, portLt(trim, 0.05), portDk(trim, 0.12));
+  const fp = facP(X + 0.3, Y + 0.3, z1 + 0.14), ft = facP(X + 0.3, Y + 0.3, z1 + 1.15), hw = FAC.view.hw;
+  portSeg(ctx, fp, ft, '#5a4030', Math.max(1.2, hw / 26));
+  const wave = Math.sin(performance.now() / 500) * hw * 0.03;
+  portPoly(ctx, [[ft[0], ft[1]], [ft[0] + hw * 0.55, ft[1] + 2 + wave], [ft[0] + hw * 0.55, ft[1] + hw * 0.3 + wave], [ft[0], ft[1] + hw * 0.28]], '#c9573f', PORT_INK, 1);
+  portPoly(ctx, [[ft[0], ft[1] + hw * 0.09], [ft[0] + hw * 0.55, ft[1] + hw * 0.11 + wave], [ft[0] + hw * 0.55, ft[1] + hw * 0.19 + wave], [ft[0], ft[1] + hw * 0.18]], '#f4eee2', null);
+}
+
+// A steamship of a line, at any berth: the reefer (a white hull: the fruit companies' "white fleet"), the packet (a
+// small black-hulled steamer with a white house), the steamship (H1's painter). k: her size (a jetty takes a smaller one).
+function portShip2(ctx, x, y, face, kind, k) {
+  if (kind === 'steamer' && k >= 1) { portSteamer(ctx, x, y, face, 1); return; }
+  const [fx, fy] = PORT_FACE[face], Fr = portFrame(x, y, fx * k, fy * k), K = k;
+  const white = kind === 'reefer', hull = white ? '#f4f1ea' : '#2a3236', boot = white ? '#3f6b8a' : '#b5473a';
+  const out = [[-1.7, -0.36], [1.1, -0.38], [1.65, -0.12], [1.85, 0], [1.65, 0.12], [1.1, 0.38], [-1.7, 0.36], [-1.85, 0.2], [-1.85, -0.2]];
+  const sh = out.map((q) => Fr.P(q[0] + 0.15, q[1] + 0.3, 0));
+  ctx.save(); ctx.globalAlpha *= 0.22; ctx.beginPath(); sh.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.fillStyle = '#0f4d63'; ctx.fill(); ctx.restore();
+  portHull(ctx, Fr, out, 0, 0.1 * K, boot);
+  const g = portHull(ctx, Fr, out, 0.1 * K, 0.46 * K, hull);
+  portDeck(ctx, g, 0.46 * K, '#c9a46b');
+  const house = white ? '#fbf8f0' : '#f4eee2';
+  const parts = [[1.2, 1.6, -0.2, 0.2, 0.46, 0.58, house], [-1.4, -1.0, -0.18, 0.18, 0.46, 0.54, '#7a604b'], [-0.95, 0.5, -0.3, 0.3, 0.46, 0.82, house], [-0.6, 0.35, -0.25, 0.25, 0.82, 1.02, house]];
+  const sorted = parts.map((q) => { const c = Fr.G((q[0] + q[1]) / 2, (q[2] + q[3]) / 2); return { q, d: c[0] + c[1] + q[4] * 0.01 }; }).sort((u, v) => u.d - v.d);
+  for (const { q } of sorted) portLBox(ctx, Fr, q[0], q[1], q[2], q[3], q[4] * K, q[5] * K, q[6]);
+  // a row of portholes (the passenger decks) on the house's lit side
+  for (let i = 0; i < 6; i++) { const p = Fr.P(-0.85 + i * 0.24, 0.3, 0.66 * K); ctx.beginPath(); ctx.arc(p[0], p[1], Math.max(0.9, FAC.view.hw / 34), 0, Math.PI * 2); ctx.fillStyle = '#3d5560'; ctx.fill(); }
+  const fu = Fr.G(-0.2, 0);
+  portCyl(ctx, fu[0], fu[1], 0.14 * K, 1.02 * K, 1.6 * K, white ? '#d9a35b' : '#e8dcc4', white ? '#2a2420' : '#b5473a');
+  for (const a of [0.95, -1.2]) portSpar(ctx, Fr, [a, 0, 0.5 * K], [a, 0, 1.75 * K], '#8a5a3c', 1.6);
+  portSpar(ctx, Fr, [0.95, 0, 1.75 * K], [-1.2, 0, 1.75 * K], null, 0.7);
+}
+function portShipDraw(ctx, c, at, big) {
+  const jetty = c.berthKind !== 'quay';
+  if (c.kind === 'steamer' && !jetty) portSteamer(ctx, at.x, at.y, at.face, 1);
+  else if (c.kind === 'schooner') portSchooner(ctx, at.x, at.y, at.face, big, at.at === 'berth');
+  else portShip2(ctx, at.x, at.y, at.face, c.kind, jetty ? 0.72 : c.kind === 'packet' ? 0.85 : 0.95);
+}
+
+// People: a small figure (a coat, a hat or a scarf) at grid (x, y), drawn with the island's pen.
+function portPerson(ctx, x, y, col, hat) {
+  const hw = FAC.view.hw, q = facP(x, y, 0), h = hw * 0.5, w = Math.max(2, hw * 0.1);
+  ctx.fillStyle = 'rgba(30,20,10,0.18)'; ctx.beginPath(); ctx.ellipse(q[0], q[1], w * 1.6, w * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = col; ctx.strokeStyle = PORT_INK; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(q[0] - w, q[1]); ctx.lineTo(q[0] - w * 0.8, q[1] - h * 0.72); ctx.lineTo(q[0] + w * 0.8, q[1] - h * 0.72); ctx.lineTo(q[0] + w, q[1]); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e8c4a0'; ctx.beginPath(); ctx.arc(q[0], q[1] - h * 0.86, w * 0.8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  if (hat) { ctx.fillStyle = hat; ctx.fillRect(q[0] - w * 1.1, q[1] - h * 1.02, w * 2.2, w * 0.45); }
+}
+// A tent of a waiting family (white canvas, an A-frame).
+function portTent(ctx, x, y) {
+  const a = facP(x - 0.3, y + 0.25, 0), b = facP(x + 0.3, y + 0.25, 0), c = facP(x + 0.3, y - 0.25, 0), d = facP(x - 0.3, y - 0.25, 0), t0 = facP(x - 0.3, y, 0.42), t1 = facP(x + 0.3, y, 0.42);
+  portPoly(ctx, [d, c, t1, t0], '#d9d0bc', PORT_INK, 1);
+  portPoly(ctx, [a, b, t1, t0], '#f4efe2', PORT_INK, 1);
+  portPoly(ctx, [b, c, t1], '#e3dccb', PORT_INK, 1);
+  const m = facP(x, y + 0.25, 0), mt = facP(x, y + 0.25, 0.3);
+  portPoly(ctx, [[m[0] - 3, m[1]], [mt[0], mt[1]], [m[0] + 3, m[1]]], '#6b5a48', null);
+}
+
+// What H2 adds to the plan, in depth order with H1's items (portDrawParts calls it): the passenger parts, the people
+// walking ashore from a passenger ship at her berth, the families' tents by the customs house.
+function portDrawExtra(ctx, s, b, P, F, now, items) {
+  if (!h2On()) return;
+  const t = portNow(s);
+  for (const p of P.parts) {
+    const d = PORT_PARTS[p.k];
+    if (!d.land) continue;
+    const r = portDR(p.x, p.y, d.w, d.h);
+    items.push({ dz: r[0] + r[1] + Math.min(d.w, d.h), f: () => { portPaintLand(ctx, p.k, r[0], r[1], r[2], r[3]); portSelMark(ctx, p, r[0] + r[2] / 2, r[1] + r[3] / 2, Math.max(d.w, d.h) / 2); } });
+  }
+  const shed = P.parts.find((p) => p.k === 'pshed'), cust = P.parts.find((p) => p.k === 'customs');
+  // passengers ashore: from the berth along the apron to the passenger shed (or the customs house)
+  const to = shed || cust;
+  if (to) {
+    const dto = PORT_PARTS[to.k], r = portDR(to.x, to.y, dto.w, dto.h), goal = [r[0] + r[2] / 2, r[1] + r[3] + 0.15];
+    for (const c of F.calls) {
+      if (!(c.pax > 0 || c.settlers > 0) || t < c.arr || t >= c.arr + 8) continue;
+      const berth = P.parts.find((q) => q.id === c.b);
+      if (!berth) continue;
+      const G = portBerthGeo(berth), from = G.name === 'quay' ? [berth.x + 2, PORT.LAND - 0.4] : [berth.x + 0.5, PORT.LAND + 0.6];
+      const n = Math.min(10, Math.max(3, Math.round((c.pax || c.settlers) / 6)));
+      for (let i = 0; i < n; i++) {
+        const u = ((t - c.arr) / 8 + i / n * 0.6) % 1;
+        const mid = [from[0], PORT.LAND - 0.45];
+        const pt = u < 0.3 ? [from[0] + (mid[0] - from[0]) * u / 0.3, from[1] + (mid[1] - from[1]) * u / 0.3] : [mid[0] + (goal[0] - mid[0]) * (u - 0.3) / 0.7, mid[1] + (goal[1] - mid[1]) * (u - 0.3) / 0.7];
+        const cols = c.settlers ? ['#7a604b', '#5a6b78', '#9a5a2c', '#6b7d5a'] : ['#f4eee2', '#e8d4a8', '#9fc4d6', '#f0a3c0'];
+        items.push({ dz: pt[0] + pt[1] + 0.2, f: () => portPerson(ctx, pt[0] + 0.12 * Math.sin(i * 2.3), pt[1] + 0.1 * Math.cos(i * 1.7), cols[i % cols.length], c.settlers ? (i % 2 ? '#3a2a1f' : null) : (i % 3 ? '#f8f2e4' : '#c9573f')) });
+      }
+    }
+  }
+  // the families who wait for a home: tents outside the fence beside the customs house (one a family, at most six)
+  if (s.waiting > 0 && cust && portLanding(s) && portLanding(s).id === b.id) {
+    const n = Math.min(6, Math.ceil(s.waiting / TUNE.familySize)), left = cust.x + 1 < PORT.W / 2, Y0 = PORT.LAND - cust.y - 1.6;
+    for (let k = 0; k < n; k++) {
+      const x = left ? -0.75 - 0.95 * Math.floor(k / 2) : PORT.W + 0.75 + 0.95 * Math.floor(k / 2), y = Y0 + (k % 2) * 1.05;
+      items.push({ dz: x + y, f: () => portTent(ctx, x, y) });
+    }
+  }
+}
+// A red label on the plan for a passenger line that lands no one (H1's portDrawWhy calls it for H2's causes).
+function portDrawWhy2(ctx, s, b, P, F, w, tail) {
+  if (w.key !== 'paxland') return;
+  const q = facP(9, PORT.LAND - 2, 0.6);
+  portLabel(ctx, q[0], q[1], w.text.replace(/^./, (c) => c.toUpperCase()) + tail, 'red', 'fix');
+}
+
+// ---------- the board (the side panel's Lines) ----------
+function portTabs(s, b, F) {
+  const P = portOf(s, b), n = PORT_OFFER_ORDER.filter((k) => !portOfferWhy(s, k) && !portLinesOf(P).some((l) => l.k === k)).length, L = portLinesOf(P).length;
+  return '<div class="fac-tabs" role="tablist"><button id="ftH" class="' + (F.ptab !== 'lines' ? 'on' : '') + '" data-fa="ptab" data-t="harbour" role="tab">Harbour</button>' +
+    '<button id="ftL" class="' + (F.ptab === 'lines' ? 'on' : '') + '" data-fa="ptab" data-t="lines" role="tab">Lines' + (L ? ' · ' + L + ' signed' : '') + (n ? ' <i>' + n + '</i>' : '') + '</button></div>';
+}
+function portBerthWord(P, p) { return 'berth ' + portBerthNo(P, p) + ' (' + PORT_PARTS[p.k].short.toLowerCase() + ')'; }
+function portBerthWhen(P, p) { const i = portBerths(P).findIndex((q) => q.id === p.id), t = PORT.dep[i] || PORT.dep[PORT.dep.length - 1]; return t === 100 ? 'at the month’s end' : t === 50 ? 'at mid-month' : 'about the ' + portOrd(portDay(t)); }
+function portOrd(n) { return n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th'); }
+// The most loads a call at this berth took in the last six months (from the harbour's records), or -1 without a record.
+function portBerthTook(s, P, berthId) {
+  const R = P.h2 && P.h2.bo;
+  if (!R) return -1;
+  let mx = -1;
+  for (let m = s.month - H2.hist; m < s.month; m++) if (R[m] && R[m][berthId] !== undefined) mx = Math.max(mx, R[m][berthId]);
+  return mx;
+}
+function portBoard(s, b, F) {
+  const P = portOf(s, b), y = portYear(s), lines = portLinesOf(P), berths = portBerths(P), out = [];
+  // the berths and what calls at each
+  let h = '<section class="fac-sec"><h4>Berths <small>one call a month at each</small></h4>';
+  if (!berths.length) h += '<p class="fac-p">No berth: no ship calls. A jetty first (the build bar).</p>';
+  for (const p of berths) {
+    const L = portLineOn(P, p.id), when = portBerthWhen(P, p);
+    h += '<div class="fac-line' + (L ? ' signed' : '') + '" id="fl-' + p.id + '"><b>' + esc(portCap(portBerthWord(P, p))) + '</b><span>' + esc(when) + '</span>';
+    if (!L) {
+      const d = PORT_PARTS[p.k];
+      const OL = PORT_LINES[d.ship === 'steamer' ? 'ny' : 'coast'];
+      h += '<p class="fac-p">' + esc('The open line (' + OL.name + ' to ' + OL.to + '): a ' + PORT_SHIP_WORDS[d.ship] + ' of ' + d.hold + ' loads buys what waits at the desk’s export prices. No promise either way.') + '</p></div>';
+      continue;
+    }
+    const O = PORT_OFFERS[L.k], M = P.m || {}, LM = P.last || {};
+    h += '<p class="fac-p"><b>' + esc(O.name + ' · ' + O.who(y)) + '</b> ' + esc('to ' + O.to) + '</p>';
+    if (O.kind === 'contract') {
+      const u = portUnit(O.g), end = portEndCost(s, L);
+      h += '<p class="fac-p">' + esc(L.q + ' ' + u + ' of ' + GOODS[O.g].name.toLowerCase() + ' a call at ' + money$(L.rate) + ' (the desk pays ' + money$(exportPrice(s, O.g)) + '); ' + money$(L.dead) + ' dead freight for each one short; until ' + dateLabel(L.until) + '.') + '</p>';
+      const row = (W, lab) => (W.cq ? lab + ': ' + W.cn + ' of ' + W.cq + ' · +' + money$(W.prem || 0) + ' over the desk' + (W.dead ? ' · dead freight −' + money$(W.dead) : '') : '');
+      const r1 = row(M, 'This month'), r2 = row(LM, 'Last month');
+      if (r1 || r2) h += '<p class="fac-p ' + ((M.dead || LM.dead) ? 'bad' : 'good') + '">' + esc([r1, r2].filter(Boolean).join(' · ')) + '</p>';
+      if (!s.exp[O.g]) h += '<p class="fac-p bad">' + esc(GOODS[O.g].name + ' is kept at the desk: nothing of it reaches the ship, and every call pays dead freight. Set it to export at the desk.') + '</p>';
+      h += portLineBtns(s, b, F, P, L, end ? 'End now · −' + money$(end) : 'End', end ? '(three calls’ dead freight to the charterers)' : '');
+    } else {
+      const cap = portPaxCap(P), T = s.tour && s.tour.m === s.month ? s.tour : null, TL = portTourDone(s);
+      h += '<p class="fac-p">' + esc('Her hold takes ' + Math.min(PORT_PARTS[p.k].hold, O.hold) + ' loads at the desk’s prices (the berth’s own ship: ' + PORT_PARTS[p.k].hold + ')' + (O.pax ? '; ' + O.pax + ' tourists a call' + (y < H2.tourYear ? ' from ' + H2.tourYear : '') : '') + (O.settlers ? '; ' + O.settlers + ' settlers a month for the free homes' : '') + '. Lands ' + cap.n + ' a call here (passenger shed ' + cap.shed + ', customs ' + cap.cust + ').') + '</p>';
+      if (O.pax && (T || TL)) h += '<p class="fac-p">' + esc((T ? 'This month: ' + T.came + ' landed, ' + T.guests + ' in the hotels' + (T.turned ? ', ' + T.turned + ' found no bed' : '') : '') + (TL ? (T ? ' · ' : '') + 'last month ' + TL.came + ' landed, ' + TL.guests + ' stayed (' + money$(TL.guests * H2.spend) + ' in the town)' + (TL.turned ? ', ' + TL.turned + ' no bed' : '') : '')) + '</p>';
+      if (O.settlers) h += '<p class="fac-p">' + esc('Free homes now: ' + freeBeds(s) + '. Settlers come only for free beds (and two families more to wait in tents).') + '</p>';
+      h += portLineBtns(s, b, F, P, L, 'End the line', '(free: the berth’s next call is the open line)');
+    }
+    h += '</div>';
+  }
+  h += '</section>';
+  out.push(h);
+  // the offers
+  let o = '<section class="fac-sec"><h4>Offers <small>' + esc(y + ' · each a trade-off: read its numbers') + '</small></h4>';
+  const open = PORT_OFFER_ORDER.filter((k) => !portOfferWhy(s, k) && !lines.some((l) => l.k === k));
+  const later = PORT_OFFER_ORDER.filter((k) => /^Opens/.test(portOfferWhy(s, k)));
+  if (!open.length) o += '<p class="fac-p">' + esc(lines.length ? 'Every line open now is signed.' : 'No line offers yet.') + '</p>';
+  for (const k of open) o += portOfferCard(s, b, F, P, k);
+  if (later.length) o += '<div class="fac-sub">Later</div>' + later.map((k) => { const O = PORT_OFFERS[k]; return '<p class="fac-p dim" id="fx-' + k + '">' + esc(O.name + ' · ' + O.who(Math.max(y, O.open)) + ' (' + O.y0 + '–' + O.y1 + '): ' + portOfferWhy(s, k).toLowerCase()) + '</p>'; }).join('');
+  o += '</section>';
+  out.push(o);
+  return out.join('');
+}
+function portLineBtns(s, b, F, P, L, endLabel, endWhy) {
+  const free = portBerths(P).filter((p) => p.id !== L.at && !portLineOn(P, p.id));
+  const mv = free.map((p) => '<button class="alt" id="fm-' + L.k + '-' + p.id + '" data-fa="lmove" data-k="' + L.k + '" data-b="' + p.id + '">' + esc('Move to berth ' + portBerthNo(P, p)) + '</button>').join('');
+  const conf = F.lconf === L.k;
+  return '<div class="fac-btns">' + mv + '<button class="alt' + (conf ? ' warn' : '') + '" id="fe-' + L.k + '" data-fa="lend" data-k="' + L.k + '">' + esc(conf ? 'Tap again: ' + endLabel.replace(/^End( now)?/, 'end') : endLabel) + '</button></div>' + (endWhy ? '<p class="fac-p dim">' + esc(endWhy) + '</p>' : '');
+}
+// The berth an offer would take (her pick, else the first that can).
+function portOfferBerth(s, b, F, k) {
+  const P = portOf(s, b), can = portSignBerths(s, b, k), pick = F.lb && F.lb[k];
+  if (pick && can.some((p) => p.id === pick)) return can.find((p) => p.id === pick);
+  if (PORT_OFFERS[k].kind === 'pax') {
+    // a passenger line loses least where the ships took least (else the smallest berth)
+    const took = (p) => { const t = portBerthTook(s, P, p.id); return t < 0 ? PORT_PARTS[p.k].hold : t; };
+    return can.slice().sort((a, c) => took(a) - took(c) || PORT_PARTS[a.k].hold - PORT_PARTS[c.k].hold)[0] || null;
+  }
+  return can.slice().sort((a, c) => PORT_PARTS[c.k].hold - PORT_PARTS[a.k].hold)[0] || null;
+}
+// The berth whose numbers an offer shows while it cannot be signed yet (the passenger parts missing): a free one that fits.
+function portOfferBerthLoose(s, b, F, k) {
+  const P = portOf(s, b), O = PORT_OFFERS[k], took = (p) => { const t = portBerthTook(s, P, p.id); return t < 0 ? PORT_PARTS[p.k].hold : t; };
+  const can = portBerths(P).filter((p) => !portLineOn(P, p.id) && !(O.quay && !PORT_PARTS[p.k].stone));
+  return can.sort((a, c) => took(a) - took(c) || PORT_PARTS[a.k].hold - PORT_PARTS[c.k].hold)[0] || null;
+}
+function portOfferCard(s, b, F, P, k) {
+  const O = PORT_OFFERS[k], y = portYear(s), berth0 = portOfferBerth(s, b, F, k), hi = F.loff === k;
+  const berth = berth0 || (O.kind === 'pax' ? portOfferBerthLoose(s, b, F, k) : null);
+  let h = '<div class="fac-offer' + (hi ? ' hi' : '') + '" id="fo-' + k + '"><b>' + esc(O.name) + '</b> <span>' + esc('· ' + O.who(y) + ' → ' + O.to) + '</span> <small>' + O.y0 + '–' + O.y1 + '</small>';
+  h += '<p class="fac-p dim">' + esc(O.hist) + '</p>';
+  const can = portSignBerths(s, b, k);
+  // why it cannot be signed here (a berth too small, the passenger parts missing)
+  const why0 = berth0 ? '' : portBerths(P).length ? portSignWhy(s, b, k, (portBerths(P).find((p) => !portLineOn(P, p.id)) || portBerths(P)[0]).id) : 'No berth';
+  if (O.kind === 'contract') {
+    const u = portUnit(O.g), t = portTerms(s, b, k, berth || portBerths(P)[0], (F.lq && F.lq[k]) || 0), r = berth ? portReplay(s, b, k, t.q) : null;
+    h += '<p class="fac-p">' + esc(portCap1(u) + ' of ' + GOODS[O.g].name.toLowerCase() + ' at ' + money$(t.rate) + ' each (the desk pays ' + money$(t.desk) + '), a fixed quantity every call for three years. ' + money$(t.dead) + ' dead freight for each one short. The ship fills the rest of her hold at the desk’s prices; the other ships leave the quantity in the sheds for her. Ending early: three calls’ dead freight.') + '</p>';
+    if (berth) {
+      h += '<div class="fac-q"><button id="fq-' + k + '-m" data-fa="lq" data-k="' + k + '" data-d="-1" aria-label="Fewer"' + (t.q <= H2.qStep ? ' disabled' : '') + '>−</button><span>' + esc(t.q + ' ' + u + ' a call') + '</span><button id="fq-' + k + '-p" data-fa="lq" data-k="' + k + '" data-d="1" aria-label="More"' + (t.q >= t.qMax ? ' disabled' : '') + '>+</button><small>' + esc('at most ' + t.qMax + ' (her hold, the sheds’ bay)') + '</small></div>';
+      const mo = [];
+      for (let m = s.month - H2.hist; m < s.month; m++) if (m >= 0) mo.push(portShipped(P, m, O.g));
+      const lo = mo.length ? Math.min(...mo) : 0, hiN = mo.length ? Math.max(...mo) : 0, prem = t.q * (t.rate - t.desk);
+      let tr;
+      if (!P.h2 || r.months < H2.hist) tr = 'No six months of records yet. If every call takes ' + t.q + ': +' + money$(prem) + ' a month; a call with none: −' + money$(t.q * t.dead) + '.';
+      else tr = 'The last six months the ships took ' + (lo === hiN ? lo : lo + '–' + hiN) + ' ' + u + ' a month. At ' + t.q + ' a call that would have been ' + (r.net >= 0 ? '+' : '−') + money$(Math.abs(r.net / r.months)).replace('−', '') + ' a month' + (r.short ? ' (' + r.short + ' short: −' + money$(r.short * t.dead) + ' dead freight)' : ' (never short)') + '; full every call: +' + money$(prem) + '.';
+      h += '<p class="fac-trade ' + (r && r.months >= H2.hist ? (r.net > 0 && !r.short ? 'good' : 'bad') : '') + '">' + esc(tr) + '</p>';
+      if (!s.exp[O.g]) h += '<p class="fac-p">' + esc(GOODS[O.g].name + ' is kept at the desk: signing sets it to export (the markets are still served first; the ship takes what they leave).') + '</p>';
+    }
+  } else {
+    const cap = portPaxCap(P), hold0 = berth ? PORT_PARTS[berth.k].hold : 0, hold1 = berth ? Math.min(hold0, O.hold) : O.hold;
+    h += '<p class="fac-p">' + esc('Her ship keeps decks for people: her hold takes ' + O.hold + ' loads at the desk’s prices' + (O.quay ? ' (a stone quay berth only)' : '') + '. ' + (O.pax ? O.pax + ' tourists a call; each spends ' + money$(H2.spend) + ' in the town if a hotel has a bed (' + H2.beds + ' guests a month a hotel).' : O.settlers + ' settlers a month, for the free homes: they land at the passenger shed and clear customs.') + ' Ends when she likes.') + '</p>';
+    if (berth) {
+      const took = portBerthTook(s, P, berth.id), lost = took < 0 ? hold0 - hold1 : Math.max(0, took - hold1);
+      const beds = hotelsOf(s).reduce((a, o) => a + hotelBeds(s, o), 0), land = Math.min(O.pax || O.settlers || 0, cap.n);
+      let tr = 'At ' + portBerthWord(P, berth) + ': ' + (took < 0 ? 'no record yet of what its ship takes; her hold is ' + (hold0 - hold1) + ' loads smaller.' : lost ? 'its ship took up to ' + took + ' loads a call: ' + lost + ' a call would wait for another ship.' : 'its ship took at most ' + took + ' loads a call: no goods lost.');
+      if (O.pax) tr += ' Lands ' + land + ' a call (shed ' + cap.shed + ', customs ' + cap.cust + '); hotel beds: ' + beds + ' a month' + (beds ? ': about +' + money$(Math.min(land, beds) * H2.spend) + ' a month in the town.' : ': none yet, no tourist stays.');
+      else tr += ' Free homes now: ' + freeBeds(s) + '.';
+      h += '<p class="fac-trade ' + (lost ? 'bad' : 'good') + '">' + esc(tr) + '</p>';
+    }
+    // what it needs here: each missing part with its button (the part's tool, its spot glowing gold)
+    const need = [];
+    if (!cap.shed) need.push('pshed');
+    if (!cap.cust) need.push('customs');
+    if (need.length) h += '<div class="fac-btns">' + need.map((q) => { const why = portCanPlace(s, b, q, -99, -99), lock = /Opens|Not before/.test(why); return '<button class="alt" id="fn-' + k + '-' + q + '" data-fa="lneed" data-q="' + q + '"' + (lock ? ' disabled' : '') + '>' + esc((lock ? PORT_PARTS[q].name + ': ' + why.toLowerCase() : 'Build a ' + PORT_PARTS[q].name.toLowerCase() + ' · ' + money$(portPrice(s, q)))) + '</button>'; }).join('') + '</div>';
+  }
+  // the berth she picks, then the tap
+  if (can.length > 1) h += '<div class="fac-chips">' + can.map((p) => '<button id="fb-' + k + '-' + p.id + '" class="' + (berth0 && berth0.id === p.id ? 'on' : '') + '" data-fa="lb" data-k="' + k + '" data-b="' + p.id + '">' + esc('Berth ' + portBerthNo(P, p) + ' · ' + PORT_PARTS[p.k].short.toLowerCase()) + '</button>').join('') + '</div>';
+  h += '<div class="fac-btns"><button id="fs-' + k + '" data-fa="sign" data-k="' + k + '"' + (berth0 ? '' : ' disabled') + '>' + esc(berth0 ? 'Sign · ' + portBerthWord(P, berth0) + ', ' + portBerthWhen(P, berth0) : why0 || 'No berth can take it') + '</button></div>';
+  return h + '</div>';
+}
+
+// ---------- the panel, the actions, the kind ----------
+{
+  const _pp = portPanel;
+  portPanel = function (s, b, F) {
+    if (!h2On()) return _pp.apply(this, arguments);
+    const tabs = portTabs(s, b, F), P = portOf(s, b);
+    if (F.ptab === 'lines') {
+      const sel = F.sel && P.parts.find((p) => p.id === F.sel);
+      return tabs + (sel ? portCard(s, b, P, portView(s, b).F, sel) : '') + portBoard(s, b, F);
+    }
+    let h = _pp.apply(this, arguments);
+    // H1's Lines paragraph gives way to the berths' lines, in one line, and the board's tab
+    const lines = portLinesOf(P), sum = portBerths(P).map((p) => { const L = portLineOn(P, p.id); return 'berth ' + portBerthNo(P, p) + ': ' + (L ? PORT_OFFERS[L.k].name.toLowerCase() : 'the open line'); }).join(' · ');
+    h = h.replace(/<section class="fac-sec"><h4>Lines<\/h4>[\s\S]*?<\/section>$/, '') + '<section class="fac-sec"><h4>Lines</h4><p class="fac-p">' + esc((sum || 'No berth') + '. ' + (lines.length ? '' : 'The open line buys at the desk’s export prices. ')) + '</p><div class="fac-btns"><button class="alt" id="ftL2" data-fa="ptab" data-t="lines">' + esc('The lines and their offers') + '</button></div></section>';
+    // the landing: at the passenger shed when there is one, and the tourists of the month
+    const cap = portPaxCap(P), T = s.tour && s.tour.m === s.month ? s.tour : null;
+    if (cap.shed) h = h.replace('at the pier steps', 'at the passenger shed (it lands ' + cap.shed + ' a call; the customs house clears ' + cap.cust + ')');
+    if (T && (T.came || T.turned)) h = h.replace(/(<div class="fac-step"><span>Landing<\/span>)/, '<div class="fac-step"><span>Tourists</span><em>' + esc(T.came + ' landed this month, ' + T.guests + ' in the hotels' + (T.turned ? ', ' + T.turned + ' found no bed and sailed on' : '') + (T.stayed ? ', ' + T.stayed + ' stayed aboard (the landing clears ' + cap.n + ' a call)' : '')) + '</em></div>$1');
+    return tabs + h;
+  };
+  const _pc = portCard;
+  portCard = function (s, b, P, FL, p) {
+    const d = PORT_PARTS[p.k];
+    if (!d.land) {
+      let h = _pc.apply(this, arguments);
+      const L = d.berth && h2On() && portLineOn(P, p.id);
+      if (L) h = h.replace('<div class="fac-btns">', '<p class="fac-p"><b>' + esc('Its line: ' + PORT_OFFERS[L.k].name.toLowerCase() + ' (' + PORT_OFFERS[L.k].who(portYear(s)) + ').') + '</b></p><div class="fac-btns">');
+      return h;
+    }
+    const cap = portPaxCap(P), parts = [portCap(d.gives) + '.', 'The harbour lands ' + cap.n + ' a call (passenger sheds ' + cap.shed + ', customs ' + cap.cust + ').'];
+    if (p.paid) parts.push('Upkeep ' + money$(Math.round(p.paid * TUNE.upkeepPct)) + ' a month (1 % of its price).');
+    let h = '<section class="fac-sec fac-card"><h4>' + esc(d.name) + '<button class="fac-cx" data-fa="unsel" aria-label="Close">' + iconSvg('close') + '</button></h4>' + parts.map((t) => '<p class="fac-p">' + esc(t) + '</p>').join('');
+    const back = Math.floor((p.paid || 0) * TUNE.refund);
+    h += '<div class="fac-btns"><button class="alt" data-fa="move" data-pid="' + p.id + '">Move</button><button class="alt" data-fa="remove" data-pid="' + p.id + '">' + esc(FAC.confirm === p.id ? 'Tap again to remove' : 'Remove' + (back ? ' · +' + money$(back) + ' back' : '')) + '</button></div></section>';
+    return h;
+  };
+  const _pa = portAct;
+  portAct = function (F, what, data) {
+    const s = APP.state, b = facB();
+    if (!b || !h2On()) return _pa.apply(this, arguments);
+    const P = portOf(s, b), k = data.k;
+    F.lq = F.lq || {}; F.lb = F.lb || {};
+    if (what !== 'lend') F.lconf = '';
+    if (what === 'ptab') { F.ptab = data.t === 'lines' ? 'lines' : 'harbour'; F.sel = 0; const el = $('facSide'); if (el) el.scrollTop = 0; return; }
+    if (what === 'lb') { F.lb[k] = +data.b; return; }
+    if (what === 'lq') {
+      const berth = portOfferBerth(s, b, F, k), t = berth && portTerms(s, b, k, berth, F.lq[k] || 0);
+      if (t) F.lq[k] = Math.max(H2.qStep, Math.min(t.qMax, t.q + (+data.d) * H2.qStep));
+      return;
+    }
+    if (what === 'sign') {
+      const berth = portOfferBerth(s, b, F, k);
+      if (!berth) { facHint(portSignWhy(s, b, k, (portBerths(P)[0] || {}).id) + '.'); return; }
+      const r = portSign(s, b, k, berth.id, F.lq[k] || 0), O = PORT_OFFERS[k];
+      if (r.ok) { F.loff = ''; facHint(O.name + ' signed: ' + portBerthWord(P, berth) + ' calls it ' + portBerthWhen(P, berth) + '.' + (r.exp ? ' ' + GOODS[O.g].name + ' is set to export at the desk.' : '')); try { audioCue('place'); } catch (e) { /* no sound */ } }
+      else facHint(r.why + '.');
+      return;
+    }
+    if (what === 'lend') {
+      if (F.lconf !== k) { F.lconf = k; return; }
+      F.lconf = '';
+      const r = portEnd(s, b, k);
+      facHint(r.ok ? PORT_OFFERS[k].name + ' ended' + (r.cost ? ' · ' + money$(r.cost) + ' to the charterers' : '') + '.' : r.why + '.');
+      return;
+    }
+    if (what === 'lmove') {
+      const r = portLineMove(s, b, k, +data.b);
+      facHint(r.ok ? PORT_OFFERS[k].name + ' moved: it calls at berth ' + portBerthNo(P, P.parts.find((p) => p.id === +data.b)) + ' from its next call.' : r.why + '.');
+      return;
+    }
+    if (what === 'lneed') {
+      const f = portFixPax(s, b, data.q);
+      if (!f) { facHint('No room for a ' + PORT_PARTS[data.q].name.toLowerCase() + ': move or remove a shed.'); return; }
+      F.tool = f.k; F.want = { k: f.k, x: f.x, y: f.y }; F.sel = 0; portCenterOn(s, b, f.k, f);
+      facHint('Tap the gold spot: ' + f.name.toLowerCase() + ' · ' + money$(f.cost) + '. ' + portCap(PORT_PARTS[f.k].gives) + '.');
+      return;
+    }
+    return _pa.apply(this, arguments);
+  };
+  const K = FAC.kinds.harbour;
+  const _open = K.open;
+  K.open = function (F, at) {
+    F.ptab = at && at.tab === 'lines' ? 'lines' : 'harbour'; F.loff = at && at.offer || ''; F.lconf = '';
+    F.lq = {}; F.lb = {};
+    if (at && at.offer && at.q) F.lq[at.offer] = at.q;
+    if (at && at.offer && at.berth) F.lb[at.offer] = at.berth;
+    // sent to an offer (Rosa's button): the board scrolls to it once it is drawn
+    if (at && at.offer) setTimeout(() => { const e = $('fo-' + at.offer) || $('fe-' + at.offer); if (e && FAC.on) e.scrollIntoView({ block: 'center' }); }, 80);
+    return _open.apply(this, arguments);
+  };
+  const _tools = K.tools;
+  K.tools = function (s, b) { const t = _tools.apply(this, arguments); return h2On() ? t : t.filter((o) => !(PORT_PARTS[o.id] && PORT_PARTS[o.id].land)); };
+  const _pw = K.pinWarn;
+  K.pinWarn = function (s, b) { const w = _pw.apply(this, arguments); if (w || !h2On()) return w; const P = portOf(s, b); return P.m && P.m.dead ? '!' : ''; };
+  const _leg = K.legend;
+  K.legend = function (s, b, F) {
+    const h = _leg.apply(this, arguments);
+    if (!h2On()) return h;
+    return h + '<span>' + esc('Lines (the side panel’s second tab): each berth’s call is the open line, buying at the desk’s prices, until you sign a line for it. A contract: a fixed quantity a call at a fixed rate, dead freight for each load short. A passenger line: a smaller hold for goods, tourists or settlers ashore (it needs a passenger shed and a customs house; tourists need a hotel bed).') + '</span>';
+  };
+}
+// The ships' kinds in the timetable's rows, and the berth each ship lies at (a steamship drawn smaller at a jetty).
+{
+  const _pcn = portCallsNow;
+  portCallsNow = function (state, hb, month, P) {
+    const out = _pcn.apply(this, arguments);
+    for (const c of out) { const p = P.parts.find((q) => q.id === c.b); c.berthKind = p && PORT_PARTS[p.k].stone ? 'quay' : 'jetty'; }
+    return out;
+  };
+}
+
+// ---------- the hotel on the island ----------
+function hotelCardHtml(s, b) {
+  const beds = hotelBeds(s, b), last = b.lastGuests || 0, now = b.mGuests || 0, T = portTourDone(s), lines = [];
+  let pax = 0;
+  for (const hb of portHarbours(s)) { const P = s.port && s.port[hb.id]; if (P) pax += portLinesOf(P).filter((l) => PORT_OFFERS[l.k].pax).length; }
+  let h = '<div class="line"><span>Guests</span><span>' + esc(now + ' this month · ' + last + ' last month · ' + beds + ' beds a month') + '</span></div>';
+  h += '<div class="line"><span>They spend</span><span>' + esc(money$(H2.spend) + ' each in the town: ' + money$(last * H2.spend) + ' last month') + '</span></div>';
+  lines.push('Tourists come by the harbour’s passenger lines from ' + H2.tourYear + ' (Prohibition sent the Americans south). Each needs a bed: a hotel keeps ' + H2.beds + ' guests a month at full staff; tourists with no bed sail on.');
+  if (T && T.turned) lines.push(T.turned + ' found no bed last month: another hotel would have kept them.');
+  if (!pax) lines.push('No passenger line calls yet: sign one on the harbour’s board (Lines).');
+  h += '<p class="note' + (pax ? ' good' : '') + '">' + esc(lines.join(' ')) + '</p>';
+  if (!pax && portHarbours(s).length) h += '<div class="btns"><button id="cardHotelFac" class="facopen">' + iconSvg('anchor') + 'The harbour’s lines</button></div>';
+  return h;
+}
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!b || b.type !== 'hotel' || !h2On()) return h;
+    const add = hotelCardHtml(s, b), h2 = h.replace('ship +$', 'guests +$'), at = h2.indexOf('<div class="line"><span>Workers</span>');
+    return at >= 0 ? h2.slice(0, at) + add + h2.slice(at) : h2 + add;
+  };
+  // the pier's card: the boat lands at the harbour's passenger shed now
+  const _ch2 = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch2.apply(this, arguments), L = b && b.type === 'pier' && h2On() && portLanding(s);
+    return L ? h + '<p class="note good">' + esc('The settlers’ boat lands at the harbour’s passenger shed now; families without a home wait in tents by its customs house.') + '</p>' : h;
+  };
+  const _cr = cardRender;
+  cardRender = function () {
+    const r = _cr.apply(this, arguments), el = $('cardHotelFac');
+    if (el && !el.dataset.w) { el.dataset.w = '1'; el.addEventListener('click', () => { const hb = portHarbours(APP.state)[0]; if (hb) facOpen('harbour', hb.id, { tab: 'lines' }); }); }
+    return r;
+  };
+  const _bs = bStatus;
+  bStatus = function (s, b) {
+    if (b && b.type === 'hotel' && h2On() && b.open && b.workers > 0) { const g = b.lastGuests || 0; return g ? { text: 'Open: ' + g + ' guests last month.', good: true } : { text: 'Open, no guests yet: no passenger line lands tourists.', good: false }; }
+    return _bs.apply(this, arguments);
   };
 }
 
