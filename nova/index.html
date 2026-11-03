@@ -19737,6 +19737,821 @@ function portLinePlanOf(state, d) {
   };
 }
 
+// ---- src/sim/airport.js
+// AP1 (3 Nov 2026, `nova/ap`): the airport as a game of its own, on the facility screen the harbour opened (H1, H2).
+// DESIGN.md §46; history: docs/research/airport.md. UI: src/ui/airport_ui.js (the plan, the board, the painters).
+// Tomáš, 29 Oct (from Slovak): the harbour and the airport each become a game of their own, with their own screen,
+// their own ground and their own problems; the island sees the results. His standing rules decide every doubt: she
+// plans (nothing built, signed, moved or shut without her tap, its price and consequence shown first); every rule
+// visible (a card, a legend, a line from Rosa); history is real; money stays meaningful; old saves keep earning.
+//
+// The ground (state.air[id], saved whole): 14 cells along the coast, 8 inland (the back row holds the field's office and its
+// gate, the island's road behind it), 4 of the bay in front. Parts: the flying-boat ramp (on the waterline), moorings (buoys in the
+// bay), the strip (a grass strip that is lengthened, then paved, then lengthened again), the apron with its stands, the
+// hangar, the fuel store, the terminal (the passenger hall and the customs), the radio station (later the tower).
+// The OPEN SERVICE is the airfield of before: planes on no timetable (the mail, charters, the flying boats of the
+// day) bring airVisitors() a month (transport.js: more people and happier homes, at most 60), who lodge in the town's
+// rooms and spend TR.visitSpend each on the airfield's own number: an untouched airfield earns what it did, to the
+// dollar. Its default ground is the island's picture of it: a grass strip, the hangar, the ramp, a fuel store.
+// ROUTES are what she signs on the board: an airline's scheduled flights (2 a month), each bringing its plane's seats
+// of visitors through the terminal. They need hotel beds (H2's hotels, shared with the sea's tourists, first come
+// first served) and spend H2.spend each on the hotel's number; without a bed they fly home. Which plane flies is the
+// ground's: a flying boat needs the ramp (or a mooring for the big Clippers), a landplane a stand, the hangar and a
+// strip long enough; the four-engined airliners and the jets a paved runway and the tower. When history sends a bigger
+// plane and the ground cannot take it, the route keeps its older plane and the panel, the manager and Rosa say what
+// the bigger one needs. Each month's flights take fuel from the store (the tanker fills it on the 1st); the terminal
+// clears so many a flight; a norte grounds flights that have no radio beam; a hurricane shuts the field for days.
+// TUNE.apOff (NOVA_NO_AP=1 leaves this file out of the tests' sim): the airfield before AP1. make_save.js and
+// make_rivals.js play without AP unless NOVA_AP=1.
+
+const AP = {
+  W: 14, LAND: 8, WATER: 4,
+  flights: 2,          // a route's flights a month (the harbour's ships call once a month: game time, not the airlines')
+  ask: 3, rest: 24,    // Rosa proposes a route at most three months running, then rests two years (H2's rule)
+  norteKeep: 6,        // months a norte's grounded flights stay a problem (until the radio, or half a year)
+  movePct: 0.1,        // moving a part: 10 % of its price
+};
+function apOn() { return !TUNE.apOff && typeof h2On === 'function' && h2On(); }
+
+// The parts (k: the price in airfields, BUILDINGS.airfield.cost, $60,000; upkeep 1 % a month of what she paid).
+// The strip's levels (STRIP below) are bought on its card; so are the fuel tanks, the bigger terminal, the tower.
+const AP_PARTS = {
+  ramp:     { name: 'Flying-boat ramp', short: 'Ramp', w: 2, h: 1, ramp: 1, k: 0.08, year: 1920, icon: 'anchor',
+    gives: 'a slipway and a pontoon: one route’s small flying boats come ashore here' },
+  mooring:  { name: 'Mooring', short: 'Mooring', w: 1, h: 1, moor: 1, k: 0.03, year: 1928, icon: 'anchor',
+    gives: 'a buoy in the bay and a launch to the pontoon: one route’s big flying boat lies here' },
+  strip:    { name: 'Grass strip', short: 'Strip', w: 4, h: 1, run: 1, k: 0.08, year: 1920, icon: 'road',
+    gives: '800 m of mown grass: the trimotors land on it' },
+  runway:   { name: 'Paved runway', short: 'Runway', w: 9, h: 1, run: 1, k: 0.43, year: 1940, icon: 'road', lv: 2,
+    gives: '1,800 m of concrete: the four-engined airliners land on it' },
+  apron:    { name: 'Apron', short: 'Apron', w: 5, h: 2, stands: 2, k: 0.06, year: 1920, icon: 'square',
+    gives: 'two stands: a landplane route needs one' },
+  hangar:   { name: 'Hangar', short: 'Hangar', w: 2, h: 2, hangar: 1, k: 0.15, year: 1920, icon: 'home',
+    gives: 'the mechanics and their spares: the landplanes need it' },
+  fuel:     { name: 'Fuel store', short: 'Fuel', w: 1, h: 1, fuel: 1, k: 0.04, year: 1920, icon: 'barrel',
+    gives: 'fuel for 6 small planes’ flights a month (the tanker fills it on the 1st)' },
+  terminal: { name: 'Terminal', short: 'Terminal', w: 2, h: 1, term: 1, k: 0.1, year: 1920, icon: 'people',
+    gives: 'the passenger hall and the customs: it clears 40 a flight' },
+  radio:    { name: 'Radio station', short: 'Radio', w: 1, h: 1, radio: 1, k: 0.04, year: 1929, icon: 'signal',
+    gives: 'the radio beam: flights keep their times in a norte' },
+};
+const AP_BUILD = ['ramp', 'mooring', 'strip', 'runway', 'apron', 'hangar', 'fuel', 'terminal', 'radio'];
+// The strip's levels: lv 0 grass 800 m (4 cells), 1 grass 1,200 m (6), 2 paved 1,800 m (9), 3 paved 2,400 m (12).
+const AP_STRIP = [
+  { m: 800, len: 4, paved: 0, name: 'Grass strip' },
+  { m: 1200, len: 6, paved: 0, name: 'Long grass strip', k: 0.05, year: 1920, verb: 'Lengthen' },
+  { m: 1800, len: 9, paved: 1, name: 'Paved runway', k: 0.3, year: 1940, verb: 'Pave' },
+  { m: 2400, len: 12, paved: 1, name: 'Long runway', k: 0.2, year: 1955, verb: 'Lengthen' },
+];
+// The other upgrades on a part's card: [the level's name, what it gives, k, year].
+const AP_UP = {
+  fuel: [null, { name: 'Fuel tanks', k: 0.12, year: 1946, verb: 'Tanks', gives: 'fuel for 24 small planes’ flights a month (the airliners take 4, a jet 8)' }],
+  terminal: [null, { name: 'Terminal (enlarged)', k: 0.2, year: 1950, verb: 'Enlarge', gives: 'the passenger hall and the customs on two floors: it clears 100 a flight' }],
+  radio: [null, { name: 'Control tower', k: 0.12, year: 1946, verb: 'Tower', gives: 'the tower: the four-engined airliners and the jets need it; flights keep their times in a norte' }],
+};
+const AP_FUEL = [6, 24], AP_TERM = [40, 100];
+
+// The planes (seats: as the sources give them, docs/research/airport.md; fuel: a small plane's flight is 1).
+// need: ramp | moor (a flying boat), or run (metres of strip), paved, tower; every landplane needs a stand and the hangar.
+const AP_PLANES = {
+  am75: { name: 'Aeromarine 75', kind: 'boat', seats: 7, fuel: 1, need: { ramp: 1 }, from: 1920, what: 'a flying boat' },
+  f7:   { name: 'Fokker F-VII', kind: 'land', seats: 7, fuel: 1, need: { run: 600 }, from: 1927, what: 'a trimotor' },
+  s38:  { name: 'Sikorsky S-38', kind: 'boat', seats: 8, fuel: 1, need: { ramp: 1 }, from: 1929, what: 'an amphibian' },
+  s40:  { name: 'Sikorsky S-40', kind: 'boat', seats: 38, fuel: 2, need: { moor: 1 }, from: 1931, what: 'a four-engined flying boat' },
+  dc3:  { name: 'Douglas DC-3', kind: 'land', seats: 21, fuel: 2, need: { run: 1200 }, from: 1937, what: 'a twin-engined airliner' },
+  dc6:  { name: 'Douglas DC-6', kind: 'land', seats: 60, fuel: 4, need: { run: 1800, paved: 1, tower: 1 }, from: 1947, what: 'a four-engined airliner' },
+  b707: { name: 'Boeing 707', kind: 'land', seats: 140, fuel: 8, need: { run: 2400, paved: 1, tower: 1 }, from: 1959, what: 'a jet' },
+};
+// The routes she can sign (the board's offers). planes: by era, oldest first; names: the planes' own names where the
+// sources give them. open: the year the board offers it; y1: its last year (null: it runs on).
+const AP_ROUTES = {
+  aero: { name: 'Key West flying boats', the: 'the Key West flying boats', who: 'Aeromarine West Indies Airways', to: 'Key West and Havana', y0: 1920, open: 1920, y1: 1924, planes: ['am75'],
+    names: { am75: ['Santa Maria', 'Pinta', 'Nina', 'Columbus'] },
+    hist: 'From 1 November 1920 Aeromarine flew passengers and the mail between Key West and Havana in flying boats, a daily trip; the Post Office froze its mail contracts and it stopped in early 1924.' },
+  pala: { name: 'Pan American landplanes', the: 'Pan American’s landplanes', who: 'Pan American', to: 'Miami', to0: 'Key West', y0: 1927, open: 1927, y1: null, planes: ['f7', 'dc3', 'dc6'],
+    names: { f7: ['General Machado', 'General New'] },
+    hist: 'Pan American’s first scheduled flight, Key West–Havana, was on 28 October 1927; its first paying passengers flew on 16 January 1928 in the Fokker General Machado, seven of them at $50 each. From 1928 it flew from Miami.' },
+  clip: { name: 'Pan American Clippers', the: 'Pan American’s Clippers', who: 'Pan American', to: 'Miami (Dinner Key)', y0: 1929, open: 1929, y1: 1945, planes: ['s38', 's40'],
+    names: { s40: ['American Clipper', 'Caribbean Clipper', 'Southern Clipper'] },
+    hist: 'Pan American’s flying boats flew from Dinner Key in Miami from 1930 to 1945: the S-38 amphibian with eight passengers, then from November 1931 the S-40 Clippers with thirty-eight.' },
+  jet: { name: 'New York jets', the: 'the New York jets', who: 'Pan American', to: 'New York', y0: 1958, open: 1959, y1: null, planes: ['b707'],
+    names: {},
+    hist: 'Pan American began jet service with the Boeing 707 on 26 October 1958, New York–Paris; a 707 needed about 2,300 m of runway to take off.' },
+};
+const AP_ROUTE_ORDER = ['aero', 'pala', 'clip', 'jet'];
+
+// ---------- the ground ----------
+function apAll(state) { return state.air || (state.air = {}); }
+function apFields(state) { return state.b.filter((b) => b.type === 'airfield'); }
+function apYear(state, month) { return TUNE.startYear + Math.floor((month === undefined ? state.month : month) / 12); }
+function apPriceK(k) { return Math.max(Math.round(k * 60000 / 50) * 50, purseRoundAny(k * BUILDINGS.airfield.cost)); }
+function apPrice(state, k) { return apPriceK(AP_PARTS[k].k); }
+// The airfield's ground (made at first sight: an old save's airfield opens as the island's picture of it).
+function apOf(state, b) {
+  const A = apAll(state);
+  return A[b.id] || (A[b.id] = apDefault(state, b));
+}
+function apAdd(A, k, o) { const p = Object.assign({ id: A.nid++, k, lv: 0 }, o); A.parts.push(p); return p; }
+function apDefault(state, b) {
+  const A = { v: 1, nid: 1, parts: [], routes: [], m: {}, last: null, log: [] };
+  // the island's picture of an airfield (render/iso.js paintAirfield): a mown strip, the hangar, the slipway; and the
+  // drums of fuel its planes have always needed. They came with the airfield (pk): no price of their own, no upkeep.
+  apAdd(A, 'strip', { x: 5, y: 4, pk: 1 });
+  apAdd(A, 'hangar', { x: 1, y: 1, pk: 1 });
+  apAdd(A, 'fuel', { x: 3, y: 1, pk: 1 });
+  apAdd(A, 'ramp', { x: 10, y: 0, pk: 1 });
+  return A;
+}
+// A part's cells (rule coordinates: y counts inland from the waterline, the bay is y < 0).
+function apLen(p) { return AP_PARTS[p.k].run ? AP_STRIP[p.lv || 0].len : AP_PARTS[p.k].w; }
+function apCells(p) {
+  const d = AP_PARTS[p.k], out = [];
+  if (d.ramp) { for (let i = 0; i < 2; i++) { out.push([p.x + i, 0]); out.push([p.x + i, -1]); } return out; }
+  if (d.moor) return [[p.x, p.y]];
+  const w = d.run ? apLen(p) : d.w;
+  for (let y = p.y; y < p.y + d.h; y++) for (let x = p.x; x < p.x + w; x++) out.push([x, y]);
+  return out;
+}
+function apAt(A, x, y, not) { return A.parts.find((p) => p.id !== not && apCells(p).some((c) => c[0] === x && c[1] === y)) || null; }
+function apParts(A, what) { return A.parts.filter((p) => AP_PARTS[p.k][what]); }
+
+// What can stand where (her tap): '' or why not.
+function apCanPlace(state, b, k, x, y, opt) {
+  const A = apOf(state, b), d = AP_PARTS[k], o = opt || {}, yr = apYear(state);
+  if (!d) return 'No such part';
+  if (d.year > yr) return 'Not before ' + d.year;
+  const lv = o.lv !== undefined ? o.lv : d.lv || 0, w = d.run ? AP_STRIP[lv].len : d.w;
+  let cells;
+  if (d.ramp) { if (x < 0 || x + 2 > AP.W) return 'Not on the airfield’s shore'; cells = [[x, 0], [x + 1, 0], [x, -1], [x + 1, -1]]; }
+  else if (d.moor) {
+    if (y !== -3 || x < 0 || x >= AP.W) return 'Moorings lie in the bay';
+    if (A.parts.some((p) => p.k === 'mooring' && p.id !== o.not && Math.abs(p.x - x) < 2)) return 'Too near another mooring';
+    cells = [[x, y]];
+  } else {
+    if (x < 0 || y < 0 || x + w > AP.W || y + d.h > AP.LAND - 1) return y + d.h > AP.LAND - 1 && y < AP.LAND ? 'The back row is the field’s office and its gate' : 'Not on the airfield’s ground';
+    cells = [];
+    for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + w; xx++) cells.push([xx, yy]);
+  }
+  for (const [cx, cy] of cells) if (apAt(A, cx, cy, o.not)) return 'Something stands there';
+  return '';
+}
+// Every place a part can go now: [{ x, y }].
+function apSpots(state, b, k, opt) {
+  const d = AP_PARTS[k], out = [];
+  if (!d) return out;
+  if (d.ramp) { for (let x = 0; x + 2 <= AP.W; x++) if (!apCanPlace(state, b, k, x, 0, opt)) out.push({ x, y: 0 }); return out; }
+  if (d.moor) { for (let x = 0; x < AP.W; x++) if (!apCanPlace(state, b, k, x, -3, opt)) out.push({ x, y: -3 }); return out; }
+  for (let y = 0; y < AP.LAND - 1; y++) for (let x = 0; x < AP.W; x++) if (!apCanPlace(state, b, k, x, y, opt)) out.push({ x, y });
+  return out;
+}
+function apTouch(state, A) { A.v = (A.v || 0) + 1; A.touched = 1; state.ver++; }
+function apBuild(state, b, k, x, y) {
+  const why = apCanPlace(state, b, k, x, y);
+  if (why) return { ok: false, why };
+  const cost = apPrice(state, k), A = apOf(state, b), d = AP_PARTS[k];
+  if (state.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  state.money -= cost;
+  // the paved runway is a strip at its paved level (her card lengthens it later)
+  const p = k === 'runway' ? apAdd(A, 'strip', { x, y, lv: 2, paid: cost }) : apAdd(A, k, { x, y, paid: cost });
+  apTouch(state, A);
+  simLog(state, 'The airfield’s new ' + d.name.toLowerCase() + ' stands: ' + d.gives + '.', [b.x + b.w / 2, b.y + b.h / 2]);
+  simEvent(state, { kind: 'apBuild', id: b.id, part: k, cost });
+  return { ok: true, cost, part: p };
+}
+// A part's next level (on its card): { name, cost, why } or null. The strip: lengthened, paved, lengthened again.
+function apNext(state, b, p) {
+  const yr = apYear(state);
+  let L = null;
+  if (p.k === 'strip') L = AP_STRIP[(p.lv || 0) + 1];
+  else if (AP_UP[p.k]) L = AP_UP[p.k][(p.lv || 0) + 1];
+  if (!L) return null;
+  const cost = apPriceK(L.k);
+  let why = L.year > yr ? 'Not before ' + L.year : '';
+  let x = p.x;
+  if (!why && p.k === 'strip') { x = apStripFit(state, b, p, L.len); if (x < 0) why = 'No room in its row: move what stands at its ends'; }
+  return { name: L.name, verb: L.verb, cost, why, x, gives: p.k === 'strip' ? AP_STRIP.indexOf(L) && apStripGives(AP_STRIP.indexOf(L)) : L.gives };
+}
+function apStripGives(lv) {
+  const L = AP_STRIP[lv];
+  return (L.paved ? 'concrete, ' : 'mown grass, ') + L.m.toLocaleString('en-US') + ' m: ' + (lv === 0 ? 'the trimotors land on it' : lv === 1 ? 'the DC-3 lands on it' : lv === 2 ? 'the four-engined airliners land on it (with the tower)' : 'the jets land on it (with the tower)');
+}
+// Where a strip lengthened to `len` cells stands in its row: its x, or -1 (it grows to the right first, then the left).
+function apStripFit(state, b, p, len) {
+  const A = apOf(state, b), free = (x) => x >= 0 && x < AP.W && !apAt(A, x, p.y, p.id);
+  const cur = apLen(p);
+  for (let sh = 0; sh <= len - cur; sh++) {
+    const x0 = p.x - sh;
+    let ok = x0 >= 0 && x0 + len <= AP.W;
+    for (let x = x0; ok && x < x0 + len; x++) if (!free(x)) ok = false;
+    if (ok) return x0;
+  }
+  return -1;
+}
+function apUpgrade(state, b, pid, free) {
+  const A = apOf(state, b), p = A.parts.find((q) => q.id === pid);
+  if (!p) return { ok: false, why: 'Nothing there' };
+  const n = apNext(state, b, p);
+  if (!n) return { ok: false, why: 'It is at its last level' };
+  if (n.why) return { ok: false, why: n.why };
+  const cost = free ? 0 : n.cost;
+  if (state.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  state.money -= cost;
+  p.lv = (p.lv || 0) + 1; p.paid = (p.paid || 0) + cost;
+  if (p.k === 'strip') p.x = n.x;
+  apTouch(state, A);
+  simLog(state, 'The airfield’s ' + (p.k === 'strip' ? AP_STRIP[p.lv].name.toLowerCase() + ' is ready: ' + apStripGives(p.lv) : n.name.toLowerCase() + ': ' + n.gives) + '.', [b.x + b.w / 2, b.y + b.h / 2]);
+  return { ok: true, cost };
+}
+function apRemove(state, b, pid) {
+  const A = apOf(state, b), p = A.parts.find((q) => q.id === pid);
+  if (!p) return { ok: false, why: 'Nothing there' };
+  const back = Math.floor((p.paid || 0) * TUNE.refund);
+  A.parts = A.parts.filter((q) => q !== p);
+  state.money += back;
+  apTouch(state, A);
+  return { ok: true, refund: back };
+}
+function apMoveCost(state, p) { return Math.round(apPriceK(p.k === 'strip' ? AP_PARTS.strip.k + (p.lv >= 2 ? 0.3 : 0) : AP_PARTS[p.k].k) * AP.movePct / 50) * 50; }
+function apMove(state, b, pid, x, y) {
+  const A = apOf(state, b), p = A.parts.find((q) => q.id === pid);
+  if (!p) return { ok: false, why: 'Nothing there' };
+  const why = apCanPlace(state, b, p.k, x, y, { not: p.id, lv: p.lv || 0, any: 1 });
+  if (why && !/^Not before/.test(why)) return { ok: false, why };
+  const cost = apMoveCost(state, p);
+  if (state.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  state.money -= cost;
+  p.x = x; p.y = y;
+  apTouch(state, A);
+  return { ok: true, cost };
+}
+// What the ground offers: the longest strip (and the longest paved), the tower, the radio, the hangar, the stands, the
+// fuel a month, the terminal's passengers a flight.
+function apGround(A) {
+  const g = { run: 0, paved: 0, tower: 0, radio: 0, hangar: 0, apron: 0, ramp: 0, moor: 0, fuel: 0, term: 0 };
+  for (const p of A.parts) {
+    const d = AP_PARTS[p.k], lv = p.lv || 0;
+    if (d.run) { const L = AP_STRIP[lv]; g.run = Math.max(g.run, L.m); if (L.paved) g.paved = Math.max(g.paved, L.m); }
+    if (d.radio) { g.radio = 1; if (lv >= 1) g.tower = 1; }
+    if (d.hangar) g.hangar++;
+    if (d.stands) g.apron += d.stands;
+    if (d.ramp) g.ramp++;
+    if (d.moor) g.moor++;
+    if (d.fuel) g.fuel += AP_FUEL[lv];
+    if (d.term) g.term += AP_TERM[lv];
+  }
+  return g;
+}
+
+// ---------- the routes and their planes ----------
+// The planes a route flies this year (oldest first), and which of them the ground can take.
+function apRoutePlanes(state, rk, month) { const y = apYear(state, month); return AP_ROUTES[rk].planes.filter((k) => AP_PLANES[k].from <= y); }
+// What a plane needs that the ground lacks ('' when it lands): run | paved | tower | hangar | ramp | moor | apron.
+function apLack(g, k, used) {
+  const P = AP_PLANES[k], n = P.need, u = used || { apron: 0, ramp: 0, moor: 0 };
+  if (n.ramp && g.ramp - u.ramp < 1) return 'ramp';
+  if (n.moor && g.moor - u.moor < 1) return 'moor';
+  if (P.kind === 'land') {
+    if (n.run && g.run < n.run) return 'run';
+    if (n.paved && g.paved < n.run) return 'paved';
+    if (n.tower && !g.tower) return 'tower';
+    if (!g.hangar) return 'hangar';
+    if (g.apron - u.apron < 1) return 'apron';
+  }
+  return '';
+}
+// The month's plan of the airfield's routes, in the order she signed them: each with the plane that flies (the newest
+// the ground takes, a stand of its own), the newest plane history offers and what it lacks.
+function apAssign(state, b, A, month) {
+  const g = apGround(A), used = { apron: 0, ramp: 0, moor: 0 }, out = [];
+  (A.routes || []).forEach((L, i) => {
+    const list = apRoutePlanes(state, L.k, month), best = list[list.length - 1] || null;
+    let fly = null;
+    for (let j = list.length - 1; j >= 0; j--) if (!apLack(g, list[j], used)) { fly = list[j]; break; }
+    if (fly) { const n = AP_PLANES[fly].need; if (n.ramp) used.ramp++; else if (n.moor) used.moor++; else used.apron++; }
+    out.push({ k: L.k, i, fly, best, lack: best && best !== fly ? apLack(g, best, used) || apLack(g, best) : '' });
+  });
+  return { g, routes: out };
+}
+// The flights of a month at one airfield: [{ rk, i, t, plane, seats, fuel, name, why ('' | norte | storm | fuel) }].
+// Two a route (its slot's ticks), checked in tick order against the weather and the month's fuel.
+function apSlot(i) { const t = 10 + ((i * 12 + 12) % 48); return [t, t + 50]; }
+const AP_CALLS = new WeakMap();
+function apCalls(state, b, month) {
+  const A = apOf(state, b), key = A.v + '|' + month + '|' + (A.routes || []).length;
+  let C = AP_CALLS.get(A);
+  if (!C) AP_CALLS.set(A, C = {});
+  if (C[month] && C[month].key === key) return C[month].out;
+  const out = apCallsNow(state, b, A, month);
+  C[month] = { key, out };
+  return out;
+}
+function apCallsNow(state, b, A, month) {
+  const asg = apAssign(state, b, A, month), W = portWeather(state, month), out = [];
+  const y = apYear(state, month);
+  for (const r of asg.routes) {
+    const R = AP_ROUTES[r.k];
+    if (!r.fly || y < R.open || (R.y1 && y > R.y1)) continue;
+    const P = AP_PLANES[r.fly], nm = (R.names && R.names[r.fly]) || null;
+    apSlot(r.i).forEach((t, j) => {
+      out.push({ rk: r.k, i: r.i, m: month, t, plane: r.fly, seats: P.seats, fuel: P.fuel, name: nm ? nm[(month * 2 + j + r.i) % nm.length] : '', why: apShut(asg.g, W, t) });
+    });
+  }
+  out.sort((a, c) => a.t - c.t);
+  let fuel = asg.g.fuel;
+  for (const c of out) { if (c.why) continue; if (fuel >= c.fuel) fuel -= c.fuel; else c.why = 'fuel'; }
+  return out;
+}
+// Why the field is shut at tick t of the month ('' when it is open): a hurricane shuts it from three ticks before the
+// storm until its wreckage is cleared (H1's harbour rule); a norte grounds flights without the radio beam.
+function apShut(g, W, t) {
+  if (W.storm && t >= W.storm.t - 3 && t <= W.storm.t + W.storm.len + PORT.clear) return 'storm';
+  if (W.norte && !g.radio && t >= W.norte.t - 1 && t <= W.norte.t + W.norte.len) return 'norte';
+  return '';
+}
+// Days the field is shut for a hurricane of this severity (a tick is about a third of a day, as at the harbour)
+// "the Sikorsky S-38 of 10 Nov": a flight in a line of Rosa's
+function apPlaneShort(c) { return 'the ' + (c.name || AP_PLANES[c.plane].name) + ' of ' + Math.min(30, 1 + Math.floor(c.t * 30 / TUNE.ticksPerMonth)) + ' ' + MONTHS[c.m % 12].slice(0, 3); }
+function apShutDays(sev) { return Math.round((3 + 4 + 2 * sev + PORT.clear) * 0.3); }
+
+// ---------- the month: flights land, visitors find beds ----------
+function apMonthRec(A, state) {
+  if (A.mm !== state.month) { if (A.mm !== undefined) { A.last = A.m; A.lastM = A.mm; } A.m = { came: 0, guests: 0, turned: 0, off: 0, flights: 0, cancel: {}, by: {} }; A.mm = state.month; }
+  return A.m;
+}
+// This month's record and last month's (empty when the island's months were not played one after the other).
+function apRecs(A, state) {
+  if (A.mm === state.month) return { M: A.m || {}, L: (A.last && A.lastM === state.month - 1 ? A.last : null) || {} };
+  if (A.mm === state.month - 1) return { M: {}, L: A.m || {} };
+  return { M: {}, L: {} };
+}
+// The month just ended (its record rolls over at the next month's first tick): the tests' and the cards' last month.
+function apMonthDone(A, state) { return A.mm === state.month - 1 ? A.m : A.mm === state.month ? A.last : null; }
+function apTick(state) {
+  if (!apOn() || !state.air) return;
+  const t = state.mt;
+  for (const b of apFields(state)) {
+    const A = state.air[b.id];
+    if (!A || !(A.routes || []).length) continue;
+    if (t === 0) apMonthRec(A, state);
+    if (!b.open || !(b.workers > 0)) continue;
+    for (const c of apCalls(state, b, state.month)) if (c.t === t) apFly(state, b, A, c);
+  }
+}
+function apFly(state, b, A, c) {
+  const M = apMonthRec(A, state), R = M.by[c.rk] || (M.by[c.rk] = { came: 0, guests: 0, turned: 0, off: 0, flights: 0, cancel: 0 });
+  const P = AP_PLANES[c.plane], at = [b.x + b.w / 2, b.y + b.h / 2], who = 'the ' + (c.name ? c.name + ' (' + P.name + ')' : P.name);
+  if (c.why) {
+    M.cancel[c.why] = (M.cancel[c.why] || 0) + 1; R.cancel++;
+    M.lost = (M.lost || 0) + c.seats;
+    if (c.why === 'norte') A.norteM = state.month;
+    simLog(state, AP_ROUTES[c.rk].who + ': ' + who + ' did not come: ' + (c.why === 'norte' ? 'a norte grounded it (no radio beam)' : c.why === 'storm' ? 'the hurricane shut the field' : 'the fuel store was empty') + '.', at);
+    A.log = [{ m: state.month, t: c.t, rk: c.rk, plane: c.plane, name: c.name, seats: c.seats, why: c.why }].concat(A.log || []).slice(0, 8);
+    return;
+  }
+  const cap = apGround(A).term, came = Math.min(c.seats, cap), off = c.seats - came;
+  let left = came, guests = 0;
+  for (const h of hotelsOf(state)) {
+    const free = hotelBeds(state, h) - (h.mGuests || 0);
+    if (free <= 0 || left <= 0) continue;
+    const k = Math.min(free, left);
+    h.mGuests = (h.mGuests || 0) + k; left -= k; guests += k;
+  }
+  M.flights++; M.came += came; M.guests += guests; M.turned += left; M.off += off;
+  R.flights++; R.came += came; R.guests += guests; R.turned += left; R.off += off;
+  const T = apTourOf(state);
+  T.came += came; T.guests += guests; T.turned += left;
+  A.log = [{ m: state.month, t: c.t, rk: c.rk, plane: c.plane, name: c.name, seats: c.seats, came, guests, turned: left, off }].concat(A.log || []).slice(0, 8);
+  if (came) simLog(state, plural(came, 'visitor', 'visitors') + ' landed from ' + who + (left ? ': ' + left + ' found no hotel bed and flew home' : '') + (off ? ' (' + off + ' stayed aboard: the terminal clears ' + cap + ' a flight)' : '') + '.', at);
+  simEvent(state, { kind: 'apLand', id: b.id, came, guests, turned: left });
+}
+// The island's air visitors this month (all airfields): { m, came, guests, turned }; last month's in state.airLast.
+function apTourOf(state) {
+  const T = state.airTour || (state.airTour = { m: state.month, came: 0, guests: 0, turned: 0 });
+  if (T.m !== state.month) { state.airLast = { m: T.m, came: T.came, guests: T.guests, turned: T.turned }; Object.assign(T, { m: state.month, came: 0, guests: 0, turned: 0 }); }
+  return T;
+}
+function apTourDone(state) {
+  if (state.airTour && state.airTour.m === state.month - 1) return state.airTour;
+  if (state.airLast && state.airLast.m === state.month - 1) return state.airLast;
+  return null;
+}
+
+// ---------- signing and ending ----------
+// Where a route flies from this year (Pan American's landplanes from Key West until 1928, then from Miami).
+function apTo(R, y) { return R.to0 && y < 1928 ? R.to0 : R.to; }
+function apOfferWhy(state, rk) {
+  const R = AP_ROUTES[rk], y = apYear(state);
+  if (y < R.open) return 'Opens in ' + R.open;
+  if (R.y1 && y > R.y1) return 'Ended in ' + R.y1;
+  return '';
+}
+function apSigned(A, rk) { return (A.routes || []).find((l) => l.k === rk) || null; }
+// What a route would fly here now if she signed it (its plane, or what the ground lacks for its first plane).
+function apTrial(state, b, rk) {
+  const A = apOf(state, b), Q = { parts: A.parts, routes: (A.routes || []).concat(apSigned(A, rk) ? [] : [{ k: rk }]) };
+  const r = apAssign(state, b, Q, state.month).routes.find((o) => o.k === rk);
+  const list = apRoutePlanes(state, rk, state.month), g = apGround(A);
+  return { fly: r ? r.fly : null, best: r ? r.best : null, lack: r && !r.fly ? apLack(g, list[0]) || apLack(g, list[list.length - 1]) || 'stand' : r ? r.lack : '', term: g.term };
+}
+function apSignWhy(state, b, rk) {
+  const A = apOf(state, b), w = apOfferWhy(state, rk);
+  if (w) return w;
+  if (apSigned(A, rk)) return 'Signed already';
+  const tr = apTrial(state, b, rk);
+  if (!tr.fly) return 'It needs ' + apNeedWords(tr.lack, tr.best || AP_ROUTES[rk].planes[0]);
+  if (!tr.term) return 'It needs a terminal (the passenger hall and the customs)';
+  return '';
+}
+function apNeedWords(lack, plane) {
+  const P = AP_PLANES[plane] || {}, n = P.need || {};
+  return lack === 'ramp' ? 'a flying-boat ramp' : lack === 'moor' ? 'a mooring in the bay' : lack === 'hangar' ? 'a hangar' : lack === 'apron' || lack === 'stand' ? 'a free stand (an apron)' :
+    lack === 'tower' ? 'the control tower' : lack === 'paved' || (lack === 'run' && n.paved) ? 'a paved runway of ' + (n.run || 1800).toLocaleString('en-US') + ' m' : lack === 'run' ? 'a strip of ' + (n.run || 600).toLocaleString('en-US') + ' m' : 'its ground';
+}
+function apSign(state, b, rk) {
+  const why = apSignWhy(state, b, rk);
+  if (why) return { ok: false, why };
+  const A = apOf(state, b);
+  (A.routes || (A.routes = [])).push({ k: rk, since: state.month });
+  apTouch(state, A);
+  const R = AP_ROUTES[rk];
+  simLog(state, portCap1(R.the) + ' are signed: ' + AP.flights + ' flights a month from ' + apTo(R, apYear(state)) + '.', [b.x + b.w / 2, b.y + b.h / 2]);
+  simEvent(state, { kind: 'apSign', id: b.id, route: rk });
+  return { ok: true, cost: 0 };
+}
+function apEnd(state, b, rk, why) {
+  const A = apOf(state, b), L = apSigned(A, rk);
+  if (!L) return { ok: false, why: 'No such route' };
+  A.routes = A.routes.filter((l) => l !== L);
+  apTouch(state, A);
+  const R = AP_ROUTES[rk];
+  simLog(state, portCap1(R.the) + ' ' + (why || 'are ended: their flights stop') + '.', [b.x + b.w / 2, b.y + b.h / 2]);
+  return { ok: true, cost: 0 };
+}
+
+// ---------- what holds the airfield back, and its fix ----------
+// { key, text, fix: { k, x, y, cost, name } | { act: 'up', pid, cost, name } | null, rk }. In order: a route grounded,
+// flights without fuel, passengers kept aboard, a bigger plane the ground cannot take, flights a norte grounded.
+function apWhy(state, b) {
+  if (!apOn() || !state.air || !state.air[b.id]) return null;
+  const A = state.air[b.id];
+  if (!(A.routes || []).length) return null;
+  const asg = apAssign(state, b, A, state.month), g = asg.g, R0 = apRecs(A, state), M = R0.M, L = R0.L, at = [b.x + b.w / 2, b.y + b.h / 2];
+  const live = asg.routes.filter((r) => { const R = AP_ROUTES[r.k], y = apYear(state); return y >= R.open && !(R.y1 && y > R.y1); });
+  if (live.length && (!b.open || !(b.workers > 0))) return { key: 'shut', text: b.open ? 'The airfield has no workers: no flight lands' : 'The airfield is shut down: no flight lands (its card opens it again)', fix: null, at };
+  const gr = live.find((r) => !r.fly);
+  if (gr) {
+    const R = AP_ROUTES[gr.k], list = apRoutePlanes(state, gr.k), first = list[0], lack = apLack(g, first) || 'apron';
+    return { key: 'ground', rk: gr.k, lack, text: portCap1(R.the) + ' are grounded: no plane of theirs can land here (it needs ' + apNeedWords(lack, first) + ')', fix: apFix(state, b, lack, first), at };
+  }
+  if (!g.term && live.length) return { key: 'term', text: 'The airfield has no terminal: its flights land no one', fix: apFix(state, b, 'terminal'), at };
+  // flights without fuel: those that did not come this month or last, or that the timetable already marks
+  const fuelN = Math.max(M.cancel ? M.cancel.fuel || 0 : 0, L.cancel ? L.cancel.fuel || 0 : 0, apCalls(state, b, state.month).filter((c) => c.why === 'fuel').length);
+  if (fuelN) {
+    const need = apCalls(state, b, state.month).reduce((a, c) => a + (c.why === 'storm' || c.why === 'norte' ? 0 : c.fuel), 0);
+    if (need > g.fuel) return { key: 'fuel', n: fuelN, text: plural(fuelN, 'flight', 'flights') + ' cannot come for want of fuel: the fuel store holds ' + g.fuel + ' small planes’ fuel a month and the routes need ' + need, fix: apFix(state, b, 'fuel'), at };
+  }
+  const off = Math.max(M.off || 0, L.off || 0), big = Math.max(0, ...live.map((r) => AP_PLANES[r.fly].seats));
+  if (off && big > g.term) return { key: 'term', n: off, text: off + ' passengers stayed aboard: the terminal clears ' + g.term + ' a flight and the ' + AP_PLANES[live.find((r) => AP_PLANES[r.fly].seats === big).fly].name + ' brings ' + big, fix: apFix(state, b, 'term'), at };
+  const nx = live.find((r) => r.lack);
+  if (nx) {
+    const R = AP_ROUTES[nx.k], B = AP_PLANES[nx.best], F = AP_PLANES[nx.fly];
+    return { key: 'next', rk: nx.k, lack: nx.lack, text: R.who + ' would send the ' + B.name + ' now (' + B.seats + ' seats against the ' + F.name + '’s ' + F.seats + '), but she needs ' + apNeedWords(nx.lack, nx.best), fix: apFix(state, b, nx.lack, nx.best), at };
+  }
+  if (!g.radio && A.norteM !== undefined && state.month - A.norteM < AP.norteKeep) {
+    const lost = (L.cancel && L.cancel.norte) || (M.cancel && M.cancel.norte) || 1;
+    return { key: 'norte', text: 'A norte grounded ' + plural(lost, 'flight', 'flights') + ' in ' + MONTHS[A.norteM % 12] + ': without a radio beam no plane comes through its low cloud', fix: apFix(state, b, 'radio'), at };
+  }
+  return null;
+}
+// The fix for a lack: the part (its best spot) or a part's next level.
+function apFix(state, b, lack, plane) {
+  const A = apOf(state, b), g = apGround(A), n = plane ? AP_PLANES[plane].need : {};
+  const up = (p) => { const x = apNext(state, b, p); return x && !x.why ? { act: 'up', pid: p.id, k: p.k, cost: x.cost, name: apUpName(x), to: apUpTo(p, x) } : null; };
+  const build = (k) => { const sp = apFixSpot(state, b, k); return sp ? { k, x: sp.x, y: sp.y, cost: apPrice(state, k), name: AP_PARTS[k].name } : null; };
+  if (lack === 'run' || lack === 'paved') {
+    const want = n.run || 1200, strips = apParts(A, 'run').sort((p, q) => AP_STRIP[q.lv || 0].m - AP_STRIP[p.lv || 0].m);
+    for (const p of strips) {
+      const L = AP_STRIP[(p.lv || 0) + 1];
+      if (!L) continue;
+      // the next level of the longest strip that gets there (one step at a time: grass, longer, paved, longer)
+      if (AP_STRIP[p.lv || 0].m < want || (lack === 'paved' && !AP_STRIP[p.lv || 0].paved)) { const f = up(p); if (f) return f; }
+    }
+    return want > 1200 ? build('runway') : build('strip');
+  }
+  if (lack === 'tower') { const r = apParts(A, 'radio')[0], f = r ? up(r) : build('radio'); if (f && !r) f.note = 'first: the tower is built on it (1946)'; return f; }
+  if (lack === 'fuel') { const f = apParts(A, 'fuel').find((p) => (p.lv || 0) === 0); return (f && up(f)) || build('fuel'); }
+  if (lack === 'term') { const t = apParts(A, 'term').find((p) => (p.lv || 0) === 0); const big = t && up(t); return big || build('terminal'); }
+  if (lack === 'moor') return build('mooring');
+  return build(lack === 'apron' || lack === 'stand' ? 'apron' : lack);
+}
+// An upgrade's name and what it gives ("Lengthen the strip", "to 1,200 m").
+function apUpName(x) { return x.verb === 'Pave' ? 'Pave the strip' : x.verb === 'Tanks' ? 'Fuel tanks' : x.verb === 'Enlarge' ? 'Enlarge the terminal' : x.verb === 'Tower' ? 'The control tower' : 'Lengthen the strip'; }
+function apUpTo(p, x) {
+  if (p.k === 'strip') { const L = AP_STRIP[(p.lv || 0) + 1]; return (x.verb === 'Pave' ? 'concrete, ' : 'to ') + L.m.toLocaleString('en-US') + ' m'; }
+  return p.k === 'fuel' ? AP_FUEL[(p.lv || 0) + 1] + ' small planes’ flights a month' : p.k === 'terminal' ? AP_TERM[(p.lv || 0) + 1] + ' a flight' : 'the airliners and the jets need it';
+}
+// A part's spot for a fix: near the terminal and the strip (land), the first free stretch of the shore (the ramp).
+function apFixSpot(state, b, k) {
+  const A = apOf(state, b), sp = apSpots(state, b, k), strip = apParts(A, 'run')[0], sy = strip ? strip.y : 4;
+  const keep = (s) => !(AP_PARTS[k].w > 0 && !AP_PARTS[k].run && strip && s.y <= sy && s.y + AP_PARTS[k].h > sy);
+  const score = (s) => (AP_PARTS[k].run ? Math.abs(s.y - 4) * 3 + Math.abs(s.x - 1) : Math.abs(s.y - (sy >= 3 ? 1 : 5)) * 2 + Math.abs(s.x + 1 - AP.W / 2) * 0.5 + (s.y === sy ? 50 : 0));
+  return sp.filter(keep).sort((a, c) => score(a) - score(c))[0] || sp[0] || null;
+}
+function apFixRun(state, b, f) {
+  if (!f) return { ok: false, why: 'Nothing to do here now' };
+  if (f.act === 'up') return apUpgrade(state, b, f.pid);
+  return apBuild(state, b, f.k, f.x, f.y);
+}
+// Q2's trial: on a copy of the ground, does the fix ease the named cause? (more fuel, more passengers a flight, the
+// bigger plane lands, the grounded route flies, the radio beam)
+function apTry(s, b, d) {
+  const A = apOf(s, b), keep = JSON.stringify(A);
+  try {
+    const why = apWhy(s, b);
+    if (!why) return false;
+    const g0 = apGround(A), a0 = apAssign(s, b, A, s.month);
+    if (d.act === 'up') { const p = A.parts.find((q) => q.id === d.pid); const n = p && apNext(s, b, p); if (!n || n.why) return false; p.lv = (p.lv || 0) + 1; if (p.k === 'strip') p.x = n.x; }
+    else { if (apCanPlace(s, b, d.k, d.x, d.y)) return false; d.k === 'runway' ? apAdd(A, 'strip', { x: d.x, y: d.y, lv: 2 }) : apAdd(A, d.k, { x: d.x, y: d.y }); }
+    A.v = -1e9 - Math.random();
+    const g1 = apGround(A), a1 = apAssign(s, b, A, s.month);
+    const seats = (a) => a.routes.reduce((n, r) => n + (r.fly ? AP_PLANES[r.fly].seats : 0), 0);
+    if (why.key === 'fuel') return g1.fuel > g0.fuel;
+    if (why.key === 'term') return g1.term > g0.term;
+    if (why.key === 'norte') return !!g1.radio;
+    // the bigger plane or a grounded route: more seats fly, or the ground comes a step nearer what the plane lacks (a
+    // longer strip, concrete, the radio and then the tower, a mooring, a stand): one step of a chain passes, a part
+    // the plane does not lack fails
+    const step = (g) => ({ run: g.run, paved: g.paved, tower: g.radio + g.tower, moor: g.moor, ramp: g.ramp, apron: g.apron, stand: g.apron, hangar: g.hangar })[why.lack];
+    return seats(a1) > seats(a0) || (why.lack && step(g1) > step(g0));
+  } finally {
+    const o = JSON.parse(keep);
+    for (const k of Object.keys(A)) delete A[k];
+    Object.assign(A, o);
+  }
+}
+// The airfield that needs her most now: { b, why } (with a fix).
+function apWorst(state) {
+  const order = { ground: 0, term: 1, fuel: 2, next: 3, norte: 4 };
+  let best = null;
+  for (const b of apFields(state)) {
+    if (!b.open) continue;
+    const w = apWhy(state, b);
+    if (w && w.fix && (!best || order[w.key] < order[best.why.key])) best = { b, why: w };
+  }
+  return best;
+}
+
+// The screen's numbers (airport_ui.js): the ground, the routes, the month's flights, the weather.
+function apFlow(state, b) {
+  const A = apOf(state, b), asg = apAssign(state, b, A, state.month);
+  const open = airfieldOn(state) && (asg.g.ramp || asg.g.run) ? airVisitors(state) : 0;
+  return { A, g: asg.g, routes: asg.routes, calls: apCalls(state, b, state.month), next: apCalls(state, b, state.month + 1), open, M: apRecs(A, state).M, L: apRecs(A, state).L, why: apWhy(state, b),
+    ahead: portStormAhead(state), weather: portWeather(state, state.month), beds: hotelsOf(state).reduce((a, h) => a + hotelBeds(state, h), 0), taken: hotelsOf(state).reduce((a, h) => a + (h.mGuests || 0), 0) };
+}
+
+// ---------- hooks into the island ----------
+{
+  const _st = simTick;
+  simTick = function (state) {
+    if (apOn()) apTick(state);
+    return _st.apply(this, arguments);
+  };
+  // the parts she bought pay their upkeep on the airfield's number; the open service needs a ramp or a strip (an
+  // untouched airfield has both: it earns what it did)
+  const _bn = bNumber;
+  bNumber = function (state, b) {
+    const x = _bn.apply(this, arguments);
+    if (!apOn() || !b || b.type !== 'airfield' || !state.air || !state.air[b.id]) return x;
+    const A = state.air[b.id];
+    let paid = 0;
+    for (const p of A.parts) paid += p.paid || 0;
+    const u = Math.round(paid * TUNE.upkeepPct);
+    if (u && b.open) { x.upkeep += u; x.n -= u; }
+    const g = apGround(A);
+    if (!g.ramp && !g.run && x.visitors) { x.exports -= x.visitors; x.n -= x.visitors; x.visitors = 0; }
+    return x;
+  };
+  // an airfield that is gone forgets its ground
+  const _pr = paydayRun;
+  paydayRun = function (state) {
+    const r = _pr.apply(this, arguments);
+    if (state.air) for (const id in state.air) if (!bById(state, +id)) delete state.air[id];
+    return r;
+  };
+  // the year's turn of the routes: a route whose airline stopped flying it ends (said in the log)
+  const _pt = portTick;
+  portTick = function (state) {
+    if (apOn() && state.mt === 0 && state.air) {
+      for (const b of apFields(state)) {
+        const A = state.air[b.id];
+        if (!A || !(A.routes || []).length) continue;
+        for (const L of A.routes.slice()) { const R = AP_ROUTES[L.k]; if (R.y1 && apYear(state) > R.y1) apEnd(state, b, L.k, 'end: ' + R.who + ' stopped flying them in ' + R.y1); }
+      }
+    }
+    return _pt.apply(this, arguments);
+  };
+  // the hotel's ghost counts the air visitors who found no bed too
+  const _bf = bForecast;
+  bForecast = function (state, type) {
+    const v = _bf.apply(this, arguments);
+    if (type !== 'hotel' || !apOn()) return v;
+    const T = apTourDone(state) || (state.airTour && state.airTour.m === state.month ? state.airTour : null), S = portTourDone(state) || (state.tour && state.tour.m === state.month ? state.tour : null);
+    const sea = Math.min(H2.beds, (S && S.turned) || 0), air = (T && T.turned) || 0;
+    return v + (Math.min(H2.beds, sea + air) - sea) * H2.spend;
+  };
+}
+
+// ---------- the guidance: the manager's ask, Rosa, the plans, Q2 ----------
+function apPlanOf(state, d) {
+  const b = bById(state, d.id);
+  if (!b || b.type !== 'airfield' || !apOn()) return null;
+  let f = null;
+  if (d.kind === 'aproute') { if (apSignWhy(state, b, d.k)) return null; f = { cost: 0, name: AP_ROUTES[d.k].name }; }
+  else if (d.act === 'up') { const p = apOf(state, b).parts.find((q) => q.id === d.pid); const n = p && apNext(state, b, p); if (!n || n.why) return null; f = { act: 'up', pid: p.id, k: p.k, cost: n.cost, name: apUpName(n), to: apUpTo(p, n) }; }
+  else { if (apCanPlace(state, b, d.k, d.x, d.y)) return null; f = { k: d.k, x: d.x, y: d.y, cost: apPrice(state, d.k), name: AP_PARTS[d.k].name }; }
+  const line = [];
+  for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) line.push(tileIdx(x, y));
+  return { kind: d.kind, id: b.id, line, glow: [b.id], cost: f.cost, name: f.name, f, at: [b.x, b.y], k: d.k };
+}
+function apPlanD(b, f) { return { kind: 'apart', id: b.id, k: f.k, x: f.x, y: f.y, act: f.act || '', pid: f.pid || 0 }; }
+function apFixWords(f) {
+  if (!f) return '';
+  if (f.act === 'up') return f.name + (f.to ? ' (' + f.to + ')' : '');
+  const d = AP_PARTS[f.k];
+  return (/^[aeiou]/i.test(d.name) ? 'An ' : 'A ') + d.name.toLowerCase() + (f.note ? ' ' + f.note : ': ' + d.gives);
+}
+// The route Rosa would propose: the hotels had empty beds last month and a route open now flies here as the ground is
+// (signable now, its visitors fewer than the empty beds or at least ten of them): { b, k, fly, n, free } or null.
+function apRouteAsk(state) {
+  if (!apOn() || !state.air) return null;
+  const free = hotelsOf(state).reduce((a, h) => a + Math.max(0, hotelBeds(state, h) - (h.lastGuests || 0)), 0);
+  if (free < 10) return null;
+  for (const b of apFields(state)) {
+    if (!b.open || !state.air[b.id]) continue;
+    for (const k of AP_ROUTE_ORDER) {
+      if (apSignWhy(state, b, k)) continue;
+      const tr = apTrial(state, b, k), P = AP_PLANES[tr.fly], n = AP.flights * Math.min(P.seats, tr.term);
+      return { b, k, fly: tr.fly, n, free };
+    }
+  }
+  return null;
+}
+{
+  COM_WHO.airport = { role: 'the airfield’s manager', form: 'mr', col: '#3f6b8a' };
+  if (typeof A8_KINDS !== 'undefined' && typeof a8PlanOf === 'function') {
+    A8_KINDS.apart = 1; A8_KINDS.aproute = 1;
+    const _ap = a8PlanOf;
+    a8PlanOf = function (s, d) { return d && (d.kind === 'apart' || d.kind === 'aproute') ? apPlanOf(s, d) : _ap.apply(this, arguments); };
+    const _pl = planLabel;
+    planLabel = function (p) { return p && p.kind === 'apart' ? 'Tap the airfield: ' + p.name.toLowerCase() + ' · ' + money$(p.cost) : p && p.kind === 'aproute' ? 'Tap the airfield: sign the ' + p.name.toLowerCase() : _pl.apply(this, arguments); };
+    const _pb = planBtn;
+    planBtn = function (p) { return p && (p.kind === 'apart' || p.kind === 'aproute') ? 'Airfield' : _pb.apply(this, arguments); };
+    const _ps = planSay;
+    planSay = function (s, p) { return p && p.kind === 'apart' ? '· ' + money$(p.cost) : p && p.kind === 'aproute' ? '' : _ps.apply(this, arguments); };
+  }
+  const _po = planOf;
+  planOf = function (s, d) {
+    if (d && (d.kind === 'apart' || d.kind === 'aproute')) { try { const p = apPlanOf(s, d); return p ? Object.assign({ d }, p) : null; } catch (e) { return null; } }
+    return _po.apply(this, arguments);
+  };
+  const _run = planRun;
+  planRun = function (s, d) {
+    if (!d || (d.kind !== 'apart' && d.kind !== 'aproute')) return _run.apply(this, arguments);
+    const p = planOf(s, d), b = bById(s, d.id);
+    if (!p || !b) return { ok: false, why: 'Nothing to do here now' };
+    const r = d.kind === 'aproute' ? apSign(s, b, d.k) : apFixRun(s, b, p.f);
+    return r.ok ? { ok: true, cost: r.cost || 0, at: p.at, built: b.id } : r;
+  };
+  // the manager's ask: the airfield's own cause, its fix as a plan (the airfield glows; a tap opens it at the place)
+  if (typeof COMMISSIONS !== 'undefined') {
+    COMMISSIONS.push({ key: 'apfix', p: 3, who: 'airport', when(s) {
+      if (!apOn() || !s.air) return null;
+      const w = apWorst(s);
+      if (!w) return null;
+      const f = w.why.fix, b = w.b;
+      return { tool: 'airfield', plan: apPlanD(b, f), near: [b.x, b.y], glowB: b.id, select: b.id, sub: w.why.key,
+        ask: w.why.text.replace(/^./, (c) => c.toUpperCase()) + '. ' + apFixWords(f) + ' (' + money$(f.cost) + '). Tap the glowing airfield.',
+        praise: 'The airfield’s ' + f.name.toLowerCase() + ' is ready: the planes come again.', gift: comGift(f.cost, 0.05),
+        done: (q) => { const b2 = bById(q, b.id), w2 = b2 && apWhy(q, b2); return !b2 || !w2 || w2.key !== w.why.key; } };
+    } });
+    const _cd = comIsDone;
+    comIsDone = function (s, q) {
+      if (q && q.plan && q.plan.kind === 'apart') return !planOf(s, q.plan) || !apWorst(s) || apWorst(s).why.key !== q.sub;
+      return _cd.apply(this, arguments);
+    };
+    const _cm = comMake;
+    comMake = function (s, T, r) {
+      const q = _cm.apply(this, arguments);
+      if (r && r.plan && r.plan.kind === 'apart' && q) { q.plan = r.plan; q.sv = -1; comRespot(s, q); }
+      return q;
+    };
+    const _cr = comRespot;
+    comRespot = function (s, q) {
+      if (q && q.plan && q.plan.kind === 'apart') { if (q.sv === s.ver) return; if (planOf(s, q.plan)) { q.sv = s.ver; q.spots = []; q.road = null; q.move = 0; return; } }
+      return _cr.apply(this, arguments);
+    };
+    // an airfield that is built is not asked for again (the manager's ask keeps the tool 'airfield' for its glow)
+    const _cg = comGone;
+    comGone = function (s, q) {
+      if (q && q.key === 'apfix') { const w = apWorst(s); return !w || w.why.key !== q.sub; }
+      return _cg.apply(this, arguments);
+    };
+  }
+  // Q2: the part is tried on a copy of the ground first: it must ease what it names; a route Rosa proposes must find
+  // the beds (the hotels' empty beds last month at least its visitors, or ten)
+  if (typeof brCheck === 'function') {
+    const _bc = brCheck;
+    brCheck = function (s, a) {
+      const d = a && a.plan;
+      if (!d || (d.kind !== 'apart' && d.kind !== 'aproute')) return _bc.apply(this, arguments);
+      const b = bById(s, d.id);
+      if (!b) return { ok: false, kind: 'airport', why: 'the airfield is gone' };
+      if (d.kind === 'aproute') { const r = apRouteAsk(s); return r && r.k === d.k ? { ok: true, kind: 'airport' } : { ok: false, kind: 'airport', why: 'the hotels have no empty beds for its visitors' }; }
+      return apTry(s, b, d) ? { ok: true, kind: 'airport' } : { ok: false, kind: 'airport', why: 'the part would not ease what holds the airfield back' };
+    };
+  }
+  // Rosa's lines (none `now`: they wait their two months like her ordinary lines, so no older line is starved):
+  // the airfield's own cause with its fix (after the harbour's), a route for the hotels' empty beds (beside H2's
+  // contract and hotel lines), and the hotel line counts the air visitors who flew home for want of a bed
+  const apfix = { key: 'apfix', check(s) {
+    if (!apOn() || !s.air) return null;
+    const w = apWorst(s);
+    if (!w) return null;
+    const f = w.why.fix, b = w.b;
+    return { text: w.why.text.replace(/^./, (c) => c.toUpperCase()) + '. ' + apFixWords(f) + ' · ' + money$(f.cost) + '.', btn: 'Airfield',
+      act: { plan: apPlanD(b, f), select: b.id, at: [b.x, b.y], fac: { id: b.id, k: f.k, x: f.x, y: f.y, act: f.act || '', pid: f.pid || 0 } } };
+  } };
+  const aproute = { key: 'aproute', check(s) {
+    const a = apRouteAsk(s);
+    if (!a) return null;
+    const A = s.apAsk || (s.apAsk = {}), first = A[a.k];
+    if (first !== undefined && s.month - first >= AP.ask) { if (s.month - first >= AP.ask + AP.rest) A[a.k] = s.month; else return null; }
+    if (A[a.k] === undefined) A[a.k] = s.month;
+    const R = AP_ROUTES[a.k], P = AP_PLANES[a.fly], n = Math.min(a.n, a.free);
+    return { text: 'The hotels had ' + a.free + ' empty beds last month. ' + R.who + ' would fly here: the ' + P.name + ' (' + P.seats + ' seats), ' + AP.flights + ' flights a month from ' + apTo(R, apYear(s)) + ', ' + a.n + ' visitors a month: about +' + money$(n * H2.spend) + ' in the town. Sign it on the airfield’s board.',
+      btn: 'Airfield', act: { plan: { kind: 'aproute', id: a.b.id, k: a.k }, select: a.b.id, at: [a.b.x, a.b.y], fac: { id: a.b.id, tab: 'routes', offer: a.k } } };
+  } };
+  const iH = GUIDE_PROBLEMS.findIndex((p) => p.key === 'hdead'), iS = GUIDE_PROBLEMS.findIndex((p) => p.key === 'ships');
+  GUIDE_PROBLEMS.splice(iH >= 0 ? iH + 1 : iS >= 0 ? iS + 1 : GUIDE_PROBLEMS.length, 0, apfix);
+  const iB = GUIDE_PROBLEMS.findIndex((p) => p.key === 'beds');
+  GUIDE_PROBLEMS.splice(iB >= 0 ? iB : GUIDE_PROBLEMS.length, 0, aproute);
+  const HO = GUIDE_PROBLEMS.find((p) => p.key === 'hotel');
+  if (HO) {
+    const _hc = HO.check;
+    HO.check = function (s) {
+      const r = _hc.apply(this, arguments);
+      if (!apOn()) return r;
+      const T = s.airTour && s.airTour.m === s.month ? s.airTour : null, S = s.tour && s.tour.m === s.month ? s.tour : null;
+      const air = T ? T.turned : 0, sea = S ? S.turned : 0;
+      if (!air || air + sea < 5) return r;
+      return { text: (sea ? plural(sea, 'tourist', 'tourists') + ' sailed on and ' + plural(air, 'visitor', 'visitors') + ' flew home' : plural(air, 'visitor', 'visitors') + ' flew home') + ' this month: no hotel bed (each spends about ' + money$(H2.spend) + ' in the town). A hotel · ' + money$(BUILDINGS.hotel.cost) + ': ' + H2.beds + ' guests a month.',
+        btn: toolLabel('hotel'), act: { tool: 'hotel' } };
+    };
+  }
+  // the hurricane's warning says what it does to the airfield too (its flights that will not come)
+  const ST = GUIDE_PROBLEMS.find((p) => p.key === 'storm');
+  if (ST) {
+    const _sc = ST.check;
+    ST.check = function (s) {
+      const r = _sc.apply(this, arguments);
+      if (!r || !apOn() || !/observatory/.test(r.text)) return r;
+      const w = portStormAhead(s);
+      if (!w) return r;
+      let n = 0;
+      for (const b of apFields(s)) if (s.air && s.air[b.id] && (s.air[b.id].routes || []).length) n += apCalls(s, b, w.month).filter((c) => c.why === 'storm').length;
+      return n ? Object.assign({}, r, { text: r.text + ' The airfield shuts too: ' + plural(n, 'flight', 'flights') + ' will not come.' }) : r;
+    };
+  }
+  // once, from 1920, in a month Rosa has nothing else to say: the airfield's board. And a hurricane the observatory
+  // warns of (two months ahead) that will cancel her routes' flights: said once a storm, in the harbour warning's place
+  // when the harbour has nothing to make fast (a stone quay), never over Rosa's urgent lines (the red, a strike, the
+  // protest, a shut works)
+  const _gm = guideMonth;
+  guideMonth = function (state) {
+    const r = _gm.apply(this, arguments);
+    if (!apOn()) return r;
+    const g = state.guide, b = apFields(state).find((o) => o.open);
+    const w = state.air ? portStormAhead(state) : null;
+    if (w && w.ahead <= 2 && state.apWarned !== w.month && !(g.msg && /^(shutask|shut|red|strike|protest|storm)$/.test(g.msg.key))) {
+      const lost = [];
+      for (const f of apFields(state)) if (state.air[f.id] && (state.air[f.id].routes || []).length) for (const c of apCalls(state, f, w.month)) if (c.why === 'storm') lost.push(c);
+      if (lost.length) {
+        state.apWarned = w.month;
+        const f0 = apFields(state).find((f) => state.air[f.id] && (state.air[f.id].routes || []).length), n = lost.reduce((a, c) => a + c.seats, 0);
+        guideSay(state, { key: 'apstorm', text: 'The observatory warns: a hurricane ' + (w.ahead === 0 ? 'this month' : w.ahead === 1 ? 'next month' : 'in two months') + ', about ' + portDateOf(w.month, w.t) + ' (' + w.name + '). The airfield shuts for about ' + apShutDays(w.sev) + ' days: ' + lost.map((c) => apPlaneShort(c)).join(' and ') + ' will not come (' + plural(n, 'visitor', 'visitors') + '). Nothing to build against it: the planes stay away until it has passed.',
+          btn: 'Airfield', act: { select: f0.id, at: [f0.x, f0.y], fac: { id: f0.id } } });
+        return r;
+      }
+    }
+    if (b && !g.seen.airRoutes && hotelsOf(state).length && (!g.msg || /^hint/.test(g.msg.key))) {
+      g.seen.airRoutes = 1;
+      guideSay(state, { key: 'hint-air', text: 'The airlines fly scheduled routes now: the airfield’s board (Routes) offers them by era. A route brings its plane’s seats of visitors twice a month; they need a hotel bed (as the sea’s tourists do) and spend ' + money$(H2.spend) + ' each. The ground decides which plane can land.',
+        btn: 'Airfield', act: { select: b.id, at: [b.x, b.y], fac: { id: b.id, tab: 'routes' } } });
+    }
+    return r;
+  };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -36778,7 +37593,7 @@ function facPins() {
   const key = JSON.stringify(out);
   if (key === APP.facPinKey) return;
   APP.facPinKey = key;
-  el.innerHTML = out.map((o) => '<button class="fac-pin' + (o.warn ? ' warn' : '') + '" data-fp="' + o.id + '" data-kind="' + o.kind + '" style="left:' + o.x + 'px;top:' + o.y + 'px" aria-label="' + esc(o.label) + '">' + iconSvg('anchor') + '<span>' + esc(o.label) + '</span>' + (o.warn ? '<i>!</i>' : '') + '</button>').join('');
+  el.innerHTML = out.map((o) => '<button class="fac-pin' + (o.warn ? ' warn' : '') + '" data-fp="' + o.id + '" data-kind="' + o.kind + '" style="left:' + o.x + 'px;top:' + o.y + 'px" aria-label="' + esc(o.label) + '">' + iconSvg((FAC.kinds[o.kind] && FAC.kinds[o.kind].pinIcon) || 'anchor') + '<span>' + esc(o.label) + '</span>' + (o.warn ? '<i>!</i>' : '') + '</button>').join('');
 }
 {
   const _rp = rotPlace;
@@ -38097,6 +38912,860 @@ function hotelCardHtml(s, b) {
   bStatus = function (s, b) {
     if (b && b.type === 'hotel' && h2On() && b.open && b.workers > 0) { const g = b.lastGuests || 0; return g ? { text: 'Open: ' + g + ' guests last month.', good: true } : { text: 'Open, no guests yet: no passenger line lands tourists.', good: false }; }
     return _bs.apply(this, arguments);
+  };
+}
+
+// ---- src/ui/airport_ui.js
+// AP1 (3 Nov 2026, `nova/ap`): the airport's own screen (facility.js's second kind). DESIGN.md §46; the rules:
+// src/sim/airport.js; history: docs/research/airport.md. What she sees:
+// - The plan: the airfield's ground in the island's 2:1 view, seen from the bay: the water in front (whitecaps in a
+//   norte, rain and dark cloud in a hurricane), the moorings' buoys, the ramp with its pontoon, then the land: the strip
+//   (mown grass with its white markers, or concrete with its centre line and threshold bars), the apron and its stands,
+//   the hangar under its arched roof, the fuel store (drums, later tanks), the terminal (a stucco hall with its
+//   veranda, later two floors of glass), the radio mast (later the tower), the field's office and its windsock by the
+//   road at the back. The planes come by the timetable, each painted with the island's pen in its own shape: the
+//   Aeromarine flying boat (a biplane over a wooden hull), the Fokker trimotor (a wooden high wing, three engines),
+//   the Sikorsky amphibians (a hull under a high wing, twin booms to the tail), the DC-3, the DC-6 and the 707 (polished
+//   metal, a blue line, two or four engines, the jet's swept wing). A landplane comes in low over the bay, touches down,
+//   rolls, taxis to its stand, lets its visitors walk to the terminal, taxis back and climbs away; a flying boat alights
+//   on the bay, taxis to the ramp or its mooring and does the same on the water. By night the colour of the hour lies
+//   over it; the runway's edge lights, the beacon, the terminal's windows and the planes' lights are lit.
+// - Where something holds the airfield back it is named on the spot with its fix as a button (a red label: at the strip
+//   for the bigger plane it cannot take, at the fuel store, the terminal, the radio's spot); a hurricane or a norte that
+//   shuts the field is written over the strip.
+// - The side panel: Airfield (the open service, the ground step by step, the timetable, the weather) and Routes (the
+//   board: what flies, the offers by era with their numbers, Sign and End). A tapped part's card: what it does in
+//   numbers, its next level (lengthen, pave, tanks, enlarge, tower), Move, Remove.
+// - Its build bar: ramp, mooring, strip, runway, apron, hangar, fuel store, terminal, radio (each with its picture, its
+//   price or its year); armed, the places it can go glow; one tap builds there.
+
+const AP_UI = { app: 4, roll: 2, taxi: 2, stand: 8, out: 2, climb: 4 };
+Object.assign(ICONS, {
+  plane: 'M21 15.6 V13.6 L13.6 9.1 V3.6 C13.6 2.7 12.9 2 12 2 C11.1 2 10.4 2.7 10.4 3.6 V9.1 L3 13.6 V15.6 L10.4 13.3 V18.6 L8.4 20 V21.6 L12 20.6 L15.6 21.6 V20 L13.6 18.6 V13.3 Z',
+  signal: 'M11 2 H13 L16.5 22 H14.4 L12.6 12 H11.4 L9.6 22 H7.5 Z M4.5 7 C5.3 4.6 6.6 3.2 8.2 2.6 L8.9 4 C7.7 4.6 6.8 5.7 6.4 7.4 Z M19.5 7 C18.7 4.6 17.4 3.2 15.8 2.6 L15.1 4 C16.3 4.6 17.2 5.7 17.6 7.4 Z',
+  square: 'M3 4 H21 V20 H3 Z M5 6 H11 V18 H5 Z M13 6 H19 V18 H13 Z',
+});
+// Drawing coordinates as at the harbour: x along the coast, Y = LAND - y (the bay toward the eye, Y > LAND).
+function apDR(p) { const d = AP_PARTS[p.k], w = d.run ? apLen(p) : d.w; return [p.x, AP.LAND - p.y - d.h, w, d.h]; }
+function apDRk(k, x, y, lv) { const d = AP_PARTS[k], w = d.run ? AP_STRIP[lv !== undefined ? lv : d.lv || 0].len : d.w; return d.ramp ? [x, AP.LAND - 1, 2, 2] : d.moor ? [x, AP.LAND + 2, 1, 1] : [x, AP.LAND - y - d.h, w, d.h]; }
+const AP_LANE = AP.LAND + 3.5;
+function apNow(s) { return s.mt + (APP.speed ? Math.min(1, APP.acc / (TUNE.secondsPerMonth / TUNE.ticksPerMonth)) : 0); }
+
+// ---------- the painters: planes (grid units, z up, a local frame along the nose) ----------
+function apFus(ctx, Fr, L, W, z0, h, col, top) {
+  const out = [[L / 2, 0], [L / 2 - 0.06, W * 0.42], [L / 2 - 0.22, W / 2], [-L / 2 + 0.38, W * 0.42], [-L / 2, W * 0.1], [-L / 2, -W * 0.1], [-L / 2 + 0.38, -W * 0.42], [L / 2 - 0.22, -W / 2], [L / 2 - 0.06, -W * 0.42]];
+  const g = portHull(ctx, Fr, out, z0, z0 + h, col);
+  portDeck(ctx, g, z0 + h, top || portLt(col, 0.18));
+  return g;
+}
+// A wing (or a tailplane): leading edge at a0 at the root, `sweep` back at the tips, chords at root and tip, at z.
+function apWing(ctx, Fr, a0, chord, tip, span, sweep, z, col) {
+  const s2 = span / 2, pts = [[a0, 0], [a0 - sweep, s2], [a0 - sweep - tip, s2], [a0 - chord, 0], [a0 - sweep - tip, -s2], [a0 - sweep, -s2]];
+  portPoly(ctx, pts.map((q) => Fr.P(q[0], q[1], z - 0.035)), portDk(col, 0.3), null);
+  portPoly(ctx, pts.map((q) => Fr.P(q[0], q[1], z)), col, PORT_INK, portLw() * 0.8);
+}
+function apFin(ctx, Fr, a0, len, h, sweep, z, col) {
+  portPoly(ctx, [Fr.P(a0, 0, z), Fr.P(a0 - len, 0, z), Fr.P(a0 - len - sweep * 0.3, 0, z + h), Fr.P(a0 - sweep - len * 0.45, 0, z + h)], col, PORT_INK, portLw() * 0.8);
+}
+function apNac(ctx, Fr, a, c, z, len, r, col) {
+  const out = [[a + len / 2, c], [a + len / 2 - 0.04, c + r], [a - len / 2, c + r * 0.7], [a - len / 2, c - r * 0.7], [a + len / 2 - 0.04, c - r]];
+  const g = portHull(ctx, Fr, out, z, z + r * 1.6, col);
+  portDeck(ctx, g, z + r * 1.6, portLt(col, 0.15));
+}
+function apProp(ctx, Fr, a, c, z, r, now) {
+  const q = Fr.P(a, c, z), R = r * FAC.view.hw;
+  ctx.save(); ctx.globalAlpha *= 0.28; ctx.fillStyle = '#3a2a1f';
+  ctx.beginPath(); ctx.ellipse(q[0], q[1], R * 0.55, R, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  void now;
+}
+function apShadow(ctx, Fr, L, span, z) {
+  const q = Fr.P(0.15 * z, 0.25 * z, 0), hw = FAC.view.hw;
+  ctx.save(); ctx.globalAlpha *= Math.max(0.06, 0.2 - z * 0.05); ctx.fillStyle = '#1e2a20';
+  ctx.beginPath(); ctx.ellipse(q[0], q[1], Math.max(L, span) * hw * 0.62, Math.max(L, span) * hw * 0.24, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+}
+// A visitor on foot, smaller than the harbour's (a plane is bigger than a person, and the plan shows it)
+function apPerson(ctx, x, y, col, hat) {
+  const hw = FAC.view.hw, q = facP(x, y, 0), h = hw * 0.32, w = Math.max(1.5, hw * 0.065);
+  ctx.fillStyle = 'rgba(30,20,10,0.18)'; ctx.beginPath(); ctx.ellipse(q[0], q[1], w * 1.6, w * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = col; ctx.strokeStyle = PORT_INK; ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.moveTo(q[0] - w, q[1]); ctx.lineTo(q[0] - w * 0.8, q[1] - h * 0.72); ctx.lineTo(q[0] + w * 0.8, q[1] - h * 0.72); ctx.lineTo(q[0] + w, q[1]); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e8c4a0'; ctx.beginPath(); ctx.arc(q[0], q[1] - h * 0.86, w * 0.8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  if (hat) { ctx.fillStyle = hat; ctx.fillRect(q[0] - w * 1.1, q[1] - h * 1.02, w * 2.2, w * 0.45); }
+}
+// The side of the fuselage turned to the eye (+1 or -1 across the nose).
+function apNear(fx, fy) { return fx - fy >= 0 ? 1 : -1; }
+function apWindows(ctx, Fr, a0, a1, n, c, z, col) {
+  for (let i = 0; i < n; i++) { const a = a0 + (a1 - a0) * (i + 0.5) / n, q = Fr.P(a, c, z); ctx.beginPath(); ctx.arc(q[0], q[1], Math.max(0.8, FAC.view.hw / 40), 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); }
+}
+// A boat hull on the water (flying boats): a keel line in the water, the planing step, a darker bottom.
+function apHull(ctx, Fr, L, W, z, h, col, bottom) {
+  const out = [[L / 2, 0], [L / 2 - 0.12, W / 2], [-L / 2 + 0.3, W * 0.42], [-L / 2, W * 0.08], [-L / 2, -W * 0.08], [-L / 2 + 0.3, -W * 0.42], [L / 2 - 0.12, -W / 2]];
+  portHull(ctx, Fr, out, z, z + h * 0.35, bottom);
+  const g = portHull(ctx, Fr, out, z + h * 0.35, z + h, col);
+  portDeck(ctx, g, z + h, portLt(col, 0.12));
+}
+// One plane: kind (AP_PLANES key), at (x, y, z) heading (fx, fy) (a unit vector), k its size on the plan.
+function apPlane(ctx, kind, x, y, z, fx, fy, k, now) {
+  const K = k || 1, Fr = portFrame(x, y, fx * K, fy * K), near = apNear(fx, fy), Z = (v) => z + v * K;
+  const metal = '#cdd3d8', blue = '#2f5f9a', wood = '#a8784c', cream = '#efe4c8';
+  if (kind === 'am75') {
+    if (z > 0.05) apShadow(ctx, Fr, 1.3 * K, 1.8 * K, z);
+    apHull(ctx, Fr, 1.3, 0.24, z, 0.2 * K, '#8a603c', '#4a3626');
+    for (const c of [-0.8, 0.8]) { apNac(ctx, Fr, 0.02, c, Z(0.02), 0.22, 0.05, cream); portSpar(ctx, Fr, [0.02, c, Z(0.1)], [0.02, c, Z(0.26)], '#8a603c', 0.9); }
+    apWing(ctx, Fr, 0.24, 0.24, 0.22, 1.7, 0, Z(0.26), cream);
+    for (const c of [-0.32, 0.32]) { apNac(ctx, Fr, 0.1, c, Z(0.34), 0.34, 0.06, '#6b5a48'); apProp(ctx, Fr, -0.1, c, Z(0.39), 0.12, now); }
+    for (const c of [-0.75, -0.32, 0.32, 0.75]) portSpar(ctx, Fr, [0.14, c, Z(0.26)], [0.14, c, Z(0.6)], '#8a603c', 1.1);
+    apWing(ctx, Fr, 0.26, 0.26, 0.24, 1.9, 0, Z(0.6), cream);
+    apWing(ctx, Fr, -0.42, 0.16, 0.14, 0.6, 0.02, Z(0.3), cream);
+    apFin(ctx, Fr, -0.42, 0.2, 0.3 * K, 0.1, Z(0.2), cream);
+    return;
+  }
+  if (kind === 'f7') {
+    if (z > 0.05) apShadow(ctx, Fr, 1.0 * K, 1.6 * K, z);
+    if (z < 0.05) for (const c of [-0.18, 0.18]) portSpar(ctx, Fr, [0.15, c, 0], [0.15, c * 0.4, Z(0.14)], '#3a2a1f', 1.2);
+    for (const c of [-0.28, 0.28]) if (c * near < 0) { apNac(ctx, Fr, 0.2, c, Z(0.16), 0.24, 0.05, '#7d8790'); apProp(ctx, Fr, 0.33, c, Z(0.21), 0.11, now); }
+    apFus(ctx, Fr, 1.0, 0.16, Z(0.12), 0.16 * K, '#c9a46b', '#d9b98a');
+    apWindows(ctx, Fr, -0.1, 0.25, 4, near * 0.081, Z(0.22), '#3d5560');
+    for (const c of [-0.28, 0.28]) if (c * near > 0) { apNac(ctx, Fr, 0.2, c, Z(0.16), 0.24, 0.05, '#7d8790'); apProp(ctx, Fr, 0.33, c, Z(0.21), 0.11, now); }
+    portCyl(ctx, ...Fr.G(0.5, 0), 0.05 * K, Z(0.15), Z(0.23), '#7d8790');
+    apProp(ctx, Fr, 0.55, 0, Z(0.2), 0.12, now);
+    apWing(ctx, Fr, 0.25, 0.32, 0.2, 1.6, 0.04, Z(0.31), wood);
+    apWing(ctx, Fr, -0.36, 0.14, 0.12, 0.44, 0.03, Z(0.2), wood);
+    apFin(ctx, Fr, -0.36, 0.16, 0.2 * K, 0.1, Z(0.24), '#c9a46b');
+    return;
+  }
+  if (kind === 's38' || kind === 's40') {
+    const big = kind === 's40', L = big ? 1.25 : 0.8, span = big ? 2.2 : 1.55, wz = big ? 0.62 : 0.52;
+    if (z > 0.05) apShadow(ctx, Fr, 1.5 * K, span * K, z);
+    apHull(ctx, Fr, L, big ? 0.3 : 0.22, z, (big ? 0.28 : 0.22) * K, '#e8e4da', '#3f4a52');
+    apWindows(ctx, Fr, -L / 2 + 0.25, L / 2 - 0.2, big ? 7 : 4, near * (big ? 0.14 : 0.105), Z(big ? 0.2 : 0.16), '#3d5560');
+    for (const c of [-span * 0.42, span * 0.42]) { apNac(ctx, Fr, 0.1, c, Z(0.02), 0.2, 0.045, '#e8e4da'); portSpar(ctx, Fr, [0.08, c, Z(0.09)], [0.08, c, Z(wz)], '#5a6b78', 0.9); }
+    // the struts, the engines under the wing, the wing, the booms to the twin-finned tail
+    for (const c of [-0.5, -0.2, 0.2, 0.5]) portSpar(ctx, Fr, [0.06, c * (big ? 1.2 : 1), Z(0.18)], [0.06, c * (big ? 1.2 : 1), Z(wz)], '#5a6b78', 1);
+    const eng = big ? [-0.62, -0.25, 0.25, 0.62] : [-0.27, 0.27];
+    for (const c of eng) { apNac(ctx, Fr, 0.16, c, Z(wz - 0.13), 0.3, 0.055, metal); apProp(ctx, Fr, 0.33, c, Z(wz - 0.08), 0.13, now); }
+    apWing(ctx, Fr, 0.24, 0.3, 0.2, span, 0.02, Z(wz), metal);
+    const tailA = -L / 2 - (big ? 0.45 : 0.4), bc = big ? 0.32 : 0.24;
+    for (const c of [-bc, bc]) portSpar(ctx, Fr, [-0.05, c, Z(wz - 0.02)], [tailA, c, Z(wz - 0.1)], '#5a6b78', 1.4);
+    apWing(ctx, Fr, tailA + 0.06, 0.16, 0.16, bc * 2 + 0.2, 0, Z(wz - 0.1), metal);
+    for (const c of [-bc, bc]) { const q = Fr.G(0, c), Fc = portFrame(q[0], q[1], fx * K, fy * K); apFin(ctx, Fc, tailA + 0.04, 0.12, 0.2 * K, 0.06, Z(wz - 0.1), metal); }
+    return;
+  }
+  // the airliners: DC-3, DC-6, 707 (polished metal, a blue cheat line; the 707 white on top)
+  const jet = kind === 'b707', four = kind !== 'dc3';
+  const L = jet ? 1.6 : four ? 1.32 : 1.02, W = jet ? 0.19 : four ? 0.18 : 0.15, span = jet ? 1.55 : four ? 1.6 : 1.45, h = W;
+  const z0 = Z(jet ? 0.1 : 0.08), wz = Z(jet ? 0.1 : 0.11);
+  if (z > 0.05) apShadow(ctx, Fr, L * K, span * K, z);
+  if (z < 0.05) for (const c of [-0.2, 0.2, 0]) portSpar(ctx, Fr, [c === 0 ? L * 0.36 : 0, c, 0], [c === 0 ? L * 0.36 : 0, c * 0.6, z0 + 0.02], '#3a2a1f', 1.2);
+  const engs = jet ? [-0.56, -0.3, 0.3, 0.56] : four ? [-0.55, -0.29, 0.29, 0.55] : [-0.27, 0.27];
+  const sweep = jet ? 0.4 : 0.05, a0 = jet ? 0.32 : 0.2, chord = jet ? 0.42 : 0.3;
+  const engAt = (c) => a0 - sweep * Math.abs(c) / (span / 2);
+  const engine = (c) => {
+    if (jet) { apNac(ctx, Fr, engAt(c) + 0.06, c, wz - 0.12, 0.26, 0.04, '#b9c0c6'); return; }
+    apNac(ctx, Fr, engAt(c) + 0.02, c, wz - 0.02, 0.3, 0.05, metal); apProp(ctx, Fr, engAt(c) + 0.18, c, wz + 0.04, 0.13, now);
+  };
+  for (const c of engs) if (c * near < 0) engine(c);
+  apWing(ctx, Fr, a0, chord, jet ? 0.12 : 0.16, span, sweep, wz, '#c3cad0');
+  apFus(ctx, Fr, L, W, z0, h * K, metal, jet ? '#f6f4ef' : '#dfe4e8');
+  // the cheat line and the windows on the side turned to the eye
+  const cl = [[L / 2 - 0.1, near * W * 0.48], [-L / 2 + 0.4, near * W * 0.42]];
+  portSeg(ctx, Fr.P(cl[0][0], cl[0][1], z0 + h * K * 0.55), Fr.P(cl[1][0], cl[1][1], z0 + h * K * 0.55), blue, Math.max(1.4, FAC.view.hw / 16));
+  apWindows(ctx, Fr, -L / 2 + 0.42, L / 2 - 0.2, jet ? 12 : four ? 9 : 6, near * W * 0.47, z0 + h * K * 0.72, '#24323a');
+  for (const c of engs) if (c * near > 0) engine(c);
+  apWing(ctx, Fr, -L / 2 + (jet ? 0.32 : 0.26), jet ? 0.22 : 0.18, 0.1, jet ? 0.62 : 0.5, jet ? 0.16 : 0.03, z0 + h * K * 0.6, '#c3cad0');
+  apFin(ctx, Fr, -L / 2 + (jet ? 0.36 : 0.3), jet ? 0.28 : 0.22, (jet ? 0.36 : 0.3) * K, jet ? 0.32 : 0.12, z0 + h * K, jet ? blue : '#c3cad0');
+}
+
+// ---------- the painters: the ground's parts ----------
+function apPaintStrip(ctx, X, Y, W, lv, night) {
+  const L = AP_STRIP[lv], lw = portLw(), m = 0.15;
+  if (!L.paved) {
+    portPoly(ctx, portRectZ(X + 0.02, Y + m, W - 0.04, 1 - 2 * m, 0.01), '#c3d99a', null);
+    for (let x = X + 0.1; x < X + W - 0.2; x += 0.5) portPoly(ctx, portRectZ(x, Y + m, 0.25, 1 - 2 * m, 0.012), 'rgba(255,255,255,0.13)', null);
+    for (let x = X + 0.35; x < X + W - 0.3; x += 0.7) portPoly(ctx, portRectZ(x, Y + 0.47, 0.22, 0.06, 0.015), '#fbf8ee', null);
+    for (const yy of [Y + m - 0.05, Y + 1 - m]) for (const x of [X + 0.05, X + W - 0.2]) portBox(ctx, x, yy, 0.15, 0.08, 0, 0.06, '#fbf8ee', '#e9e1cc', '#d8cdb4');
+    return;
+  }
+  portPoly(ctx, portRectZ(X, Y + m, W, 1 - 2 * m, 0.012), '#8f949a', PORT_INK, lw * 0.8);
+  for (let x = X + 0.6; x < X + W - 0.6; x += 0.55) portPoly(ctx, portRectZ(x, Y + 0.47, 0.28, 0.06, 0.016), '#f4f2ec', null);
+  for (const xe of [X + 0.08, X + W - 0.36]) for (let k = 0; k < 4; k++) portPoly(ctx, portRectZ(xe, Y + m + 0.06 + k * 0.17, 0.28, 0.08, 0.016), '#f4f2ec', null);
+  if (night) for (let x = X + 0.1; x <= X + W - 0.05; x += 0.5) for (const yy of [Y + m, Y + 1 - m]) night.push([x, yy, 0.05, 0.28]);
+}
+function apPaintRamp(ctx, X, night) {
+  const L = AP.LAND, lw = portLw();
+  // the concrete slipway from the shore down into the bay, and the wooden pontoon beside it
+  portPoly(ctx, [facP(X + 0.2, L - 0.7, 0.02), facP(X + 1.0, L - 0.7, 0.02), facP(X + 1.0, L + 0.9, -0.28), facP(X + 0.2, L + 0.9, -0.28)], '#cfc6b4', PORT_INK, lw);
+  for (let y = L - 0.5; y < L + 0.9; y += 0.25) portSeg(ctx, facP(X + 0.22, y, 0.02 - (y - L + 0.7) * 0.19), facP(X + 0.98, y, 0.02 - (y - L + 0.7) * 0.19), 'rgba(58,42,31,0.25)', 0.8);
+  portBox(ctx, X + 1.15, L + 0.05, 0.6, 0.95, -0.04, 0.06, '#c79a63', '#a87a48', '#8f6539');
+  for (let y = L + 0.15; y < L + 1; y += 0.2) portSeg(ctx, facP(X + 1.17, y, 0.065), facP(X + 1.73, y, 0.065), 'rgba(90,60,30,0.35)', 0.8);
+  // the ramp's shed at its head
+  portBox(ctx, X + 1.1, L - 0.95, 0.75, 0.6, 0, 0.42, '#e7dcc6', portLt('#e7dcc6', 0.1), portDk('#e7dcc6', 0.15));
+  portPoly(ctx, [facP(X + 1.06, L - 0.99, 0.42), facP(X + 1.89, L - 0.99, 0.42), facP(X + 1.89, L - 0.31, 0.42), facP(X + 1.06, L - 0.31, 0.42)], '#c0603f', PORT_INK, lw);
+  if (night) night.push([X + 1.45, L + 0.5, 0.3, 0.45]);
+}
+function apPaintMooring(ctx, X) {
+  const c = [X + 0.5, AP.LAND + 2.5];
+  const q = facP(c[0], c[1], 0), hw = FAC.view.hw;
+  ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(q[0], q[1], hw * 0.45, hw * 0.22, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  portCyl(ctx, c[0], c[1], 0.12, -0.04, 0.16, '#df684c', '#f4eee2');
+}
+function apPaintApron(ctx, X, Y, W, H, taken) {
+  const lw = portLw();
+  portPoly(ctx, portRectZ(X + 0.05, Y + 0.05, W - 0.1, H - 0.1, 0.012), '#cdc8bd', PORT_INK, lw);
+  for (let x = X + 0.75; x < X + W; x += 0.75) portSeg(ctx, facP(x, Y + 0.08, 0.014), facP(x, Y + H - 0.08, 0.014), 'rgba(58,42,31,0.15)', 0.7);
+  for (const st of apStandsOf(X, Y)) {
+    portSeg(ctx, facP(st[0], Y + 0.25, 0.016), facP(st[0], Y + H - 0.2, 0.016), '#e2b23e', 2);
+    portSeg(ctx, facP(st[0] - 0.3, Y + 0.32, 0.016), facP(st[0] + 0.3, Y + 0.32, 0.016), '#e2b23e', 2);
+  }
+  void taken;
+}
+function apStandsOf(X, Y) { return [[X + 1.25, Y + 1], [X + 3.75, Y + 1]]; }
+function apPaintHangar(ctx, X, Y, W, H) {
+  const lw = portLw(), col = '#d9d2c3', e = 0.08, x0 = X + e, y0 = Y + e, w = W - 2 * e, d = H - 2 * e, hz = 0.55;
+  portBox(ctx, x0, y0, w, d, 0, hz, col, portLt(col, 0.08), portDk(col, 0.14));
+  // the arched roof across the width, its ribs; the great doors on the side turned to the eye
+  const arch = (y) => { const pts = []; for (let k = 0; k <= 12; k++) { const u = k / 12; pts.push(facP(x0 + u * w, y, hz + Math.sin(u * Math.PI) * 0.62)); } return pts; };
+  const fr = arch(y0), bk = arch(y0 + d);
+  for (let k = 0; k < 12; k++) portPoly(ctx, [fr[k], fr[k + 1], bk[k + 1], bk[k]], k < 6 ? '#b9bcbf' : '#9ea2a6', 'rgba(60,60,70,.45)', 0.6);
+  portPoly(ctx, bk.concat([facP(x0 + w, y0 + d, hz), facP(x0, y0 + d, hz)]), '#cfc6b4', PORT_INK, lw);
+  portPoly(ctx, [facP(x0 + w * 0.18, y0 + d, 0), facP(x0 + w * 0.82, y0 + d, 0), facP(x0 + w * 0.82, y0 + d, hz + 0.28), facP(x0 + w * 0.18, y0 + d, hz + 0.28)], '#5a4a3c', PORT_INK, lw);
+  for (let k = 1; k < 4; k++) portSeg(ctx, facP(x0 + w * (0.18 + 0.16 * k), y0 + d, 0), facP(x0 + w * (0.18 + 0.16 * k), y0 + d, hz + 0.26), 'rgba(255,250,240,0.25)', 1);
+}
+function apPaintFuel(ctx, X, Y, lv) {
+  if (lv >= 1) {
+    portPoly(ctx, portRectZ(X + 0.04, Y + 0.04, 0.92, 0.92, 0.01), '#d8cdb4', PORT_INK, portLw());
+    portCyl(ctx, X + 0.3, Y + 0.32, 0.22, 0, 0.62, '#f4f1ea', '#c9573f');
+    portCyl(ctx, X + 0.68, Y + 0.68, 0.22, 0, 0.62, '#f4f1ea', '#c9573f');
+    return;
+  }
+  portBox(ctx, X + 0.1, Y + 0.1, 0.5, 0.45, 0, 0.38, '#d7b98a', portLt('#d7b98a', 0.1), portDk('#d7b98a', 0.15));
+  portPoly(ctx, [facP(X + 0.06, Y + 0.06, 0.38), facP(X + 0.64, Y + 0.06, 0.38), facP(X + 0.64, Y + 0.59, 0.38), facP(X + 0.06, Y + 0.59, 0.38)], '#a9b4bb', PORT_INK, portLw());
+  for (const [dx, dy] of [[0.72, 0.3], [0.72, 0.62], [0.42, 0.75], [0.15, 0.78]]) portCyl(ctx, X + dx, Y + dy, 0.09, 0, 0.24, '#c9573f');
+}
+function apPaintTerminal(ctx, X, Y, W, H, lv, night) {
+  const lw = portLw(), e = 0.08, x0 = X + e, y0 = Y + e, w = W - 2 * e, d = H - 2 * e;
+  if (lv >= 1) {
+    // the 1950s terminal: two floors of white render and glass, a flat roof, a canopy over the doors
+    const z1 = 1.05;
+    portBox(ctx, x0, y0, w, d, 0, z1, '#f4f1ea', portLt('#f4f1ea', 0.05), portDk('#f4f1ea', 0.12));
+    for (const z of [0.12, 0.58]) portPoly(ctx, [facP(x0 + 0.08, y0 + d, z), facP(x0 + w - 0.08, y0 + d, z), facP(x0 + w - 0.08, y0 + d, z + 0.34), facP(x0 + 0.08, y0 + d, z + 0.34)], '#5f8f9a', PORT_INK, lw * 0.8);
+    for (let x = x0 + 0.3; x < x0 + w - 0.1; x += 0.3) portSeg(ctx, facP(x, y0 + d, 0.12), facP(x, y0 + d, 0.92), 'rgba(244,241,234,0.9)', 1.2);
+    portBox(ctx, x0 + w * 0.3, y0 + d - 0.05, w * 0.4, 0.3, 0.42, 0.47, '#2f5f9a', '#3a6ea8', '#24496f');
+    if (night) for (let x = x0 + 0.25; x < x0 + w; x += 0.45) for (const z of [0.3, 0.75]) night.push([x, y0 + d + 0.02, z, 0.35]);
+    return;
+  }
+  // the 1920s station: one floor of ochre stucco, a veranda on posts toward the field, a tile roof and a flag
+  const col = '#efd9a0', z1 = 0.6;
+  portBox(ctx, x0, y0, w, d * 0.7, 0, z1, col, portLt(col, 0.1), portDk(col, 0.16));
+  for (let i = 0; i < 4; i++) { const u = x0 + (i + 0.5) * w / 4; portPoly(ctx, [facP(u - 0.1, y0 + d * 0.7, 0.08), facP(u + 0.1, y0 + d * 0.7, 0.08), facP(u + 0.1, y0 + d * 0.7, 0.42), facP(u - 0.1, y0 + d * 0.7, 0.42)], i === 1 ? '#6b4a33' : '#4e6a73', '#fbf5e6', lw); }
+  for (const x of [x0 + 0.05, x0 + w / 2, x0 + w - 0.05]) portSeg(ctx, facP(x, y0 + d, 0), facP(x, y0 + d, 0.48), '#5a4030', Math.max(1.2, FAC.view.hw / 24));
+  portPoly(ctx, [facP(x0 - 0.05, y0 + d * 0.7, 0.5), facP(x0 + w + 0.05, y0 + d * 0.7, 0.5), facP(x0 + w + 0.05, y0 + d + 0.04, 0.44), facP(x0 - 0.05, y0 + d + 0.04, 0.44)], '#2e9a91', PORT_INK, lw);
+  portPoly(ctx, [facP(x0 - 0.06, y0 - 0.06, z1), facP(x0 + w + 0.06, y0 - 0.06, z1), facP(x0 + w + 0.06, y0 + d * 0.7 + 0.06, z1), facP(x0 - 0.06, y0 + d * 0.7 + 0.06, z1)], '#c0603f', PORT_INK, lw);
+  const fp = facP(x0 + 0.2, y0 + 0.2, z1), ft = facP(x0 + 0.2, y0 + 0.2, z1 + 0.75), hw = FAC.view.hw, wave = Math.sin(performance.now() / 500) * hw * 0.03;
+  portSeg(ctx, fp, ft, '#5a4030', Math.max(1.2, hw / 26));
+  portPoly(ctx, [[ft[0], ft[1]], [ft[0] + hw * 0.45, ft[1] + 2 + wave], [ft[0] + hw * 0.45, ft[1] + hw * 0.24 + wave], [ft[0], ft[1] + hw * 0.22]], '#c9573f', PORT_INK, 1);
+  if (night) for (let i = 0; i < 4; i++) night.push([x0 + (i + 0.5) * w / 4, y0 + d * 0.7 + 0.02, 0.25, 0.35]);
+}
+function apPaintRadio(ctx, X, Y, lv, night, now) {
+  if (lv >= 1) {
+    // the control tower: a square shaft, a glazed cab with its gallery, the beacon on top
+    portBox(ctx, X + 0.3, Y + 0.3, 0.42, 0.42, 0, 1.35, '#f0ebe0', portLt('#f0ebe0', 0.05), portDk('#f0ebe0', 0.14));
+    portBox(ctx, X + 0.16, Y + 0.16, 0.7, 0.7, 1.35, 1.42, '#e6e1d4', '#efe9dc', '#cfc8b9');
+    portBox(ctx, X + 0.22, Y + 0.22, 0.58, 0.58, 1.42, 1.72, '#6f9fb0', '#86b4c4', '#55818f');
+    portBox(ctx, X + 0.18, Y + 0.18, 0.66, 0.66, 1.72, 1.78, '#5a6b78', '#6b7d8a', '#4a5560');
+    if (night) { night.push([X + 0.5, Y + 0.8, 1.55, 0.5]); night.push([X + 0.5, Y + 0.5, 1.9, 0.6, 'beacon']); }
+    return;
+  }
+  // the radio station: a hut and a lattice mast with its aerial wire
+  portBox(ctx, X + 0.1, Y + 0.45, 0.5, 0.45, 0, 0.36, '#efe4c8', portLt('#efe4c8', 0.1), portDk('#efe4c8', 0.15));
+  portPoly(ctx, [facP(X + 0.06, Y + 0.41, 0.36), facP(X + 0.64, Y + 0.41, 0.36), facP(X + 0.64, Y + 0.94, 0.36), facP(X + 0.06, Y + 0.94, 0.36)], '#c0603f', PORT_INK, portLw());
+  const b0 = [X + 0.72, Y + 0.3], top = facP(b0[0], b0[1], 1.9);
+  for (const [dx, dy] of [[-0.12, -0.12], [0.12, -0.12], [0.12, 0.12], [-0.12, 0.12]]) portSeg(ctx, facP(b0[0] + dx, b0[1] + dy, 0), top, '#4a5560', 1.1);
+  for (let z = 0.3; z < 1.8; z += 0.3) { const k = 1 - z / 1.9; portSeg(ctx, facP(b0[0] - 0.12 * k, b0[1] + 0.12 * k, z), facP(b0[0] + 0.12 * k, b0[1] + 0.12 * k, z + 0.15), '#4a5560', 0.8); }
+  portSeg(ctx, top, facP(X + 0.35, Y + 0.68, 0.36), 'rgba(58,42,31,0.5)', 0.7);
+  if (night) night.push([b0[0], b0[1], 1.9, 0.4, 'red']);
+  void now;
+}
+// The field's office and its windsock by the road at the back (scenery: it came with the airfield).
+function apPaintOffice(ctx, now) {
+  const X = 6.3, Y = 0.18;
+  portBox(ctx, X, Y, 0.7, 0.6, 0, 0.45, '#f3ead8', portLt('#f3ead8', 0.06), portDk('#f3ead8', 0.14));
+  portPoly(ctx, [facP(X - 0.05, Y - 0.05, 0.45), facP(X + 0.75, Y - 0.05, 0.45), facP(X + 0.75, Y + 0.65, 0.45), facP(X - 0.05, Y + 0.65, 0.45)], '#c8553d', PORT_INK, portLw());
+  const pb = facP(X + 1.3, Y + 0.5, 0), pt = facP(X + 1.3, Y + 0.5, 1.05), hw = FAC.view.hw, f = 1 + 0.08 * Math.sin(now / 600);
+  portSeg(ctx, pb, pt, '#4a4440', Math.max(1.3, hw / 26));
+  portPoly(ctx, [pt, [pt[0] + hw * 0.42 * f, pt[1] + 2], [pt[0] + hw * 0.42 * f, pt[1] + hw * 0.13], [pt[0], pt[1] + hw * 0.2]], '#e8743c', PORT_INK, 0.8);
+  portSeg(ctx, [pt[0] + hw * 0.14, pt[1] + 1], [pt[0] + hw * 0.14, pt[1] + hw * 0.18], '#fbf8ee', 1.6);
+  portSeg(ctx, [pt[0] + hw * 0.29, pt[1] + 1.5], [pt[0] + hw * 0.29, pt[1] + hw * 0.15], '#fbf8ee', 1.6);
+}
+
+// ---------- the view: the flow and the calls once a tick ----------
+function apView(s, b) {
+  const A = apOf(s, b), key = s.tick + '|' + s.month + '|' + s.mt + '|' + s.ver + '|' + A.v + '|' + b.id;
+  if (FAC.av && FAC.av.key === key) return FAC.av;
+  FAC.av = { key, F: apFlow(s, b), A };
+  return FAC.av;
+}
+// Where each route's plane stands: landplanes on the aprons' stands in her order, flying boats at the ramp's pontoon or
+// a mooring. { rk: [x, y, kind] }
+function apStandMap(A, routes) {
+  const aprons = A.parts.filter((p) => p.k === 'apron').sort((a, c) => a.id - c.id), ramps = A.parts.filter((p) => p.k === 'ramp').sort((a, c) => a.id - c.id), moors = A.parts.filter((p) => p.k === 'mooring').sort((a, c) => a.x - c.x);
+  const st = [];
+  for (const p of aprons) { const r = apDR(p); for (const q of apStandsOf(r[0], r[1])) st.push(q); }
+  const out = {};
+  let ia = 0, ir = 0, im = 0;
+  for (const r of routes) {
+    if (!r.fly) continue;
+    const n = AP_PLANES[r.fly].need;
+    if (n.ramp && ramps[ir]) { const p = ramps[ir++]; out[r.k] = [p.x + 1.45, AP.LAND + 1.35, 'ramp', p.x + 0.6]; }
+    else if (n.moor && moors[im]) { const p = moors[im++]; out[r.k] = [p.x + 0.5, AP.LAND + 2.2, 'moor']; }
+    else if (!n.ramp && !n.moor && st[ia]) out[r.k] = st[ia++].concat(['stand']);
+  }
+  return out;
+}
+// The strip a landplane uses: the longest that takes it.
+function apStripFor(A, plane) {
+  const n = AP_PLANES[plane].need;
+  return A.parts.filter((p) => AP_PARTS[p.k].run && AP_STRIP[p.lv || 0].m >= (n.run || 0) && (!n.paved || AP_STRIP[p.lv || 0].paved)).sort((a, c) => apLen(c) - apLen(a))[0] || null;
+}
+function apAlong(path, u) {
+  const Ls = []; let tot = 0;
+  for (let i = 1; i < path.length; i++) { const l = Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); Ls.push(l); tot += l; }
+  let d = Math.max(0, Math.min(1, u)) * tot;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1], c = path[i], l = Ls[i - 1];
+    if (d <= l || i === path.length - 1) { const f = l ? Math.min(1, d / l) : 0, dx = c[0] - a[0], dy = c[1] - a[1], L = Math.hypot(dx, dy) || 1; return { x: a[0] + dx * f, y: a[1] + dy * f, fx: dx / L, fy: dy / L }; }
+    d -= l;
+  }
+  const z = path[path.length - 1]; return { x: z[0], y: z[1], fx: 1, fy: 0 };
+}
+// A flight's plane at this moment: { x, y, z, fx, fy, at } (null when it is away). t: its landing tick.
+function apPlaneAt(s, A, c, st, now) {
+  const P = AP_PLANES[c.plane], t = apNow(s) - c.t, U = AP_UI;
+  if (c.why || !st || t < -U.app || t > U.roll + U.taxi + U.stand + U.out + U.climb) return null;
+  const sm = (u) => u * u * (3 - 2 * u);
+  if (P.kind === 'boat') {
+    const lane = AP_LANE, x0 = -1.5, home = [st[0], st[1]], via = [st[0] - 0.8, lane];
+    if (t < 0) { const u = (t + U.app) / U.app; return { x: x0 - 7 + 7.5 * u, y: lane, z: 2.4 * Math.pow(1 - u, 1.5), fx: 1, fy: 0, at: 'app' }; }
+    if (t < U.roll + U.taxi) { const q = apAlong([[x0 + 0.5, lane], via, home], sm(t / (U.roll + U.taxi))); return Object.assign(q, { z: 0, at: 'taxi' }); }
+    if (t < U.roll + U.taxi + U.stand) return { x: home[0], y: home[1], z: 0, fx: 0, fy: st[2] === 'ramp' ? -1 : 1, at: 'stand' };
+    const t2 = t - U.roll - U.taxi - U.stand;
+    if (t2 < U.out) { const q = apAlong([home, [home[0], lane], [home[0] + 1, lane]], sm(t2 / U.out)); return Object.assign(q, { z: 0, at: 'out' }); }
+    const u = (t2 - U.out) / U.climb; return { x: home[0] + 1 + 9 * u * u, y: lane, z: 2.6 * u * u, fx: 1, fy: 0, at: 'climb' };
+  }
+  const p = apStripFor(A, c.plane);
+  if (!p) return null;
+  const r = apDR(p), Yr = r[1] + 0.5, xs = r[0], xe = r[0] + r[2], home = [st[0], st[1]];
+  if (t < 0) { const u = (t + U.app) / U.app; return { x: xs - 7 + 7.4 * u, y: Yr, z: 2.6 * Math.pow(1 - u, 1.4), fx: 1, fy: 0, at: 'app' }; }
+  if (t < U.roll) { const u = t / U.roll; return { x: xs + 0.4 + (xe - xs - 1.2) * (1 - (1 - u) * (1 - u)), y: Yr, z: 0, fx: 1, fy: 0, at: 'roll' }; }
+  if (t < U.roll + U.taxi) { const q = apAlong([[xe - 0.8, Yr], [home[0], Yr], home], sm((t - U.roll) / U.taxi)); return Object.assign(q, { z: 0, at: 'taxi' }); }
+  if (t < U.roll + U.taxi + U.stand) return { x: home[0], y: home[1], z: 0, fx: 0, fy: Yr > home[1] ? 1 : -1, at: 'stand' };
+  const t2 = t - U.roll - U.taxi - U.stand;
+  if (t2 < U.out) { const q = apAlong([home, [home[0], Yr], [xs + 0.3, Yr]], sm(t2 / U.out)); return Object.assign(q, { z: 0, at: 'out' }); }
+  const u = (t2 - U.out) / U.climb;
+  return { x: xs + 0.3 + (xe - xs) * u * u * 1.3, y: Yr, z: Math.max(0, (u - 0.45) * 4.5), fx: 1, fy: 0, at: 'climb' };
+}
+const AP_K = { am75: 1.5, f7: 1.6, s38: 1.6, s40: 1.4, dc3: 1.7, dc6: 1.55, b707: 1.55 };
+
+// ---------- the ground and everything on it, in depth order ----------
+function apDrawGround(ctx, s, b, A, F, now) {
+  const W = AP.W, L = AP.LAND, lw = portLw();
+  const g = ctx.createLinearGradient(0, 0, FAC.w * 0.6, FAC.h);
+  g.addColorStop(0, '#3aa9bf'); g.addColorStop(0.5, '#2793ad'); g.addColorStop(1, '#1d6f88');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, FAC.w, FAC.h);
+  const wx = F.weather, norte = wx.norte && s.mt >= wx.norte.t - 1 && s.mt <= wx.norte.t + wx.norte.len + 1, storm = wx.storm && s.mt >= wx.storm.t - 3 && s.mt <= wx.storm.t + wx.storm.len;
+  ctx.lineCap = 'round';
+  const ph = now / 1700;
+  ctx.beginPath();
+  for (let Y = L; Y < L + 9; Y++) for (let x = -7; x < W + 8; x++) {
+    const h = portH(x * 7 + 3, Y * 13 + 1);
+    if (h > (storm ? 0.85 : norte ? 0.62 : 0.4)) continue;
+    const u = x + 0.2 + 0.6 * portH(x, Y), v = Y + 0.4 + 0.5 * portH(Y, x) + 0.06 * Math.sin(ph + h * 6);
+    const a = facP(u, v, 0), c = facP(u + 0.32, v - 0.08, 0);
+    ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]);
+  }
+  ctx.strokeStyle = storm || norte ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.32)'; ctx.lineWidth = storm ? 2 : 1.2; ctx.stroke();
+  // the land: the island's grass behind, the field's own mown grass, the beach along the bay
+  portPoly(ctx, [facP(-8, -9), facP(W + 8, -9), facP(W + 8, L), facP(-8, L)], '#a9c47c');
+  portPoly(ctx, portRectZ(0, 0, W, L, 0), '#b4cf86', PORT_INK, lw);
+  for (let x = 0; x < W; x += 2) portPoly(ctx, portRectZ(x, 1, 1, L - 1.3, 0.004), 'rgba(255,255,255,0.06)', null);
+  portPoly(ctx, portRectZ(0, 0, W, 1, 0.002), 'rgba(160,130,80,0.18)', null);
+  portPoly(ctx, [facP(-8, L - 0.35), facP(W + 8, L - 0.35), facP(W + 8, L + 0.3), facP(-8, L + 0.3)], '#ead7a6');
+  portSeg(ctx, facP(-8, L + 0.32, -0.05), facP(W + 8, L + 0.32, -0.05), 'rgba(255,255,255,0.55)', 2);
+  // the road along the back (from the island), the gate by the office, the fence
+  portPoly(ctx, portRectZ(-8, -0.9, W + 16, 0.7, 0), '#c9a978');
+  for (const ry of [-0.65, -0.45]) portSeg(ctx, facP(-8, ry, 0), facP(W + 8, ry, 0), 'rgba(110,80,50,0.25)', 1);
+  portPoly(ctx, portRectZ(5, -0.2, 1, 1.1, 0.001), '#c9a978');
+  const post = (x, y) => portSeg(ctx, facP(x, y, 0), facP(x, y, 0.3), '#6b4a33', Math.max(1.3, FAC.view.hw / 20));
+  for (let x = 0; x <= W; x += 1) if (x !== 5 && x !== 6) post(x, 0);
+  for (const z of [0.12, 0.24]) { portSeg(ctx, facP(0, 0, z), facP(5, 0, z), '#8a603c', 1); portSeg(ctx, facP(6, 0, z), facP(W, 0, z), '#8a603c', 1); }
+  for (let y = 0; y <= L - 0.4; y += 1) { post(0, y); post(W, y); }
+  for (const z of [0.12, 0.24]) { portSeg(ctx, facP(0, 0, z), facP(0, L - 0.4, z), '#8a603c', 1); portSeg(ctx, facP(W, 0, z), facP(W, L - 0.4, z), '#8a603c', 1); }
+}
+function apDrawAll(ctx, s, b, A, F, now) {
+  const items = [], night = facNight() > 0.25 ? [] : null, sm = apStandMap(A, F.routes);
+  // flat things first (strips, aprons), then the rest by depth
+  for (const p of A.parts) {
+    const d = AP_PARTS[p.k], r = apDR(p);
+    if (d.run) {
+      apPaintStrip(ctx, r[0], r[1], r[2], p.lv || 0, night);
+      if (FAC.sel === p.id) { ctx.save(); ctx.setLineDash([5, 4]); portPoly(ctx, portRectZ(r[0] - 0.08, r[1] + 0.05, r[2] + 0.16, 0.9, 0.03), null, '#df684c', 2.5); ctx.restore(); }
+    }
+    else if (d.stands) { apPaintApron(ctx, r[0], r[1], r[2], r[3]); portSelMark(ctx, p, r[0] + r[2] / 2, r[1] + r[3] / 2, 1.2); }
+  }
+  for (const p of A.parts) {
+    const d = AP_PARTS[p.k], r = apDR(p);
+    if (d.run || d.stands) continue;
+    if (d.ramp) items.push({ dz: p.x + AP.LAND - 0.5, f: () => { apPaintRamp(ctx, p.x, night); portSelMark(ctx, p, p.x + 1, AP.LAND, 1); } });
+    else if (d.moor) items.push({ dz: p.x + AP.LAND + 2.5, f: () => { apPaintMooring(ctx, p.x); portSelMark(ctx, p, p.x + 0.5, AP.LAND + 2.5, 0.5); } });
+    else items.push({ dz: r[0] + r[1] + Math.min(r[2], r[3]), f: () => {
+      if (d.hangar) apPaintHangar(ctx, r[0], r[1], r[2], r[3]);
+      else if (d.fuel) apPaintFuel(ctx, r[0], r[1], p.lv || 0);
+      else if (d.term) apPaintTerminal(ctx, r[0], r[1], r[2], r[3], p.lv || 0, night);
+      else if (d.radio) apPaintRadio(ctx, r[0], r[1], p.lv || 0, night, now);
+      portSelMark(ctx, p, r[0] + r[2] / 2, r[1] + r[3] / 2, Math.max(r[2], r[3]) / 2);
+    } });
+  }
+  items.push({ dz: 6.5, f: () => apPaintOffice(ctx, now) });
+  // the planes: this month's flights and last month's late ones still climbing away; and their visitors walking
+  const calls = F.calls.concat(apCalls(s, b, s.month - 1).map((c) => Object.assign({}, c, { t: c.t - TUNE.ticksPerMonth }))).concat(F.next.map((c) => Object.assign({}, c, { t: c.t + TUNE.ticksPerMonth })));
+  const term = A.parts.find((p) => p.k === 'terminal'), stats = [];
+  for (const c of calls) {
+    const st = sm[c.rk], at = apPlaneAt(s, A, c, st, now);
+    if (!at) continue;
+    stats.push(at.at);
+    const k = AP_K[c.plane] || 1;
+    items.push({ dz: at.x + at.y + (at.z > 0.3 ? 20 : 0.4), f: () => apPlane(ctx, c.plane, at.x, at.y, at.z, at.fx, at.fy, k, now) });
+    if (night) { night.push([at.x, at.y, at.z + 0.3, 0.35, 'nav']); }
+    // the visitors walk from the plane to the terminal in the first ticks at the stand
+    const tt = apNow(s) - c.t - AP_UI.roll - AP_UI.taxi;
+    if (term && at.at === 'stand' && tt < 5) {
+      const tr = apDR(term), goal = [tr[0] + tr[2] / 2, tr[1] + tr[3] + 0.15], from = [at.x + 0.3, at.y], n = Math.min(10, Math.max(3, Math.round(c.seats / 6)));
+      for (let i = 0; i < n; i++) {
+        const u = Math.max(0, Math.min(1, tt / 5 - i * 0.06)), pt = [from[0] + (goal[0] - from[0]) * u, from[1] + (goal[1] - from[1]) * u];
+        if (u <= 0 || u >= 1) continue;
+        const cols = ['#f4eee2', '#e8d4a8', '#9fc4d6', '#f0a3c0'];
+        items.push({ dz: pt[0] + pt[1] + 0.2, f: () => apPerson(ctx, pt[0] + 0.1 * Math.sin(i * 2.3), pt[1] + 0.1 * Math.cos(i * 1.7), cols[i % 4], i % 3 ? '#f8f2e4' : '#c9573f') });
+      }
+    }
+  }
+  items.sort((a, c) => a.dz - c.dz);
+  for (const it of items) it.f();
+  return { night, stats };
+}
+function apDrawLights(ctx, night, now) {
+  if (!night || !night.length) return;
+  const spr = facGlowSprite(), hw = FAC.view.hw, a = Math.min(1, (facNight() - 0.25) / 0.5);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a;
+  for (const [x, y, z, r, kind] of night) {
+    const q = facP(x, y, z), R = r * hw * (kind === 'beacon' ? 1.2 + 0.8 * Math.max(0, Math.sin(now / 300)) : 1);
+    if (kind === 'red' || kind === 'nav') { ctx.save(); ctx.globalAlpha = a * (0.5 + 0.5 * Math.sin(now / (kind === 'nav' ? 250 : 500))); ctx.drawImage(spr, q[0] - R, q[1] - R, 2 * R, 2 * R); ctx.restore(); continue; }
+    ctx.drawImage(spr, q[0] - R, q[1] - R, 2 * R, 2 * R);
+  }
+  ctx.restore();
+}
+
+// ---------- glowing spots, the place she was sent to, what holds the field back ----------
+function apSpotGeo(k, sp, lv) { const r = apDRk(k, sp.x, sp.y, lv); return { c: [r[0] + r[2] / 2, r[1] + r[3] / 2], rect: r }; }
+function apDrawGlow(ctx, s, b, A, now) {
+  const tool = FAC.tool, pulse = 0.55 + 0.35 * Math.sin(now / 260);
+  let k = tool, spots = [], moving = null, lv;
+  if (tool.startsWith('move:')) { moving = A.parts.find((q) => q.id === +tool.slice(5)); if (!moving) return; k = moving.k; lv = moving.lv || 0; spots = apSpots(s, b, k, { not: moving.id, lv }).filter((sp) => !(sp.x === moving.x && sp.y === moving.y)); }
+  else if (AP_PARTS[tool]) { spots = apSpots(s, b, tool); lv = AP_PARTS[tool].lv; }
+  for (const sp of spots) {
+    const G = apSpotGeo(k, sp, lv), r = G.rect, wantHere = FAC.want && FAC.want.k === k && FAC.want.x === sp.x && FAC.want.y === sp.y;
+    ctx.save(); ctx.globalAlpha = wantHere ? 0.55 + 0.4 * Math.sin(now / 200) : pulse * 0.55;
+    portPoly(ctx, portRectZ(r[0] + 0.06, r[1] + 0.06, r[2] - 0.12, r[3] - 0.12, 0.05), wantHere ? 'rgba(234,179,62,0.55)' : 'rgba(46,154,145,0.35)', wantHere ? '#eab33e' : '#24786f', wantHere ? 3 : 2);
+    ctx.restore();
+    const q = facP(G.c[0], G.c[1], 0.1);
+    FAC.glow.push({ sx: q[0], sy: q[1], r: Math.max(30, FAC.view.hw * 1.0), sp, k, moving: moving ? moving.id : 0, want: !!wantHere });
+    if (wantHere) portLabel(ctx, q[0], q[1] - FAC.view.hw * 0.6, 'Tap here: ' + AP_PARTS[k].name.toLowerCase() + ' · ' + money$(apPrice(s, k)), 'gold', null);
+  }
+}
+function apCenterOn(k, sp) { try { const G = apSpotGeo(k, sp); facCenter(G.c[0], G.c[1]); } catch (e) { /* no spot */ } }
+function apDrawWhy(ctx, s, b, A, F) {
+  const hw = FAC.view.hw, W = F.weather, sh = W.storm && s.mt >= W.storm.t - 3 && s.mt <= W.storm.t + W.storm.len + PORT.clear ? 'storm' : W.norte && !F.g.radio && s.mt >= W.norte.t - 1 && s.mt <= W.norte.t + W.norte.len ? 'norte' : '';
+  const strip = apParts(A, 'run')[0];
+  if (sh && (A.routes || []).length) {
+    const r = strip ? apDR(strip) : [4, 3, 4, 1], q = facP(r[0] + r[2] / 2, r[1] + 0.5, 0.6);
+    portLabel(ctx, q[0], q[1] - hw * 0.3, sh === 'storm' ? 'Shut: the hurricane (' + W.storm.name + ') · no flight comes for about ' + apShutDays(W.storm.sev) + ' days' : 'A norte: low cloud, no radio beam · the flights are grounded', 'red', null);
+  }
+  const w = F.why;
+  if (!w || FAC.tool !== 'look' || sh) return;
+  const fix = w.fix, tail = fix ? ' · ' + (fix.act === 'up' ? fix.name.toLowerCase() : (/^[aeiou]/i.test(fix.name) ? 'an ' : 'a ') + fix.name.toLowerCase()) + ' ' + money$(fix.cost) : '';
+  let at = null;
+  const part = (k) => A.parts.find((p) => p.k === k);
+  if (w.key === 'fuel' && part('fuel')) { const r = apDR(part('fuel')); at = [r[0] + 0.5, r[1] + 0.5, 0.8]; }
+  else if (w.key === 'term' && part('terminal')) { const r = apDR(part('terminal')); at = [r[0] + 1, r[1] + 0.5, 1]; }
+  else if ((w.key === 'next' || w.key === 'ground') && strip && fix && (fix.k === 'strip' || fix.k === 'runway')) { const r = apDR(strip); at = [r[0] + r[2] - 0.5, r[1] + 0.5, 0.6]; }
+  else if (fix && fix.k && AP_PARTS[fix.k] && fix.x !== undefined) { const G = apSpotGeo(fix.k, fix); at = [G.c[0], G.c[1], 0.6]; }
+  if (!at) at = [AP.W / 2, AP.LAND / 2, 0.6];
+  const q = facP(at[0], at[1], at[2]), short = w.key === 'next' ? 'The ' + AP_PLANES[F.routes.find((r) => r.k === w.rk).best].name + ' needs ' + apNeedWords(F.routes.find((r) => r.k === w.rk).lack, F.routes.find((r) => r.k === w.rk).best) : w.text.replace(/^./, (c) => c.toUpperCase());
+  portLabel(ctx, q[0], q[1] - hw * 0.3, short + tail, 'red', fix ? 'fix' : null);
+}
+
+// ---------- the build bar's small pictures ----------
+function apThumb(k) {
+  const T = FAC.thumbs || (FAC.thumbs = {}), key = 'ap:' + k;
+  if (T[key] !== undefined) return T[key];
+  try {
+    const c = document.createElement('canvas'); c.width = 108; c.height = 64;
+    const g = c.getContext('2d'), keep = FAC.view;
+    FAC.view = { hw: 13, ox: 54, oy: 36, pan: 0, panY: 0 };
+    const L = AP.LAND, at = (cx, cy, hw, sx, sy) => { FAC.view = { hw, ox: sx - (cx - cy) * hw, oy: sy - (cx + cy) * hw / 2, pan: 0, panY: 0 }; };
+    if (k === 'strip' || k === 'runway') { at(0, 0, 12, 54, 34); apPaintStrip(g, -2, -0.5, 4, k === 'runway' ? 2 : 0, null); }
+    else if (k === 'ramp') { at(0, L + 0.1, 15, 50, 34); apPaintRamp(g, -1, null); }
+    else if (k === 'mooring') { at(0.5, L + 2.5, 15, 54, 40); apPaintMooring(g, 0); apPlane(g, 's40', 0.5, L + 2.1, 0, 0, 1, 0.8, 0); }
+    else if (k === 'apron') { at(0, 0, 8, 54, 34); apPaintApron(g, -2.5, -1, 5, 2); apPlane(g, 'dc3', -1.25, 0, 0, 0, -1, 1.5, 0); }
+    else if (k === 'hangar') { at(0, 0, 13, 54, 42); apPaintHangar(g, -1, -1, 2, 2); }
+    else if (k === 'fuel') { at(0, 0, 20, 54, 42); apPaintFuel(g, -0.5, -0.5, 0); }
+    else if (k === 'terminal') { at(0, 0, 16, 54, 42); apPaintTerminal(g, -1, -0.5, 2, 1, 0, null); }
+    else if (k === 'radio') { at(0, 0, 16, 54, 50); apPaintRadio(g, -0.5, -0.5, 0, null, 0); }
+    FAC.view = keep;
+    T[key] = c.toDataURL();
+  } catch (e) { T[key] = ''; }
+  return T[key];
+}
+
+// ---------- the kind ----------
+facRegister('airport', {
+  grid: { x0: -0.6, x1: AP.W + 0.6, y0: -1.2, y1: AP.LAND + 4.4, top: 1.6, min: 24, max: 40 },
+  pinIcon: 'plane',
+  title(s, b) { const n = apFields(s).findIndex((o) => o.id === b.id); return 'The airfield' + (apFields(s).length > 1 ? ' ' + (n + 1) : ''); },
+  sub(s, b) {
+    const F = apView(s, b).F, n = (F.A.routes || []).length;
+    return (n ? plural(n, 'route', 'routes') + ' · ' + plural(F.calls.filter((c) => !c.why).length, 'flight', 'flights') + ' this month' : 'the open service only') + ' · strip ' + (F.g.run ? F.g.run.toLocaleString('en-US') + ' m' : 'none') + ' · ' + dateLabel(s.month);
+  },
+  pins(s) { return apOn() ? apFields(s) : []; },
+  pinLabel() { return 'Airfield'; },
+  pinWarn(s, b) {
+    if (!s.air || !s.air[b.id] || !(s.air[b.id].routes || []).length) return '';
+    const w = apWhy(s, b), A = portStormAhead(s);
+    return (w && w.key !== 'next' && w.key !== 'norte') || (A && A.ahead <= 1 && apCalls(s, b, A.month).some((c) => c.why === 'storm')) ? '!' : '';
+  },
+  open(F, at) {
+    const s = APP.state, b = facB();
+    F.atab = at && at.tab === 'routes' ? 'routes' : 'field'; F.aoff = (at && at.offer) || ''; F.aconf = '';
+    if (at && at.offer) setTimeout(() => { const e = $('fo-' + at.offer); if (e && FAC.on) e.scrollIntoView({ block: 'center' }); }, 80);
+    if (!at) return;
+    if (at.act === 'up' || at.pid) { F.sel = at.pid || 0; return; }
+    if (at.k && AP_PARTS[at.k] && at.x !== undefined) { F.tool = at.k; F.want = { k: at.k, x: at.x, y: at.y }; apCenterOn(at.k, at); facHint('Tap the gold spot: ' + AP_PARTS[at.k].name.toLowerCase() + ' · ' + money$(apPrice(s, at.k)) + '. ' + portCap(AP_PARTS[at.k].gives) + '.'); }
+    void b;
+  },
+  tools(s, b) {
+    const yr = apYear(s), out = [{ id: 'look', short: 'Look', sub: 'tap a part', icon: 'look', label: 'Look: tap a part' }];
+    for (const k of AP_BUILD) {
+      const d = AP_PARTS[k], why = d.year > yr ? String(d.year) : '', cost = apPrice(s, k);
+      out.push({ id: k, short: d.short, sub: why || money$(cost), locked: !!why, poor: !why && s.money < cost, icon: d.icon, img: apThumb(k), label: d.name + (why ? ' (opens ' + why + ')' : ' · ' + money$(cost)) });
+    }
+    return out;
+  },
+  toolHint(F) {
+    const s = APP.state, k = F.tool;
+    if (k === 'look') return 'Tap a part to see what it does.';
+    if (k.startsWith('move:')) return 'Tap a glowing spot to move it there.';
+    const d = AP_PARTS[k], b = facB(), why = b ? apCanPlace(s, b, k, -99, -99) : '';
+    if (/Not before/.test(why)) return d.name + ': ' + why + '.';
+    return d.name + ' · ' + money$(apPrice(s, k)) + ': ' + d.gives + '. Tap a glowing spot.';
+  },
+  miss(F) { return F.tool.startsWith('move:') ? 'Tap a glowing spot to move it there.' : 'Tap a glowing spot (the ' + AP_PARTS[F.tool].name.toLowerCase() + ' fits only there).'; },
+  tap(F, G) {
+    const s = APP.state, b = facB();
+    if (G.moving) {
+      const r = apMove(s, b, G.moving, G.sp.x, G.sp.y);
+      if (r.ok) { facHint('Moved · ' + money$(r.cost) + '.'); F.tool = 'look'; F.sel = G.moving; } else facHint(r.why + '.');
+      return;
+    }
+    const r = apBuild(s, b, G.k, G.sp.x, G.sp.y);
+    if (r.ok) {
+      facHint(AP_PARTS[G.k].name + ' built · ' + money$(r.cost) + '. ' + portCap(AP_PARTS[G.k].gives) + '.');
+      try { audioCue('place'); } catch (e) { /* no sound */ }
+      F.want = null; F.tool = 'look'; F.sel = r.part.id;
+    } else facHint(r.why + '.');
+  },
+  hit(F, sx, sy) {
+    const s = APP.state, b = facB(), A = apOf(s, b), near = [];
+    for (const p of A.parts) {
+      const d = AP_PARTS[p.k];
+      let c, r;
+      if (d.ramp) { c = facP(p.x + 1, AP.LAND, 0.2); r = 1.2; }
+      else if (d.moor) { c = facP(p.x + 0.5, AP.LAND + 2.5, 0.1); r = 0.6; }
+      else { const q = apDR(p); c = facP(q[0] + q[2] / 2, q[1] + q[3] / 2, d.run ? 0 : 0.4); r = d.run ? q[2] / 2 : Math.max(q[2], q[3]) * 0.6; }
+      let dist = Math.hypot(c[0] - sx, c[1] - sy) / FAC.view.hw;
+      if (d.run) { const q = apDR(p), a = facUnP(sx, sy); dist = a[0] >= q[0] && a[0] <= q[0] + q[2] && a[1] >= q[1] - 0.1 && a[1] <= q[1] + 1.1 ? 0.5 : 99; }
+      if (dist < r + 0.3) near.push({ p, dist: dist + (d.run || d.stands ? 0.6 : 0) });
+    }
+    near.sort((a, c) => a.dist - c.dist);
+    return near.length ? near[0].p : null;
+  },
+  draw(ctx, F, now) {
+    const s = APP.state, b = facB(), V = apView(s, b), A = V.A, FL = V.F;
+    apDrawGround(ctx, s, b, A, FL, now);
+    const r = apDrawAll(ctx, s, b, A, FL, now);
+    portDrawSky(ctx, s, FL, now);
+    facTint(ctx);
+    apDrawLights(ctx, r.night, now);
+    if (F.tool !== 'look') apDrawGlow(ctx, s, b, A, now);
+    apDrawWhy(ctx, s, b, A, FL);
+    APP.facStats = { parts: A.parts.length, planes: r.stats, glow: F.glow.length, labels: F.labels.length, night: facNight() };
+  },
+  legend() {
+    return '<b>The airfield</b><span>' + esc('The open service (planes on no timetable) brings visitors who lodge in the town’s rooms, as before. The routes you sign on the board fly twice a month: each flight brings its plane’s seats of visitors through the terminal; they need a hotel bed (the sea’s tourists share the beds) and spend ' + money$(H2.spend) + ' each; without a bed they fly home.') + '</span>' +
+      '<span>' + esc('The ground decides the plane: a flying boat needs the ramp (the big Clippers a mooring); a landplane a stand on an apron, the hangar and a strip long enough (the trimotor 600 m, the DC-3 1,200 m); the DC-6 and the 707 a paved runway (1,800 m, 2,400 m) and the tower. Each flight takes fuel from the store; the tanker fills it on the 1st.') + '</span>' +
+      '<span><i class="lg teal"></i>where the armed part fits · <i class="lg gold"></i>where Rosa or the manager sent you · <i class="lg red"></i>what holds the field back: tap the red label</span>' +
+      '<span>' + esc('A norte (Nov–Apr) grounds the flights that have no radio beam; a hurricane shuts the field for about four or five days, announced ' + PORT.warn + ' months ahead.') + '</span>';
+  },
+  panel(s, b, F) { return apPanel(s, b, F); },
+  act(F, what, data) { apAct(F, what, data); },
+  close(F) { F.want = null; },
+});
+
+// ---------- the side panel ----------
+function apTabs(s, b, F) {
+  const A = apOf(s, b), n = AP_ROUTE_ORDER.filter((k) => !apOfferWhy(s, k) && !apSigned(A, k)).length, L = (A.routes || []).length;
+  return '<div class="fac-tabs" role="tablist"><button id="atF" class="' + (F.atab !== 'routes' ? 'on' : '') + '" data-fa="atab" data-t="field" role="tab">Airfield</button>' +
+    '<button id="atR" class="' + (F.atab === 'routes' ? 'on' : '') + '" data-fa="atab" data-t="routes" role="tab">Routes' + (L ? ' · ' + L + ' signed' : '') + (n ? ' <i>' + n + '</i>' : '') + '</button></div>';
+}
+function apDay(t) { return Math.min(30, 1 + Math.floor(Math.max(0, t) * 30 / TUNE.ticksPerMonth)); }
+function apWhen(month, t) { return apDay(t) + ' ' + MONTHS[month % 12].slice(0, 3); }
+// Everything a plane needs, in words ("a paved runway of 2,400 m, the tower, a stand and the hangar").
+function apNeedAll(k) {
+  const P = AP_PLANES[k], n = P.need, w = [];
+  if (n.ramp) w.push('the flying-boat ramp');
+  if (n.moor) w.push('a mooring in the bay');
+  if (n.run) w.push((n.paved ? 'a paved runway of ' : 'a strip of ') + n.run.toLocaleString('en-US') + ' m');
+  if (n.tower) w.push('the tower');
+  if (P.kind === 'land') w.push('a stand and the hangar');
+  return w.length > 1 ? w.slice(0, -1).join(', ') + ' and ' + w[w.length - 1] : w[0];
+}
+function apPlaneWords(k, name) { const P = AP_PLANES[k]; return (name ? 'the ' + name + ' (' + P.name + ', ' : 'the ' + P.name + ' (') + P.seats + ' seats)'; }
+function apWhyWords(why) { return why === 'norte' ? 'cancelled: a norte, no radio beam' : why === 'storm' ? 'cancelled: the hurricane shuts the field' : why === 'fuel' ? 'cancelled: no fuel left this month' : 'on time'; }
+function apPanel(s, b, F) {
+  const V = apView(s, b), A = V.A, FL = V.F, out = [apTabs(s, b, F)];
+  const sel = F.sel && A.parts.find((p) => p.id === F.sel);
+  if (sel) out.push(apCard(s, b, A, FL, sel));
+  if (F.atab === 'routes') { out.push(apBoard(s, b, F, A, FL)); return out.join(''); }
+  const w = FL.why, fix = w && w.fix, g = FL.g, M = FL.M, L = FL.L;
+  let h = '<section class="fac-sec"><h4>Flow <small>strip → stands → terminal → hotels</small></h4>';
+  if (w) h += '<div class="fac-why bad">' + esc(w.text.replace(/^./, (c) => c.toUpperCase()) + '.') + (fix ? '<button data-fa="fix">' + esc(fix.name + ' · ' + money$(fix.cost)) + '</button>' : '') + '</div>';
+  else if ((A.routes || []).length) h += '<div class="fac-why good">Nothing holds the airfield back: every flight lands and clears.</div>';
+  else h += '<div class="fac-why">' + esc('No route signed: the open service only. The board (Routes) offers the airlines’ routes of the era.') + '</div>';
+  h += '<div class="fac-step"><span>Open service</span><em>' + esc('Planes on no timetable (the mail, charters): ' + FL.open + ' visitors a month, lodging in the town’s rooms: ' + money$(FL.open * TR.visitSpend) + ' on the airfield’s number. More people and happier homes bring more (at most 60).') + '</em></div>';
+  const strips = apParts(A, 'run').map((p) => AP_STRIP[p.lv || 0].name.toLowerCase() + ' ' + AP_STRIP[p.lv || 0].m.toLocaleString('en-US') + ' m').join(', ');
+  h += '<div class="fac-step"><span>Strip</span><em>' + esc((strips || 'none') + ' · the trimotor needs 600 m, the DC-3 1,200, the DC-6 a paved 1,800 and the 707 2,400 (with the tower)' + (g.tower ? ' · the tower stands' : g.radio ? ' · the radio beam' : '')) + '</em></div>';
+  const used = FL.routes.filter((r) => r.fly && AP_PLANES[r.fly].kind === 'land').length;
+  h += '<div class="fac-step"><span>Stands</span>' + portBar(used, g.apron, used > g.apron) + '<em>' + esc('aprons: ' + g.apron + ' stands, ' + used + ' taken · ramps ' + g.ramp + ' · moorings ' + g.moor + (g.hangar ? '' : ' · no hangar: no landplane')) + '</em></div>';
+  const need = FL.calls.reduce((a, c) => a + (c.why === 'storm' || c.why === 'norte' ? 0 : c.fuel), 0);
+  h += '<div class="fac-step"><span>Fuel</span>' + portBar(need, g.fuel, need > g.fuel) + '<em>' + esc('the store holds ' + g.fuel + ' small planes’ flights a month (a DC-3 takes 2, an airliner 4, a jet 8) · this month’s flights need ' + need) + '</em></div>';
+  const big = Math.max(0, ...FL.routes.map((r) => (r.fly ? AP_PLANES[r.fly].seats : 0)));
+  h += '<div class="fac-step"><span>Terminal</span>' + portBar(big, g.term, big > g.term) + '<em>' + esc(g.term ? 'clears ' + g.term + ' a flight (the passport desk and the customs) · the biggest plane brings ' + big : 'none: the flights land no one') + '</em></div>';
+  h += '<div class="fac-step"><span>Hotels</span>' + portBar(FL.taken, FL.beds, FL.beds > 0 && FL.taken >= FL.beds) + '<em>' + esc(FL.beds ? FL.beds + ' beds this month, ' + FL.taken + ' taken (the sea’s tourists and the air’s visitors share them)' : 'no hotel: the routes’ visitors fly home (a hotel: the Harbor tab, ' + money$(BUILDINGS.hotel.cost) + ', ' + H2.beds + ' guests a month)') + '</em></div>';
+  const mo = (X, lab) => X && (X.flights || Object.keys(X.cancel || {}).length) ? lab + ': ' + plural(X.flights || 0, 'flight', 'flights') + ', ' + X.came + ' landed, ' + X.guests + ' in the hotels' + (X.turned ? ', ' + X.turned + ' flew home (no bed)' : '') + (X.off ? ', ' + X.off + ' stayed aboard' : '') + (Object.keys(X.cancel || {}).length ? ' · cancelled: ' + Object.keys(X.cancel).map((k) => X.cancel[k] + ' (' + (k === 'norte' ? 'a norte' : k === 'storm' ? 'the hurricane' : 'no fuel') + ')').join(', ') : '') : '';
+  const r1 = mo(M, 'This month'), r2 = mo(L, 'Last month');
+  if (r1 || r2) h += '<div class="fac-step"><span>Visitors</span><em>' + esc([r1, r2].filter(Boolean).join(' · ')) + '</em></div>';
+  h += '</section>';
+  out.push(h);
+  // the timetable
+  let t = '<section class="fac-sec"><h4>Timetable <small>' + esc('today ' + apWhen(s.month, s.mt)) + '</small></h4><div class="fac-tt">';
+  const rows = FL.calls.filter((c) => c.t >= s.mt).map((c) => ({ c, m: s.month })).concat(FL.next.map((c) => ({ c, m: s.month + 1 })));
+  rows.slice(0, 5).forEach(({ c, m }) => {
+    const R = AP_ROUTES[c.rk];
+    t += '<div class="fac-row' + (c.why ? ' late' : '') + '"><b>' + esc(apWhen(m, c.t)) + '</b><span>' + esc(portCap(apPlaneWords(c.plane, c.name)) + ' · ' + R.who + ' from ' + apTo(R, apYear(s, m))) + '</span><small>' + esc(apWhyWords(c.why) + (c.why ? '' : ' · brings ' + Math.min(c.seats, g.term) + (c.seats > g.term ? ' (' + (c.seats - g.term) + ' stay aboard)' : ''))) + '</small></div>';
+  });
+  if (!rows.length) t += '<div class="fac-row"><span>' + esc((A.routes || []).length ? 'No flight this month or next.' : 'No route signed: no scheduled flight. The open service comes on no timetable.') + '</span></div>';
+  const done = (A.log || []).slice(0, 3);
+  if (done.length) t += '<div class="fac-sub">Landed</div>' + done.map((r) => '<div class="fac-row done' + (r.why ? ' late' : '') + '"><b>' + esc(apWhen(r.m, r.t)) + '</b><span>' + esc(portCap(apPlaneWords(r.plane, r.name))) + '</span><small>' + esc(r.why ? apWhyWords(r.why) : r.came + ' landed, ' + r.guests + ' in the hotels' + (r.turned ? ', ' + r.turned + ' flew home' : '') + (r.off ? ', ' + r.off + ' stayed aboard' : '')) + '</small></div>').join('');
+  t += '</div></section>';
+  out.push(t);
+  // the weather
+  const Ah = FL.ahead;
+  let wx = '<section class="fac-sec"><h4>Weather</h4>';
+  if (Ah) {
+    const n = (A.routes || []).length ? apCalls(s, b, Ah.month).filter((c) => c.why === 'storm').length : 0;
+    wx += '<div class="fac-why bad">' + esc('A hurricane ' + (Ah.ahead === 0 ? 'this month' : Ah.ahead === 1 ? 'next month' : 'in ' + Ah.ahead + ' months') + ', about ' + portDateOf(Ah.month, Ah.t) + ': ' + Ah.name + '. The field shuts for about ' + apShutDays(Ah.sev) + ' days' + (n ? ': ' + plural(n, 'flight', 'flights') + ' will not come.' : '.') + ' Nothing helps but waiting it out; the planes stay away.') + '</div>';
+  }
+  wx += '<p class="fac-p">' + esc('Nortes (November to April) bring low cloud and wind about every other winter month: ' + (g.radio ? 'the radio beam brings the flights through.' : 'without a radio station the flights due then are grounded.') + ' Hurricanes are announced ' + PORT.warn + ' months ahead.') + '</p></section>';
+  out.push(wx);
+  return out.join('');
+}
+// A tapped part's card.
+function apCard(s, b, A, FL, p) {
+  const d = AP_PARTS[p.k], lv = p.lv || 0, parts = [];
+  const title = d.run ? AP_STRIP[lv].name : AP_UP[p.k] && lv ? AP_UP[p.k][lv].name : d.name;
+  let h = '<section class="fac-sec fac-card"><h4>' + esc(title) + '<button class="fac-cx" data-fa="unsel" aria-label="Close">' + iconSvg('close') + '</button></h4>';
+  if (d.run) parts.push(portCap(apStripGives(lv)) + '.');
+  else if (AP_UP[p.k] && lv) parts.push(portCap(AP_UP[p.k][lv].gives) + '.');
+  else parts.push(portCap(d.gives) + '.');
+  if (d.fuel) parts.push('The airfield holds ' + FL.g.fuel + ' a month in all.');
+  if (d.term) parts.push('The airfield clears ' + FL.g.term + ' a flight in all.');
+  if (p.pk && !p.paid) parts.push('It came with the airfield (its upkeep is the airfield’s).');
+  else if (p.paid) parts.push('Upkeep ' + money$(Math.round(p.paid * TUNE.upkeepPct)) + ' a month (1 % of what it cost).');
+  h += parts.map((t) => '<p class="fac-p">' + esc(t) + '</p>').join('');
+  const btns = [], n = apNext(s, b, p);
+  if (n) btns.push('<button id="aup-' + p.id + '" data-fa="up" data-pid="' + p.id + '"' + (n.why ? ' disabled' : s.money < n.cost ? ' class="poor"' : '') + '>' + esc(n.why ? n.verb + ': ' + n.why.toLowerCase() : n.verb + ' · ' + money$(n.cost) + ' (' + n.name.toLowerCase() + ')') + '</button>');
+  btns.push('<button class="alt" data-fa="move" data-pid="' + p.id + '">Move</button>');
+  const back = Math.floor((p.paid || 0) * TUNE.refund);
+  btns.push('<button class="alt" data-fa="remove" data-pid="' + p.id + '">' + esc(FAC.confirm === p.id ? 'Tap again to remove' : 'Remove' + (back ? ' · +' + money$(back) + ' back' : '')) + '</button>');
+  h += '<div class="fac-btns">' + btns.join('') + '</div>';
+  if (n && !n.why) h += '<p class="fac-p dim">' + esc(n.name + ': ' + n.gives + '.') + '</p>';
+  return h + '</section>';
+}
+// ---------- the board (the side panel's Routes) ----------
+function apBoard(s, b, F, A, FL) {
+  const y = apYear(s), out = [];
+  let h = '<section class="fac-sec"><h4>Routes <small>' + AP.flights + ' flights a month each</small></h4>';
+  if (!(A.routes || []).length) h += '<p class="fac-p">' + esc('None signed. The open service brings ' + FL.open + ' visitors a month on no timetable (no hotel bed needed).') + '</p>';
+  for (const r of FL.routes) {
+    const R = AP_ROUTES[r.k], M = (FL.M.by || {})[r.k], L = (FL.L.by || {})[r.k], P = r.fly && AP_PLANES[r.fly];
+    h += '<div class="fac-line signed" id="fl-' + r.k + '"><b>' + esc(R.name) + '</b><span>' + esc(R.who + ' · from ' + apTo(R, y)) + '</span>';
+    h += '<p class="fac-p">' + esc(P ? 'It flies ' + apPlaneWords(r.fly) + ': ' + AP.flights * Math.min(P.seats, FL.g.term) + ' visitors a month' + (P.seats > FL.g.term ? ' (' + (P.seats - FL.g.term) + ' a flight stay aboard: the terminal clears ' + FL.g.term + ')' : '') + '.' : 'Grounded: no plane of its can land here.') + '</p>';
+    const row = (X, lab) => (X && (X.flights || X.cancel) ? lab + ': ' + X.came + ' landed, ' + X.guests + ' stayed' + (X.turned ? ', ' + X.turned + ' flew home' : '') + (X.cancel ? ', ' + X.cancel + ' cancelled' : '') : '');
+    const r1 = row(M, 'This month'), r2 = row(L, 'Last month');
+    if (r1 || r2) h += '<p class="fac-p ' + ((M && M.turned) || (L && L.turned) ? 'bad' : 'good') + '">' + esc([r1, r2].filter(Boolean).join(' · ')) + '</p>';
+    if (r.lack) { const B = AP_PLANES[r.best], f = apFix(s, b, r.lack, r.best); h += '<p class="fac-p bad">' + esc('History sends the ' + B.name + ' now (' + B.seats + ' seats): it needs ' + apNeedWords(r.lack, r.best) + '.') + '</p>' + (f ? '<div class="fac-btns"><button id="an-' + r.k + '" data-fa="need" data-rk="' + r.k + '">' + esc(f.name + ' · ' + money$(f.cost)) + '</button></div>' : ''); }
+    const nx = R.planes.find((k) => AP_PLANES[k].from > y);
+    if (nx) h += '<p class="fac-p dim">' + esc('Next: the ' + AP_PLANES[nx].name + ' from ' + AP_PLANES[nx].from + ' (' + AP_PLANES[nx].seats + ' seats; it needs ' + apNeedAll(nx) + ').') + '</p>';
+    const conf = F.aconf === r.k;
+    h += '<div class="fac-btns"><button class="alt' + (conf ? ' warn' : '') + '" id="ae-' + r.k + '" data-fa="aend" data-rk="' + r.k + '">' + esc(conf ? 'Tap again: end it' : 'End the route') + '</button></div><p class="fac-p dim">(free: its flights stop)</p></div>';
+  }
+  h += '</section>';
+  out.push(h);
+  let o = '<section class="fac-sec"><h4>Offers <small>' + esc(y + ' · the planes of the era') + '</small></h4>';
+  const open = AP_ROUTE_ORDER.filter((k) => !apOfferWhy(s, k) && !apSigned(A, k)), later = AP_ROUTE_ORDER.filter((k) => /^Opens/.test(apOfferWhy(s, k)));
+  if (!open.length) o += '<p class="fac-p">' + esc((A.routes || []).length ? 'Every route open now is signed.' : 'No airline offers a route this year.') + '</p>';
+  for (const k of open) o += apOfferCard(s, b, F, A, FL, k);
+  if (later.length) o += '<div class="fac-sub">Later</div>' + later.map((k) => { const R = AP_ROUTES[k]; return '<p class="fac-p dim">' + esc(R.name + ' · ' + R.who + ' (' + R.y0 + (R.y1 ? '–' + R.y1 : '') + '): ' + apOfferWhy(s, k).toLowerCase()) + '</p>'; }).join('');
+  o += '</section>';
+  out.push(o);
+  return out.join('');
+}
+function apOfferCard(s, b, F, A, FL, k) {
+  const R = AP_ROUTES[k], tr = apTrial(s, b, k), why = apSignWhy(s, b, k), hi = F.aoff === k;
+  let h = '<div class="fac-offer' + (hi ? ' hi' : '') + '" id="fo-' + k + '"><b>' + esc(R.name) + '</b> <span>' + esc('· ' + R.who + ' → ' + apTo(R, apYear(s))) + '</span> <small>' + R.y0 + (R.y1 ? '–' + R.y1 : ' on') + '</small>';
+  h += '<p class="fac-p dim">' + esc(R.hist) + '</p>';
+  const list = apRoutePlanes(s, k, s.month);
+  h += '<p class="fac-p">' + esc('Its planes now: ' + list.map((q) => AP_PLANES[q].name + ' (' + AP_PLANES[q].seats + ' seats, ' + AP_PLANES[q].what + ')').join(', then ') + '. ' + AP.flights + ' flights a month; each brings its seats of visitors; they need a hotel bed and spend ' + money$(H2.spend) + ' each; without a bed they fly home. Free to sign, free to end.') + '</p>';
+  if (tr.fly) {
+    const P = AP_PLANES[tr.fly], n = AP.flights * Math.min(P.seats, tr.term || P.seats), free = Math.max(0, FL.beds - FL.taken), last = hotelsOf(s).reduce((a, h2) => a + Math.max(0, hotelBeds(s, h2) - (h2.lastGuests || 0)), 0);
+    h += '<p class="fac-trade ' + (last >= n ? 'good' : 'bad') + '">' + esc('Here it would fly the ' + P.name + ': ' + n + ' visitors a month' + (tr.best && tr.best !== tr.fly ? ' (the ' + AP_PLANES[tr.best].name + ' needs ' + apNeedAll(tr.best) + ')' : '') + '. Empty hotel beds last month: ' + last + (last ? ': about +' + money$(Math.min(n, last) * H2.spend) + ' a month in the town' + (n > last ? '; ' + (n - last) + ' would fly home' : '') : ': none, every visitor would fly home') + '. Fuel: ' + AP.flights * P.fuel + ' of the store’s ' + FL.g.fuel + ' a month.') + '</p>';
+    void free;
+  } else {
+    // what it would fly once its needs stand (a stand, a terminal), so the numbers are there before she builds
+    const g2 = Object.assign({}, apGround(A)), P0 = list.slice().reverse().find((q) => { g2.apron += 2; g2.ramp += 1; g2.moor += 1; g2.term = Math.max(g2.term, AP_TERM[0]); return !apLack(g2, q); });
+    if (P0) { const P = AP_PLANES[P0], n = AP.flights * Math.min(P.seats, Math.max(FL.g.term, AP_TERM[0])), last = hotelsOf(s).reduce((a, h2) => a + Math.max(0, hotelBeds(s, h2) - (h2.lastGuests || 0)), 0); h += '<p class="fac-trade">' + esc('With what it needs here it would fly the ' + P.name + ': ' + n + ' visitors a month. Empty hotel beds last month: ' + last + (last ? ': about +' + money$(Math.min(n, last) * H2.spend) + ' a month in the town.' : ': none, every visitor would fly home until a hotel stands.')) + '</p>'; }
+  }
+  // what it needs here: each missing part with its button (the part's tool, its spot glowing gold; or its next level)
+  const need = [];
+  if (!tr.fly) need.push(tr.lack);
+  if (!FL.g.term) need.push('terminal');
+  const btns = need.map((q) => { const f = apFix(s, b, q, tr.best || list[0]); return f ? '<button class="alt" id="an-' + k + '-' + q + '" data-fa="need" data-rk="' + k + '" data-q="' + q + '">' + esc((f.act === 'up' ? f.name : 'Build ' + (/^[aeiou]/i.test(f.name) ? 'an ' : 'a ') + f.name.toLowerCase()) + ' · ' + money$(f.cost)) + '</button>' : ''; }).join('');
+  if (btns) h += '<div class="fac-btns">' + btns + '</div>';
+  h += '<div class="fac-btns"><button id="fs-' + k + '" data-fa="sign" data-rk="' + k + '"' + (why ? ' disabled' : '') + '>' + esc(why || 'Sign · ' + R.name) + '</button></div>';
+  return h + '</div>';
+}
+function apAct(F, what, data) {
+  const s = APP.state, b = facB();
+  if (!b) return;
+  const A = apOf(s, b), pid = +(data.pid || 0), rk = data.rk;
+  const said = (r, ok) => { if (r.ok) { facHint(ok + (r.cost ? ' · ' + money$(r.cost) : '') + '.'); try { audioCue('place'); } catch (e) { /* no sound */ } } else facHint(r.why + '.'); };
+  if (what !== 'aend') F.aconf = '';
+  if (what === 'atab') { F.atab = data.t === 'routes' ? 'routes' : 'field'; F.sel = 0; const el = $('facSide'); if (el) el.scrollTop = 0; return; }
+  if (what === 'unsel') { F.sel = 0; F.confirm = 0; return; }
+  const arm = (f) => {
+    if (!f) { facHint('Nothing to do there now.'); return; }
+    if (f.act === 'up') {
+      // the part's card opens at the top of the panel; the hint says it is done (not the offer's words again)
+      F.sel = f.pid; F.tool = 'look'; const el = $('facSide'); if (el) el.scrollTop = 0;
+      said(apUpgrade(s, b, f.pid), 'Done: ' + f.name.charAt(0).toLowerCase() + f.name.slice(1) + (f.to ? ' (' + f.to + ')' : ''));
+      return;
+    }
+    F.tool = f.k; F.want = { k: f.k, x: f.x, y: f.y }; F.sel = 0; apCenterOn(f.k, f);
+    facHint('Tap the gold spot: ' + f.name.toLowerCase() + ' · ' + money$(f.cost) + '. ' + portCap(AP_PARTS[f.k].gives) + '.');
+  };
+  if (what === 'fix') { const w = apWhy(s, b); arm(w && w.fix); return; }
+  if (what === 'need') {
+    const r = (apView(s, b).F.routes || []).find((o) => o.k === rk), tr = r ? null : apTrial(s, b, rk), list = apRoutePlanes(s, rk, s.month);
+    const q = data.q || (r ? r.lack : tr.lack), plane = r ? r.best : (tr.best || list[0]);
+    arm(apFix(s, b, q, plane));
+    return;
+  }
+  if (what === 'up') { said(apUpgrade(s, b, pid), 'Done'); return; }
+  if (what === 'sign') {
+    const r = apSign(s, b, rk);
+    if (r.ok) { F.aoff = ''; facHint(AP_ROUTES[rk].name + ' signed: ' + AP.flights + ' flights a month.'); try { audioCue('place'); } catch (e) { /* no sound */ } } else facHint(r.why + '.');
+    return;
+  }
+  if (what === 'aend') {
+    if (F.aconf !== rk) { F.aconf = rk; return; }
+    F.aconf = '';
+    const r = apEnd(s, b, rk);
+    facHint(r.ok ? AP_ROUTES[rk].name + ' ended: its flights stop.' : r.why + '.');
+    return;
+  }
+  if (what === 'move') { const p = A.parts.find((q) => q.id === pid); F.tool = 'move:' + pid; facHint('Tap a glowing spot to move it there (' + money$(p ? apMoveCost(s, p) : 0) + ').'); return; }
+  if (what === 'remove') {
+    if (F.confirm !== pid) { F.confirm = pid; return; }
+    const r = apRemove(s, b, pid);
+    F.confirm = 0; F.sel = 0;
+    facHint(r.ok ? 'Removed' + (r.refund ? ' · +' + money$(r.refund) + ' back' : '') + '.' : r.why + '.');
+  }
+}
+
+// ---------- the island: the airfield's card, its status, the plans that open the screen, the hotel ----------
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!apOn() || !b || b.type !== 'airfield') return h;
+    const A = s.air && s.air[b.id], n = A ? (A.routes || []).length : 0, w = A ? apWhy(s, b) : null;
+    let line;
+    if (!n) line = 'No route signed: the open service only. Its board offers the airlines’ routes of the era.';
+    else {
+      const F = apView(s, b).F, c = F.calls.find((o) => o.t >= s.mt && !o.why) || F.next.find((o) => !o.why), L = F.L || {};
+      line = plural(n, 'route', 'routes') + (c ? ' · next: ' + apPlaneWords(c.plane, c.name) + ', ' + apWhen(c.t >= s.mt && F.calls.includes(c) ? s.month : s.month + 1, c.t) : '') + (L.flights ? ' · last month ' + L.came + ' visitors, ' + L.guests + ' in the hotels' + (L.turned ? ', ' + L.turned + ' flew home' : '') : '') + (w ? ' · ' + w.text : '');
+    }
+    const add = '<div class="btns"><button id="cardAir" class="facopen">' + iconSvg('plane') + 'Open the airfield</button></div><p class="note' + (w && w.key !== 'next' ? ' risk' : '') + '">' + esc(line + '.') + '</p>';
+    const at = h.indexOf('</h3>');
+    return at >= 0 ? h.slice(0, at + 5) + add + h.slice(at + 5) : h + add;
+  };
+  const _cr = cardRender;
+  cardRender = function () {
+    const r = _cr.apply(this, arguments), el = $('cardAir');
+    if (el && !el.dataset.w) { el.dataset.w = '1'; el.addEventListener('click', () => { const b = bById(APP.state, APP.ui.sel); if (b) facOpen('airport', b.id); }); }
+    return r;
+  };
+  const _bs = bStatus;
+  bStatus = function (s, b) {
+    const r = _bs.apply(this, arguments);
+    if (!apOn() || !b || b.type !== 'airfield' || !s.air || !s.air[b.id] || !(s.air[b.id].routes || []).length || !r || !r.good) return r;
+    const L = apRecs(s.air[b.id], s).L;
+    return L && L.came ? { text: r.text.replace(/\.$/, '') + ' and ' + L.came + ' by its routes.', good: true } : r;
+  };
+  // a commission's or Rosa's plan for an airfield part opens the airfield there (the gold spot, or the part's card)
+  const _lr = landRunUi;
+  landRunUi = function (d, then) {
+    if (d && (d.kind === 'apart' || d.kind === 'aproute')) {
+      const b = bById(APP.state, d.id);
+      if (b) { facOpen('airport', b.id, d.kind === 'aproute' ? { tab: 'routes', offer: d.k } : { k: d.k, x: d.x, y: d.y, act: d.act, pid: d.pid }); return true; }
+    }
+    return _lr.apply(this, arguments);
+  };
+  // the hotel's card: its guests come by air too
+  const _hc = hotelCardHtml;
+  hotelCardHtml = function (s, b) {
+    let h = _hc.apply(this, arguments);
+    if (!apOn()) return h;
+    let n = 0;
+    for (const a of apFields(s)) if (s.air && s.air[a.id]) n += (s.air[a.id].routes || []).length;
+    const T = apTourDone(s);
+    const add = 'Visitors also fly in on the airfield’s routes (' + (n ? plural(n, 'route', 'routes') + (T ? ': ' + T.came + ' last month, ' + T.guests + ' found a bed' + (T.turned ? ', ' + T.turned + ' flew home' : '') : '') : 'none signed yet: its board, Routes') + ').';
+    if (n) h = h.replace(/ No passenger line calls yet: sign one on the harbour’s board \(Lines\)\./, '');
+    return h.replace(/(<p class="note[^"]*">)([^<]*)(<\/p>)/, (m, a, t, c) => a + t + ' ' + esc(add) + c);
+  };
+  const _hs = bStatus;
+  bStatus = function (s, b) {
+    const r = _hs.apply(this, arguments);
+    if (b && b.type === 'hotel' && apOn() && r && !r.good && /no passenger line/.test(r.text)) return { text: 'Open, no guests yet: no passenger line or air route brings visitors.', good: false };
+    return r;
   };
 }
 
