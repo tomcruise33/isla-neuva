@@ -888,6 +888,71 @@ body.fac-on #todo, body.fac-on #glance, body.fac-on #pop, body.fac-on #facPins, 
 .fac-chips button.on { background: #fff8e8; box-shadow: inset 0 0 0 2px var(--teal); color: var(--teal2); }
 .fac-btns button:disabled { background: #cdbf9f; color: var(--ink2); box-shadow: none; }
 .fac-btns button.alt.warn { background: #fbe3da; color: #7a2e1c; box-shadow: inset 0 0 0 2px #b5402c; }
+
+/* M1 (3 Nov 2026): the phone (src/ui/phone.js). At 390 x 844 the pieces sat on each other: the five round map buttons
+   over Rosa's line and the stack, a receipt pushing her line up under them, the stack under the pill, a strip of map.
+   Everything here is for a screen at most 600 px wide; the iPad's sizes are as they were. */
+#rotbtns #bMap { display: none; }
+@media (max-width: 600px) {
+  /* the round map buttons fold into one (#bMap, at the right under the pill); a tap opens the row for one pick */
+  #rotbtns.fold > button { display: none; }
+  #rotbtns.fold > #bMap, #rotbtns.fold.open > button { display: flex; }
+  #rotbtns.fold.open #bLand { position: static; }
+  #rotbtns.fold.open #bMap { background: var(--paper2); }
+  #rotbtns.fold #bMap.on { box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px rgba(58, 42, 31, 0.16), 0 0 0 3px var(--coral), 0 3px 0 rgba(58, 42, 31, 0.30); }
+  /* the stack: the askers' faces in one row (a tap on a face: Rosa says the ask; the to-do list has them all with their
+     words); the receipt's head beside them, at the right, so a payday never pushes Rosa's line up */
+  #comstack { flex-direction: row; align-items: flex-end; }
+  #comstack .cchip, #comstack .cchip:nth-child(n+3) { display: flex; width: 48px; height: 48px; min-height: 48px; padding: 0; justify-content: center; border-radius: 50%; flex: none; }
+  #comstack.two .cchip:nth-child(n+3), #comstack.one .cchip:nth-child(n+2) { display: none; }
+  #comstack .cchip .ct { display: none; }
+  #comstack .cchip .cface { width: 40px; height: 40px; }
+  body.rcopen #comstack { display: none !important; }
+  #receipt { order: -1; min-width: 0; padding: 8px 12px; }
+  #receipt.open .rows { overflow-y: auto; overscroll-behavior: contain; }
+  #receipt .row { padding: 1px 0; }
+  /* rows that scroll fade at the foot: there is more under it (the sum and the fund's row) */
+  #receipt.open .rows.more, #guide p.fit.more, #toast .tt.fit.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); }
+  /* Rosa: her face in the text's corner (the words take the panel's width), her buttons under it */
+  #guide { position: relative; }
+  #guide .who { position: absolute; left: 12px; top: 10px; width: 36px; height: 36px; font-size: 17px; line-height: 32px; }
+  #guide .who.com { font-size: 13px; line-height: 32px; }
+  #guide p, #guide.long p { flex: 1 1 100%; }
+  #guide p::before { content: ''; float: left; width: 44px; height: 36px; }
+  #guide p.fit { overflow-y: auto; overscroll-behavior: contain; }
+  /* her button takes the row's room and its words wrap inside it ("Shut them · +$2,464 a month" took a row of its own) */
+  #guide .act { flex: 1 1 128px; white-space: normal; line-height: 1.15; padding: 4px 12px; }
+  /* "−$12.0k" on one line (the minus stood alone above the sum) */
+  #sMoney { white-space: nowrap; }
+  /* the pill's blocker with a short button ([School], [Garden]): its words in two lines beside the button, not one line
+     over it (A12's wrap stays for the long plans' buttons: "Move 1 home, clear, lay road · $1,550") */
+  #pill.tight .blk { flex-wrap: nowrap; text-align: left; }
+  /* the build bar's tools on one line each (the tray was 88 px tall with "Paved / road / $150/tile"); the tray scrolls */
+  .tool { width: auto; min-width: 62px; min-height: 58px; padding: 2px 7px; white-space: nowrap; }
+  .tool.nospot small { white-space: normal; max-width: 92px; }
+  .tab { flex: 1 1 auto; min-width: 48px; font-size: 12px; padding: 0 3px; }
+  /* no text under 12 px on a phone */
+  .tool small, .tool.nospot small, #pill small, .turnbtn, #trlegend small, #lvlegend small, #card .hlvb button small, #card table.ledger td.h { font-size: 12px; }
+  #top .stats .stat.glance small { font-size: 12px; }
+  .stats .stat .badge, .stats .stat .gi .badge { min-width: 18px; height: 18px; padding: 0 4px; font-size: 12px; line-height: 18px; }
+  .fac-tool, .fac-tool small, .fac-sub, .fac-sec h4 small, .fac-offer > small, .fac-q small { font-size: 12px; }
+  /* the numbers of a Capital ("$79.4k", "1452 /1452") ran into each other: a little less air around each */
+  .stat, .stats .stat.glance { padding-left: 1px; padding-right: 1px; gap: 2px; }
+  .stat .ic { width: 18px; height: 18px; }
+  .stats #bSnd { padding: 0 0 0 3px; margin-left: 0; min-width: 40px; }
+  .stat { font-size: 14.5px; letter-spacing: 0; }
+  /* a long notice: its words take the notice's width, Show and ✕ under them (the words were a column 12 lines tall) */
+  #toast.long { flex-wrap: wrap; padding-bottom: 4px; }
+  #toast.long .tt { flex: 1 1 100%; padding-bottom: 0; }
+  #toast.long .tshow, #toast.long .tx { margin-left: auto; }
+  #toast.long .tshow + .tx { margin-left: 0; }
+  #toast .tt.fit { overflow-y: auto; overscroll-behavior: contain; padding-top: 0; margin-top: 6px; }
+  body.toasted #comstack { display: none !important; }
+  #top .stats { padding: 2px 0; }
+  /* the facility's screen under the top bar's two rows (its head covered the money and the numbers) */
+  #fac { top: calc(var(--gap) + 120px + var(--st)); }
+  .fac-title span { white-space: normal; }
+}
 </style>
 </head>
 <body>
@@ -40082,6 +40147,191 @@ function apAct(F, what, data) {
     const h = _ch.apply(this, arguments);
     if (!h || !b || b.type !== 'residence' || !paceOn() || !PACE.redPart) return h;
     return h.replace(/(until the two pay for it\.)/, '$1 A red payday takes from it only what the red needs.');
+  };
+}
+
+// ---- src/ui/phone.js
+// M1 (3 Nov 2026): the phone. Measured at 390 x 844 on seven islands in twelve states (smoke phone, LOG M1): the five
+// round map buttons sat over Rosa's line and the stack; a payday's receipt, under her line in the lower column, pushed
+// it up under them and the stack up to the top bar; the stack's chips met the pill; the facility's head covered the
+// money; a Capital's numbers ran into each other; text of 10.5-11.5 px; a strip of map (13-25 % of the screen) with
+// her line, the stack and a receipt. On a screen at most PHONE_W px wide:
+// - the round buttons fold into one (#bMap, where the row stood: at the right under the pill or a legend); a tap
+//   opens the row for a pick (a layer or the view folds it again, a turn keeps it a moment for the next turn);
+// - the stack shows the askers' faces in one row (a tap: Rosa says the ask, as before), and the receipt's head stands
+//   at the right of that row instead of under Rosa's line (a payday no longer moves her line);
+// - her line and the row above it never rise above the round button: her words scroll inside when they would, and an
+//   opened receipt scrolls its rows above her line;
+// - CSS in page.html (the same block): her face in the text's corner, the tools on one line each, text >= 12 px,
+//   the facility's screen under the top bar's two rows; the pill's blocker keeps a short button beside its words.
+// The iPad's sizes (1180 x 820, 820 x 1180) are as they were: nothing here acts above PHONE_W.
+const PHONE_W = 600;
+const FOLD_SVG = '<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 2.5 21.5 7.6 12 12.7 2.5 7.6Z M5 10.9 12 14.7 19 10.9 21.5 12.2 12 17.3 2.5 12.2Z M5 15.5 12 19.3 19 15.5 21.5 16.8 12 21.9 2.5 16.8Z"/></svg>';
+
+function phoneOn() { return window.innerWidth <= PHONE_W; }
+
+// ---------- the round map buttons fold into one ----------
+{
+  const _ri = rotInit;
+  rotInit = function () {
+    const r = _ri.apply(this, arguments), el = $('rotbtns');
+    if (el && el.style.display !== 'none' && !$('bMap')) {
+      const b = document.createElement('button');
+      b.id = 'bMap'; b.title = 'Traffic, land value, from above, turn';
+      b.setAttribute('aria-label', 'Map buttons: traffic, land value, from above, turn'); b.setAttribute('aria-expanded', 'false');
+      b.innerHTML = FOLD_SVG;
+      el.appendChild(b);
+      el.classList.add('fold');
+      b.addEventListener('click', () => foldSet(!el.classList.contains('open')));
+      // a pick in the open row: a layer or the view is one choice (the row folds); a turn may be followed by another
+      el.addEventListener('click', (e) => {
+        const t = e.target.closest && e.target.closest('button');
+        if (!t || t.id === 'bMap' || !el.classList.contains('open')) return;
+        APP.foldT = performance.now();
+        if (t.id !== 'rotL' && t.id !== 'rotR') foldSet(false);
+      });
+      // a finger anywhere else folds it
+      document.addEventListener('pointerdown', (e) => { if (el.classList.contains('open') && !(e.target.closest && e.target.closest('#rotbtns'))) foldSet(false); }, true);
+      APP.rotKey = '';
+    }
+    return r;
+  };
+}
+function foldSet(open) {
+  const el = $('rotbtns'), b = $('bMap');
+  if (!el || !b || el.classList.contains('open') === !!open) return;
+  // (the open row's box stays "near" a moment: a finger on its way there is not a tap on the map, Q1)
+  if (!open) uiGone(el);
+  el.classList.toggle('open', !!open);
+  b.setAttribute('aria-expanded', open ? 'true' : 'false');
+  b.innerHTML = open ? iconSvg('close') : FOLD_SVG;
+  APP.foldT = performance.now();
+  APP.rotKey = '';
+}
+
+// ---------- every frame on a phone: the lower area under the round button, the row of faces and the receipt ----------
+function phoneBox(id) {
+  const e = $(id);
+  if (!e) return null;
+  const cs = getComputedStyle(e);
+  if (cs.display === 'none' || cs.visibility === 'hidden') return null;
+  const r = e.getBoundingClientRect();
+  return r.width && r.height ? r : null;
+}
+function phoneFit() {
+  const now = performance.now(), el = $('rotbtns'), b = $('bMap'), body = document.body;
+  if (b) { const on = APP.ui.layer === 'traffic' || !!APP.ui.land || !!APP.ui.money; if (b.classList.contains('on') !== on) b.classList.toggle('on', on); }
+  // (left open, the row folds after 8 s without a tap)
+  if (el && el.classList.contains('open') && now - (APP.foldT || 0) > 8000) foldSet(false);
+  APP.phoneWas = true;
+  const rc = $('receipt'), open = !!(rc && rc.classList.contains('show') && rc.classList.contains('open'));
+  if (body.classList.contains('rcopen') !== open) { const g = $('comstack'); if (open && g && g.classList.contains('show')) uiGone(g); body.classList.toggle('rcopen', open); }
+  if (body.classList.contains('fac-on') || body.classList.contains('titled')) return;
+  phoneToast();
+  // the pill's blocker: a short button stays beside its words (two lines of words beside it, not one line over it)
+  const pl = $('pill'), fx = pl && pl.querySelector('.blk .fix');
+  const tight = !!(fx && fx.offsetWidth && fx.offsetWidth <= pl.clientWidth * 0.4);
+  if (pl && pl.classList.contains('tight') !== tight) pl.classList.toggle('tight', tight);
+  // the ceiling: the round button's bottom (it stands under the pill and any legend), else the pill's or a legend's.
+  // (With the Traffic legend open T3 gives the legend what her line leaves, down to 110 px: her line is measured
+  // against the legend at that least height, or the two would take turns shrinking each other.)
+  let ceil = Math.max(0, ...['rotbtns', 'pill', 'trlegend', 'lvlegend', 'moneyLegend'].map(phoneBox).filter(Boolean).map((r) => r.bottom)) + 8;
+  const tl = body.classList.contains('trlay') ? phoneBox('trlegend') : null;
+  if (tl && tl.height > 110) ceil -= tl.height - 110;
+  const lower = $('lower').getBoundingClientRect(), g = phoneBox('guide'), p = $('guideText');
+  // the row above her line (the faces, the receipt's head) and her line: the faces' row is as tall as a face
+  const st = $('comstack'), sb = phoneBox('comstack'), rb = phoneBox('receipt');
+  const rowH = Math.max(sb ? sb.height : 0, rb && !open ? rb.height : 0);
+  // her words: what they need in full, and the room left under the ceiling
+  if (g && p) {
+    const ph = p.getBoundingClientRect().height, full = p.scrollHeight, gh = g.height - ph + full;
+    // (a receipt she opened is what she reads now: it keeps up to 220 px, its head and about eight rows, above her line,
+    // and her words scroll meanwhile; the rest of its rows scroll)
+    const rws = open && rb ? rc.querySelector('.rows') : null, rn = rws ? rb.height - rws.clientHeight + rws.scrollHeight : 0;
+    const room = lower.bottom - ceil - (open && rb ? Math.min(rn, 220) + 10 : rowH ? rowH + 10 : 0);
+    // (whole lines: a line cut through its middle reads as broken; a fade at the foot says there is more)
+    const lh = parseFloat(getComputedStyle(p).lineHeight) || 19.5;
+    const want = gh > room ? Math.max(2, Math.floor((full - (gh - room)) / lh)) * lh : 0;
+    const cur = p.classList.contains('fit') ? parseFloat(p.style.maxHeight) || 0 : 0;
+    if (want && Math.abs(want - cur) > 1) { p.classList.add('fit'); p.style.maxHeight = want + 'px'; }
+    else if (!want && cur) { p.classList.remove('fit'); p.style.maxHeight = ''; }
+    const more = p.classList.contains('fit') && p.scrollTop + p.clientHeight < p.scrollHeight - 2;
+    if (p.classList.contains('more') !== more) p.classList.toggle('more', more);
+  }
+  // an opened receipt: its rows scroll above her line, under the ceiling
+  if (open && rb) {
+    const rows = rc.querySelector('.rows'), head = rc.querySelector('.head');
+    if (rows) {
+      const hh = head ? head.getBoundingClientRect().height : 30, pad = rb.height - hh - rows.getBoundingClientRect().height;
+      const mh = Math.max(96, Math.floor(rb.bottom - ceil - hh - pad)), cur = parseFloat(rows.style.maxHeight) || 0;
+      if (rows.scrollHeight > mh && Math.abs(cur - mh) > 1) rows.style.maxHeight = mh + 'px';
+      else if (rows.scrollHeight <= mh && cur && rows.scrollHeight < cur - 1) rows.style.maxHeight = '';
+      const more = rows.scrollTop + rows.clientHeight < rows.scrollHeight - 2;
+      if (rows.classList.contains('more') !== more) rows.classList.toggle('more', more);
+    }
+  }
+  // the faces beside the receipt's head: as many as fit to its left (the praise's words: up to it)
+  if (st) {
+    const left = sb ? sb.left : 10, limit = rb && !open ? rb.left - 8 : window.innerWidth - 8;
+    const mw = Math.max(48, Math.floor(limit - left)) + 'px';
+    if (st.style.maxWidth !== mw) st.style.maxWidth = mw;
+    const n = st.querySelectorAll('.cchip').length, fits = Math.max(1, Math.floor((limit - left + 6) / 54));
+    const cls = n > fits ? (fits <= 1 ? 'one' : 'two') : '';
+    for (const c of ['one', 'two']) if (st.classList.contains(c) !== (c === cls)) st.classList.toggle(c, c === cls);
+  }
+}
+// A notice stands under the pill (toastPlace, Q1): on a phone a long one (a hurricane's warning, 280 letters) reached
+// down over the faces and her line. Its words take its width (Show and ✕ under them); the faces wait while it covers
+// them; it never reaches her line or the receipt (its words scroll inside).
+function phoneToast() {
+  const t = $('toast'), tt = t && t.querySelector('.tt'), body = document.body, on = !!(t && t.classList.contains('show') && tt);
+  const long = on && (tt.textContent || '').length > 90;
+  if (t && t.classList.contains('long') !== long) t.classList.toggle('long', long);
+  let cover = false;
+  if (on) {
+    const a = t.getBoundingClientRect(), hit = (r) => r && a.left < r.right && r.left < a.right && a.top < r.bottom && r.top < a.bottom;
+    const floor = Math.min(...['guide', 'receipt'].map(phoneBox).filter(Boolean).map((r) => r.top), $('lower').getBoundingClientRect().bottom) - 8;
+    // (the faces' box where comStackPlace put them, also while they wait hidden: else they would come back the next
+    // frame, under the notice again)
+    const st = $('comstack');
+    let fb = phoneBox('comstack');
+    if (!fb && st && st.classList.contains('show') && body.classList.contains('toasted')) {
+      const l = parseFloat(st.style.left) || 0, bt = window.innerHeight - (parseFloat(st.style.bottom) || 0);
+      fb = { left: l, right: l + 48 * st.querySelectorAll('.cchip').length, top: bt - 48, bottom: bt };
+    }
+    cover = hit(fb);
+    // (whole lines, as her words; a fade at the foot when more is under it)
+    const lh = parseFloat(getComputedStyle(tt).lineHeight) || 17;
+    const room = Math.floor(floor - a.top - (a.height - tt.getBoundingClientRect().height)), cur = tt.classList.contains('fit') ? parseFloat(tt.style.maxHeight) || 0 : 0;
+    if (a.bottom > floor + 1 || (cur && tt.scrollHeight > cur)) { const mh = Math.max(2, Math.floor((room - 6) / lh)) * lh; if (Math.abs(mh - cur) > 1) { tt.classList.add('fit'); tt.style.maxHeight = mh + 'px'; } }
+    else if (cur && tt.scrollHeight <= room - 6) { tt.classList.remove('fit'); tt.style.maxHeight = ''; }
+    const more = tt.classList.contains('fit') && tt.scrollTop + tt.clientHeight < tt.scrollHeight - 2;
+    if (tt.classList.contains('more') !== more) tt.classList.toggle('more', more);
+  }
+  if (body.classList.contains('toasted') !== cover) { const g = $('comstack'); if (cover && g && g.classList.contains('show')) uiGone(g); body.classList.toggle('toasted', cover); }
+}
+
+// back to the iPad's layout when the screen grows past PHONE_W (a phone turned on its side)
+function phoneReset() {
+  APP.phoneWas = false;
+  const p = $('guideText'), st = $('comstack'), rows = document.querySelector('#receipt .rows');
+  if (p) { p.classList.remove('fit', 'more'); p.style.maxHeight = ''; }
+  if (st) { st.style.maxWidth = ''; st.classList.remove('one', 'two'); }
+  if ($('pill')) $('pill').classList.remove('tight');
+  if (rows) rows.style.maxHeight = '';
+  document.body.classList.remove('rcopen', 'toasted');
+  const t = $('toast'), tt = t && t.querySelector('.tt');
+  if (t) t.classList.remove('long');
+  if (tt) { tt.classList.remove('fit', 'more'); tt.style.maxHeight = ''; }
+  foldSet(false);
+}
+{
+  const _rp = rotPlace;
+  rotPlace = function () {
+    const r = _rp.apply(this, arguments);
+    if (phoneOn()) phoneFit();
+    else if (APP.phoneWas) phoneReset();
+    return r;
   };
 }
 
