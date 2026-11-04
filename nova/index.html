@@ -760,6 +760,10 @@ body.titled #gzslip, body.titled #gazette { display: none !important; }
 #pill .blk .fix.isle, #pill .blk .fix { white-space: nowrap; }
 #pill .sav { font-size: 12.5px; font-weight: 700; color: #6b5214; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
 #pill .sav b { color: var(--ink); }
+/* S1: from 85 % "every quarter served" says its year on the pill's third line; it wraps inside the pill and never
+   widens it (width 0, min-width 100 %); a phone has it in the to-do list's goal */
+#pill .aside { display: block; width: 0; min-width: 100%; font-size: 12.5px; font-weight: 700; color: #6b5214; margin-top: 3px; white-space: normal; text-align: center; line-height: 1.25; }
+@media (max-width: 600px) { #pill .aside { display: none; } }
 /* a phone: the pill already has its blocker's line and button: the saving line waits (the money panel says it too) */
 @media (max-width: 600px) { #pill .blk ~ .sav { display: none; } }
 /* (A12 + turning: the plans' longer button words beside the blocker's text left it a column five words wide, six lines
@@ -13801,6 +13805,9 @@ function tfStep(s, net, S, dt, first, live) {
         const JN = T.jn || (T.jn = {}); JN[Jt] = (JN[Jt] || 0) + 1;
         if (q.zm === q.m && q.za >= 0) { const JW = T.jw || (T.jw = {}); JW[Jt] = (JW[Jt] || 0) + Math.max(0, (t - q.za) - (q.zd - q.d) / net.v0[Jt]); }
       }
+      // (C2, cars.js: in the morning rush every vehicle's wait here, a car's and a cart's apart: the card's and Rosa's
+      // rush numbers; off unless cars.js opens the morning's measure, s._rushX)
+      if (s._rushX && q.zm === q.m && q.za >= 0 && t >= s._rushX.from) tfRushNote(s._rushX, Jt, q, Math.max(0, (t - q.za) - (q.zd - q.d) / net.v0[Jt]));
       q.m = -1; q.sa = -1;
     }
   }
@@ -13860,6 +13867,15 @@ function tfStep(s, net, S, dt, first, live) {
   }
 }
 const TF_NONE = [];
+// C2 (cars.js): a vehicle's wait w (ticks, T1's control delay) at crossing J in the morning rush, into the morning's
+// measure X = { w: { J: [cars' ticks, cars, carts' ticks, carts] }, m: { J: carts by way [16] }, a: { J: the cars'
+// arrivals, (tick - X.t0) x 16 + way } } (the copy of the crossing replays the ways and the arrivals)
+function tfRushNote(X, J, q, w) {
+  const e = X.w[J] || (X.w[J] = [0, 0, 0, 0]);
+  w = Math.round(w * 1000) / 1000;
+  if (q.car) { e[0] += w; e[1]++; (X.a[J] || (X.a[J] = [])).push(Math.max(0, Math.round(q.za - X.t0)) * 16 + q.M.mv); }
+  else { e[2] += w; e[3]++; const m = X.m[J] || (X.m[J] = new Array(16).fill(0)); m[q.M.mv]++; }
+}
 
 // Car o (committed to the crossing) and car q would be at their ways' conflict point together: q may go only if it is
 // past that point before o gets there, or gets there after o has passed it (with TF.clear ticks between).
@@ -20947,6 +20963,18 @@ const CARS = {
   jamSlow: 1.6,          // a tile where the vehicles took this many times as long as on a free road in the morning
   jamShare: 0.5,         // (T1's "jammed"), cars at least half of them,
   jamMin: 6,             // and at least this many passed: a jam the cars make
+  // C2 (4 Nov 2026, nova/cars2): a capital's cars. `rate` is a whole colony's average (Cuba's, Puerto Rico's); a
+  // colony's capital held more cars than its share of the people (the better-off, the offices, the paved streets were
+  // there). Tomáš chose three times the average for the island (4 Nov 2026). A judgement, not a measured number: no
+  // source for a capital's share of a colony's cars turned up in two searches (docs/research/cars.md §1b).
+  // v35 (4 Nov 2026, the coordinator): released at 1 (C1's count) until Tomáš decides. Measured on the final C2 code,
+  // her-play at x3 ends 1904 with 1,092 people and −$9,190 (213 red paydays; without cars 2,020 people, C1 1,552) and
+  // 1905 without the palace (LOG "v35"). Everything else C2 made (the crossing's card counting the cars, Rosa and the
+  // legend on its numbers, the late cars, the trials leaving the island's cars alone) works at any factor.
+  capital: 1,
+  rushMin: 4,            // cars let in at a crossing in the morning rush before its card ranks the rules for them
+  lead: 20,              // the copy of a crossing in the rush: ticks of carts before the cars' first arrival
+  drain: 60,             // and after the rush, for those still in it
 };
 // a motor car (T1's IDM): shorter than an ox cart and its team, quicker off the line, a shorter gap behind the one ahead
 TF.kind.car = { l: 0.28, s0: 0.06, gap: 0.12, a: 0.8, b: 1.2, name: 'motor car' };
@@ -20960,8 +20988,10 @@ function carsRate(y) {
   for (let k = 1; k < R.length; k++) if (y <= R[k][0]) { const [y0, a] = R[k - 1], [y1, b] = R[k]; return a + (b - a) * (y - y0) / (y1 - y0); }
   return R[R.length - 1][1];
 }
+// C2: the island's cars per 1,000 people in a year: a capital's, CARS.capital times the colony's average
+function carsPer1000(y) { return carsRate(y) * CARS.capital; }
 // the cars the island has this year (one a family), capped
-function carsWant(s) { return yearOf(s) < CARS.year ? 0 : Math.min(CARS.max, Math.round(popCount(s) * carsRate(yearOf(s)) / 1000)); }
+function carsWant(s) { return yearOf(s) < CARS.year ? 0 : Math.min(CARS.max, Math.round(popCount(s) * carsPer1000(yearOf(s)) / 1000)); }
 function carsHash(a, b, c) { let h = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) + Math.imul(c | 0, 2246822519)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
 // is clock minute x passed between t0 and t1 (t1 may run past midnight)?
 function carsCross(t0, t1, x) { return (x > t0 && x <= t1) || (x + 1440 > t0 && x + 1440 <= t1); }
@@ -21043,12 +21073,19 @@ function carsGo(s, c, back) {
   if (!p || p.length < 2 || !p.every((i) => s.road[i])) { c.st = back ? 'done' : 'noway'; return; }
   const path = back ? p : p.slice().reverse();
   let free = 0; for (let k = 1; k < path.length; k++) free += 1 / tfV0(s, path[k]);
+  // (C2: the morning's trips are kept for the trial run of the rush)
+  if (!back) { const G = tfRun(s).rushRec; if (G) G.trips.push({ t: s.tick, path, vk: 'car' }); }
   Object.assign(c, { st: back ? 'back' : 'go', path, pos: 0, vk: 'car', v: TF.roll * tfV0(s, path[0]), ln: 0, adm: -1, adm2: -1, zm: -1, tl: 0, sa: undefined, stk: 0, gh: 0, ver: s.ver, t0: s.tick, fr: Math.round(free * 100) / 100 });
 }
 // Parked (at work, or home again): off the road; the morning's trip time kept for the card.
 function carsPark(s, c) {
   const tt = s.tick - (c.t0 || s.tick);
-  if (c.st === 'go') { c.tt = tt; c.tf = c.fr; c.st = 'work'; } else { c.tb = tt; c.st = 'done'; }
+  if (c.st === 'go') {
+    c.tt = tt; c.tf = c.fr; c.st = 'work';
+    // (C2: in at work after its time to go home, a queue held it all day: it sets off home a little later)
+    const tod = carsClock(s);
+    if (tod > c.ret - 10 && tod < c.ret + 480) c.ret = Math.round(((tod + 20) % 1440) * 10) / 10;
+  } else { c.tb = tt; c.st = 'done'; }
   for (const k of ['path', 'pos', 'v', 'ln', 'adm', 'adm2', 'zm', 'za', 'zd', 'tl', 'sa', 'stk', 'gh', 'mv', 'br', 'wj', 'ws', 'yw', 'ver', 't0', 'fr', 'lc']) delete c[k];
   c.path = null; c.pos = 0;
 }
@@ -21062,6 +21099,8 @@ function carsOnRoad(s) {
 // The morning rush, measured each tick (06:00-09:00): on each tile, the cars and carts on it and how fast they went.
 function carsMeasure(s) {
   const A = carsState(s), M = A.cur || (A.cur = { t: {}, at: null, from: carsClock(s) });
+  // (C2: and every vehicle's wait at each crossing, noted by T1's step while the measure is open: tfRushNote)
+  if (!M.x) { M.x = { w: {}, m: {}, a: {}, t0: s.tick, from: 0 }; const G = tfRun(s).rushRec; if (G && G.tA === undefined) G.tA = s.tick; }
   const add = (c, car) => {
     const p = c.path, n = p.length;
     if (c.pos <= 0.001 || c.pos >= n - 1) return;
@@ -21080,7 +21119,7 @@ function carsMeasure(s) {
 function carsClose(s) {
   const A = carsState(s), M = A.cur || { t: {}, at: null }, tiles = {};
   // (a morning measured from part-way, a plan made after 06:00: not a morning's numbers; yesterday's stay)
-  if (!(M.from <= CARS.am[0] + CARS.tick)) { A.cur = null; return; }
+  if (!(M.from <= CARS.am[0] + CARS.tick)) { A.cur = null; tfRun(s).rushRec = null; return; }
   let jam = null;
   for (const k in M.t) {
     const e = M.t[k], veh = e[0] + e[1], cars = Math.round(e[2]), carts = Math.round(e[3]);
@@ -21095,13 +21134,32 @@ function carsClose(s) {
     let x = -1, xn = 0;
     for (const k in M.w || {}) { const [a, b] = k.split(':').map(Number); if (a === jam.i && M.w[k] > xn) { xn = M.w[k]; x = b; } }
     if (x >= 0 && xn * 2 >= jam.ct && jctAt(s, x)) { jam.x = x; jam.ctl = tfCtl(s, x); }
+    // (C2: else the crossing T1's spill rule finds the street's queue reaching back from, as it was this morning)
+    else if (typeof tfSpill === 'function') { const k = tfSpill(s, jam.i); if (k >= 0) { jam.sx = k; jam.sctl = carsCtlSig(s, k); } }
     delete jam.ct;
   }
   const n = { car: 0, tram: 0, walk: 0 };
   for (const c of A.list) if (n[c.mode] !== undefined) n[c.mode]++;
-  A.last = { y: yearOf(s), m: s.month, at: M.at || { cars: 0, carts: 0 }, n: A.list.length, drive: n.car, tram: n.tram, walk: n.walk, tiles, jam };
+  // C2: each crossing the cars came to: a car's and a cart's mean wait there in the rush (s), how many, its rule then
+  // (the card's car line, Rosa, the legend); where CARS.rushMin cars or more came, what the copy of the crossing replays
+  // (the carts' ways in, the cars' arrivals and ways)
+  const X = M.x, x = {}, xb = {}, r1 = (v) => Math.round(v * 10) / 10;
+  if (X) for (const k in X.w) {
+    const e = X.w[k], J = +k;
+    if (!e[1] || !jctAt(s, J)) continue;
+    x[k] = [r1(e[0] / e[1] * TF.sec), e[1], e[3] ? r1(e[2] / e[3] * TF.sec) : 0, e[3], carsCtlSig(s, J), s.road[J]];
+    if (e[1] >= CARS.rushMin) xb[k] = { m: X.m[k] || [], a: X.a[k] || [] };
+  }
+  A.last = { y: yearOf(s), m: s.month, at: M.at || { cars: 0, carts: 0 }, n: A.list.length, drive: n.car, tram: n.tram, walk: n.walk, tiles, jam, x, xb, W: X ? s.tick - X.t0 : 0, tk: s.tick };
   A.cur = null;
+  // (the morning's trips, from 05:00: the trial run of the rush replays them; not saved, as T2's log)
+  const R = tfRun(s), G = R.rushRec;
+  R.rushRec = null;
+  R.rushLog = G && G.tA !== undefined ? Object.assign(G, { t1: s.tick, m: s.month, seen: null }) : null;
 }
+// A crossing's rule as the cars met it (a light's cycle and splits too): another one since, and the morning's numbers
+// there wait for the next morning
+function carsCtlSig(s, i) { const L = jctlOf(s, i), k = tfCtl(s, i); return L && k === 'lights' ? k + ':' + L.C + ':' + L.sp + ':' + (L.lt ? 1 : 0) + ':' + (L.act ? 1 : 0) + ':' + (L.off || 0) : k; }
 // The tick (after T1's and the economy's): cars arrive, the morning is measured, the clock moves on, cars set off.
 function carsTick(s) {
   const A = carsState(s), t0 = carsClock(s), t1 = t0 + CARS.tick;
@@ -21119,6 +21177,8 @@ function carsTick(s) {
   s.tod = t1 % 1440;
   // (an island that never had a plan, an old save: the car families are known at once; they drive from the next morning)
   if (carsCross(t0, t1, CARS.plan) || (A.pd === undefined && yearOf(s) >= CARS.year)) carsPlan(s);
+  // (C2: from 05:00 the morning's trips are kept for the trial run of the rush: the carts' (trialLog) and the cars')
+  if (carsCross(t0, t1, CARS.plan)) tfRun(s).rushRec = A.list.length ? { t0: s.tick, trips: [] } : null;
   for (const c of A.list) {
     if (c.mode !== 'car') continue;
     if (c.st === 'home' && carsCross(t0, t1, c.dep)) carsGo(s, c, false);
@@ -21131,6 +21191,9 @@ function carsTick(s) {
   const _ts = trafficStep;
   trafficStep = function (s) {
     const A = s.autos;
+    // (C2: while the morning is measured, T1's step notes every vehicle's wait at a crossing: tfRushNote; a trial's
+    // copy keeps its own measure, a crossing's copy none)
+    if (!s._trial && !s._tfBench) s._rushX = A && A.cur && A.cur.x && carsOn(s) ? A.cur.x : null;
     if (!A || !A.list || !A.list.length || !carsOn(s)) return _ts.apply(this, arguments);
     const live = A.list.filter((c) => c.path), c0 = s.carts;
     if (!live.length) return _ts.apply(this, arguments);
@@ -21169,13 +21232,245 @@ function carsLowLevel(s) {
 function carsSlowWord(x) { return (x < 10 ? Math.round(x * 10) / 10 : Math.round(x)) + '×'; }
 // A trip's minutes on the clock (ticks x CARS.tick).
 function carsMin(ticks) { return Math.max(1, Math.round(ticks * CARS.tick)); }
+// ---------- C2: a crossing in the morning rush (the card, Rosa, the legend read the same numbers) ----------
+// The morning's numbers at crossing i, while they stand (the same year or the next, the rule and its lights as the cars
+// met them, the road's kind): { i, car, cars, cart, carts } (s: a car's and a cart's mean wait there in the rush,
+// T1's control delay, and how many came in), or null.
+function carsRushAt(s, i) {
+  const L = carsOn(s) && s.autos && s.autos.last, e = L && L.x && L.x[i];
+  if (!e || yearOf(s) - L.y > 1 || !s.road[i] || s.road[i] !== e[5] || !jctAt(s, i) || carsCtlSig(s, i) !== e[4]) return null;
+  return { i, car: e[0], cars: e[1], cart: e[2], carts: e[3] };
+}
+// The rush is the crossing's worse time when enough cars came in (CARS.rushMin), they waited (TF.adviseMin s) and longer
+// than a cart waits there the rest of the day: then its rules are ranked for the cars in the rush (its card, Rosa).
+function carsRushMode(s, i) {
+  const R = carsRushAt(s, i);
+  return R && R.cars >= CARS.rushMin && R.car >= TF.adviseMin && R.car > jctWait(s, i) ? R : null;
+}
+// The copy of crossing i for the rush: T1's (its arms, their roads and lanes, the main road) with this morning's carts
+// (by the side they came from and the way they went) and the cars' arrivals (the moment, the way): spec.rush, or null.
+function carsRushSpec(s, i) {
+  const L = s.autos && s.autos.last, b = L && L.xb && L.xb[i];
+  if (!b) return null;
+  const spec = jctSpec(s, i), q = [0, 0, 0, 0], tn = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  (b.m || []).forEach((n, mv) => { const din = mv >> 2, tr = tfTurn(din, mv & 3), side = (din + 2) % 4; if (!n || tr === 2) return; q[side] += n; tn[side][tr === 0 ? 0 : tr === 1 ? 1 : 2] += n; });
+  const turn = tn.map((r) => { const t = r[0] + r[1] + r[2]; return t ? r.map((v) => v / t) : [0.6, 0.25, 0.15]; });
+  return Object.assign(spec, { rush: { W: Math.max(20, L.W || 112), q, turn, cars: (b.a || []).map((v) => [v >> 4, v & 15]) } });
+}
+// The copy of the crossing driven through this morning's rush under rule k: the cars at the moments and ways they came
+// in, the carts at the rush's rate from each side (random gaps from a fixed seed, as T1's copy), CARS.lead ticks of carts
+// first; { car, cart (s: the mean wait of the cars and of the carts that came in during the rush, against driving the
+// same way alone, T1's measure), n }. Pure and deterministic.
+function carsBench(spec, k) {
+  const R = spec.rush, B = jctBenchState(spec, k), st = B.st, base = {}, lead = CARS.lead, W = R.W, cvk = spec.vk || 'ox';
+  const lone = (vk, side, out) => {
+    const key = vk + (side * 4 + out);
+    if (base[key] !== undefined) return base[key];
+    const A = jctBenchState(spec, 'yield'), p = A.path(side, out), c = { id: 1, home: 0, st: 'go', path: p, pos: 0, v: TF.roll * tfV0(A.st, p[0]), vk, ln: 0, adm: -1 };
+    A.st.carts.push(c);
+    let t = 0;
+    while (c.pos < p.length - 1 && t < 600) { trafficStep(A.st); A.st.tick++; t++; }
+    return (base[key] = t);
+  };
+  let seed = 54321;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return (seed + 0.5) / 2147483648; };
+  const ev = [];
+  for (const [off, mv] of R.cars) { const din = mv >> 2, out = mv & 3, side = (din + 2) % 4; if (side !== out && spec.arms[side] && spec.arms[out]) ev.push([lead + off, 'car', side, out]); }
+  for (let side = 0; side < 4; side++) {
+    const rate = (R.q[side] || 0) / W;
+    if (!rate || !spec.arms[side]) continue;
+    let t = -Math.log(rnd()) / rate, seq = 0;
+    while (t < lead + W) {
+      const sh = R.turn[side], f = (seq++ * 0.618034) % 1, tr = f < sh[0] ? 0 : f < sh[0] + sh[1] ? 1 : 3;
+      let out = B.exitOf(side, tr);
+      if (!spec.arms[out]) { out = -1; for (const t2 of [0, 1, 3]) if (out < 0 && spec.arms[B.exitOf(side, t2)]) out = B.exitOf(side, t2); }
+      if (out >= 0) ev.push([t, cvk, side, out]);
+      t += -Math.log(rnd()) / rate;
+    }
+  }
+  ev.sort((a, b) => a[0] - b[0]);
+  const wc = [], wk = [], end = lead + W + CARS.drain;
+  let id = 1, ei = 0;
+  for (let tk = 0; tk < end; tk++) {
+    while (ei < ev.length && ev[ei][0] <= tk) { const [t0, vk, side, out] = ev[ei++], p = B.path(side, out); st.carts.push({ id: id++, home: 0, st: 'go', path: p, pos: 0, v: TF.roll * tfV0(st, p[0]), vk, ln: 0, adm: -1, t0: tk, side, out, ms: t0 >= lead ? 1 : 0 }); }
+    trafficStep(st);
+    st.tick++; st.mt = st.tick % TUNE.ticksPerMonth;
+    for (const c of st.carts) if (c.pos >= c.path.length - 1) { c.done = 1; if (c.ms) (c.vk === 'car' ? wc : wk).push(st.tick - c.t0 - lone(c.vk, c.side, c.out)); }
+    st.carts = st.carts.filter((c) => !c.done);
+    if (ei >= ev.length && !st.carts.length) break;
+  }
+  // (still in the copy at its end: what they have waited so far)
+  for (const c of st.carts) if (c.ms) (c.vk === 'car' ? wc : wk).push(st.tick - c.t0 - lone(c.vk, c.side, c.out));
+  const mean = (L) => (L.length ? Math.max(0, L.reduce((a, b) => a + b, 0) / L.length) : 0);
+  return { car: Math.round(mean(wc) * TF.sec * 10) / 10, cart: Math.round(mean(wk) * TF.sec * 10) / 10, n: wc.length, nk: wk.length };
+}
+// Webster's cycle for the rush at crossing i (T1's sigWebster with this morning's cars and carts on each approach, a
+// month's rate): a new light at a crossing the cars make their rush at is timed for it (the card says so), or null.
+function carsRushWebster(s, i) {
+  const L = s.autos && s.autos.last, b = L && L.xb && L.xb[i];
+  if (!b) return null;
+  const k = TUNE.ticksPerMonth / Math.max(20, L.W || 112), qa = [0, 0, 0, 0], ql = [0, 0, 0, 0];
+  const add = (mv, n) => { const din = mv >> 2; qa[din] += n * k; if (tfTurn(din, mv & 3) === 3) ql[din] += n * k; };
+  (b.m || []).forEach((n, mv) => { if (n) add(mv, n); });
+  for (const v of b.a || []) add(v & 15, 1);
+  const f = Object.assign({}, s, { traffic: Object.assign({}, trState(s), { qa: { [i]: qa }, qar: { [i]: qa }, ql: { [i]: ql }, qlr: { [i]: ql } }) });
+  return sigWebster(f, i, false, true);
+}
+// The rules at crossing i ranked for the cars in the rush (where carsRushMode): { R, cur, opts, now (a car's wait now,
+// the measured one), est { k: ≈ a car's wait under rule k }, sig (a new light's timing: Webster's for the rush), cnow,
+// cest (a cart's the rest of the day: T1's copy, T2's trial where it ran; a new light as timed for the rush: the card's
+// carts line), best { k, car, cart } (cuts a car's wait by a quarter and 2 s and leaves a cart's the rest of the day
+// within 2 s and a quarter of now; T1's own choice for the carts first when it does), blocked (the one that would cut the
+// cars' most but costs the carts), trial (a trial run of the morning gave the cars' numbers) }. The copy's numbers start
+// from the wait measured (T1's way: the measured wait times the copy's ratio of the rule to the rule there now); cached
+// per morning and the crossing's own roads and rule. ui: the card (the carts' numbers always; Rosa asks for them only
+// where a rule cuts the cars' wait: T1's copy takes half a second).
+function carsRushAdvice(s, i, ui) {
+  const R = carsRushMode(s, i), spec = R ? carsRushSpec(s, i) : null;
+  if (!spec) return null;
+  const X = tfRun(s), L = s.autos.last, cur = tfCtl(s, i), C0 = X.rushB || (X.rushB = {});
+  const key = L.tk + ':' + JSON.stringify([spec.arms, spec.lanes, spec.main, spec.vk, carsCtlSig(s, i), s.stage]);
+  let C = C0[i];
+  if (!C || C.key !== key) {
+    C = C0[i] = { key, w: {}, opts: ['yield', 'stop', 'lights', 'rbt'].filter((k) => k === cur || !jctlWhy(s, i, k, true)), sig: null };
+    for (const k of C.opts) {
+      let sp = spec;
+      if (k === 'lights' && cur !== 'lights') { const Wb = carsRushWebster(s, i); if (Wb) { C.sig = { C: Wb.C, sp: Wb.sp }; sp = Object.assign({}, spec, { sig: { C: Wb.C, sp: Wb.sp, lt: 0 } }); } }
+      C.w[k] = carsBench(sp, k);
+    }
+  }
+  const T = X.trial || {}, tr = {}, est = {}, r1 = (v) => Math.round(v * 10) / 10;
+  for (const k of C.opts) { const r = T[trialKey(s, 'rush', i, k)]; if (r && r.n) tr[k] = r; }
+  const base = C.w[cur] ? C.w[cur].car : 0;
+  for (const k of C.opts) {
+    if (k === cur) { est[k] = R.car; continue; }
+    const t = tr[k], ratio = t ? t.after / Math.max(0.5, t.before) : (C.w[k] ? C.w[k].car : base) / Math.max(0.5, base);
+    est[k] = r1(Math.max(0.1, R.car * ratio));
+  }
+  const cuts = (k) => k !== cur && est[k] !== undefined && est[k] <= 0.75 * R.car && R.car - est[k] >= 2;
+  let A = null, cnow = Math.round(jctWait(s, i) * 10) / 10, cest = {};
+  if (ui || C.opts.some(cuts)) {
+    A = jctAdvice(s, i); cnow = A.now; cest = Object.assign({}, A.est || {});
+    // (a new light timed for the rush: the carts' copy with that timing, T1's way)
+    if (C.sig && cest.lights !== undefined && A.w && A.w[cur] !== undefined) {
+      if (C.cl === undefined) { const ds = jctSpec(s, i); C.cl = jctBench(Object.assign({}, ds, { sig: { C: C.sig.C, sp: C.sig.sp, lt: 0 } }), 'lights', 6).wait; }
+      cest.lights = r1(Math.max(0.1, cnow * C.cl / Math.max(0.5, A.w[cur])));
+    }
+    if (cest[cur] === undefined) cest[cur] = cnow;
+  }
+  const fair = (k) => cest[k] === undefined || cest[k] <= cnow + Math.max(2, 0.25 * cnow);
+  const t1 = A && A.best && !(A.best.k === 'lights' && C.sig) ? A.best.k : null;
+  let best = t1 && cuts(t1) && fair(t1) ? t1 : null, blocked = null;
+  for (const k of C.opts) {
+    if (!cuts(k)) continue;
+    if (fair(k)) { if (!best || (best !== t1 && est[k] < est[best])) best = k; }
+    else if (!blocked || est[k] < est[blocked]) blocked = k;
+  }
+  if (blocked && best && est[best] <= est[blocked]) blocked = null;
+  const pick = (k) => (k ? { k, car: est[k], cart: cest[k] } : null);
+  return { i, R, cur, opts: C.opts, now: R.car, est, sig: C.sig, cnow, cest, best: pick(best), blocked: pick(blocked), trial: Object.keys(tr).length > 0, ctrial: !!(A && A.trial), bench: C.w };
+}
+// "Traffic lights", "A roundabout" ... (a rule as the start of a sentence)
+function carsRuleName(k) { return k === 'lights' ? 'Traffic lights' : k === 'rbt' ? 'A roundabout' : k === 'stop' ? 'An all-way stop' : 'Giving way to the main road'; }
+
+// ---------- C2: T2's trial run of the morning rush (kind 'rush', arg: the rule) ----------
+// The island's copy with empty streets drives this morning's trips again from 05:00 as they began (the carts' from T2's
+// log, the cars' from cars.js), rule `arg` on crossing i (T2's apply), to 09:00; measured: a car's and a cart's wait
+// there from 06:00 (tfRushNote in the copy). The morning's trips are runtime, not saved (as T2's log): after a reload
+// the copy of the crossing gives the numbers until the next morning.
+function carsRushLog(s) { const G = tfRun(s).rushLog, L = s.autos && s.autos.last; return G && L && G.m === L.m && G.trips.length ? G : null; }
+{
+  const _tl = trialLog;
+  // (a cart's kind as T1's step will give it: an ox cart or, on paved ways from FLOW's year, a lorry; T2's own log
+  // keeps 'ox', its kind not given yet when it sets off)
+  // (and a trip once: T2's two hooks both log a cart dispatched within its tick, a third of the entries twice)
+  trialLog = function (s, c) {
+    const r = _tl.apply(this, arguments), G = tfRun(s).rushRec;
+    if (!G || !c.path) return r;
+    const was = (G.seen || (G.seen = new Map())).get(c.id);
+    if (was && was[0] === s.tick && was[1] === c.path) return r;
+    G.seen.set(c.id, [s.tick, c.path]);
+    const d = { path: c.path, vk: c.vk };
+    tfPar(s, d);
+    G.trips.push({ t: s.tick, path: c.path, vk: d.vk });
+    return r;
+  };
+  const _ta = trialApply;
+  trialApply = function (kind, i, arg) {
+    const f = _ta.call(this, kind === 'rush' ? 'rule' : kind, i, arg);
+    // (a new light in the rush's trial is timed for the rush, as her tap on the card sets it)
+    return kind === 'rush' && arg === 'lights' && f ? (st) => { const was = tfCtl(st, i), W = carsRushWebster(st, i); f(st); if (was !== 'lights' && W && tfCtl(st, i) === 'lights') setSignal(st, i, { C: W.C, sp: W.sp }); } : f;
+  };
+  const _tf = trialFocus;
+  trialFocus = function (s, kind, i, arg) { return kind === 'rush' ? { J: i, rush: true } : _tf.apply(this, arguments); };
+  const _tb = trialBaseKey;
+  trialBaseKey = function (s, f) { return _tb.apply(this, arguments) + (f && f.rush ? ':rush' : ''); };
+  // (a trial's copy has no cars of the island's own: C1's step drove the island's cars in it)
+  const _tst = trialState;
+  trialState = function (s) { const st = _tst.apply(this, arguments); st.autos = { list: [], last: s.autos ? s.autos.last : null }; return st; };
+  const _tm = trialMake;
+  trialMake = function (s, apply, focus, ticks) {
+    const G = focus && focus.rush ? carsRushLog(s) : null;
+    if (!G) return _tm.apply(this, arguments);
+    const job = _tm.call(this, s, apply, { J: focus.J }, 1), st = job.st, off = st.tick - G.t0, ok = (p) => p.length >= 2 && p.every((t) => st.road[t]);
+    st.carts = [];
+    job.plan = [];
+    G.trips.forEach((e, k) => {
+      let p = e.path;
+      if (st.bridges && typeof brPathOk === 'function' && !brPathOk(st, p)) p = brTilePath(st, p[0], p[p.length - 1]) || p;
+      if (ok(p)) job.plan.push({ at: e.t + off, path: p, vk: e.vk, tid: 'r' + k });
+    });
+    job.plan.sort((a, b) => a.at - b.at);
+    job.pi = 0; job.ticks = G.t1 - G.t0; job.rush = { from: G.tA + off };
+    st._rushX = { w: {}, m: {}, a: {}, t0: st.tick, from: G.tA + off };
+    return job;
+  };
+  const _tsp = trialStep;
+  trialStep = function (job, n) {
+    const done = _tsp.apply(this, arguments);
+    if (done && job.rush && !job.rush.done) {
+      job.rush.done = true;
+      const e = (job.st._rushX && job.st._rushX.w[job.J]) || [0, 0, 0, 0], r1 = (v) => Math.round(v * 10) / 10;
+      Object.assign(job.res, { wait: e[1] ? r1(e[0] / e[1] * TF.sec) : 0, n: e[1], cart: e[3] ? r1(e[2] / e[3] * TF.sec) : 0, cn: e[3], rush: 1 });
+    }
+    return done;
+  };
+  const _tc = trialCompare;
+  trialCompare = function (a, b) { const o = _tc.apply(this, arguments); return a && a.rush ? Object.assign(o, { rush: 1, cart0: a.cart, cart1: b.cart, cn: a.cn }) : o; };
+}
+
 // The jam the cars made this morning, still standing (the street not paved, widened or given a tram since): or null.
+// C2: a jam the cars queue in for a crossing is that crossing's (J.xr): the one they stood for (C1's J.x), else the one
+// T1's spill rule finds the street's queue reaching back from (streets.js tfSpill). It stands as the crossing's while its
+// card ranks its rules for the cars (carsRushMode) and a car waits there at least TF.losBusy s in the rush (the card's
+// "busy" or "jammed"); a crossing they stood for that does not: no jam; a spill crossing that does not: the street's
+// own jam (C1's words).
 function carsJam(s) {
   const L = carsOn(s) && s.autos && s.autos.last, J = L && L.jam;
   if (!J || !s.road[J.i] || s.road[J.i] !== J.kind || lanesAt(s, J.i) !== J.lanes || (s.tram || []).length !== J.tram || yearOf(s) - L.y > 1) return null;
-  // (the crossing they queued for has another rule now: she changed it)
-  if (J.x >= 0 && J.x !== undefined && (!jctAt(s, J.x) || tfCtl(s, J.x) !== J.ctl)) return null;
-  return J;
+  if (J.x >= 0 && J.x !== undefined) {
+    // (the crossing they queued for has another rule now: she changed it)
+    if (!jctAt(s, J.x) || tfCtl(s, J.x) !== J.ctl) return null;
+    const R = carsRushMode(s, J.x);
+    return R && R.car >= TF.losBusy ? Object.assign({}, J, { xr: J.x }) : null;
+  }
+  // (the spill crossing as this morning found it; a morning kept before that: as T1 finds it now)
+  const k = J.sx !== undefined ? J.sx : typeof tfSpill === 'function' ? tfSpill(s, J.i) : -1, R = k >= 0 ? carsRushMode(s, k) : null;
+  // (that crossing has another rule since the morning: she changed it, the next morning says)
+  if (k >= 0 && (J.sx !== undefined ? !jctAt(s, k) || carsCtlSig(s, k) !== J.sctl : L.x && L.x[k] && carsCtlSig(s, k) !== L.x[k][4])) return null;
+  return Object.assign({}, J, { xr: R && R.car >= TF.losBusy ? k : -1 });
+}
+// The jam in words, the same for Rosa, the legend and the street's card: { where, x (the crossing, -1: the street's
+// own), xn ("the crossroads there"), verb ("jam" from TF.losJam s at the crossing, else "queue on"), R (its rush numbers),
+// ctl (its rule in words) }
+function carsJamWords(s, J) {
+  const where = placeName(s, J.i), x = J.xr >= 0 ? J.xr : -1;
+  if (x < 0) return { where, x, verb: 'jam', xn: '', R: null, ctl: '' };
+  // ("the road by the market" and "the crossroads by the market": "the crossroads there")
+  const xp = placeName(s, x).replace(/^the road by/, 'the crossing by'), by = (t) => t.replace(/^the [a-z]+ by /, '');
+  const R = carsRushAt(s, x), k = tfCtl(s, x);
+  return { where, x, xn: by(xp) === by(where) ? xp.replace(/ by .*$/, ' there') : xp, verb: R && R.car >= TF.losJam ? 'jam' : 'queue on', R,
+    ctl: k === 'yield' ? ', giving way' : k === 'stop' ? ' (an all-way stop)' : k === 'lights' ? ' (traffic lights)' : k === 'rbt' ? ' (a roundabout)' : '' };
 }
 // Rosa: a jam the cars make at 7:30, and its fix (what already exists: paving, a lane, a crossing's rule, a second road;
 // the tram in words: a family with a stop by home and by work leaves the car at home).
@@ -21185,15 +21480,17 @@ GUIDE_PROBLEMS.splice(Math.max(0, GUIDE_PROBLEMS.findIndex((p) => p.key === 'jam
   // (kept short: on a phone her line is read in full; the home's card says where each family drives)
   const where = placeName(s, J.i);
   const tram = s.stage >= TR.tramStage ? ' Or a tram line: families with a stop by home and by work leave the car.' : '';
-  const head = 'At 7:30 cars jam ' + where + ' (' + plural(J.cars, 'car', 'cars') + (J.carts ? ' and ' + plural(J.carts, 'cart', 'carts') : '') + ', ' + carsSlowWord(J.slow) + ' as long as on a free road)';
-  // queued for a crossing ahead: its rule is the fix (its card shows each rule with its price); else the street's own
-  if (J.x >= 0 && J.x !== undefined) {
-    // ("the road by the market" and "the crossroads by the market": "the crossroads there")
-    const at = [J.x % MAP_W, (J.x / MAP_W) | 0], xp = placeName(s, J.x).replace(/^the road by/, 'the crossing by'), by = (t) => t.replace(/^the [a-z]+ by /, '');
-    const xn = by(xp) === by(where) ? xp.replace(/ by .*$/, ' there') : xp;
-    const why = ': they queue for ' + xn + (J.ctl === 'yield' ? ', giving way' : J.ctl === 'stop' ? ' (an all-way stop)' : J.ctl === 'lights' ? ' (traffic lights)' : '');
-    return { text: head + why + '. Another rule there lets them in turn (its card has each with its price).' + tram, btn: 'The crossing', act: { tool: 'jct', at } };
+  // queued for a crossing ahead: the crossing's numbers (its card's car line, the copy's rules for the cars in the rush)
+  if (J.xr >= 0) {
+    const at = [J.xr % MAP_W, (J.xr / MAP_W) | 0], W = carsJamWords(s, J), RA = carsRushAdvice(s, J.xr);
+    const head = 'At 7:30 cars ' + W.verb + ' ' + where + ': a car waits ' + W.R.car + ' s for ' + W.xn + W.ctl + '.';
+    const nm = (k) => carsRuleName(k) + (k === 'lights' && RA.sig ? ' timed for the rush' : '');
+    const fix = RA && RA.best ? ' ' + nm(RA.best.k) + ' there would cut it to about ' + RA.best.car + ' s (its card has each rule with its price).'
+      : RA && RA.blocked ? ' ' + nm(RA.blocked.k) + ' there would cut it to about ' + RA.blocked.car + ' s, but a cart would wait about ' + RA.blocked.cart + ' s there the rest of the day (now ' + RA.cnow + ' s): its card has each rule.'
+        : ' No other rule there cuts it by a quarter (its card has each rule and what it would do).';
+    return { text: head + fix + tram, btn: 'The crossing', act: { tool: 'jct', at } };
   }
+  const head = 'At 7:30 cars jam ' + where + ' (' + plural(J.cars, 'car', 'cars') + (J.carts ? ' and ' + plural(J.carts, 'cart', 'carts') : '') + ', ' + carsSlowWord(J.slow) + ' as long as on a free road)';
   const F = tfJamFix(s, { i: J.i }), fix = F.text.charAt(0).toUpperCase() + F.text.slice(1);
   return { text: head + '. ' + fix + '.' + tram,
     btn: F.tool === 'paved' ? 'Paved road' : F.tool === 'lane' ? 'Lanes' : F.tool === 'rbt' ? 'Roundabout' : F.tool === 'jct' ? 'The crossing' : 'Road', act: { tool: F.tool, at: F.at, plan: F.plan || undefined } };
@@ -21586,6 +21883,141 @@ function nlStep(s) {
     if (!g || g.id !== 'newland') return g;
     g.prog = nlHomes(s) + ' / ' + nlGoalHomes(s) + ' homes, ' + nlServ(s).done + ' / ' + NL_SVC.length + ' services';
     g.text = 'The new land: ' + g.prog + ' · goal ' + g.n + ' of ' + g.of;
+    return g;
+  };
+}
+
+// ---- src/sim/served.js
+// S1 (4 Nov 2026, nova/served): "every quarter served" steps aside at 85 %. L1 measured her second evening after the
+// palace and the new land: her player sits on "Every quarter served" to the end of her two hours (34 minutes on seed
+// 1903). The goal always has a step (a school or a clinic in the old town, with homes moved: $12,000-17,000), so A9's
+// rule (no step for six months: it steps aside, from 85 % at the share there is) never fires, but her player never
+// holds the price (its stack rule wants about twice the price in hand). Tomáš chose (4 Nov, of three) **it steps aside
+// at 85 %**. Rules (DESIGN.md §52):
+// - From ISLE.servedAside (85 %) of the homes with a school and a clinic in reach, twelve months in a row
+//   (ISLE.servedYear) in which the goal's step costs more than the treasury holds (the price its button shows: the
+//   plan's, the line's, the building's), or it has no step at all, the goal counts as reached at the share there is, as
+//   A9 does for "no step" from 85 %: I.servedMin (the +3 happiness from then on while that share holds), the log's line,
+//   the ritual and the Gazette, which say the share and why. A month with the money for the step in hand, or under 85 %,
+//   starts the year again. Below 85 % nothing changes. No money changes; nothing is built, moved or shut.
+// - Said before it happens: the pill's third line ("At 85 % or more, a year without the money for its next step and
+//   the island moves on: 86 % now, 4 of 12 months") and the to-do list's goal (ui/served_ui.js).
+// - Saved: state.isle.asideFrom (the month the year began; an old save starts counting at its first look),
+//   state.isle.log's entry gets { pct } when reached at a share.
+// Kill switch: TUNE.servedAsideOff (NOVA_NO_S1=1 leaves this file out of the tests' sim; NOVA_S1_OFF=1 sets the switch).
+
+ISLE.servedAside = 0.85;   // from this share of homes with a school and a clinic in reach ...
+ISLE.servedYear = 12;      // ... this many months in a row without the money for the goal's step: reached at the share
+// (why the goal was reached at a share, for the words of the moment: 'money' this rule, 'land' A9's six months)
+const SERVED_NOW = { why: null, cost: 0, have: 0, need: '' };
+
+function servedOn() { return !TUNE.servedAsideOff && isleOn(); }
+
+// What the goal's step costs: the price its button shows (the plan, the dotted line, the building on its lit lot).
+function servedStepCost(s, g) {
+  const st = g && g.step;
+  if (!st) return 0;
+  if (g.p) return g.p.cost;
+  if (st.line && st.line.length) return (st.tool === 'rail' ? railPlan(s, st.line) : st.tool === 'tram' ? tramPlan(s, st.line) : roadPlan(s, st.line, 1)).cost;
+  return BUILDINGS[st.tool] ? BUILDINGS[st.tool].cost : 0;
+}
+// The goal's step's need ('school', 'clinic') from its key ('school@12,30').
+function servedStepNeed(g) { const k = g && g.step && g.step.k ? String(g.step.k) : ''; return /^clinic/.test(k) ? 'clinic' : /^school/.test(k) ? 'school' : ''; }
+
+// Where the year stands on the pill's goal G (isleGoal's): { pct, share, n (the month of the year now, 1-12; 0 when the
+// money is in hand), cost, need, line } or null (another goal, under 85 %, the rule off).
+function servedAsideInfo(s, G) {
+  if (!servedOn() || !s.palace || !s.isle || !s.isle.ladder) return null;
+  const I = s.isle, g = isleCur(s);
+  if (!g || g.id !== 'served' || I.done.served !== undefined) return null;
+  const v = isleServed(s);
+  if (v.share < ISLE.servedAside) return null;
+  const cost = servedStepCost(s, G), counting = I.asideFrom !== undefined && I.asideFrom <= s.month && !(G && G.step && cost <= s.money);
+  const n = counting ? Math.min(ISLE.servedYear, s.month - I.asideFrom + 1) : 0, pct = Math.floor(v.share * 100);
+  const line = 'At ' + Math.round(ISLE.servedAside * 100) + ' % or more, a year without the money for its next step' + (G && G.step && cost ? ' (' + money$(cost) + ')' : '') +
+    ' and the island moves on: ' + pct + ' % now, ' + (n ? n + ' of ' + ISLE.servedYear + ' months' : 'the money is in hand') + '.';
+  return { pct, share: v.share, n, of: ISLE.servedYear, cost, need: servedStepNeed(G), step: !!(G && G.step), line };
+}
+
+// The year: counted at every look of the goal (isleCheck); the moment it is full, the goal is reached at the share.
+function servedAsideCheck(s) {
+  const I = isleState(s), g = isleCur(s), stop = () => { if (I.asideFrom !== undefined) delete I.asideFrom; };
+  if (!g || g.id !== 'served' || I.done.served !== undefined) return stop();
+  const v = isleServed(s);
+  if (v.share < ISLE.servedAside) return stop();
+  let G = null;
+  try { G = isleGoal(s); } catch (e) { G = null; }
+  const cost = servedStepCost(s, G);
+  // (the money for the step in hand: she can tap it, the year starts again)
+  if (G && G.step && cost <= s.money) return stop();
+  if (I.asideFrom === undefined || I.asideFrom > s.month) { I.asideFrom = s.month; return; }
+  if (s.month - I.asideFrom < ISLE.servedYear) return;
+  delete I.asideFrom;
+  I.servedMin = Math.min(ISLE.servedShare, Math.floor(v.share * 100) / 100 - 0.02);
+  SERVED_NOW.why = 'money'; SERVED_NOW.cost = G && G.step ? cost : 0; SERVED_NOW.have = s.money; SERVED_NOW.need = servedStepNeed(G);
+  try { isleReach(s, g); } finally { SERVED_NOW.why = null; }
+  simCache(s).isleG = null;
+}
+
+{
+  // the year is counted after A9's six months (and Q2's at-once step-aside) have had their look
+  const _ic = isleCheck;
+  isleCheck = function (s) {
+    const r = _ic.apply(this, arguments);
+    if (!servedOn() || !s.palace) return r;
+    try { servedAsideCheck(s); } catch (e) { /* the goal as A9 leaves it */ }
+    return r;
+  };
+  // reached at a share (this rule, or A9's six months with no step from 85 %): the log, the ritual and the Gazette say
+  // the share and why ("Every quarter served at 87 %: ... the island moves on to the census")
+  const _ir = isleReach;
+  isleReach = function (s, g) {
+    const I = isleState(s);
+    if (!servedOn() || !g || g.id !== 'served' || I.done.served !== undefined || I.servedMin === undefined) return _ir.apply(this, arguments);
+    const v = isleServed(s);
+    if (v.share >= ISLE.servedShare) return _ir.apply(this, arguments);
+    const why = SERVED_NOW.why || 'land', pct = Math.floor(v.share * 100), min = Math.round(I.servedMin * 100), e0 = s.ev.length;
+    const r = _ir.apply(this, arguments);
+    try {
+      const next = isleCur(s), to = !next ? '' : next.id === 'next' ? 'its next chapter' : next.title;
+      const reward = '+' + ISLE.servedHappy + ' happiness while ' + min + ' % of the homes or more have a school and a clinic';
+      const what = SERVED_NOW.need ? 'a ' + SERVED_NOW.need : 'a school or a clinic';
+      const because = why === 'money'
+        ? 'For a year its next step, ' + what + (SERVED_NOW.cost ? ' (' + money$(SERVED_NOW.cost) + ')' : '') + ', cost more than the treasury held'
+        : 'For six months there was no room for the next school or clinic';
+      const text = 'Island goal reached at ' + pct + ' %: every quarter served (' + reward + '). ' + because + ': the island moves on.' + (next ? ' Next: ' + next.title + '.' : '');
+      const old = /^Island goal reached: every quarter served/;
+      for (let k = s.log.length - 1; k >= 0 && k >= s.log.length - 3; k--) if (old.test(s.log[k].text || '')) { s.log[k].text = text; break; }
+      const L = I.log[I.log.length - 1];
+      if (L && L.id === 'served') L.pct = pct;
+      const line = pct + ' % of the homes have a school and a clinic in reach. ' + (why === 'money' ? 'For a whole year the next one cost more than the treasury held' : 'For six months there was no room for the next one') +
+        (to ? ', so the island moves on to ' + to + '.' : '.');
+      for (let k = e0; k < s.ev.length; k++) {
+        const e = s.ev[k];
+        if (e.kind === 'log' && old.test(e.text || '')) e.text = text;
+        if (e.kind === 'isle' && e.id === 'served') Object.assign(e, { title: 'every quarter served at ' + pct + ' %', head: 'Every quarter served at ' + pct + ' %', line, reward, pct, why });
+      }
+    } catch (e) { /* the words as A10 says them */ }
+    return r;
+  };
+  // the year's page: the share, not "every quarter"
+  const _gz = gazetteMake;
+  gazetteMake = function (state, Y) {
+    const g = _gz.apply(this, arguments);
+    try {
+      const I = state.isle;
+      if (servedOn() && g && I && Array.isArray(I.log) && g.head === 'A school and a clinic for every quarter!') {
+        const L = I.log.find((o) => o.id === 'served');
+        if (L && L.pct) g.head = 'A school and a clinic for ' + L.pct + ' % of the homes!';
+      }
+    } catch (e) { /* the page as it is */ }
+    return g;
+  };
+  // the pill's goal carries where the year stands (ui/served_ui.js draws it)
+  const _ig = isleGoal;
+  isleGoal = function (s) {
+    const g = _ig.apply(this, arguments);
+    if (g && g.id === 'served') { let a = null; try { a = servedAsideInfo(s, g); } catch (e) { a = null; } g.aside = a; }
     return g;
   };
 }
@@ -35223,8 +35655,9 @@ function isleRitual(e) {
   APP.ui.com = null;
   confettiRun();
   setTimeout(() => {
-    const img = comSnap(), line = ISLE_RITUAL_LINE[e.id] || '';
-    const head = { railway: 'The planters’ railway runs', airfield: 'Our own airfield', town2: title + ' on the far coast', served: 'Every quarter served', census: 'The census: ' + popCount(s).toLocaleString('en-US') + ' people' }[e.id] || title;
+    // (S1: a goal reached at a share brings its own head and line: e.head, e.line)
+    const img = comSnap(), line = e.line || ISLE_RITUAL_LINE[e.id] || '';
+    const head = e.head || { railway: 'The planters’ railway runs', airfield: 'Our own airfield', town2: title + ' on the far coast', served: 'Every quarter served', census: 'The census: ' + popCount(s).toLocaleString('en-US') + ' people' }[e.id] || title;
     if (img) albumAdd({ img, stage: s.stage, m: s.month, pop: popCount(s), line: head + '. ' + line });
     const next = e.next === 'next' ? 'The island’s next chapter: a record every ' + ISLE.censusStep + ' people, and whatever the islanders ask for.' : e.nextTitle ? 'Next: ' + e.nextTitle + '.' : '';
     sheetOpen('<div id="stagecard" class="islecard"><div class="gz"><div class="gzh">The Isla Nueva Gazette</div><div class="gzd">' + esc(dateLabel(s.month)) + ' · ' + esc(plural(popCount(s), 'person', 'people')) + '</div>' +
@@ -40922,20 +41355,28 @@ function carsLegendText(s) {
   const n = { car: 0, tram: 0, walk: 0, none: 0 };
   for (const c of list) if (n[c.mode] !== undefined) n[c.mode]++;
   const fam = list.length;
-  if (!fam) return 'Cars: none yet. ' + Math.round(carsRate(yearOf(s))) + ' for 1,000 people in ' + yearOf(s) + ': the families in the best homes get them first.';
+  if (!fam) return 'Cars: none yet. ' + Math.round(carsPer1000(yearOf(s))) + ' for 1,000 people in ' + yearOf(s) + ': the families in the best homes get them first.';
   const who = phone ? fam + ' car families: ' + n.car + ' drive, ' + n.tram + ' tram, ' + n.walk + ' walk' + (n.none ? ', ' + n.none + ' no road' : '') + '.' : plural(fam, 'family has', 'families have') + ' a car: ' + n.car + ' drive to work, ' + n.tram + ' take the tram, ' + n.walk + ' walk' + (n.none ? ', ' + n.none + ' no road to work' : '') + '.';
-  const live = A && A.cur && tod >= CARS.am[0] && tod < CARS.am[1];
-  if (live) { const o = carsOnRoad(s); return 'Now: ' + plural(o.cars, 'car', 'cars') + ', ' + plural(o.carts, 'cart', 'carts') + ' on the streets. ' + who; }
-  if (L && L.at) return 'At 7:30: ' + plural(L.at.cars, 'car', 'cars') + ', ' + plural(L.at.carts, 'cart', 'carts') + ' on the streets. ' + who;
-  return who + ' They leave 6:30-8:00.';
+  const live = A && A.cur && tod >= CARS.am[0] && tod < CARS.am[1], jam = carsJamText(s, phone);
+  if (live) { const o = carsOnRoad(s); return 'Now: ' + plural(o.cars, 'car', 'cars') + ', ' + plural(o.carts, 'cart', 'carts') + ' on the streets. ' + who + jam; }
+  if (L && L.at) return 'At 7:30: ' + plural(L.at.cars, 'car', 'cars') + ', ' + plural(L.at.carts, 'cart', 'carts') + ' on the streets. ' + who + jam;
+  return who + ' They leave 6:30-8:00.' + jam;
+}
+// C2: the legend's jam line (Rosa's words and numbers, shorter): '' when the cars jam nothing
+function carsJamText(s, phone) {
+  const J = carsJam(s);
+  if (!J) return '';
+  const W = carsJamWords(s, J), Wh = W.where.charAt(0).toUpperCase() + W.where.slice(1);
+  if (W.R) return phone ? ' Car jam at 7:30: ' + W.where + ', a car waits ' + W.R.car + ' s.' : ' At 7:30 cars ' + W.verb + ' ' + W.where + ': a car waits ' + W.R.car + ' s for ' + W.xn + '.';
+  return phone ? ' Car jam at 7:30: ' + W.where + ', ' + carsSlowWord(J.slow) + ' as long.' : ' ' + Wh + ': at 7:30 the cars jam it, ' + carsSlowWord(J.slow) + ' as long as on a free road.';
 }
 // The home's card: who has a car, where they drive and why (or why nobody here has one).
 function carsHomeText(s, h) {
   if (!carsClockOwn(s) || yearOf(s) < CARS.year || !h.res) return null;
-  const mine = carsOfHome(s, h), y = yearOf(s), rate = Math.round(carsRate(y));
+  const mine = carsOfHome(s, h), y = yearOf(s), rate = Math.round(carsPer1000(y));
   if (!mine.length) {
     const lo = carsLowLevel(s), cars = s.autos ? s.autos.list.length : 0;
-    if (!cars) return { cls: '', t: 'No car yet on the island: about ' + rate + ' for 1,000 people in ' + y + ' (Cuba 6 in 1937, 24 in 1958); the families in the best homes get them first.' };
+    if (!cars) return { cls: '', t: 'No car yet on the island: about ' + rate + ' for 1,000 people in ' + y + ' (' + (CARS.capital > 1 ? 'a capital\'s share: ' + (CARS.capital === 3 ? 'three' : CARS.capital === 2 ? 'two' : CARS.capital) + ' times a colony\'s average, ' : '') + 'Cuba 6 in 1937, 24 in 1958); the families in the best homes get them first.' };
     return { cls: '', t: 'No car here: the island has ' + plural(cars, 'car family', 'car families') + ' (' + rate + ' cars for 1,000 people in ' + y + '), in the best homes first' + (lo && LEVELS[lo] ? ': the ' + LEVELS[lo].name + 's and better.' : '.') };
   }
   const parts = [];
@@ -40956,8 +41397,36 @@ function carsHomeText(s, h) {
 function carsTileText(s, i) {
   const L = carsClockOwn(s) && s.autos && s.autos.last, e = L && L.tiles && L.tiles[i];
   if (!e) return '';
-  const J = carsJam(s), jam = J && J.i === i;
-  return 'Morning rush (6:00-9:00): ' + plural(e[0], 'car', 'cars') + ' and ' + plural(e[1], 'cart', 'carts') + ' passed here' + (jam ? '; the cars jam it: everything there takes ' + carsSlowWord(J.slow) + ' as long as on a free road (the morning\'s loads with it).' : '.');
+  const J = carsJam(s), jam = J && J.i === i, W = jam ? carsJamWords(s, J) : null;
+  // (C2: a jam they queue in for a crossing: that crossing's numbers, as Rosa says them and its card shows them)
+  const what = !jam ? '.' : W.R ? '; the cars ' + (W.verb === 'jam' ? 'jam it' : 'queue on it') + ', waiting for ' + W.xn + ': a car waits ' + W.R.car + ' s there in the rush (its card has the rules).' : '; the cars jam it: everything there takes ' + carsSlowWord(J.slow) + ' as long as on a free road (the morning\'s loads with it).';
+  return 'Morning rush (6:00-9:00): ' + plural(e[0], 'car', 'cars') + ' and ' + plural(e[1], 'cart', 'carts') + ' passed here' + what;
+}
+// C2: the crossing's card in the rush. The cars' line above T1's carts' line ("A car waits here in the rush: 40 s ·
+// jammed", the level by T1's thresholds for a crossing); where the rush is the crossing's worse time (carsRushMode) the
+// rules are ranked for the cars, each with a car's ≈ wait in the rush and a cart's the rest of the day; the morning's
+// counts below. The same numbers as Rosa's line and the legend's.
+function carsLevelWord(w) { const l = tfWaitLevel(w); return l >= TR.jam ? 'jammed' : l > TR.busy ? 'busy' : 'free'; }
+function carsRulesHtml(s, i, RA) {
+  const cur = RA.cur;
+  let h = '<h4>The rule here</h4><div class="jr">';
+  for (const k of ['yield', 'stop', 'lights', 'rbt']) {
+    const on = cur === k, why = on ? '' : jctlWhy(s, i, k, true), c = RA.est[k], d = RA.cest[k], ap = on ? '' : '≈';
+    const price = k === 'yield' ? 'free' : k === 'stop' ? money$(TF.stop.cost) : k === 'lights' ? money$(TF.lights.cost) + ' + ' + money$(TF.lights.upkeep) + '/mo' : money$(rbtCost(s, i));
+    const both = (c !== undefined ? 'cars ' + ap + c + ' s' : '') + (d !== undefined ? (c !== undefined ? ', ' : '') + 'carts ' + ap + d + ' s' : '');
+    const sub = on ? 'now' + (both ? ' · ' + both : '') : why ? why : price + (both ? ' · ' + both : '');
+    h += '<button id="jr_' + k + '" class="' + (on ? 'on' : RA.best && RA.best.k === k ? 'best' : '') + '"' + (!on && why ? ' disabled' : '') + '>' + JC_RULE[k] + '<small>' + esc(sub) + '</small></button>';
+  }
+  h += '</div>';
+  const src = RA.trial ? 'a trial run of this morning\'s rush with its cars and carts, the streets around included' : 'tried on a copy of this crossing driven through this morning\'s rush with its cars and carts';
+  const csrc = RA.ctrial ? 'a trial run of next month with the island\'s carts' : 'a copy of this crossing with its carts';
+  const B = RA.best || RA.blocked;
+  if (RA.best) h += '<p class="note risk">' + esc(JC_RULE[B.k] + ' would cut a car\'s wait in the rush to about ' + B.car + ' s (now ' + RA.now + ' s)' + (B.cart !== undefined ? ', a cart\'s the rest of the day about ' + B.cart + ' s (now ' + RA.cnow + ' s)' : '') + ': ' + src + '.') + '</p>';
+  else if (RA.blocked) h += '<p class="why">' + esc(JC_RULE[B.k] + ' would cut a car\'s wait in the rush to about ' + B.car + ' s (now ' + RA.now + ' s), but a cart would wait about ' + B.cart + ' s the rest of the day (now ' + RA.cnow + ' s): ' + src + '.') + '</p>';
+  else h += '<p class="why">' + esc('≈ cars: a car\'s wait in the morning rush under each rule, ' + src + '. ≈ carts: a cart\'s the rest of the day, ' + csrc + '.') + '</p>';
+  // (a new light here is timed for the rush: her tap sets it so, the jcRule wrapper below)
+  if (RA.sig && cur !== 'lights' && RA.opts.includes('lights')) h += '<p class="why">' + esc('Traffic lights here would be timed for the rush (Webster\'s cycle for its cars and carts): a ' + RA.sig.C + ' s cycle, the ' + (tfMain(s, i) === 0 ? 'east–west' : 'north–south') + ' road green ' + Math.round(RA.sig.sp * 100) + ' % of the time; the card\'s buttons change it.') + '</p>';
+  return h;
 }
 
 // ---------- the legend, the cards ----------
@@ -40986,7 +41455,57 @@ function carsTileText(s, i) {
   const _rh = rcardHtml;
   rcardHtml = function (s, i) { const h = _rh.apply(this, arguments), t = carsTileText(s, i); return t ? h + '<p class="why car">' + esc(t) + '</p>' : h; };
   const _jh = jcardHtml;
-  jcardHtml = function (s, i) { const h = _jh.apply(this, arguments), t = carsTileText(s, i); return t ? h + '<p class="why car">' + esc(t) + '</p>' : h; };
+  jcardHtml = function (s, i) {
+    let h = _jh.apply(this, arguments);
+    const R = carsClockOwn(s) ? carsRushAt(s, i) : null;
+    if (!R) { const t = carsTileText(s, i); return t ? h + '<p class="why car">' + esc(t) + '</p>' : h; }
+    // (C2: the cars' line above the carts')
+    const at = h.indexOf('<div class="line"><span>A cart waits here');
+    const line = '<div class="line car"><span>A car waits here in the rush</span><b>' + R.car + ' s · ' + carsLevelWord(R.car) + '</b></div>';
+    if (at >= 0) h = h.slice(0, at) + line + h.slice(at);
+    const RA = carsRushAdvice(s, i, true);
+    if (RA) {
+      // (a trial run of the morning for each rule she could pick, a slice a frame: streets_ui.js's queue)
+      if (carsRushLog(s) && typeof trialEst === 'function') for (const k of RA.opts) if (k !== RA.cur) trialEst(s, i, 'rush', k);
+      const a = h.indexOf('<h4>The rule here</h4>'), b = a >= 0 ? h.indexOf('<h4>', a + 4) : -1;
+      if (a >= 0) h = h.slice(0, a) + carsRulesHtml(s, i, RA) + (b >= 0 ? h.slice(b) : '');
+    }
+    // the cars waiting there now (T1's grid counts the carts)
+    const wait = [0, 0, 0, 0];
+    for (const c of s.autos.list) if (c.path && c.wj === i && c.ws >= 0) wait[c.ws]++;
+    const wn = wait.map((n, k) => (n ? n + ' from the ' + JC_SIDE[k] : '')).filter(Boolean);
+    if (wn.length) h += '<p class="why car">' + esc('Cars waiting now: ' + wn.join(', ') + '.') + '</p>';
+    h += '<p class="why car">' + esc('Morning rush (6:00-9:00): ' + plural(R.cars, 'car', 'cars') + ' and ' + plural(R.carts, 'cart', 'carts') + ' came in here' + (R.carts ? '; a cart waited ' + R.cart + ' s then' : '') + '.') + '</p>';
+    return h;
+  };
+}
+
+// C2: Rosa's car line reads the card's numbers: when a trial run of the morning lands on the card (its numbers change),
+// her line on screen is said again with them at once (the sim's monthly check would say it a month later)
+{
+  const _jr2 = jcardRender;
+  jcardRender = function () {
+    const r = _jr2.apply(this, arguments), s = APP.state, m = s && s.guide && s.guide.msg;
+    if (m && m.key === 'carjam' && carsClockOwn(s)) {
+      const P = GUIDE_PROBLEMS.find((p) => p.key === 'carjam'), n = P && P.check(s);
+      if (n && n.text !== m.text) { s.guide.msg = Object.assign({}, m, n); guideRender(); }
+      // (her fix done on the card: the line goes, as the next month's check would take it)
+      else if (!n) { s.guide.msg = null; guideRender(); }
+    }
+    return r;
+  };
+}
+
+// C2: her tap on Traffic lights at a crossing whose card ranks the rules for the cars' rush: the light is timed for the
+// rush, as the card says (Webster's cycle for this morning's cars and carts; the phase editor changes it, no cost)
+{
+  const _jr = jcRule;
+  jcRule = function (i, k) {
+    const s = APP.state, RA = k === 'lights' && carsClockOwn(s) ? carsRushAdvice(s, i, true) : null, sig = RA && RA.cur !== 'lights' ? RA.sig : null;
+    const r = _jr.apply(this, arguments);
+    if (sig && tfCtl(s, i) === 'lights') { setSignal(s, i, { C: sig.C, sp: sig.sp }); APP.cardKey = ''; jcardRender(); }
+    return r;
+  };
 }
 
 // The console and the tests: what the cars do now.
@@ -40995,7 +41514,9 @@ function carsInfo() {
   if (!A) return { on: carsClockOwn(s), list: 0 };
   const st = {}, md = {};
   for (const c of A.list) { st[c.st] = (st[c.st] || 0) + 1; md[c.mode] = (md[c.mode] || 0) + 1; }
-  return { on: carsClockOwn(s), tod: s.tod, want: carsWant(s), list: A.list.length, st, mode: md, road: carsOnRoad(s), last: A.last ? { at: A.last.at, jam: A.last.jam, tiles: Object.keys(A.last.tiles || {}).length } : null, legend: carsLegendText(s), drawn: APP.R && APP.R.stats ? APP.R.stats.cars || 0 : 0 };
+  // (C2: the crossings the cars came to this morning, the ones ranked for the rush)
+  const x = A.last && A.last.x ? Object.keys(A.last.x).map(Number) : [];
+  return { on: carsClockOwn(s), tod: s.tod, want: carsWant(s), per1000: Math.round(carsPer1000(yearOf(s)) * 10) / 10, list: A.list.length, st, mode: md, road: carsOnRoad(s), last: A.last ? { at: A.last.at, jam: A.last.jam, tiles: Object.keys(A.last.tiles || {}).length, crossings: x.length, rush: x.filter((i) => carsRushMode(s, i)).map((i) => [i, carsRushAt(s, i).car]) } : null, legend: carsLegendText(s), drawn: APP.R && APP.R.stats ? APP.R.stats.cars || 0 : 0 };
 }
 
 // ---- src/ui/newland_ui.js
@@ -41086,6 +41607,56 @@ function nlCardNote(s) {
     return r;
   };
   ISLE_RITUAL_LINE.newland = 'The new land by the sea has its streets and its homes: the filled shallows are a quarter of the town now.';
+}
+
+// ---- src/ui/served_ui.js
+// S1 (4 Nov 2026): what she sees of sim/served.js ("every quarter served" steps aside at 85 %).
+// - The pill: from 85 % a third line under the reward and the button: "At 85 % or more, a year without the money for its
+//   next step ($12,400) and the island moves on: 86 % now, 4 of 12 months." (the money in hand: "the money is in hand").
+// - The to-do list's goal: the same as a row with its share ("Homes with a school and a clinic 86 %" and the line).
+// - The moment: the ritual's head and Rosa's line come from the event ("Every quarter served at 87 %", "... so the
+//   island moves on to the census"); the log's line and the Gazette's head say the share (sim/served.js).
+
+function servedPillLine() {
+  const s = APP.state, el = $('pill');
+  if (!s || !el || APP.titleOn) return;
+  let a = null;
+  if (s.palace && !stageConds(s).next) {
+    let g = null;
+    try { g = isleGoal(s); } catch (e) { g = null; }
+    a = g && g.id === 'served' && el.querySelector('.isle') ? g.aside : null;
+  }
+  let row = el.querySelector('.aside');
+  if (!a) { if (row) { row.remove(); el.classList.toggle('two', !!el.querySelector('.blk') || !!el.querySelector('.sav')); } return; }
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'aside';
+    const sav = el.querySelector('.sav');
+    if (sav) el.insertBefore(row, sav); else el.appendChild(row);
+  }
+  if (row.textContent !== a.line) row.textContent = a.line;
+  el.classList.add('two');
+}
+
+{
+  const _ip = islePill;
+  islePill = function () {
+    const r = _ip.apply(this, arguments);
+    try { servedPillLine(); } catch (e) { /* the pill as it is */ }
+    return r;
+  };
+  // the to-do list's goal: the share and the year, as on the pill
+  const _tg = todoGoal;
+  todoGoal = function (s) {
+    const r = _tg.apply(this, arguments);
+    try {
+      if (r && !r.next && s.palace) {
+        const g = isleGoal(s), a = g && g.id === 'served' ? g.aside : null;
+        if (a) r.rows.push({ key: 'aside', label: 'Homes with a school and a clinic', have: a.pct, want: 100, pct: true, ok: false, why: a.line });
+      }
+    } catch (e) { /* the list as it is */ }
+    return r;
+  };
 }
 
 // ---- src/ui/phone.js
