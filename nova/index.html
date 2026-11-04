@@ -21199,6 +21199,397 @@ GUIDE_PROBLEMS.splice(Math.max(0, GUIDE_PROBLEMS.findIndex((p) => p.key === 'jam
     btn: F.tool === 'paved' ? 'Paved road' : F.tool === 'lane' ? 'Lanes' : F.tool === 'rbt' ? 'Roundabout' : F.tool === 'jct' ? 'The crossing' : 'Road', act: { tool: F.tool, at: F.at, plan: F.plan || undefined } };
 } });
 
+// ---- src/sim/newland.js
+// L1 (4 Nov 2026, nova/land): new land with the palace. P1 measured her second evening: her player builds the palace on
+// every seed, and after it the pill stands still for 30-40 minutes on "every quarter served" or "the first apartment
+// block": the island has no lot left for a home (none lit in 311 of 311 months after the palace on seed 1902), so the
+// Capital's goals cannot move; her money goes into upgrades. Tomáš chose (4 Nov) "new land opens with the palace".
+// Rules (DESIGN.md §50; sources docs/research/newland.md):
+// - Where: the shallows off one corner of the island's shore, about NL.tiles sea tiles around a point NL.depth tiles
+//   out, NL.margin tiles of open sea kept to the map's edge, never in the harbour's bay. The south-east first (every
+//   seed has sea room there); when the south-east's shore is lined with harbours, quays or fishing huts (their water
+//   stays: see below) and fewer than NL.min tiles could be filled, the north-west, then the north-east. Worked out from
+//   the seed's own map (mapGenerate) and the island as it is (cached per change), so the map always shows what would
+//   open now. Shown from Capital on like the later stages' land: hatched, a dashed line where it meets the open sea,
+//   "Opens with the palace" (render/iso.js, ui/newland_ui.js); the Capital's stage card and the palace's card say it.
+// - What opens: the moment the palace stands (palaceBuild), the shallows are filled (as Caribbean towns filled their
+//   shallows and lagoons with sand dredged from the harbour): grass, a sandy rim where it meets the sea, the old shore's
+//   free sand behind it becomes grass. The fill stops NL.keep tiles short of a harbour, a quay, the pier, a fishing hut,
+//   a lighthouse or an airfield, and leaves the water in front of them (the tiles whose nearest shore is theirs).
+// - Nothing is built there by itself: roads, homes, the school, the clinic and the market at the prices that exist.
+// - What she sees: Rosa says it once when the palace stands ("New land opened by the palace: ..." [Show]); the pill's
+//   next goal is the new land ("The new land: 6 / 18 homes"), its button the quarter there (A10's street with its
+//   homes, one tap), else the road that reaches it, else homes on its lit lots; the palace's card says it after.
+// - Old saves: an island whose palace already stands gets its land at its first tick (the terrain changed in place),
+//   Rosa's line and the goal with it. State: state.nland = { m, n, at, k } (the month it opened, its tiles, its middle,
+//   the corner).
+// Kill switch: TUNE.newLandOff (NOVA_NO_L1=1 leaves this file out of the tests' sim).
+
+const NL = {
+  tiles: 80,      // about 80 tiles: room for three quarters (6-8 homes each) with their school, clinic and market
+  depth: 3,       // the area's middle: the first sea tile on the way from the island's middle at least this far out
+  margin: 2,      // open sea kept between the new land and the map's edge
+  reach: 9,       // ... and no tile farther than this from the old shore
+  bay: 12,        // ... nor within this many tiles of the pier (the harbour's bay)
+  keep: 2,        // the fill stops this far from a harbour, quay, pier, fishing hut, lighthouse or airfield
+  min: 60,        // a corner that can take this many tiles now is chosen (in this order), else the one that takes most
+  corners: [['south-east', 1, 1], ['north-west', -1, -1], ['north-east', 1, -1]],
+  homes: 18,      // the goal: three quarters of six homes (fewer when the fill is smaller: 6 a quarter, 27 tiles a quarter)
+  svcFrom: 3,     // its market, school and clinic are the step once this many homes on it have people (while a lot is free)
+  show: 5,        // the map shows it from Capital on (STAGES' index)
+};
+
+function nlOn() { return !TUNE.newLandOff; }
+
+// A corner's area on the seed's own map (not saved; cached): { tiles, set, anchor, at }. anchor[i]: the shore tile
+// (land on the pristine map) the sea tile i lies in front of.
+const NL_AREA = {};
+function nlArea(seed, k) {
+  const key = seed + ':' + (k || 0);
+  if (NL_AREA[key]) return NL_AREA[key];
+  const m = mapGenerate(seed), t = m.terrain, n = MAP_W * MAP_H, [, ux, uy] = NL.corners[k || 0];
+  const dl = new Int16Array(n).fill(99), anchor = new Int32Array(n).fill(-1), q = [];
+  for (let i = 0; i < n; i++) if (t[i] !== SEA) { dl[i] = 0; anchor[i] = i; q.push(i); }
+  for (let j = 0; j < q.length; j++) {
+    const i = q[j], x = i % MAP_W, y = (i / MAP_W) | 0;
+    for (const [dx, dy] of DIRS4) {
+      if (!inMap(x + dx, y + dy)) continue;
+      const o = tileIdx(x + dx, y + dy);
+      if (dl[o] > dl[i] + 1) { dl[o] = dl[i] + 1; anchor[o] = anchor[i]; q.push(o); }
+    }
+  }
+  // the middle: from the island's middle towards the corner, the first sea tile NL.depth or more from the shore
+  const a = Math.atan2(uy, ux), px = m.stub[0] % MAP_W, py = (m.stub[0] / MAP_W) | 0;
+  let cx = 25, cy = 23.5;
+  for (let j = 0; j < 80; j++) {
+    cx += Math.cos(a) * 0.5; cy += Math.sin(a) * 0.5;
+    const x = Math.floor(cx), y = Math.floor(cy);
+    if (!inMap(x, y) || (t[tileIdx(x, y)] === SEA && dl[tileIdx(x, y)] >= NL.depth)) break;
+  }
+  const lo = NL.margin, hi = MAP_W - 1 - NL.margin, c = [];
+  for (let y = lo; y <= hi; y++) for (let x = lo; x <= hi; x++) {
+    const i = tileIdx(x, y);
+    if (t[i] !== SEA || dl[i] > NL.reach || Math.hypot(x - px, y - py) < NL.bay) continue;
+    c.push({ i, d: Math.max(Math.abs(x + 0.5 - cx), Math.abs(y + 0.5 - cy)) + 0.01 * Math.hypot(x + 0.5 - cx, y + 0.5 - cy) });
+  }
+  c.sort((p, r) => p.d - r.d || p.i - r.i);
+  const tiles = c.slice(0, NL.tiles).map((o) => o.i).sort((p, r) => p - r);
+  return (NL_AREA[key] = { tiles, set: new Set(tiles), anchor, at: [Math.floor(cx), Math.floor(cy)] });
+}
+
+// Buildings whose boats or ships need the water in front of them.
+function nlWet(b) {
+  const d = defOf(b);
+  return !!d && (b.type === 'pier' || d.kind === 'harbor' || d.site === 'coast' || d.site === 'beach');
+}
+// A corner's tiles that would be filled now: sea, not by a wet building's water, joined to the shore through the fill.
+function nlFillable(s, k) {
+  const A = nlArea(s.seed || 0, k), wet = s.b.filter(nlWet), out = [];
+  const near = (i) => {
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
+    return wet.some((b) => x >= b.x - NL.keep && x < b.x + b.w + NL.keep && y >= b.y - NL.keep && y < b.y + b.h + NL.keep);
+  };
+  const ok = new Set();
+  for (const i of A.tiles) if (s.terrain[i] === SEA && !near(i) && !near(A.anchor[i])) ok.add(i);
+  // (never a patch out in the water)
+  const q = [];
+  for (const i of ok) { const x = i % MAP_W, y = (i / MAP_W) | 0; if (DIRS4.some(([dx, dy]) => inMap(x + dx, y + dy) && s.terrain[tileIdx(x + dx, y + dy)] !== SEA)) q.push(i); }
+  const seen = new Set(q);
+  for (let j = 0; j < q.length; j++) {
+    const i = q[j], x = i % MAP_W, y = (i / MAP_W) | 0;
+    for (const [dx, dy] of DIRS4) { const o = tileIdx(x + dx, y + dy); if (inMap(x + dx, y + dy) && ok.has(o) && !seen.has(o)) { seen.add(o); q.push(o); } }
+  }
+  for (const i of A.tiles) if (seen.has(i)) out.push(i);
+  return out;
+}
+// The corner and its tiles that would be filled now (before the palace: what the map shows), cached per change.
+function nlPick(s) {
+  const c = simCache(s);
+  if (c.nlP) return c.nlP;
+  let best = null;
+  for (let k = 0; k < NL.corners.length; k++) {
+    const list = nlFillable(s, k);
+    if (list.length >= NL.min) { best = { k, list }; break; }
+    if (!best || list.length > best.list.length) best = { k, list };
+  }
+  return (c.nlP = best);
+}
+function nlPending(s) { return s.nland ? [] : nlPick(s).list; }
+// The new land after it opened: its corner's tiles that are land now.
+function nlTiles(s) {
+  const c = simCache(s);
+  if (c.nlT) return c.nlT;
+  const out = s.nland && s.nland.n ? nlArea(s.seed || 0, s.nland.k || 0).tiles.filter((i) => s.terrain[i] !== SEA) : [];
+  return (c.nlT = new Set(out));
+}
+// The tile of a list nearest its mean (where Show flies, where the label stands).
+function nlMidOf(list, dflt) {
+  if (!list.length) return dflt;
+  let x = 0, y = 0;
+  for (const i of list) { x += i % MAP_W; y += (i / MAP_W) | 0; }
+  x /= list.length; y /= list.length;
+  let best = list[0], bd = 1e9;
+  for (const i of list) { const d = Math.hypot(i % MAP_W - x, ((i / MAP_W) | 0) - y); if (d < bd) { bd = d; best = i; } }
+  return [best % MAP_W, (best / MAP_W) | 0];
+}
+function nlMid(s) {
+  if (s.nland) return s.nland.at;
+  const P = nlPick(s);
+  return nlMidOf(P.list, nlArea(s.seed || 0, P.k).at.slice());
+}
+// "south-east": the corner, from the island's middle (the same word on the cards, Rosa's line and the log)
+function nlWhere(s) { return NL.corners[s.nland ? s.nland.k || 0 : nlPick(s).k][0]; }
+// What the map shows as closed (hatched, "Opens with the palace"): from Capital on, until the palace.
+function nlShown(s) { return nlOn() && !s.nland && s.stage >= NL.show ? nlPending(s) : []; }
+function nlHomes(s) {
+  if (!s.nland) return 0;
+  const T = nlTiles(s);
+  return s.b.filter((b) => b.type === 'casita' && T.has(tileIdx(b.x, b.y))).length;
+}
+// The goal's homes: three quarters of six on a full fill (fewer on a smaller one: a quarter for every 27 tiles)
+function nlGoalHomes(s) { const n = (s.nland && s.nland.n) || 0; return Math.max(6, Math.min(NL.homes, 6 * Math.round(n * 3 / NL.tiles))); }
+
+// The fill: the pending shallows become land (a sandy rim where they meet the sea), the old shore's free sand behind
+// them grass. Rosa says it once. Returns the number of tiles.
+function nlOpen(s) {
+  if (s.nland) return s.nland.n;
+  const P = nlPick(s), list = P.list, set = new Set(list), n = MAP_W * MAP_H;
+  const at = nlMidOf(list, nlArea(s.seed || 0, P.k).at.slice());
+  s.nland = { m: s.month, n: list.length, at, k: P.k };
+  if (!list.length) return 0;
+  for (const i of list) s.terrain[i] = GRASS;
+  const wet = (i) => { const x = i % MAP_W, y = (i / MAP_W) | 0; return DIRS4.some(([dx, dy]) => !inMap(x + dx, y + dy) || s.terrain[tileIdx(x + dx, y + dy)] === SEA); };
+  for (const i of list) if (wet(i)) s.terrain[i] = BEACH;
+  // the old shore behind the fill: its sand is inland now (a building on it keeps its ground)
+  const occ = occMap(s);
+  for (let i = 0; i < n; i++) {
+    if (s.terrain[i] !== BEACH || set.has(i) || occ[i] || wet(i)) continue;
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
+    if (DIRS4.some(([dx, dy]) => inMap(x + dx, y + dy) && set.has(tileIdx(x + dx, y + dy)))) s.terrain[i] = GRASS;
+  }
+  s.ver++;
+  s.tver = (s.tver || 0) + 1;
+  s._lvSea = null;
+  const where = nlWhere(s);
+  simLog(s, 'New land: the ' + where + ' shallows are filled, ' + list.length + ' tiles by the sea.', [at[0] + 0.5, at[1] + 0.5]);
+  simEvent(s, { kind: 'newland', n: list.length, at });
+  guideSay(s, { key: 'hint-newland', text: 'New land opened by the palace: the ' + where + ' shallows are filled with sand dredged from the harbour, ' + list.length +
+    ' tiles by the sea. Room for three quarters with their school, clinic and market; nothing stands there until you build it.', btn: 'Show', act: { at } });
+  return list.length;
+}
+
+{
+  // the palace fills the shallows (its tap: the land opens; nothing is built on it)
+  const _pb = palaceBuild;
+  palaceBuild = function (state) {
+    const r = _pb.apply(this, arguments);
+    if (r && r.ok && nlOn()) nlOpen(state);
+    return r;
+  };
+  // an island whose palace stood before L1: its land opens at its next tick
+  const _st = simTick;
+  simTick = function (state) {
+    if (state && state.palace && !state.nland && nlOn()) nlOpen(state);
+    return _st.apply(this, arguments);
+  };
+}
+
+// ---------- the pill's next goal: the new land ----------
+// A quarter on the new land: A10's street with its homes, the street from the town's roads into the new land (straight,
+// or A7's way going on 4 tiles), at least half its lots on the new land. d: { kind: 'quarter', near, n, nl: 1 }.
+function nlWays(s, near, homes) {
+  const T = nlTiles(s), occ = occMap(s);
+  const grass = (x, y) => inMap(x, y) && isleLotTile(s, tileIdx(x, y), occ);
+  const isGoal = (i) => {
+    if (!T.has(i)) return false;
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
+    if (!grass(x, y)) return false;
+    let k = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && grass(x + dx, y + dy)) k++;
+    return k >= 5;
+  };
+  const sr = landSearch(s, isGoal, { homes: !!homes, k: 6, near });
+  return sr ? sr.hits.slice(0, 4).map((h) => ({ path: landOn(s, h.path, sr.prev, 4), path3: landOn(s, h.path, sr.prev, 3), hit: h.hit })) : [];
+}
+function nlQuarterPlan(s, d) {
+  const T = nlTiles(s);
+  if (!T.size) return null;
+  const on = (lots) => lots.filter(([x, y]) => T.has(tileIdx(x, y))).length;
+  const cands = quarterStreets(s, d.near).filter((c) => T.has(c.path[c.path.length - 1])).slice(0, 6).concat(nlWays(s, d.near, false));
+  let best = null;
+  for (const c of cands.slice(0, 10)) {
+    const t = quarterTry(s, { path: c.path, n: d.n || ISLE.quarterMax }, false);
+    if (!t.ok || 2 * on(t.lots) < t.lots.length) continue;
+    const sc = on(t.lots) * 10 + t.lots.length * 2 - t.cost / 400;
+    if (!best || sc > best.sc) best = { sc, path: c.path, t };
+  }
+  if (!best) return null;
+  const t = best.t, lots = t.lots.map(([x, y]) => ({ x, y, w: 1, h: 1 }));
+  return { kind: 'quarter', type: 'casita', path: best.path, line: best.path, lots, homes: t.lots, mk: null, clear: t.clear, cost: t.cost, n: t.lots.length, far: false, nl: 1 };
+}
+// The road that reaches the new land when no quarter's street does (a home in the way moves aside, its people with it;
+// forest on the way cleared): A7's plan, its goal on the new land. d: { kind: 'land', type: 'casita', near, nl: 1 }.
+function nlLandPlan(s, d) {
+  const T = nlTiles(s);
+  if (!T.size || nlLit(s).length) return null;
+  for (const homes of [false, true]) {
+    for (const w of nlWays(s, d.near, homes).slice(0, 3)) {
+      const p = { kind: 'land', type: 'casita', path: w.path3, hit: w.hit, home: true };
+      if (landTry(s, p, false).ok) return p;
+    }
+  }
+  return null;
+}
+// The new land's lit lots for homes (by a road).
+function nlLit(s) {
+  const T = nlTiles(s);
+  return T.size ? landLit(s, 'casita').filter(([x, y]) => T.has(tileIdx(x, y))) : [];
+}
+
+{
+  const _qp = quarterPlanOf;
+  quarterPlanOf = function (s, d) { return d && d.nl ? nlQuarterPlan(s, d) : _qp.apply(this, arguments); };
+  const _po = planOf;
+  planOf = function (s, d) {
+    if (!d || d.kind !== 'land' || !d.nl) return _po.apply(this, arguments);
+    _po.call(this, s, null);
+    const c = simCache(s), key = JSON.stringify(d);
+    if (!c.plans) c.plans = {};
+    if (key in c.plans) return c.plans[key];
+    let p = null;
+    try { p = nlLandPlan(s, d); } catch (e) { p = null; }
+    if (p) { p = Object.assign({}, p); p.line = p.path; p.at = landMid(p.line); p.d = d; }
+    return (c.plans[key] = p);
+  };
+}
+
+// The homes' step: the quarter's street into it, else the road that reaches it, else homes on its lit lots.
+function nlStepHomes(s) {
+  const at = s.nland.at, where = nlWhere(s), own = typeof a12On === 'function' && a12On();
+  for (const n of [ISLE.quarterMax, ISLE.quarterMin]) {
+    const d = { kind: 'quarter', near: at, n, nl: 1 }, p = planOf(s, d);
+    // (A12: the button lays the street; the homes are hers to place on its lit lots)
+    if (p && p.n >= n) return { k: 'quarter', who: 'governor', tool: 'casita', need: 0, near: at, plan: d, joy: 1,
+      ask: 'The palace’s new land in the ' + where + ' waits for its streets: ' + (own ? 'the dotted street from the town, ' + p.n + ' lots by it for your homes,' : 'a road from the town and ' + p.n + ' homes,') + ' by the sea.',
+      praise: 'A street on the new land: the next boat fills it.' };
+  }
+  const d2 = { kind: 'land', type: 'casita', near: at, nl: 1 }, p2 = planOf(s, d2);
+  if (p2) return { k: 'road', who: 'governor', tool: 'casita', need: 0, near: at, plan: d2, joy: 0,
+    ask: 'The new land in the ' + where + ' is not joined to the town yet: the dotted road reaches it' + planHow(p2) + ' · ' + money$(p2.cost) + '.',
+    praise: 'The road reaches the new land.' };
+  const lit = nlLit(s);
+  if (lit.length) return { k: 'homes', who: 'governor', tool: 'casita', need: 0, near: lit[0], joy: 0,
+    ask: 'Lots by the road on the new land in the ' + where + ' are free: homes there, by the sea.', praise: 'More homes by the sea.' };
+  return null;
+}
+// Its market, school and clinic: the new land's homes with people that lack each in reach. { homes, lack, done }.
+const NL_SVC = ['market', 'school', 'clinic'];
+function nlServ(s) {
+  // (cached per change of the island and per month: people move in at the month's end)
+  const c = simCache(s);
+  if (c.nlS && c.nlS.m === s.month) return c.nlS;
+  const T = nlTiles(s), homes = s.b.filter((b) => b.type === 'casita' && b.res > 0 && T.has(tileIdx(b.x, b.y))), lack = {};
+  let done = 0;
+  for (const need of NL_SVC) {
+    lack[need] = homes.filter((h) => !homeHas(s, h, need));
+    if (homes.length && lack[need].length <= 0.1 * homes.length) done++;
+  }
+  return (c.nlS = { homes, lack, done, m: s.month });
+}
+// Its homes so far against the goal's (up to the goal, or what the land took when no step for homes is left).
+function nlHomesDone(s) { const g = nlGoalHomes(s), n = nlHomes(s); return n >= g || (n >= Math.ceil(2 * g / 3) && !nlStepHomes(s)); }
+// How far the goal is, 0-1: half its homes, half its three services (her-play's measure of the pill)
+function nlProgress(s) { return !s.nland ? 0 : 0.5 * (nlHomesDone(s) ? 1 : Math.min(1, nlHomes(s) / nlGoalHomes(s))) + 0.5 * nlServ(s).done / NL_SVC.length; }
+// A service for the new land's homes that lack it: the lit lot that reaches most of them (half at least), else the room
+// one or two homes make in reach of them (A7/M9's room plan, one tap), else nothing.
+function nlSvcStep(s, need, homes, where) {
+  const t = need === 'market' ? 'market' : NEED_FIX[need], def = BUILDINGS[t];
+  if (!def || def.stage > s.stage) return null;
+  const R = bReach(def), at = homesAt(homes), who = need === 'market' ? 'cook' : need === 'school' ? 'teacher' : 'doctor';
+  const base = { k: need, who, tool: t, need: 1, joy: 0, praise: 'The new land has its ' + need + ' now.' };
+  let best = null;
+  for (const [x, y] of fitAnchors(s, t)) {
+    const n = homes.filter((h) => footDist({ x, y, w: def.w, h: def.h }, h) <= R).length;
+    if (2 * n < homes.length) continue;
+    const d = Math.hypot(x - at[0], y - at[1]);
+    if (!best || n > best.n || (n === best.n && d < best.d)) best = { n, d, x, y };
+  }
+  if (best) return Object.assign(base, { near: [best.x, best.y],
+    ask: plural(homes.length, 'home', 'homes') + ' on the new land in the ' + where + ' have no ' + need + ' in reach. ' + comA(t).replace(/^./, (x) => x.toUpperCase()) + ' on the lit lot reaches ' + (best.n === homes.length ? 'them all' : best.n + ' of them') + '.' });
+  const d = { kind: 'room', type: t, at }, p = planOf(s, d);
+  if (p) return Object.assign(base, { near: p.at, plan: d,
+    ask: plural(homes.length, 'home', 'homes') + ' on the new land in the ' + where + ' have no ' + need + ' in reach, and no lot is free near them: the dotted lot makes room (' + planHow(p).replace(/^; /, '') + ') · ' + money$(p.cost) + '.' });
+  return null;
+}
+// The step the pill and the governor's ask offer. Once three homes on it have people, the service most of them lack
+// (market, school, clinic) while a lot or a room plan in reach of them exists: its room goes before more homes (her
+// player filled seed 1902's land with homes, a harbour and groves, and no lot was left for its school); else homes
+// (the street into it, the road that reaches it, its lit lots) until they are done.
+function nlStep(s) {
+  const V = nlServ(s), where = nlWhere(s);
+  if (V.homes.length >= NL.svcFrom) {
+    for (const need of NL_SVC) {
+      const homes = V.lack[need];
+      if (homes.length <= 0.1 * V.homes.length) continue;
+      const r = nlSvcStep(s, need, homes, where);
+      if (r && isleStepLive(s, r)) return r;
+    }
+  }
+  return nlHomesDone(s) ? null : nlStepHomes(s);
+}
+
+{
+  const G = { id: 'newland', title: 'the new land', reward: 'three quarters by the sea with their market, school and clinic',
+    need: (s) => nlOn() && !!s.nland && s.nland.n > 0 && nlProgress(s) < 1,
+    // reached: its homes (the goal's, or two thirds when no step for more is left: the land taken by other buildings) and
+    // its market, school and clinic in reach of nine in ten of them
+    done: (s) => nlProgress(s) >= 1,
+    waits: () => 'room on it by a road',
+    step(s) { return nlStep(s); } };
+  ISLE_GOALS.unshift(G);
+  // an island whose ladder began before its land opened (an old save past the palace): the new land is its next goal
+  const _is = isleStart;
+  isleStart = function (s) {
+    const I = _is.apply(this, arguments);
+    if (I.ladder && nlOn() && s.nland && !I.ladder.includes('newland') && G.need(s)) {
+      const k = I.ladder.findIndex((id) => I.done[id] === undefined);
+      I.ladder.splice(k < 0 ? I.ladder.length : k, 0, 'newland');
+    }
+    return I;
+  };
+  // the governor's ask follows the goal's step: once a month, an ask whose step is no longer what the goal offers (its
+  // homes still asked while its school has a lot, or a step that has nothing to tap) gives way to the fresh one (A10
+  // keeps an ask while its step is live: a street's homes stay live while any lot on the island is lit)
+  const _ct = comTick;
+  comTick = function (s) {
+    const r = _ct.apply(this, arguments);
+    if (!nlOn() || !s.palace || !s.nland) return r;
+    try {
+      const c = comState(s), q = c.list.find((o) => o.key === 'isle' && o.goal === 'newland');
+      if (q && c.nlM !== s.month) {
+        c.nlM = s.month;
+        const f = nlStep(s);
+        if (f && q.step && f.k !== q.step.k && (NL_SVC.includes(f.k) || !isleStepLive(s, q.step))) {
+          c.list = c.list.filter((o) => o !== q);
+          simCache(s).isleG = null;
+          const T = COMMISSIONS.find((t) => t.key === 'isle'), o = T.when(s);
+          if (o) { c.isleM = s.month; c.list.push(comMake(s, T, o)); c.list.sort((a, b) => a.p - b.p); simEvent(s, { kind: 'com', what: 'new', key: 'isle' }); comGuide(s); }
+        }
+      }
+    } catch (e) { /* the asks as before */ }
+    return r;
+  };
+  // the pill: "The new land: 6 / 18 homes, 1 / 3 services · goal 1 of 6"
+  const _ig = isleGoal;
+  isleGoal = function (s) {
+    const g = _ig.apply(this, arguments);
+    if (!g || g.id !== 'newland') return g;
+    g.prog = nlHomes(s) + ' / ' + nlGoalHomes(s) + ' homes, ' + nlServ(s).done + ' / ' + NL_SVC.length + ' services';
+    g.text = 'The new land: ' + g.prog + ' · goal ' + g.n + ' of ' + g.of;
+    return g;
+  };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -24474,6 +24865,16 @@ const ISO = (() => {
         g.beginPath(); g.moveTo(sx - l, sy); g.quadraticCurveTo(sx, sy - 2 * Sb, sx + l, sy); g.strokeStyle = r > 0.2 ? 'rgba(255,255,255,.2)' : 'rgba(10,80,110,.18)'; g.lineWidth = 1.1 * Sb; g.stroke();
       }
     }
+    // L1: the shallows the palace fills (sim/newland.js, ui/newland_ui.js), from Capital on until it stands: washed
+    // sand over the water, hatched like the later stages' land, under the shore (the land covers what lies on it)
+    const NLg = typeof nlShownGeo === 'function' ? nlShownGeo(s) : null;
+    if (NLg && NLg.area) {
+      world(); g.save(); g.clip(NLg.area);
+      g.fillStyle = 'rgba(236,214,160,.5)'; g.fill(NLg.area);
+      scr(); g.beginPath();
+      const hx0 = X0 - 20, hy0 = Y0 - 20; for (let k = -CHUNK; k < CHUNK * 2; k += 9 * Math.max(0.6, Sb)) { g.moveTo(hx0 + k, hy0); g.lineTo(hx0 + k - CHUNK - 40, hy0 + CHUNK + 40); }
+      g.strokeStyle = 'rgba(58,42,31,.2)'; g.lineWidth = 1; g.stroke(); g.restore();
+    }
     world();
     g.lineWidth = 0.9; g.strokeStyle = 'rgba(159,232,222,.42)'; g.stroke(G.coast);
     g.lineWidth = 0.4; g.strokeStyle = 'rgba(195,242,232,.55)'; g.stroke(G.coast);
@@ -24545,6 +24946,7 @@ const ISO = (() => {
       world(); g.setLineDash([0.32, 0.22]); g.strokeStyle = 'rgba(58,42,31,.7)'; g.lineWidth = 0.07; g.stroke(inner); g.setLineDash([]);
       g.restore();
     }
+    if (NLg && NLg.edge) { world(); g.setLineDash([0.32, 0.22]); g.strokeStyle = 'rgba(58,42,31,.7)'; g.lineWidth = 0.07; g.stroke(NLg.edge); g.setLineDash([]); }
     // paper grain over everything
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'multiply'; g.globalAlpha = 0.32;
     g.fillStyle = g.createPattern(grainPattern(R), 'repeat'); g.fillRect(0, 0, c.width, c.height);
@@ -24555,8 +24957,10 @@ const ISO = (() => {
   // Roads and the stage are the only things the ground depends on: changed tiles mark their chunks stale.
   function groundCheck(R, s) {
     const lines = typeof tfMarks === 'function' && yearOf(s) >= TF.linesYear;
-    if (R.groundStage !== s.stage || R.groundLines !== lines) {
-      R.groundStage = s.stage; R.groundLines = lines; R.unlocked = unlockedRect(s);
+    // (L1: the shallows the palace fills are painted into the ground: a change of them repaints it)
+    const nlk = typeof nlShownGeo === 'function' ? nlShownGeo(s).key : '';
+    if (R.groundStage !== s.stage || R.groundLines !== lines || R.nlKey !== nlk) {
+      R.groundStage = s.stage; R.groundLines = lines; R.unlocked = unlockedRect(s); R.nlKey = nlk;
       for (const ch of R.chunks.values()) ch.stale = true;
       R.groundDirty = true;
       R.roadSnap = trackCodes(s);
@@ -27863,12 +28267,21 @@ const ISO = (() => {
     }
     // (A8: and a glowing lot with its arrow)
     if (cm && cm.spots && !ui.money) for (const l of cm.spots) { const q = P(l.x + l.w / 2, l.y + l.h / 2, 0), r = Math.max(l.w, l.h) * R.hw * 0.5; boxes.push([q[0] - r - 20, q[1] - r * 0.5 - 70, q[0] + r + 20, q[1] + r * 0.5]); }
-    for (const r of Object.keys(cand).sort((a, b) => a - b)) {
-      const sp = labelSprite(R, 'Opens at ' + STAGES[Math.min(+r, STAGES.length - 1)].name, true), list = cand[r].sort((a, b) => a.d - b.d);
+    // L1: the shallows the palace fills (from Capital on): "Opens with the palace", on its tile nearest the middle
+    const nls = typeof nlShown === 'function' ? nlShown(s) : [];
+    R.stats.nlLabel = null;
+    for (const i of nls) {
+      const p = P(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5, 0);
+      if (p[0] < 120 || p[0] > R.w - 120 || p[1] < (R.w < 600 ? 240 : 160) || p[1] > R.h - 290) continue;
+      (cand.nl || (cand.nl = [])).push({ d: Math.hypot(p[0] - cx, p[1] - cy), p });
+    }
+    for (const r of Object.keys(cand).sort((a, b) => (a === 'nl') - (b === 'nl') || a - b)) {
+      const sp = labelSprite(R, r === 'nl' ? 'Opens with the palace' : 'Opens at ' + STAGES[Math.min(+r, STAGES.length - 1)].name, true), list = cand[r].sort((a, b) => a.d - b.d);
       for (let k = 0; k < list.length; k += 1 + (k >> 4)) {
         const p = list[k].p, b = [p[0] - sp.ax, p[1] - sp.ay, p[0] - sp.ax + sp.w, p[1] - sp.ay + sp.h];
         if (hit(b)) continue;
         boxes.push(b); uiDraw(R, sp, p[0], p[1]);
+        if (r === 'nl') R.stats.nlLabel = [Math.round(p[0]), Math.round(p[1])];
         break;
       }
     }
@@ -40583,6 +40996,96 @@ function carsInfo() {
   const st = {}, md = {};
   for (const c of A.list) { st[c.st] = (st[c.st] || 0) + 1; md[c.mode] = (md[c.mode] || 0) + 1; }
   return { on: carsClockOwn(s), tod: s.tod, want: carsWant(s), list: A.list.length, st, mode: md, road: carsOnRoad(s), last: A.last ? { at: A.last.at, jam: A.last.jam, tiles: Object.keys(A.last.tiles || {}).length } : null, legend: carsLegendText(s), drawn: APP.R && APP.R.stats ? APP.R.stats.cars || 0 : 0 };
+}
+
+// ---- src/ui/newland_ui.js
+// L1 (4 Nov 2026, nova/land): what she sees of sim/newland.js (DESIGN.md §50).
+// - The map, from Capital on until the palace stands: the shallows the palace fills, washed sand over the water,
+//   hatched like the later stages' land, a dashed line where they meet the open sea, "Opens with the palace"
+//   (render/iso.js reads nlShownGeo and nlShown).
+// - The Capital's stage card: "With the palace, new land: …". The residence's card says it before the palace (with
+//   [Show the new land]) and after it (its tiles and the homes on it).
+// - The palace's moment: the ground is drawn anew (the sea filled), Rosa's line (sim) with [Show]; the goal's ritual line.
+
+// The shallows shown on the map as Path2Ds in tile units: { key, area, edge } (area: the tiles; edge: their sides that
+// face the open sea). key '' when nothing is shown.
+let NL_GEO = { list: null, key: '', area: null, edge: null };
+function nlShownGeo(s) {
+  const list = typeof nlShown === 'function' ? nlShown(s) : [];
+  if (list === NL_GEO.list) return NL_GEO;
+  if (!list.length) return (NL_GEO = { list, key: '', area: null, edge: null });
+  const set = new Set(list), area = new Path2D(), edge = new Path2D();
+  // (a side that faces open water, not the fill nor the shore, gets the dashed line)
+  const open = (X, Y) => !inMap(X, Y) || (s.terrain[tileIdx(X, Y)] === SEA && !set.has(tileIdx(X, Y)));
+  let sum = 0;
+  for (const i of list) {
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
+    sum += i;
+    area.rect(x, y, 1, 1);
+    if (open(x, y - 1)) { edge.moveTo(x, y); edge.lineTo(x + 1, y); }
+    if (open(x, y + 1)) { edge.moveTo(x, y + 1); edge.lineTo(x + 1, y + 1); }
+    if (open(x - 1, y)) { edge.moveTo(x, y); edge.lineTo(x, y + 1); }
+    if (open(x + 1, y)) { edge.moveTo(x + 1, y); edge.lineTo(x + 1, y + 1); }
+  }
+  return (NL_GEO = { list, key: list.length + ':' + sum, area, edge });
+}
+
+// The residence's card: what the palace brings, and after it what it brought.
+function nlCardNote(s) {
+  if (!nlOn()) return '';
+  if (s.nland) {
+    if (!s.nland.n) return '';
+    const h = nlHomes(s);
+    return '<p class="note good">' + esc('With the palace the ' + nlWhere(s) + ' shallows were filled: ' + s.nland.n + ' tiles of new land by the sea, ' + plural(h, 'home', 'homes') + ' on it' + (h < nlGoalHomes(s) ? ' (room for three quarters with their school, clinic and market).' : '.')) + '</p>' +
+      '<div class="btns"><button id="cardNl">Show the new land</button></div>';
+  }
+  if (s.stage < STAGES.length - 1) return '';
+  const n = nlPending(s).length;
+  if (!n) return '';
+  return '<p class="note">' + esc('With the palace the ' + nlWhere(s) + ' shallows are filled: about ' + n + ' tiles of new land by the sea (the hatched water), room for three quarters with their school, clinic and market. Nothing is built there until you build it.') + '</p>' +
+    '<div class="btns"><button id="cardNl">Show the new land</button></div>';
+}
+
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!b || b.type !== 'residence') return h;
+    const note = nlCardNote(s);
+    if (!note) return h;
+    // (under the card's words, before its buttons: the foot collects every row of buttons)
+    const k = h.indexOf('<div class="btns">');
+    return k < 0 ? h + note : h.slice(0, k) + note + h.slice(k);
+  };
+  const _cr = cardRender;
+  cardRender = function () {
+    const r = _cr.apply(this, arguments);
+    const el = $('cardNl');
+    if (el && !el.dataset.nl) {
+      el.dataset.nl = '1';
+      el.addEventListener('click', () => { const at = nlMid(APP.state); cardClose(); cameraFlyTo(at[0] + 0.5, at[1] + 0.5); });
+    }
+    return r;
+  };
+  // the Capital's stage card (A3 opens it after the gathering, so its sheet is where the line goes in)
+  const _so = sheetOpen;
+  sheetOpen = function (html) {
+    const last = '<div class="big">' + esc(STAGES[STAGES.length - 1].name) + '</div>', mark = '<li>New land (the shaded ground opens)</li>';
+    if (nlOn() && typeof html === 'string' && html.indexOf('<div id="stagecard">') >= 0 && html.indexOf(last) >= 0 && html.indexOf(mark) >= 0 && APP.state && !APP.state.nland) {
+      const li = '<li>' + esc('With the palace, new land: the hatched ' + nlWhere(APP.state) + ' shallows are filled (about ' + NL.tiles + ' tiles by the sea, room for three quarters with their school, clinic and market)') + '</li>';
+      arguments[0] = html.replace(mark, li + mark);
+    }
+    return _so.apply(this, arguments);
+  };
+  // the palace's moment: the sea under the fill is land now (the ground, the coast, the lit lots drawn anew)
+  const _eh = eventsHandle;
+  eventsHandle = function () {
+    const evs = APP.state && APP.state.ev ? APP.state.ev.slice() : [];
+    const r = _eh.apply(this, arguments);
+    for (const e of evs) if (e.kind === 'newland' && APP.R) { APP.R.geo = null; APP.R.terrainKey = ''; APP.spots = {}; }
+    return r;
+  };
+  ISLE_RITUAL_LINE.newland = 'The new land by the sea has its streets and its homes: the filled shallows are a quarter of the town now.';
 }
 
 // ---- src/ui/phone.js
