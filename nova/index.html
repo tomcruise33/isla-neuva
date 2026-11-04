@@ -648,6 +648,8 @@ body.titled #comstack { display: none !important; }
 #trlegend .g { white-space: nowrap; }
 @media (max-width: 600px) { #trlegend { font-size: 13px; padding: 6px 10px; gap: 2px 6px; } #trlegend small { font-size: 11px; } }
 #trlegend small { flex-basis: 100%; text-align: center; opacity: .75; font-size: 12px; }
+/* C1: the cars' line (cars_ui.js) */
+#trlegend .carl { flex-basis: 100%; text-align: center; font-size: 13px; line-height: 1.25; margin-top: 3px; }
 /* V1: the Land value layer's button and legend (under the pill, where the Traffic legend sits; the two take turns) */
 /* it hangs under the row's right end (the row keeps its four-button width: the Traffic legend and the panels place
    themselves by the row as before) */
@@ -13612,7 +13614,7 @@ function tfRing(M, e) {
 class TfCar {
   constructor(c) {
     this.c = c; this.id = c.id; this.path = c.path; this.n = 0; this.pos = 0; this.v = 0; this.ln = 0; this.adm = -1; this.P = TF.kind.ox;
-    this.lorry = false; this.k = -1; this.u = 0; this.e = 0; this.nl = 1; this.key = 0; this.bi = 0; this.j1 = -1; this.j2 = -1;
+    this.lorry = false; this.car = false; this.k = -1; this.u = 0; this.e = 0; this.nl = 1; this.key = 0; this.bi = 0; this.j1 = -1; this.j2 = -1;
     this.nv = -1; this.np = null; this.m = -1; this.d = 0; this.Mn = null; this.Mm = -1; this.Mp = null; this.M = null; this.Ma = -1;
     this.gap = 0; this.dv = 0; this.a = 0; this.room = 0; this.v0 = 0; this.bind = 0; this.gh = 0; this.stk = 0; this.sa = -1;
     this.tl = -1; this.br = 0; this.ok = 0; this.nb = 1; this.bL = -1; this.bR = -1; this.xm = -1; this.xa = -1; this.adm2 = -1; this.zm = -1; this.za = -1; this.zd = 0; this.yard = 0;
@@ -13792,7 +13794,8 @@ function tfStep(s, net, S, dt, first, live) {
       q.adm = q.m; q.M = q.Mn; q.Ma = q.m;
       const FL = T.fl || (T.fl = {}); FL[q.bR >= 0 && q.ln === q.bR && q.Mn.tr === 1 ? 's' + (Jt * 4 + q.Mn.din) : Jt * 4 + q.Mn.din] = Math.round(t * 1000) / 1000;
       let a = occ.get(Jt); if (!a) occ.set(Jt, (a = [])); a.push(q);
-      if (live) {
+      // (C1, cars.js: a car is not one of the carts the crossing counts; it only stands in their way)
+      if (live && !q.car) {
         const Q = T.qn || (T.qn = {}), o = Q[Jt] || (Q[Jt] = new Array(16).fill(0));
         o[q.M.mv]++;
         const JN = T.jn || (T.jn = {}); JN[Jt] = (JN[Jt] || 0) + 1;
@@ -13836,15 +13839,15 @@ function tfStep(s, net, S, dt, first, live) {
     const r = Math.round(q.pos), waitJ = q.m >= 0 && q.bind && q.d < 1 ? p[q.m] : -1;
     // (T2: the street below an overpass keeps its own times, tw2 / tp2)
     const lo2 = net.low && r > 0 && r < n - 1 && net.low[p[r]] && brLow(s, p[r], p[r - 1], p[r]);
-    if (live && r > 0 && r < n - 1) {
+    if (live && !q.car && r > 0 && r < n - 1) {
       const tile = waitJ >= 0 ? waitJ : p[r];
       if (lo2) { const W2 = T.tw2 || (T.tw2 = {}); W2[tile] = (W2[tile] || 0) + dt; } else W[tile] = (W[tile] || 0) + dt;
     }
     if (r !== q.tl) {
       q.tl = r;
-      if (live && r > 0 && r < n - 1) { if (lo2) { const P2 = T.tp2 || (T.tp2 = {}); P2[p[r]] = (P2[p[r]] || 0) + 1; } else TP[p[r]] = (TP[p[r]] || 0) + 1; }
+      if (live && !q.car && r > 0 && r < n - 1) { if (lo2) { const P2 = T.tp2 || (T.tp2 = {}); P2[p[r]] = (P2[p[r]] || 0) + 1; } else TP[p[r]] = (TP[p[r]] || 0) + 1; }
       // (T2: a level crossing's wait: from three tiles before it to the crossing, less the free time; the card, the trial)
-      if (rail && live) {
+      if (rail && live && !q.car) {
         if (q.xm === r && q.xa >= 0) { const XW = T.xw || (T.xw = {}), XN = T.xn || (T.xn = {}), tj = p[r]; XW[tj] = (XW[tj] || 0) + Math.max(0, t - q.xa - 3 / net.v0[tj]); XN[tj] = (XN[tj] || 0) + 1; q.xm = -1; }
         if (r + 3 < n && rlCrossAt(s, p[r + 3]) && !rlCrossAt(s, p[r + 2])) { q.xm = r + 3; q.xa = t; }
       }
@@ -13976,7 +13979,7 @@ function trafficStep(s) {
     let q = cars.get(c.id);
     if (!q || q.c !== c) { q = new TfCar(c); cars.set(c.id, q); }
     if (q.path !== c.path) { q.path = c.path; q.k = -1; }
-    q.n = c.path.length; q.pos = c.pos; q.P = tfPar(s, c); q.lorry = c.vk === 'lorry';
+    q.n = c.path.length; q.pos = c.pos; q.P = tfPar(s, c); q.lorry = c.vk === 'lorry'; q.car = c.vk === 'car';
     q.v = c.v === undefined ? tfV0(s, c.path[Math.min(q.n - 1, Math.round(c.pos))]) : c.v;
     q.ln = c.ln || 0; q.adm = c.adm === undefined ? -1 : c.adm; q.adm2 = c.adm2 === undefined ? -1 : c.adm2; q.sa = c.sa === undefined ? -1 : c.sa;
     q.stk = c.stk || 0; q.gh = c.gh || 0; q.tl = c.tl === undefined ? -1 : c.tl;
@@ -13993,7 +13996,7 @@ function trafficStep(s) {
   for (let k = 0; k < TF.sub; k++) { s._tfSub = k; if (Y.length) tfYard(net, S, Y); tfStep(s, net, S, dt, k === 0, live); }
   s._tfSub = 0;
   // a cart held in its yard waits for the street it is to take: the wait is that street's first tile's (the routes see it)
-  for (const q of Y) { q.c.yw = (q.c.yw || 0) + 1; q.c.mv = s.tick; if (live && q.n > 2) { const W = trState(s).tw || (trState(s).tw = {}); W[q.path[1]] = (W[q.path[1]] || 0) + 1; } }
+  for (const q of Y) { q.c.yw = (q.c.yw || 0) + 1; q.c.mv = s.tick; if (live && !q.car && q.n > 2) { const W = trState(s).tw || (trState(s).tw = {}); W[q.path[1]] = (W[q.path[1]] || 0) + 1; } }
   for (const q of all) {
     if (q.yard && Y.includes(q)) continue;
     const c = q.c;
@@ -20902,6 +20905,300 @@ function paceFundHeld(s, k) {
   };
 }
 
+// ---- src/sim/cars.js
+// C1 (4 Nov 2026, nova/cars): private cars. Every traffic pass since T1 ended with "Not done: private cars": only goods
+// carts were agents and A1's commuters were drawn, not driven. Here the families' own cars drive to work in the
+// morning rush and home in the evening one, as T1 agents on her roads, beside the carts. Rules: DESIGN.md §49; sources:
+// docs/research/cars.md. Kill switch: TUNE.carsOff (NOVA_NO_CARS=1 leaves this file out of the tests' sim).
+// - The clock: A1's time of day ran on the wall clock beside the sim (the same rate: 1.6 clock minutes a 0.2 s tick).
+//   With cars the sim keeps it, 1.6 minutes a tick (state.tod, A1's own saved field), so the rush the clock shows is the
+//   rush the agents drive in, at any speed, after a reload, in the tests. The page only draws it (ui/cars_ui.js).
+// - Who has a car: the island's people x the cars per 1,000 people of the year (CARS.rate: Cuba and Puerto Rico,
+//   1911-1958, measured; later an assumption), given to the families in the best homes first (a Mansion's before a
+//   Townhouse's), one car a family, to a family whose breadwinner has a job (the job A4's families already hold).
+// - What they do with it, decided each morning at 05:00: a workplace at most CARS.walk road tiles away, they walk; a tram
+//   stop by the home and one by the workplace on the same line, they take the tram (the car stays home); else the
+//   breadwinner drives, leaving between 06:30 and 08:00 (A1's departures) and coming home 16:30-18:00, along the way
+//   T3's route cost picks (time, comfort, the fee by the tile), as a T1 agent: a car's length, quicker off the line,
+//   the street's own pace (T1's rule: a lorry keeps the street's pace too), in the lanes with the carts.
+// - What it changes: the carts share the lanes with the cars in the rush (a street the cars fill at 7:30 holds up the
+//   morning's loads; T1's measured times and the routes see it through the carts' own times). Cars are not counted in
+//   the carts' numbers (a tile's time, a crossing's arrivals and waits, the lorries: traffic.js skips q.car), so noise,
+//   wear and accidents stay the carts'. No money line, nothing built: the legend counts cars and carts, the home's card
+//   says who drives and why, the street's card how many passed, Rosa names a jam the cars make and its fix.
+// State (saved): state.autos = { list: [today's car families: { id, h, f, w, mode, dep, ret, st, path, pos, ...the
+//   agent's T1 fields }], cur: { t: { tile: [car ticks, cart ticks, car tiles, cart tiles, speed ratios] }, at, from },
+//   last: { at: { cars, carts }, n, drive, tram, walk, tiles: { tile: [cars, carts] }, jam, y }, pd: the tick of the last
+//   plan }. An old save has none: its first tick makes the plan (the cars drive from the next morning).
+
+const CARS = {
+  year: 1927,            // the first families drive to work: the late 1920s
+  // passenger cars per 1,000 people (an island's average), [year, rate]: Puerto Rico 1911 0.45 (some 500 licences for
+  // 1.1 million people); Cuba 1937 6.1 and Puerto Rico 9.3, Cuba 1950 12.7, Puerto Rico 1951 20, Cuba 1952 17
+  // (Statistisches Jahrbuch 1954, international tables: cars in use, over the censuses' people); Cuba 1958 24 (UN, second
+  // in Latin America after Venezuela). After 1958 an assumption, not a measure: the 1950s' rise carried on.
+  rate: [[1911, 0.5], [1927, 4], [1937, 8], [1951, 17], [1958, 24], [1970, 45], [1990, 90]],
+  plan: 300,             // 05:00: the day's drivers are known
+  am: [360, 540],        // the morning rush as measured: 06:00-09:00
+  peek: 450,             // 07:30: the legend's count of cars and carts on the streets
+  walk: 3,               // a workplace this near (road tiles from gate to gate): they walk
+  max: 150,              // at most this many car families a day (T1's grid: 330 agents at 1.7 ms a tick)
+  tick: 1.6,             // clock minutes a tick (A1: 1,440 minutes in 180 s at 1x; a tick is 0.2 s at 1x)
+  jamSlow: 1.6,          // a tile where the vehicles took this many times as long as on a free road in the morning
+  jamShare: 0.5,         // (T1's "jammed"), cars at least half of them,
+  jamMin: 6,             // and at least this many passed: a jam the cars make
+};
+// a motor car (T1's IDM): shorter than an ox cart and its team, quicker off the line, a shorter gap behind the one ahead
+TF.kind.car = { l: 0.28, s0: 0.06, gap: 0.12, a: 0.8, b: 1.2, name: 'motor car' };
+
+function carsOn(s) { return !!s && !TUNE.carsOff && t1On(); }
+function carsState(s) { if (!s.autos || !Array.isArray(s.autos.list)) s.autos = { list: [], cur: null, last: null }; return s.autos; }
+// cars per 1,000 people in a year (between the table's years: a straight line)
+function carsRate(y) {
+  const R = CARS.rate;
+  if (y <= R[0][0]) return R[0][1];
+  for (let k = 1; k < R.length; k++) if (y <= R[k][0]) { const [y0, a] = R[k - 1], [y1, b] = R[k]; return a + (b - a) * (y - y0) / (y1 - y0); }
+  return R[R.length - 1][1];
+}
+// the cars the island has this year (one a family), capped
+function carsWant(s) { return yearOf(s) < CARS.year ? 0 : Math.min(CARS.max, Math.round(popCount(s) * carsRate(yearOf(s)) / 1000)); }
+function carsHash(a, b, c) { let h = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) + Math.imul(c | 0, 2246822519)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+// is clock minute x passed between t0 and t1 (t1 may run past midnight)?
+function carsCross(t0, t1, x) { return (x > t0 && x <= t1) || (x + 1440 > t0 && x + 1440 <= t1); }
+function carsClock(s) { if (typeof s.tod !== 'number' || !isFinite(s.tod)) s.tod = 480; return s.tod; }
+
+// The car families, best homes first: [{ h, f (the family's place in its home), fid, nm (who drives), t (job type) }],
+// as many as want. A family counts when its first worker has a job (A4: the home's jobs, taken by its families in turn).
+function carsOwners(s, want) {
+  const out = [];
+  if (!want) return out;
+  const homes = s.b.filter((b) => b.type === 'casita' && b.res > 0 && !b.build).sort((a, b) => b.level - a.level || a.id - b.id);
+  const fam = typeof famState === 'function' && typeof famJobs === 'function' && typeof famWorkerList === 'function', J = fam ? famJobs(s) : null;
+  for (const h of homes) {
+    if (out.length >= want) break;
+    if (!fam) {
+      // (without A4's families: one household a home, its nearest workplace)
+      const w = carsWorkNear(s, h, null);
+      if (w) out.push({ h, f: 0, fid: h.id, nm: '', t: w.type, w });
+      continue;
+    }
+    // (the home's families as they stand: read, never made to agree here; families.js does that each month)
+    const pool = J[h.id] ? { jobs: J[h.id].jobs.map((x) => x.slice()), look: J[h.id].look } : { jobs: [], look: 0 };
+    (famState(s).h[h.id] || []).forEach((r, k) => {
+      let first = null;
+      for (const a of famWorkerList(s, r)) {
+        let t = '';
+        if (pool.jobs.length) { const j = pool.jobs[0]; t = j[0]; if (--j[1] <= 0) pool.jobs.shift(); } else if (pool.look > 0) pool.look--;
+        if (!first && t) first = { nm: a.nm, t };
+      }
+      if (first && out.length < want) out.push({ h, f: k, fid: r[0], nm: first.nm, t: first.t, sur: r[4] });
+    });
+  }
+  return out;
+}
+// The workplace of type t (any, when t is null) nearest a home (famJobs's measure: centre to corner), open and working.
+function carsWorkNear(s, h, t) {
+  let best = null, bd = 1e9;
+  for (const b of s.b) {
+    const d = defOf(b);
+    if (!d || !d.jobs || !(b.workers > 0) || b.open === false || d.kind === 'home' || (t && b.type !== t)) continue;
+    const dd = Math.abs(b.x + b.w / 2 - h.x - 0.5) + Math.abs(b.y + b.h / 2 - h.y - 0.5);
+    if (dd < bd) { bd = dd; best = b; }
+  }
+  return best;
+}
+// A tram line with a stop by both (the same line, two stops or more)?
+function carsTramBoth(s, h, w) {
+  if (!(s.tram || []).length || typeof stopsNear !== 'function') return false;
+  const L = new Set(stopsNear(s, h).map((o) => o.L));
+  return L.size > 0 && stopsNear(s, w).some((o) => L.has(o.L));
+}
+// 05:00: the day's car families and what each does: { mode: 'car' | 'tram' | 'walk' }.
+function carsPlan(s) {
+  const A = carsState(s);
+  // (a car still on the road from yesterday drives on; the parked ones are today's again)
+  A.list = A.list.filter((c) => (c.st === 'go' || c.st === 'back') && c.path);
+  A.list.forEach((c, k) => { c.id = -(k + 1); });
+  A.pd = s.tick;
+  A.cur = null;
+  const own = yearOf(s) < CARS.year ? [] : carsOwners(s, carsWant(s));
+  own.forEach((o, k) => {
+    const w = o.w || carsWorkNear(s, o.h, o.t);
+    if (!w) return;
+    const r1 = carsHash(o.h.id, o.fid, 1), r2 = carsHash(o.h.id, o.fid, 2), r3 = carsHash(o.fid, o.h.id, 3);
+    const p = cartRoute(s, w, o.h), len = p && p.length >= 2 && p.every((i) => s.road[i]) ? p.length - 1 : -1;
+    const mode = len < 0 ? 'none' : len <= CARS.walk ? 'walk' : carsTramBoth(s, o.h, w) ? 'tram' : 'car';
+    // (A1's departures: a triangle 06:30-08:00 peaking near 07:10, the long ways a little earlier; home 16:30-18:00)
+    const est = Math.abs(w.x - o.h.x) + Math.abs(w.y - o.h.y), dep = Math.round((390 + 40 * (r1 + r2) - Math.min(20, est * CARS.tick * 0.4)) * 10) / 10, ret = Math.round((990 + 45 * (r2 + r3)) * 10) / 10;
+    A.list.push({ id: -(A.list.length + 1), h: o.h.id, f: o.f, fid: o.fid, nm: o.nm, sur: o.sur || '', w: w.id, t: w.type, mode, dep, ret, st: 'home', path: null, pos: 0 });
+  });
+  // (no car on the island: yesterday's numbers go too)
+  if (!A.list.length) A.last = null;
+}
+// A car sets off (from home in the morning, from work in the evening) along the way T3's route cost picks.
+function carsGo(s, c, back) {
+  const h = bById(s, c.h), w = bById(s, c.w);
+  if (!h || !w) { c.st = 'off'; return; }
+  const p = cartRoute(s, w, h);
+  if (!p || p.length < 2 || !p.every((i) => s.road[i])) { c.st = back ? 'done' : 'noway'; return; }
+  const path = back ? p : p.slice().reverse();
+  let free = 0; for (let k = 1; k < path.length; k++) free += 1 / tfV0(s, path[k]);
+  Object.assign(c, { st: back ? 'back' : 'go', path, pos: 0, vk: 'car', v: TF.roll * tfV0(s, path[0]), ln: 0, adm: -1, adm2: -1, zm: -1, tl: 0, sa: undefined, stk: 0, gh: 0, ver: s.ver, t0: s.tick, fr: Math.round(free * 100) / 100 });
+}
+// Parked (at work, or home again): off the road; the morning's trip time kept for the card.
+function carsPark(s, c) {
+  const tt = s.tick - (c.t0 || s.tick);
+  if (c.st === 'go') { c.tt = tt; c.tf = c.fr; c.st = 'work'; } else { c.tb = tt; c.st = 'done'; }
+  for (const k of ['path', 'pos', 'v', 'ln', 'adm', 'adm2', 'zm', 'za', 'zd', 'tl', 'sa', 'stk', 'gh', 'mv', 'br', 'wj', 'ws', 'yw', 'ver', 't0', 'fr', 'lc']) delete c[k];
+  c.path = null; c.pos = 0;
+}
+// The vehicles on the streets now (not waiting in a yard or a drive, not at their gate): { cars, carts }.
+function carsOnRoad(s) {
+  let cars = 0, carts = 0;
+  for (const c of s.carts) if (c.st !== 'idle' && c.path && c.pos > 0.001 && c.pos < c.path.length - 1) carts++;
+  for (const c of carsState(s).list) if (c.path && c.pos > 0.001 && c.pos < c.path.length - 1) cars++;
+  return { cars, carts };
+}
+// The morning rush, measured each tick (06:00-09:00): on each tile, the cars and carts on it and how fast they went.
+function carsMeasure(s) {
+  const A = carsState(s), M = A.cur || (A.cur = { t: {}, at: null, from: carsClock(s) });
+  const add = (c, car) => {
+    const p = c.path, n = p.length;
+    if (c.pos <= 0.001 || c.pos >= n - 1) return;
+    const i = p[Math.round(c.pos)];
+    if (!s.road[i]) return;
+    const e = M.t[i] || (M.t[i] = [0, 0, 0, 0, 0]), v = c.v === undefined ? tfV0(s, i) : c.v;
+    if (car) { e[0]++; e[2] += v; } else { e[1]++; e[3] += v; }
+    e[4] += Math.min(1, v / tfV0(s, i));
+    // (a car standing for its turn at a crossing ahead: which crossing, from this tile)
+    if (car && c.wj >= 0 && v < 0.1) { const W = M.w || (M.w = {}), k = i + ':' + c.wj; W[k] = (W[k] || 0) + 1; }
+  };
+  for (const c of s.carts) if (c.st !== 'idle' && c.path) add(c, false);
+  for (const c of A.list) if (c.path) add(c, true);
+}
+// 09:00: the morning's numbers are kept until the next morning (the legend, the cards, Rosa).
+function carsClose(s) {
+  const A = carsState(s), M = A.cur || { t: {}, at: null }, tiles = {};
+  // (a morning measured from part-way, a plan made after 06:00: not a morning's numbers; yesterday's stay)
+  if (!(M.from <= CARS.am[0] + CARS.tick)) { A.cur = null; return; }
+  let jam = null;
+  for (const k in M.t) {
+    const e = M.t[k], veh = e[0] + e[1], cars = Math.round(e[2]), carts = Math.round(e[3]);
+    if (cars >= 1) tiles[k] = [cars, carts];
+    if (!veh || !s.road[+k]) continue;
+    const slow = veh / Math.max(0.01, e[4]), lost = veh * (1 - 1 / slow);
+    if (slow >= CARS.jamSlow && e[0] >= CARS.jamShare * veh && e[2] + e[3] >= CARS.jamMin && (!jam || lost > jam.lost))
+      jam = { i: +k, slow: Math.round(slow * 10) / 10, cars, carts, lost: Math.round(lost * 10) / 10, kind: s.road[+k], lanes: lanesAt(s, +k), tram: (s.tram || []).length, ct: e[0] };
+  }
+  // the crossing the cars there stood for (half their time or more): the queue is the crossing's
+  if (jam) {
+    let x = -1, xn = 0;
+    for (const k in M.w || {}) { const [a, b] = k.split(':').map(Number); if (a === jam.i && M.w[k] > xn) { xn = M.w[k]; x = b; } }
+    if (x >= 0 && xn * 2 >= jam.ct && jctAt(s, x)) { jam.x = x; jam.ctl = tfCtl(s, x); }
+    delete jam.ct;
+  }
+  const n = { car: 0, tram: 0, walk: 0 };
+  for (const c of A.list) if (n[c.mode] !== undefined) n[c.mode]++;
+  A.last = { y: yearOf(s), m: s.month, at: M.at || { cars: 0, carts: 0 }, n: A.list.length, drive: n.car, tram: n.tram, walk: n.walk, tiles, jam };
+  A.cur = null;
+}
+// The tick (after T1's and the economy's): cars arrive, the morning is measured, the clock moves on, cars set off.
+function carsTick(s) {
+  const A = carsState(s), t0 = carsClock(s), t1 = t0 + CARS.tick;
+  for (const c of A.list) {
+    if (!c.path) continue;
+    // a road taken away under it: the car turns off and parks (an overpass built under it: bridges.js reroutes it)
+    if (c.ver !== s.ver) { c.ver = s.ver; if (!c.path.every((i) => s.road[i])) { const b = c.st === 'back'; carsPark(s, c); c.st = b ? 'done' : 'off'; continue; } }
+    if (c.pos >= c.path.length - 1) carsPark(s, c);
+  }
+  if (A.list.length || A.cur) {
+    if (t0 >= CARS.am[0] && t0 < CARS.am[1]) carsMeasure(s);
+    if (carsCross(t0, t1, CARS.peek) && A.cur) A.cur.at = carsOnRoad(s);
+    if (carsCross(t0, t1, CARS.am[1])) carsClose(s);
+  }
+  s.tod = t1 % 1440;
+  // (an island that never had a plan, an old save: the car families are known at once; they drive from the next morning)
+  if (carsCross(t0, t1, CARS.plan) || (A.pd === undefined && yearOf(s) >= CARS.year)) carsPlan(s);
+  for (const c of A.list) {
+    if (c.mode !== 'car') continue;
+    if (c.st === 'home' && carsCross(t0, t1, c.dep)) carsGo(s, c, false);
+    else if (c.st === 'work' && carsCross(t0, t1, c.ret)) carsGo(s, c, true);
+  }
+}
+
+// ---------- the agents: the cars drive in T1's step with the carts ----------
+{
+  const _ts = trafficStep;
+  trafficStep = function (s) {
+    const A = s.autos;
+    if (!A || !A.list || !A.list.length || !carsOn(s)) return _ts.apply(this, arguments);
+    const live = A.list.filter((c) => c.path), c0 = s.carts;
+    if (!live.length) return _ts.apply(this, arguments);
+    s.carts = c0.concat(live);
+    try { return _ts.apply(this, arguments); } finally { s.carts = c0; }
+  };
+  // an overpass built under a car's way: it takes the quickest way on from where it is, as the carts do
+  if (typeof brReroute === 'function') {
+    const _br = brReroute;
+    brReroute = function (s) {
+      const A = s.autos, live = A && A.list ? A.list.filter((c) => c.path) : [];
+      if (!live.length || !carsOn(s)) return _br.apply(this, arguments);
+      const c0 = s.carts;
+      s.carts = c0.concat(live);
+      try { return _br.apply(this, arguments); } finally { s.carts = c0; }
+    };
+  }
+  const _st = simTick;
+  simTick = function (state) {
+    const r = _st.apply(this, arguments);
+    if (carsOn(state)) carsTick(state);
+    return r;
+  };
+}
+
+// ---------- what the cards, the legend and Rosa read ----------
+// A home's car families today: [{ c (the plan's entry), why }]
+function carsOfHome(s, h) { return carsOn(s) && s.autos ? s.autos.list.filter((c) => c.h === h.id) : []; }
+// The lowest home level with a car today (the cars go to the best homes first), or 0.
+function carsLowLevel(s) {
+  let lo = 0;
+  for (const c of carsOn(s) && s.autos ? s.autos.list : []) { const h = bById(s, c.h); if (h && (!lo || h.level < lo)) lo = h.level; }
+  return lo;
+}
+// "2.4×", "12×" (a slowness in words: tenths only under 10)
+function carsSlowWord(x) { return (x < 10 ? Math.round(x * 10) / 10 : Math.round(x)) + '×'; }
+// A trip's minutes on the clock (ticks x CARS.tick).
+function carsMin(ticks) { return Math.max(1, Math.round(ticks * CARS.tick)); }
+// The jam the cars made this morning, still standing (the street not paved, widened or given a tram since): or null.
+function carsJam(s) {
+  const L = carsOn(s) && s.autos && s.autos.last, J = L && L.jam;
+  if (!J || !s.road[J.i] || s.road[J.i] !== J.kind || lanesAt(s, J.i) !== J.lanes || (s.tram || []).length !== J.tram || yearOf(s) - L.y > 1) return null;
+  // (the crossing they queued for has another rule now: she changed it)
+  if (J.x >= 0 && J.x !== undefined && (!jctAt(s, J.x) || tfCtl(s, J.x) !== J.ctl)) return null;
+  return J;
+}
+// Rosa: a jam the cars make at 7:30, and its fix (what already exists: paving, a lane, a crossing's rule, a second road;
+// the tram in words: a family with a stop by home and by work leaves the car at home).
+GUIDE_PROBLEMS.splice(Math.max(0, GUIDE_PROBLEMS.findIndex((p) => p.key === 'jam')), 0, { key: 'carjam', check(s) {
+  const J = carsJam(s);
+  if (!J) return null;
+  // (kept short: on a phone her line is read in full; the home's card says where each family drives)
+  const where = placeName(s, J.i);
+  const tram = s.stage >= TR.tramStage ? ' Or a tram line: families with a stop by home and by work leave the car.' : '';
+  const head = 'At 7:30 cars jam ' + where + ' (' + plural(J.cars, 'car', 'cars') + (J.carts ? ' and ' + plural(J.carts, 'cart', 'carts') : '') + ', ' + carsSlowWord(J.slow) + ' as long as on a free road)';
+  // queued for a crossing ahead: its rule is the fix (its card shows each rule with its price); else the street's own
+  if (J.x >= 0 && J.x !== undefined) {
+    // ("the road by the market" and "the crossroads by the market": "the crossroads there")
+    const at = [J.x % MAP_W, (J.x / MAP_W) | 0], xp = placeName(s, J.x).replace(/^the road by/, 'the crossing by'), by = (t) => t.replace(/^the [a-z]+ by /, '');
+    const xn = by(xp) === by(where) ? xp.replace(/ by .*$/, ' there') : xp;
+    const why = ': they queue for ' + xn + (J.ctl === 'yield' ? ', giving way' : J.ctl === 'stop' ? ' (an all-way stop)' : J.ctl === 'lights' ? ' (traffic lights)' : '');
+    return { text: head + why + '. Another rule there lets them in turn (its card has each with its price).' + tram, btn: 'The crossing', act: { tool: 'jct', at } };
+  }
+  const F = tfJamFix(s, { i: J.i }), fix = F.text.charAt(0).toUpperCase() + F.text.slice(1);
+  return { text: head + '. ' + fix + '.' + tram,
+    btn: F.tool === 'paved' ? 'Paved road' : F.tool === 'lane' ? 'Lanes' : F.tool === 'rbt' ? 'Roundabout' : F.tool === 'jct' ? 'The crossing' : 'Road', act: { tool: F.tool, at: F.at, plan: F.plan || undefined } };
+} });
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -26476,6 +26773,26 @@ const ISO = (() => {
       }
     }
   }
+  // C1: the cars on the road (s.autos), as the carts are drawn: their speed between ticks, their lane, a glide across
+  function carsCollect(R, s, out, f) {
+    let n = 0;
+    for (const c of s.autos ? s.autos.list : []) {
+      if (!c.path || c.path.length < 2) continue;
+      const at = c.path[Math.min(c.path.length - 1, Math.floor(c.pos))], agent = c.mv === s.tick - 1 && c.v !== undefined;
+      const pos = Math.min(c.path.length - 1.001, c.pos + (agent ? c.v : 0) * f);
+      const [x, y, dx, dy] = pathAt(c.path, pos, rbtSetOf(s)), h = head8(dx, dy);
+      let lo = typeof tfLaneOff === 'function' ? tfLaneOff(s, c, at) : 0.15;
+      const m = R.laneSm || (R.laneSm = new Map()), was = m.get(c.id);
+      if (was !== undefined && Math.abs(was - lo) > 0.004) lo = was + Math.sign(lo - was) * Math.min(Math.abs(lo - was), 0.025);
+      m.set(c.id, lo);
+      const px = x - dy * lo, py = y + dx * lo, v = (c.h * 7 + c.f * 3) % 6;
+      out.push({ k: 'car', id: c.id, x: px, y: py, hx: dx, hy: dy, fx: h[0], fy: h[1], v, fr: 0, brake: agent && c.br ? 1 : 0 });
+      if (R.dayCars) R.dayCars.push({ x: px, y: py, fx: h[0], fy: h[1] });
+      if (s.bridges && typeof brCartZ === 'function') brCartZ(s, out[out.length - 1]);
+      n++;
+    }
+    R.stats.cars = n;
+  }
   function commuterSprite(R, q) {
     if (q.k === 'kid') return sprite(R, 'kid|' + (q.v % 12) + '|' + q.fr, [0.01, 0.01, 0.3, 0.2], 0.45, () => { const s0 = S; S = s0 * 0.72; try { paintPerson(0, 0, q.v, q.fr, false); } finally { S = s0; } });
     if (q.k === 'bike') return sprite(R, 'bike|' + q.fx + ',' + q.fy + '|' + (q.v % 8) + '|' + q.fr, [0.01, 0.01, 0.5, 0.35], 0.75, () => paintBike(q.fx, q.fy, q.v, q.fr));
@@ -26797,6 +27114,8 @@ const ISO = (() => {
     trItems(R, s, out, now);
     // A1 — the day turns: commuters, children to school, shoppers at the markets
     { const tc = performance.now(); commutersCollect(R, s, out, now); if (R.stats.dayMs) R.stats.dayMs.people = +(R.stats.dayMs.people * 0.9 + (performance.now() - tc) * 0.1).toFixed(2); }
+    // C1 (cars.js, cars_ui.js): the families' cars, T1 agents in their lanes, drawn as A1's car (its headlights after dusk)
+    if (typeof carsOn === 'function' && carsOn(s)) carsCollect(R, s, out, f);
     // slot each moving thing right after the last static object it stands in front of (in view coordinates)
     const r = R.rot || 0, VW = R.gridW || MAP_W, VH = R.gridH || MAP_H;
     for (const q of out) {
@@ -26828,7 +27147,7 @@ const ISO = (() => {
     if (q.k === 'deck') { brDraw(R, s, q, stHook(R)); return; }
     sprDraw(R, dynSprite(R, q), p[0], p[1] - (q.bob || 0) * 0.9 * R.hw / 44);
     // T1: a cart braking or standing in a queue shows its red lamps after dusk (a lorry's, a cart's lantern)
-    if (q.brake && q.k === 'cart' && R.dark > 0.2) {
+    if (q.brake && (q.k === 'cart' || q.k === 'car') && R.dark > 0.2) {
       const b = P(q.x - q.hx * 0.13, q.y - q.hy * 0.13, (q.z || 0) + (TOP ? 0 : 0.1)), k = R.hw / 44;
       ctx.globalAlpha = Math.min(1, R.dark * 1.4);
       circ(b[0], b[1], 6.5 * k, 'rgba(255,60,40,.3)');
@@ -32801,7 +33120,8 @@ function dayTint(tod) {
   const _frameRun = frameRun;
   frameRun = function (now) {
     const s = APP.state;
-    if (s && !APP.titleOn && APP.speed > 0) {
+    // (C1, cars.js: with cars the sim keeps the clock, 1.6 minutes a tick; the page only shows it)
+    if (s && !APP.titleOn && APP.speed > 0 && !(typeof carsClockOwn === 'function' && carsClockOwn(s))) {
       const dt = Math.min(0.25, (now - (APP.dayLast || now)) / 1000);
       s.tod = (dayClock(s) + dt * APP.speed * 1440 / DAY_SECONDS) % 1440;
     }
@@ -40148,6 +40468,121 @@ function apAct(F, what, data) {
     if (!h || !b || b.type !== 'residence' || !paceOn() || !PACE.redPart) return h;
     return h.replace(/(until the two pay for it\.)/, '$1 A red payday takes from it only what the red needs.');
   };
+}
+
+// ---- src/ui/cars_ui.js
+// C1 (4 Nov 2026, nova/cars): what she sees of the families' cars (sim/cars.js). DESIGN.md §49.
+// - The clock: with cars the sim keeps the time of day (1.6 minutes a tick); the page stops A1's own clock and shows the
+//   sim's, smoothly between ticks (the figures, the light and the cars agree with the clock at any speed).
+// - A1's drawn commuters: those A1 drew driving now cycle (the cars on the streets are the families' real cars); the
+//   share A1 drew driving was a guess (a fifth from 1930), the cars are the measured numbers.
+// - The Traffic legend counts cars and carts apart ("At 7:30: 3 cars, 169 carts on the streets") and says how many
+//   families drive, take the tram or walk; the home's card says who drives where and why (or why nobody here has a
+//   car); the street's and the crossing's card how many cars and carts passed in the morning rush.
+
+function carsClockOwn(s) { return !!s && typeof carsOn === 'function' && carsOn(s); }
+{
+  // (A1's clock ran on the page's own time: daytime.js's frameRun leaves it to the sim here, cars.js moves it)
+  // the clock between two ticks: the part of the next tick the frame is into (the figures and the light glide)
+  const _dc = dayClock;
+  dayClock = function (s) {
+    const t = _dc(s);
+    if (!s || typeof APP === 'undefined' || s !== APP.state || !carsClockOwn(s) || !(APP.speed > 0) || APP.titleOn) return t;
+    const f = Math.max(0, Math.min(1, (APP.acc || 0) / (TUNE.secondsPerMonth / TUNE.ticksPerMonth)));
+    return (t + f * CARS.tick) % 1440;
+  };
+  // A1 drew a share of the commuters as cars (from 1930 a fifth, from 1950 half); those now cycle: the cars on the
+  // streets are the families' own (cars.js)
+  const _cm = commuteModes;
+  commuteModes = function (year) {
+    const m = _cm(year);
+    return APP.state && carsClockOwn(APP.state) && m.car ? { bike: m.bike + m.car, car: 0 } : m;
+  };
+}
+
+// ---------- the words ----------
+function carsWorkName(t) { return BUILDINGS[t] ? BUILDINGS[t].name.toLowerCase() : t; }
+// The Traffic legend's line: '' before the first cars.
+function carsLegendText(s) {
+  if (!carsClockOwn(s) || yearOf(s) < CARS.year) return '';
+  const A = s.autos, L = A && A.last, list = A ? A.list : [], tod = s.tod || 0, phone = typeof innerWidth === 'number' && innerWidth < 600;
+  const n = { car: 0, tram: 0, walk: 0, none: 0 };
+  for (const c of list) if (n[c.mode] !== undefined) n[c.mode]++;
+  const fam = list.length;
+  if (!fam) return 'Cars: none yet. ' + Math.round(carsRate(yearOf(s))) + ' for 1,000 people in ' + yearOf(s) + ': the families in the best homes get them first.';
+  const who = phone ? fam + ' car families: ' + n.car + ' drive, ' + n.tram + ' tram, ' + n.walk + ' walk' + (n.none ? ', ' + n.none + ' no road' : '') + '.' : plural(fam, 'family has', 'families have') + ' a car: ' + n.car + ' drive to work, ' + n.tram + ' take the tram, ' + n.walk + ' walk' + (n.none ? ', ' + n.none + ' no road to work' : '') + '.';
+  const live = A && A.cur && tod >= CARS.am[0] && tod < CARS.am[1];
+  if (live) { const o = carsOnRoad(s); return 'Now: ' + plural(o.cars, 'car', 'cars') + ', ' + plural(o.carts, 'cart', 'carts') + ' on the streets. ' + who; }
+  if (L && L.at) return 'At 7:30: ' + plural(L.at.cars, 'car', 'cars') + ', ' + plural(L.at.carts, 'cart', 'carts') + ' on the streets. ' + who;
+  return who + ' They leave 6:30-8:00.';
+}
+// The home's card: who has a car, where they drive and why (or why nobody here has one).
+function carsHomeText(s, h) {
+  if (!carsClockOwn(s) || yearOf(s) < CARS.year || !h.res) return null;
+  const mine = carsOfHome(s, h), y = yearOf(s), rate = Math.round(carsRate(y));
+  if (!mine.length) {
+    const lo = carsLowLevel(s), cars = s.autos ? s.autos.list.length : 0;
+    if (!cars) return { cls: '', t: 'No car yet on the island: about ' + rate + ' for 1,000 people in ' + y + ' (Cuba 6 in 1937, 24 in 1958); the families in the best homes get them first.' };
+    return { cls: '', t: 'No car here: the island has ' + plural(cars, 'car family', 'car families') + ' (' + rate + ' cars for 1,000 people in ' + y + '), in the best homes first' + (lo && LEVELS[lo] ? ': the ' + LEVELS[lo].name + 's and better.' : '.') };
+  }
+  const parts = [];
+  for (const c of mine.slice(0, 2)) {
+    const fam = c.sur ? 'The ' + c.sur + ' family' : (typeof famState === 'function' && famState(s).h[h.id] && famState(s).h[h.id][c.f] ? famTitle(famState(s).h[h.id][c.f]) : 'A family here');
+    const who = c.nm || 'the father', w = carsWorkName(c.t), hm = (m) => { const t = Math.round(m) % 1440; return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+    if (c.mode === 'walk') parts.push(fam + ' has a car, but ' + who + ' walks to the ' + w + ': it is a few steps away.');
+    else if (c.mode === 'tram') parts.push(fam + ' has a car, but ' + who + ' takes the tram to the ' + w + ': a stop by home and one by the works. The car stays home.');
+    else if (c.mode === 'none' || c.st === 'noway') parts.push(fam + ' has a car, but no road joins the home to the ' + w + '.');
+    else if (c.st === 'go' || c.st === 'back') parts.push(fam + ': ' + who + ' is driving ' + (c.st === 'go' ? 'to the ' + w : 'home from the ' + w) + ' now.');
+    else if (c.tt) { const m = carsMin(c.tt), fr = carsMin(c.tf || c.tt), lost = Math.max(0, m - fr); parts.push(fam + ' has a car: ' + who + ' drives to the ' + w + ', ' + m + ' min this morning' + (lost >= 3 ? ' (' + lost + ' of them in queues)' : '') + '; home at ' + hm(c.ret) + '.'); }
+    else parts.push(fam + ' has a car: ' + who + ' drives to the ' + w + ' at ' + hm(c.dep) + ', home at ' + hm(c.ret) + '.');
+  }
+  if (mine.length > 2) parts.push('And ' + plural(mine.length - 2, 'more car family', 'more car families') + ' here.');
+  return { cls: ' good', t: parts.join(' ') };
+}
+// The street's (or crossing's) card: the cars and carts that passed this morning.
+function carsTileText(s, i) {
+  const L = carsClockOwn(s) && s.autos && s.autos.last, e = L && L.tiles && L.tiles[i];
+  if (!e) return '';
+  const J = carsJam(s), jam = J && J.i === i;
+  return 'Morning rush (6:00-9:00): ' + plural(e[0], 'car', 'cars') + ' and ' + plural(e[1], 'cart', 'carts') + ' passed here' + (jam ? '; the cars jam it: everything there takes ' + carsSlowWord(J.slow) + ' as long as on a free road (the morning\'s loads with it).' : '.');
+}
+
+// ---------- the legend, the cards ----------
+{
+  const _lg = trafficLegend;
+  trafficLegend = function () {
+    _lg.apply(this, arguments);
+    const el = $('trlegend'), s = APP.state;
+    if (!el || !s || !el.classList.contains('show')) return;
+    const t = carsLegendText(s);
+    let d = el.querySelector('.carl');
+    if (!t) { if (d) d.remove(); return; }
+    if (!d) { d = document.createElement('div'); d.className = 'carl'; const at = el.querySelector('.wl, small'); if (at) el.insertBefore(d, at); else el.appendChild(d); }
+    if (d.textContent !== t) d.textContent = t;
+  };
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!b || defOf(b).kind !== 'home') return h;
+    const c = carsHomeText(s, b);
+    if (!c) return h;
+    // (under the family's line, before the needs: who drives is about the family)
+    const p = '<p class="note car' + c.cls + '">' + esc(c.t) + '</p>', n = h.indexOf('<div class="line"><span>Needs'), at = n >= 0 ? n : h.indexOf('<div class="btns">');
+    return at >= 0 ? h.slice(0, at) + p + h.slice(at) : h + p;
+  };
+  const _rh = rcardHtml;
+  rcardHtml = function (s, i) { const h = _rh.apply(this, arguments), t = carsTileText(s, i); return t ? h + '<p class="why car">' + esc(t) + '</p>' : h; };
+  const _jh = jcardHtml;
+  jcardHtml = function (s, i) { const h = _jh.apply(this, arguments), t = carsTileText(s, i); return t ? h + '<p class="why car">' + esc(t) + '</p>' : h; };
+}
+
+// The console and the tests: what the cars do now.
+function carsInfo() {
+  const s = APP.state, A = s && s.autos;
+  if (!A) return { on: carsClockOwn(s), list: 0 };
+  const st = {}, md = {};
+  for (const c of A.list) { st[c.st] = (st[c.st] || 0) + 1; md[c.mode] = (md[c.mode] || 0) + 1; }
+  return { on: carsClockOwn(s), tod: s.tod, want: carsWant(s), list: A.list.length, st, mode: md, road: carsOnRoad(s), last: A.last ? { at: A.last.at, jam: A.last.jam, tiles: Object.keys(A.last.tiles || {}).length } : null, legend: carsLegendText(s), drawn: APP.R && APP.R.stats ? APP.R.stats.cars || 0 : 0 };
 }
 
 // ---- src/ui/phone.js
