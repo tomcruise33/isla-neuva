@@ -24810,6 +24810,14 @@ function ap5Rects(b, lv) {
       const side = dw ? (ox ? 'west' : 'east') : (oy ? 'north' : 'south');
       out.push({ x, y, w, h, ext, side });
     }
+    // (P5b, her islands: the kept land can lie round the airport, a tile or two beyond each end: the lots that grow it
+    // at both ends at once, and the other corners of a lot that grows both ways; their new ground is the whole lot)
+    for (let oy = -dh; oy <= 0; oy++) for (let ox = -dw; ox <= 0; ox++) {
+      const x = b.x + ox, y = b.y + oy;
+      if (out.some((r) => r.x === x && r.y === y && r.w === w && r.h === h)) continue;
+      const side = dw && dh ? (ox === 0 ? 'east' : ox === -dw ? 'west' : 'both') : 'both';
+      out.push({ x, y, w, h, ext: { x, y, w, h }, side });
+    }
   }
   return out;
 }
@@ -24913,14 +24921,26 @@ function ap5Grows(s, b, lv) {
     // (no room to grow: the part on the airport's own lot, its ground raised as with room (the island's lot stays as it
     // is), and a new place where one is: hers to choose)
     // (the cheaper first; at the same price the new place, where the airport can grow)
-    out.list = [{ x: b.x, y: b.y, w: b.w, h: b.h, ext: null, side: '', inplace: true, clear: [], keep: [], ids: [], road: [], extra: 0, wood: [], how: 'free', cost: ap5Price(s, lv) }].concat(ap5Moves(s, b, lv).slice(0, 1))
-      .sort((a, z) => a.cost - z.cost || (z.move ? 1 : 0) - (a.move ? 1 : 0));
+    // (P5b, her 1905 island: the jet runway's homes had no free lot to move to, but the airport moved three tiles along
+    // its own ground freed its old end for them; that slide grows it on the map and goes first, else the cheaper)
+    const mv = ap5Moves(s, b, lv), one = mv.find((q) => q.slide) || mv[0];
+    out.list = [{ x: b.x, y: b.y, w: b.w, h: b.h, ext: null, side: '', inplace: true, clear: [], keep: [], ids: [], road: [], extra: 0, wood: [], how: 'free', cost: ap5Price(s, lv) }].concat(one ? [one] : [])
+      .sort((a, z) => (z.slide ? 1 : 0) - (a.slide ? 1 : 0) || a.cost - z.cost || (z.move ? 1 : 0) - (a.move ? 1 : 0));
   }
   if (!out.list.length) {
     const n = ap5Need(b, lv);
     out.why = 'its ' + n.L + ' x ' + n.S + ' lot reaches a road, a building or the sea at both ends and both sides, and no new place on the coast fits it: move what stands there to make room';
   }
   return out;
+}
+// A slide's words: "3 tiles north, its south end freed" (the new lot against the old one).
+function ap5SlideWords(b, q) {
+  // (P5c: a new lot across the old one, turned: its old strip freed)
+  if ((b.w > b.h) !== (q.w > q.h) && b.w !== b.h) return 'turned across its old strip, the rest of it freed';
+  const dx = q.x - b.x, dy = q.y - b.y, n = Math.max(Math.abs(dx), Math.abs(dy));
+  const dir = Math.abs(dy) >= Math.abs(dx) ? (dy < 0 ? 'north' : 'south') : (dx < 0 ? 'west' : 'east');
+  const back = { north: 'south', south: 'north', east: 'west', west: 'east' }[dir];
+  return n + (n === 1 ? ' tile ' : ' tiles ') + dir + ', its ' + back + ' end freed';
 }
 // A new place for the airport (the part's own lot, L x S, on the coast, with room for the jet airport): up to two, the
 // cheapest first. Each { x, y, w, h, f, clear, ids, road, extra, how, move: true, cost }.
@@ -24941,7 +24961,9 @@ function ap5Moves(s, b, lv) {
   // (no fee for the move: the part's runway is the new one; the old lot is freed)
   const price = ap5Price(s, lv);
   for (const q of all) q.cost = price + q.extra;
-  const list = (all.some((q) => q.jet) ? all.filter((q) => q.jet) : all).sort((a, z) => a.cost - z.cost), out = [];
+  // (a new place that overlaps its own lot is a slide along its ground: tried first, P5b)
+  for (const q of all) q.slide = q.x < b.x + b.w && b.x < q.x + q.w && q.y < b.y + b.h && b.y < q.y + q.h;
+  const list = (all.some((q) => q.jet) ? all.filter((q) => q.jet) : all).sort((a, z) => (z.slide ? 1 : 0) - (a.slide ? 1 : 0) || a.cost - z.cost), out = [];
   for (const q of list.slice(0, 16)) {
     if (out.length >= 2) break;
     if (out.some((o) => o.x < q.x + q.w && q.x < o.x + o.w && o.y < q.y + q.h && q.y < o.y + o.h)) continue;
@@ -24988,7 +25010,7 @@ function ap5MoveTry(s, b, q, lv, real) {
       b.ap5paid = (b.ap5paid || 0) + price;
       { const r = ap5LandRect(s, b); b.ap5land = r || 0; }
       const w = g4Words(s, q);
-      simLog(s, 'The airport moves to a new place on the coast' + (w ? ' (' + w + ')' : '') + ': its old lot could not grow. ' + P.name.replace(/^./, (x) => x.toUpperCase()) + ' is being built there: ' + money$(cost) + ', ' + P.months + ' months.', [b.x + b.w / 2, b.y + b.h / 2]);
+      simLog(s, (q.slide ? 'The airport grows along its own ground to ' + Math.max(q.w, q.h) + ' x ' + Math.min(q.w, q.h) + ' (' + ap5SlideWords({ x: keep.r[0], y: keep.r[1], w: keep.r[2], h: keep.r[3] }, q) + ')' + (w ? ', ' + w : '') + '. ' : 'The airport moves to a new place on the coast' + (w ? ' (' + w + ')' : '') + ': its old lot could not grow. ') + P.name.replace(/^./, (x) => x.toUpperCase()) + ' is being built there: ' + money$(cost) + ', ' + P.months + ' months.', [b.x + b.w / 2, b.y + b.h / 2]);
       simEvent(s, { kind: 'g3part', what: 'start', goal: 'airport', id: b.id, lv, name: P.name });
       simEvent(s, { kind: 'landopen', cost: q.extra, at: [q.x, q.y], clear: q.clear.length, moved: to.map((m) => m.id), id: b.id });
     }
@@ -25018,9 +25040,9 @@ function ap5GrowPlanOf(s, d) {
   if (!q) return null;
   const P = AP5_PARTS[d.lv - 1], same = !q.ext && !q.move, L = Math.max(q.w, q.h), S = Math.min(q.w, q.h);
   const alts = ap5Grows(s, b, d.lv).list.filter((c) => c !== q).map((c) => ap5GDesc(b, d.lv, c));
-  const grow = q.inplace ? 'built on its own lot (no room to grow: a street, a building or the sea at its ends and sides)' : q.move ? 'moved to a new place' + (ap5Inland(s) ? '' : ' on the coast') + ' (' + L + ' x ' + S + '; its old lot freed, its ground and routes kept)' : same ? '' : (L > Math.max(b.w, b.h) ? 'lengthened at its ' + q.side + ' end' : 'widened on its ' + q.side + ' side') + ' to ' + L + ' x ' + S;
+  const grow = q.inplace ? 'built on its own lot (no room to grow: a street, a building or the sea at its ends and sides)' : q.slide ? 'lengthened to ' + L + ' x ' + S + ' along its own ground (' + ap5SlideWords(b, q) + ')' : q.move ? 'moved to a new place' + (ap5Inland(s) ? '' : ' on the coast') + ' (' + L + ' x ' + S + '; its old lot freed, its ground and routes kept)' : same ? '' : (L > Math.max(b.w, b.h) ? (q.side === 'both' ? 'lengthened at both ends' : 'lengthened at its ' + q.side + ' end') : (q.side === 'both' ? 'widened on both sides' : 'widened on its ' + q.side + ' side')) + ' to ' + L + ' x ' + S;
   const words = [grow, g4Words(s, q)].filter(Boolean).join(', ');
-  const short = q.inplace ? 'On its own lot (no room to grow)' : q.move ? 'New place' + (q.how === 'free' && !q.road.length ? '' : ': ' + g4Short(q).replace(/^./, (x) => x.toLowerCase())) : same ? 'On its own lot' : (L > Math.max(b.w, b.h) ? 'The ' + q.side + ' end' : 'The ' + q.side + ' side') + (q.how === 'free' ? '' : ': ' + g4Short(q).replace(/^./, (x) => x.toLowerCase()));
+  const short = q.inplace ? 'On its own lot (no room to grow)' : q.slide ? 'Along its own ground' + (q.how === 'free' && !q.road.length ? '' : ': ' + g4Short(q).replace(/^./, (x) => x.toLowerCase())) : q.move ? 'New place' + (q.how === 'free' && !q.road.length ? '' : ': ' + g4Short(q).replace(/^./, (x) => x.toLowerCase())) : same ? 'On its own lot' : (q.side === 'both' ? (L > Math.max(b.w, b.h) ? 'Both ends' : 'Both sides') : L > Math.max(b.w, b.h) ? 'The ' + q.side + ' end' : 'The ' + q.side + ' side') + (q.how === 'free' ? '' : ': ' + g4Short(q).replace(/^./, (x) => x.toLowerCase()));
   const lot = q.move ? { x: q.x, y: q.y, w: q.w, h: q.h } : q.ext || { x: b.x, y: b.y, w: b.w, h: b.h };
   return { kind: 'g5grow', id: b.id, goal: 'airport', lv: d.lv, k: P.k, lot: [lot.x, lot.y], lots: [lot], full: { x: q.x, y: q.y, w: q.w, h: q.h }, line: q.move ? q.road.concat([tileIdx(lot.x, lot.y)]) : [tileIdx(b.x, b.y)], road: q.move ? q.road.slice() : [], move: !!q.move,
     clear: q.clear.slice(), keep: [], ids: q.ids.slice(), cost: q.cost, extra: q.extra, price: q.cost - q.extra, how: q.how, wood: 0, later: 0, same, inplace: !!q.inplace,
@@ -25133,12 +25155,53 @@ const AP5_KINDS = { g5site: 1, g5grow: 1 };
       if (!q) return null;
       const near = [q.x + Math.floor(q.w / 2), q.y + Math.floor(q.h / 2)];
       return { k: 'air', who: 'governor', tool: 'airfield', need: 1, near, plan: ap5Desc(q), joy: 1,
-        ask: 'Visitors on the flying boats from Key West are turned away at the pier. An airfield on the coast, and they come every week (since the palace the island builds one for 3 town-months, ' + money$(BUILDINGS.airfield.cost) + ', its upkeep ' + money$(AP5.upkeep) + ' a month). ' + ap5PlaceLine(s),
-        praise: 'The first flying boat touched down: visitors walk up from the slipway.' };
+        ask: ap5AskWords(s) + ' (since the palace the island builds one for 3 town-months, ' + money$(BUILDINGS.airfield.cost) + ', its upkeep ' + money$(AP5.upkeep) + ' a month). ' + ap5PlaceLine(s),
+        praise: ap5PraiseWords(s) };
     };
     const _w = G.waits;
     G.waits = function (s) { return ap5On() ? 'room for its ' + AP5.w + ' x ' + AP5.h + ' strip' + ap5Where(s) : _w ? _w.apply(this, arguments) : 'land'; };
   }
+}
+
+// ---------- the governor's ask for an airfield: after the palace, P5's places as well ----------
+// (P5b: her player without the pill follows the asks; the governor's ask took the lot nearest the pier that fitted the
+// 6 x 2 strip, between the sea, a street and homes on her 1905 island: no room for the jet airport, nothing kept, and
+// all five parts built on its own lot. After the palace the ask names P5's gold place, as the ladder's step does.)
+{
+  const T = COMMISSIONS.find((o) => o.key === 'airfield');
+  if (T) {
+    const _w = T.when;
+    T.when = function (s) {
+      let r = _w.apply(this, arguments);
+      if (r && !ap5Boats(s)) r = Object.assign({}, r, { ask: ap5AskWords(s) + '.', praise: ap5PraiseWords(s) });
+      if (!r || !ap5On() || !s.palace) return r;
+      const q = ap5Sites(s).list[0];
+      return q ? Object.assign({}, r, { plan: ap5Desc(q), near: [q.x + Math.floor(q.w / 2), q.y + Math.floor(q.h / 2)] }) : r;
+    };
+  }
+  const _cm = comMake;
+  comMake = function (s, T, r) {
+    const q = _cm.apply(this, arguments);
+    if (q && T && T.key === 'airfield' && r && r.plan && r.plan.kind === 'g5site') { q.plan = r.plan; q.spots = []; q.road = null; q.move = 0; q.sv = s.ver; }
+    return q;
+  };
+  // (an ask made before the palace, with its glowing spot, names the gold place from the palace on as well)
+  const _cr = comRespot;
+  comRespot = function (s, q) {
+    // (P5c: an ask made in the flying boats' time says the era's words from 1946 on)
+    if (q && q.key === 'airfield' && !ap5Boats(s) && /flying boat/.test(q.ask || '')) { q.ask = ap5AskWords(s) + '.'; q.praise = ap5PraiseWords(s); }
+    if (!q || q.key !== 'airfield' || !ap5On() || !s.palace) return _cr.apply(this, arguments);
+    if (q.sv === s.ver) return;
+    const live = q.plan && q.plan.kind === 'g5site' && planOf(s, q.plan), g = live ? null : ap5Sites(s).list[0];
+    if (live || g) {
+      if (g) { q.plan = ap5Desc(g); q.near = [g.x + Math.floor(g.w / 2), g.y + Math.floor(g.h / 2)]; }
+      q.sv = s.ver; q.spots = []; q.road = null; q.move = 0;
+      return;
+    }
+    // (no place of P5's: the ask's own spots as before)
+    if (q.plan && q.plan.kind === 'g5site') q.plan = null;
+    return _cr.apply(this, arguments);
+  };
 }
 
 // ---------- the airport among the goals after the ladder ----------
@@ -25229,7 +25292,7 @@ function ap5Without(fn) { const w = AP5_ORD.noAir; AP5_ORD.noAir = true; try { r
       const o = ap5Sites(s), q = o.list[0];
       if (!q) return null;
       return { k: 'airport0', who: 'governor', tool: 'airfield', need: 1, near: [q.x + Math.floor(q.w / 2), q.y + Math.floor(q.h / 2)], plan: ap5Desc(q), joy: 0,
-        ask: 'The jets are coming to the Caribbean, and the island has no airfield. The airfield first, on the coast: then its paved runway, its terminal and its tower. ' + ap5PlaceLine(s),
+        ask: 'The jets are coming to the Caribbean, and the island has no airfield. The airfield first' + ap5Where(s) + ': then its paved runway, its terminal and its tower. ' + ap5PlaceLine(s),
         praise: 'The airfield stands: now its runway can grow.' };
     }
     if (b.wip || b.g5up) return null;
@@ -25238,7 +25301,7 @@ function ap5Without(fn) { const w = AP5_ORD.noAir; AP5_ORD.noAir = true; try { r
     const o = ap5Grows(s, b, lv), q = o.list[0];
     if (!q) return null;
     const P = AP5_PARTS[lv - 1], c = g3Count(s, 'airport');
-    const have = c.fin ? 'The airport has ' + plural(c.fin, 'part', 'parts') + ' (' + AP5_PARTS.slice(0, c.fin).map((x) => x.btn.toLowerCase()).join(', ') + '): ' + c.cap + ' charter visitors a month. ' : 'The flying boats’ airfield is too small for the airliners and the jets. ';
+    const have = c.fin ? 'The airport has ' + plural(c.fin, 'part', 'parts') + ' (' + AP5_PARTS.slice(0, c.fin).map((x) => x.btn.toLowerCase()).join(', ') + '): ' + c.cap + ' charter visitors a month. ' : 'The grass airfield is too small for the airliners and the jets. ';
     return { k: 'airport' + lv, who: 'airport', tool: '', need: 0, near: [b.x + Math.floor(b.w / 2), b.y + Math.floor(b.h / 2)], plan: ap5GDesc(b, lv, q), joy: 0,
       ask: have + P.name.replace(/^./, (x) => x.toUpperCase()) + ' next: ' + P.gives + ', and ' + AP5.charter + ' more charter visitors a month · ' + money$(q.cost) + ', ' + P.months + ' months to build.' + (q.extra || o.list.length > 1 ? ' ' + ap5GrowLine(s, b, lv) : ''),
       praise: 'The scaffolding is up: ' + P.name + ' opens in ' + P.months + ' months.' };
@@ -25378,6 +25441,12 @@ function ap5RewardNow(s) {
         const last = (I.log || []).filter((o) => inY(o.m)).slice(-1)[0];
         if (last && last.id === 'airport') g.head = 'The jets land at Isla Nueva!';
         for (const it of g.items || []) if (AP5_PARTS.some((p) => it.text.startsWith(p.name.replace(/^./, (x) => x.toUpperCase()) + ' open'))) it.icon = 'plane';
+        // (P5c: the airfield's headline and its first by the era)
+        if (Y.y >= AP5.inland) {
+          if (g.head === 'The flying boats land at our own airfield!') g.head = 'The airliners land at our own airfield!';
+          if (g.head === GAZ_FIRSTS.airfield + '!') g.head = 'The first airliner lands at our airfield!';
+          for (const it of g.items || []) if (it.text === GAZ_FIRSTS.airfield + '!') it.text = 'The first airliner lands at our airfield!';
+        }
       }
     } catch (e) { /* the page as it is */ }
     return g;
@@ -25390,6 +25459,33 @@ if (typeof STILL_GOALS !== 'undefined') {
     at: (s) => g3Count(s, 'airport').placed + ' / ' + AP5_GOAL.max + ' parts',
     without: 'a new part',
     counts: (s) => 'a new part placed or built (' + g3Count(s, 'airport').placed + ' / ' + AP5_GOAL.max + ' now)' };
+}
+
+// ---------- P5c: the airfield's words by the era ----------
+// (Tomáš's 1970 airfield card spoke of flying boats.) The flying boats flew until 1945 (Pan American's last flight from
+// Dinner Key, 9 August 1945: AP1's note, docs/research/airport.md); from 1946 the open service's planes are landplanes
+// (the DC-3s and the charters, and from the jet runway the jets). The ask, Rosa, the card, the island's mood and the
+// Gazette say so. TUNE.ap5Off: the words as v38.
+function ap5Boats(s) { return !ap5On() || yearOf(s) < AP5.inland; }
+function ap5AskWords(s) {
+  return ap5Boats(s) ? 'Visitors on the flying boats from Key West are turned away at the pier. An airfield on the coast, and they come every week'
+    : 'The airliners from Miami fly over the island to its neighbours. An airfield' + ap5Where(s) + ', and their visitors come every week';
+}
+function ap5PraiseWords(s) { return ap5Boats(s) ? 'The first flying boat touched down: visitors walk up from the slipway.' : 'The first airliner touched down: its visitors walk in from the apron.'; }
+{
+  // the ladder's reward: by air (true of the flying boats as of the airliners)
+  const G = ISLE_GOALS.find((o) => o.id === 'airfield');
+  if (G) {
+    const r0 = G.reward;
+    Object.defineProperty(G, 'reward', { configurable: true, enumerable: true, get() { return ap5On() ? 'visitors by air every week' : r0; } });
+  }
+  // the island's mood: the airfield's line
+  const _hc = happyCalc;
+  happyCalc = function (state) {
+    const r = _hc.apply(this, arguments);
+    if (!ap5Boats(state)) for (const p of r.parts || []) if (p.label === 'The airfield: flying boats to Havana and Key West') p.label = 'The airfield: airliners to Miami';
+    return r;
+  };
 }
 
 // ---- src/sim/goals3.js
@@ -32146,7 +32242,8 @@ const ISO = (() => {
   let LBL = null;
   function lblBegin(R, ui) {
     const sh = Math.max(0, (R.w - R.canvas.clientWidth) / 2), sv = Math.max(0, (R.h - R.canvas.clientHeight) / 2);
-    LBL = { boxes: [], H: (ui && ui.hudRects ? ui.hudRects : []).map((q) => [q[0] + sh, q[1] + sv, q[2] + sh, q[3] + sv]), x0: sh, y0: sv, x1: R.w - sh, y1: R.h - sv, keep: false, n: 0, moved: 0, hidden: 0 };
+    // (P5c: and off the facilities' buttons over the map, "✈ Airfield", "⚓ Harbour": ui.pinRects)
+    LBL = { boxes: [], H: (ui && ui.hudRects ? ui.hudRects : []).concat(ui && ui.pinRects ? ui.pinRects : []).map((q) => [q[0] + sh, q[1] + sv, q[2] + sh, q[3] + sv]), x0: sh, y0: sv, x1: R.w - sh, y1: R.h - sv, keep: false, n: 0, moved: 0, hidden: 0 };
   }
   function lblEnd(R) { if (LBL) R.stats.labels = { n: LBL.n, moved: LBL.moved, hidden: LBL.hidden, boxes: LBL.boxes.map((b) => b.map(Math.round)) }; LBL = null; }
   function lblHit(a, b) { return a[0] < b[2] - 0.5 && b[0] < a[2] - 0.5 && a[1] < b[3] - 0.5 && b[1] < a[3] - 0.5; }
@@ -32176,7 +32273,7 @@ const ISO = (() => {
     return [b[0] + sp.ax, b[1] + sp.ay];
   }
   function labelClear(R, ui, cands, sp) {
-    const H = ui.hudRects || [], sh = Math.max(0, (R.w - R.canvas.clientWidth) / 2), sv = Math.max(0, (R.h - R.canvas.clientHeight) / 2);
+    const H = (ui.hudRects || []).concat(ui.pinRects || []), sh = Math.max(0, (R.w - R.canvas.clientWidth) / 2), sv = Math.max(0, (R.h - R.canvas.clientHeight) / 2);
     for (const p of cands) {
       const b = [p[0] - sp.ax - sh, p[1] - sp.ay - sv, p[0] - sp.ax + sp.w - sh, p[1] - sp.ay + sp.h - sv];
       if (b[0] < 0 || b[1] < 0 || b[2] > R.w - 2 * sh || b[3] > R.h - 2 * sv) continue;
@@ -33766,11 +33863,11 @@ const ISO = (() => {
     };
     // the airport's kept land (sim/airgrow.js ap5Land): a dashed fence round the ground its runway will grow on, with
     // the runway's line marked on it, so she sees why no home is built there
+    // (P5c: drawn first, under the asks' lots and their labels: its dashes crossed the cream label on the 1979 screen)
     const _co5 = comOverlay;
     comOverlay = function (R, s, ui, t) {
-      const r = _co5.apply(this, arguments);
       try {
-        if (typeof ap5Land !== 'function' || !s.palace || R.hw < 14) return r;
+        if (typeof ap5Land !== 'function' || !s.palace || R.hw < 14) return _co5.apply(this, arguments);
         for (const b of s.b) {
           if (b.type !== 'airfield') continue;
           const L = ap5Land(s, b);
@@ -33785,7 +33882,7 @@ const ISO = (() => {
           }
         }
       } catch (e) { /* the land unmarked */ }
-      return r;
+      return _co5.apply(this, arguments);
     };
     // each airport's plane lands along its strip's long side (row 1 of its layout), rolls, waits, takes off again; the
     // old 3 x 3 airfields fly as before
@@ -47116,6 +47213,67 @@ function g5CardHtml(s, b) {
       }
     } catch (e) { /* the list as it is */ }
     return r;
+  };
+}
+
+// ---------- P5c: the map's labels keep off the facilities' buttons ----------
+// (P5b's 1979 screenshot: "On its own lot (no room to grow) · $8,500" lay under the "✈ Airfield" button. The buttons are
+// the page's, over the canvas; the labels' layout (render/iso.js: lblBegin, labelClear) keeps off APP.ui.pinRects too.)
+{
+  const _fp = facPins;
+  facPins = function () {
+    const k0 = APP.facPinKey, r = _fp.apply(this, arguments);
+    if (APP.facPinKey !== k0 || !APP.ui.pinRects) {
+      const el = $('facPins');
+      APP.ui.pinRects = el ? [...el.children].map((e) => { const q = e.getBoundingClientRect(); return [q.left - 4, q.top - 4, q.right + 4, q.bottom + 4]; }).filter((q) => q[2] - q[0] > 8) : [];
+    }
+    return r;
+  };
+}
+
+// ---------- P5c: the airfield's words by the era (sim/airgrow.js: ap5Boats) ----------
+{
+  const r0 = ISLE_RITUAL_LINE.airfield;
+  Object.defineProperty(ISLE_RITUAL_LINE, 'airfield', { configurable: true, enumerable: true,
+    get() { return APP.state && !ap5Boats(APP.state) ? 'The airliners land at our own airfield: visitors walk in from the apron every week.' : r0; } });
+  const BOATS = 'Flying boats from Key West and Havana land here (Aeromarine flew that route from 1920, Pan American from 1927).';
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!b || b.type !== 'airfield' || ap5Boats(s)) return h;
+    // (v40: the cities of the Routes board, sim/airport.js AP_ROUTES: Pan American's landplanes from Miami, its jets from
+    // New York from 1959; Havana's routes were the flying boats', to 1945)
+    const now = ap5Jets(s) ? 'Airliners from Miami and jets from New York land here' : 'Airliners from Miami land here';
+    return h.replace(esc(BOATS), esc(now + ' (the flying boats flew until 1945; Pan American’s DC-3s, then its four-engined airliners and the charters).'));
+  };
+}
+
+// ---------- P5c: a goal's building that costs the island more than it brings, said plainly on its card ----------
+// (The museum's card read −$32 a month at four parts on the 1969 test island, P4's television station −$16 at two.
+// Nothing was left out: the museum's fees are its only income (the visitors' spending in the town is the airfield's,
+// the harbour's, the stadium's), the station's are its sponsors. A museum of art is paid for: Ponce's by Ferré's
+// foundation, then by public money; the fees never cover it. A station pays its way once its signal reaches enough
+// homes (P4's tall mast). Both are kept as they are and said plainly, with what makes them pay.)
+function g5CostLine(s, b) {
+  const t = G3_TYPE[b.type];
+  if (!t || !b.open || b.wip || !b.workers || !(t.goal === 'museum' || t.goal === 'tv')) return '';
+  const x = bNumber(s, b), cost = (x.wages || 0) + (x.upkeep || 0), n = Math.round(x.n);
+  if (n >= 0 || !cost) return '';
+  if (t.goal === 'museum') {
+    const per = G5.museumFee * g3Running(s, 'museum'), v = g5Visitors(s).n, need = per ? Math.ceil(cost / per) : 0;
+    return 'The island pays ' + money$(-n) + ' a month for it: its staff and upkeep cost ' + money$(cost) + ', its ' + plural(v, 'visitor', 'visitors') + ' pay ' + money$(x.fees || 0) + '. ' +
+      (need ? 'It pays its way from ' + need + ' visitors a month ($' + per + ' each now); the airfield, the ships, the stadium, the resort and the hotels bring them.' : '');
+  }
+  const g = g4Signal(s), per = G4.tvPay * g.parts, need = per ? Math.ceil(cost / per) : 0;
+  return 'The island pays ' + money$(-n) + ' a month for it: its staff and upkeep cost ' + money$(cost) + ', its sponsors pay ' + money$(g.pay) + ' for ' + plural(g.homes, 'home', 'homes') + ' in its signal. ' +
+    (need ? 'It pays its way from ' + need + ' homes within ' + g.reach + ' tiles' + (g.reach < G4.tvReachTall ? ' (the tall mast reaches ' + G4.tvReachTall + ')' : '') + '.' : '');
+}
+{
+  const _gc = g3CardHtml;
+  g3CardHtml = function (s, b) {
+    const h = _gc.apply(this, arguments), line = g5CostLine(s, b);
+    // (v40: first in the card's body, under its red sum: at the end it sat below the fold on the iPad)
+    return line ? '<p class="note">' + esc(line) + '</p>' + h : h;
   };
 }
 
