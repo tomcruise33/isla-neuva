@@ -21837,6 +21837,405 @@ function cwEst(live, wk, wcur) {
   };
 }
 
+// ---- src/sim/walk.js
+// C4 (6 Nov 2026, nova/walk): sidewalks, pedestrian crossings, and walking instead of a queue. DESIGN.md §57; sources:
+// docs/research/walk.md. C3 measured on the 1960 Capital (x3) that 48 of 81 drivers would be quicker on foot than driving
+// their queue, while C1's rule walked only at 3 road tiles or less. Tomáš chose (6 Nov) "Chodníky, prechody, autá stoja":
+// - Sidewalks come with a paved road and an avenue (drawn: render/iso.js pavedStroke; no new tool, no new price: see the
+//   research note); dirt roads have none, their walkers keep to the road's edge.
+// - Pedestrian crossings (zebras) on every paved arm of a crossing where paved roads meet (zbAt), drawn on the road
+//   (ui/walk_ui.js): two white lines from TF.linesYear (1917), the striped zebra from 1951.
+// - Whoever is quicker on foot walks (wkChoose): a car family whose walk (its road tiles at WALK.ms) is quicker than its drive
+//   with the queue (its own drive the last morning; a family walking already: the plain way's free time and the cars' waits
+//   at its crossings, C3's) by a twentieth and 2 ticks (C3's margin) leaves the car at home. Habits, not flapping: a family
+//   chooses again on the mornings C3's draw makes it choose its way again (a third of them, and every one a queue held).
+// - The walkers (the car families on foot: C1's near ones and these) walk to work and home along the shortest way, on the
+//   sidewalk, and cross at the crossings on its zebras (wkEvents: straight on the side street on their side, a turn away
+//   from it the street they came along and the one they go into). On a zebra the cars give way (tfAdmit): a car may not
+//   drive in from an arm, or out into one, while people are on its zebra; the people step out after a car already let in
+//   has passed, and at traffic lights they cross on the cars' red (the turning cars still give way). A real wait in the
+//   cars' sim, counted where C2 and C3 count the rush's waits (the crossing's mean wait includes it); the time the zebra
+//   held the cars and how many walkers crossed are kept per crossing for the card, the legend and Rosa.
+// - The crossing's copies (C2's rush copy, the trial run of the morning) replay the morning's walkers too, so every rule's
+//   ≈ takes them in (lights: they cross on red).
+// Kill switches: TUNE.walkOff (the walk rule: C1's 3 tiles only), TUNE.zebraOff (the cars do not give way); NOVA_NO_C4=1
+// leaves this file out of the tests' sim. Saved: on a walking family's entry in state.autos.list: why ('quick'), wk (the
+// numbers it chose by), wp (its way on foot), ws (its side), st 'wgo' | 'wwork' | 'wback' | 'wdone', wt0, wq, ke, we, wl;
+// state.autos.zb (the zebras' times: who is on them, until when a car let in holds them), last.zw, last.wtl.
+
+const WALK = {
+  ms: 1.4,              // m/s a commuter walks (Knoblauch, Pietrucha & Nitzburg 1996: 1.25-1.5 m/s; HCM 2010 uses 1.2
+                        // for a crossing's design, the slow walker)
+  tileM: 12,            // m a tile (T1: an ox cart's 0.6 tiles a tick is 6.5 km/h)
+  laneM: 3,             // m a lane, and 1.2 m of gutters: a zebra's length across a paved street (one lane each way: 7.2 m)
+  rim: 0.6,             // where along a crossing's tile a walker reaches the kerb of the first zebra (path index units)
+  corner: 0.8,          // tiles walked from one corner of a crossing to the next (across an arm)
+  inClear: 0.6,         // tiles a car let in still has to the far edge of the zebra it comes in over (from its line)
+  outClear: 1.35,       // and of the zebra it leaves over
+  vMin: 0.35,           // the share of the road's speed a car let in is assumed to go at least
+  look: 160,            // ticks a walker at lights looks ahead for the cars' red (the longest cycle is 120 s: 30 ticks)
+};
+function walkOn(s) { return !!s && typeof carsOn === 'function' && carsOn(s) && !TUNE.walkOff; }
+function zbOn(s) { return !!s && !TUNE.zebraOff && (s._tfBench || s._trial || (typeof carsOn === 'function' && carsOn(s))); }
+// ticks to walk n tiles (a tick is TF.sec s of T1's street time): 2.14 a tile
+function wkTicks(n) { return n * WALK.tileM / WALK.ms / TF.sec; }
+// ticks people take to cross the zebra on arm `arm` of crossing J (its lanes each way, both ways, and the gutters)
+function zbCross(s, J, arm) {
+  const j = zbNb(J, arm), nl = j >= 0 && s.road[j] ? lanesAt(s, j) : 1;
+  return (2 * nl * WALK.laneM + 1.2) / WALK.ms / TF.sec;
+}
+function zbNb(J, arm) { const x = J % MAP_W; return arm === 0 ? (x + 1 < MAP_W ? J + 1 : -1) : arm === 1 ? J + MAP_W : arm === 2 ? (x > 0 ? J - 1 : -1) : J - MAP_W; }
+// A zebra on arm `arm` of tile J: a crossing (three arms or more) where paved roads meet, the arm paved, and not the
+// short piece between an avenue's two carriageways (its neighbour another crossing)
+function zbAt(s, J, arm) {
+  if (!(s.road[J] >= 2) || !jctAt(s, J)) return false;
+  const j = zbNb(J, arm);
+  return j >= 0 && j < s.road.length && s.road[j] >= 2 && !jctAt(s, j);
+}
+// The zebras' times (state.autos.zb on the island, saved; a copy's own): key J x 4 + arm -> [until when a car let in
+// holds it, then the walkers on it as start, end pairs] (ticks)
+function zbStore(s) {
+  if (s._tfBench || s._trial) return s._wz || (s._wz = {});
+  const A = s.autos;
+  if (!A) return s._wz || (s._wz = {});
+  return A.zb || (A.zb = {});
+}
+function zbBusy(z, a, b) { if (!z) return false; for (let k = 1; k < z.length; k += 2) if (z[k] < b && z[k + 1] > a) return true; return false; }
+
+// ---------- the walk rule (05:00) ----------
+// The way on foot from home h to work w: the fewest road tiles (roadPath, as A1's drawn walkers), or null.
+function wkWay(s, h, w) { const p = h && w ? roadPath(s, h, w) : null; return p && p.length >= 1 && p.every((i) => s.road[i]) ? p : null; }
+// A car's free ticks along a way (T1's pace on each tile after the first: C1's c.fr)
+function wkFree(s, p) { let f = 0; for (let k = 1; k < p.length; k++) f += 1 / tfV0(s, p[k]); return f; }
+// The drive a family weighs its walk against: its own drive the last morning (y: yesterday's entry, when it drove and
+// arrived), else the plain way's free time and the cars' waits at its crossings (C3's, the last mornings).
+// { d (ticks), q (of them waiting), how: 'own' | 'est', J (the crossing it waits at most, -1), side }
+function wkDrive(s, h, w, y) {
+  if (y && y.mode === 'car' && (y.tt > 0 || y.st === 'go')) {
+    if (y.st === 'go') { const t = s.tick - (y.t0 || s.tick); return { d: Math.max(t, y.tt || 0), q: Math.max(0, t - (y.fr || 0)), how: 'still', J: -1, side: -1 }; }
+    return { d: y.tt, q: Math.max(0, y.tt - (y.tf || y.tt)), how: 'own', J: y.lw ? y.lw.J : -1, side: -1 };
+  }
+  let p = null;
+  if (typeof cwPath === 'function' && cwOn(s)) { const q = cwPath(s, h, w, CW_NONE); if (q && cwWayOk(s, q, h, w)) p = q; }
+  if (!p) { const q = cartRoute(s, w, h); p = q && q.length >= 2 && q.every((i) => s.road[i]) ? q.slice().reverse() : null; }
+  if (!p) return null;
+  const free = wkFree(s, p);
+  let q = 0, J = -1, side = -1, mx = 0;
+  if (typeof cwWaits === 'function' && cwOn(s)) {
+    const W = cwWaits(s);
+    for (let k = 1; k < p.length; k++) { const key = p[k] * 4 + cwSide(p[k - 1], p[k]), v = W.m.get(key) || 0; q += v; if (v > mx) { mx = v; J = p[k]; side = key & 3; } }
+  }
+  return { d: free + q, q, how: 'est', J, side };
+}
+// Family c (a car family C1 would drive) chooses this morning: walk where its walk is quicker than its drive (y:
+// yesterday's entry). Sets c.mode 'walk' and c.why 'quick' when it walks; c.wk the numbers either way.
+function wkChoose(s, c, y) {
+  const h = bById(s, c.h), w = bById(s, c.w), p = wkWay(s, h, w);
+  if (!p) return;
+  const walk = wkTicks(p.length - 1), D = wkDrive(s, h, w, y);
+  if (!D) return;
+  const was = !!(y && y.mode === 'walk' && y.why === 'quick');
+  const m = (v) => Math.max(CW.gainMin, CW.gain * v);
+  // (driving: it walks once the walk is a twentieth and 2 ticks quicker; walking: it drives again only once the drive is)
+  const go = was ? !(D.d <= walk - m(walk)) : walk <= D.d - m(D.d);
+  c.wk = { w: Math.round(walk * 100) / 100, n: p.length - 1, d: Math.round(D.d * 100) / 100, q: Math.round(D.q * 100) / 100, how: D.how, J: D.J, side: D.side, m: s.month };
+  if (go) { c.mode = 'walk'; c.why = 'quick'; }
+}
+{
+  const _cp = carsPlan;
+  carsPlan = function (s) {
+    const A = carsState(s), was = new Map();
+    for (const c of A.list) was.set(c.h + ':' + c.fid + ':' + c.w, c);
+    const keep = new Set(A.list.filter((c) => (c.st === 'go' || c.st === 'back') && c.path));
+    const r = _cp.apply(this, arguments);
+    if (!carsOn(s)) return r;
+    for (const c of A.list) {
+      if (keep.has(c)) continue;
+      const y = was.get(c.h + ':' + c.fid + ':' + c.w);
+      if (c.mode === 'car' && walkOn(s)) {
+        // (the mornings C3 makes a family choose its way again it also chooses whether to drive at all: a third of the
+        // families a morning, a fixed draw, and every family a queue held; a family new today chooses)
+        const lost = !y || y.mode !== 'car' ? 0 : y.st === 'go' ? Infinity : (y.tt || 0) - (y.tf || y.tt || 0);
+        const rp = !y || lost >= CW.stuck || carsHash(c.h, c.fid, 11 + (s.tick % 1000003)) < CW.replan;
+        if (rp) wkChoose(s, c, y);
+        else if (y.mode === 'walk' && y.why === 'quick') { c.mode = 'walk'; c.why = 'quick'; c.wk = y.wk; }
+      }
+      if (c.mode === 'walk') {
+        // (its way on foot and the sidewalk it keeps to: a fixed draw a family)
+        const p = wkWay(s, bById(s, c.h), bById(s, c.w));
+        c.wp = p; c.ws = carsHash(c.h, c.fid, 21) < 0.5 ? 1 : -1;
+      }
+    }
+    return r;
+  };
+}
+
+// ---------- the walkers ----------
+// The zebras a walker crosses on way p (side ws: +1 the right-hand sidewalk, -1 the left): [[ticks from setting off,
+// J, arm, ticks on the zebra], ...]. At a crossing straight on: the side street on its side; turning into the street on
+// its side: none; turning away: the street it came along, then the one it goes into (a corner each).
+function wkEvents(s, p, ws) {
+  const out = [], tk = wkTicks(1);
+  for (let k = 1; k < p.length - 1; k++) {
+    const J = p[k];
+    if (!jctAt(s, J)) continue;
+    const din = tfDir(p[k - 1], J), dout = tfDir(J, p[k + 1]), mine = (din + (ws > 0 ? 1 : 3)) % 4;
+    if (din < 0 || dout < 0) continue;
+    let arms = [];
+    if (dout === din) arms = [mine];
+    else if (dout === (mine + 2) % 4) arms = [(din + 2) % 4, dout];
+    let at = (k - 0.5 + 0.1) * tk;
+    for (const a of arms) {
+      if (zbAt(s, J, a)) out.push([Math.round(at * 1000) / 1000, J, a, Math.round(zbCross(s, J, a) * 1000) / 1000]);
+      at += WALK.corner * tk;
+    }
+  }
+  return out;
+}
+// When people reaching the zebra (J, arm) at ta step out: after a car let in has passed, and at lights on the cars' red
+// from that arm (straight and turning).
+function zbStart(s, Z, J, arm, ta) {
+  const z = Z[J * 4 + arm];
+  let t = Math.max(ta, z ? z[0] : -Infinity);
+  if (tfCtl(s, J) === 'lights') {
+    const din = (arm + 2) % 4;
+    for (let k = 0; k < WALK.look * 4; k++) { const u = t + k / 4; if (sigFor(s, J, din, 0, u) === 'R' && sigFor(s, J, din, 3, u) === 'R') { t = u; break; } }
+  }
+  return t;
+}
+// A walker reaches zebra event e at time ta: the time it steps out (its wait), its time on the zebra; the morning's
+// measure counts it. Returns the wait (ticks).
+function zbWalk(s, Z, J, arm, ta, D, X) {
+  const ts = zbStart(s, Z, J, arm, ta), key = J * 4 + arm, z = Z[key] || (Z[key] = [-1]);
+  z.push(Math.round(ts * 1000) / 1000, Math.round((ts + D) * 1000) / 1000);
+  if (X && ta >= (X.from || 0)) {
+    const e = (X.zw || (X.zw = {}))[J] || (X.zw[J] = [0, 0, 0]);
+    e[0]++;
+    // (the copies replay the walkers' arrivals: quarter ticks since the measure opened, x 4 + the arm)
+    if (X.t0 !== undefined) { const W = X.wa || (X.wa = {}); (W[J] || (W[J] = [])).push(Math.max(0, Math.round((ta - X.t0) * 4)) * 4 + arm); }
+  }
+  return ts - ta;
+}
+// The zebras' old times are dropped (a tick after they end)
+function zbTidy(s, Z, t) {
+  for (const k in Z) {
+    const z = Z[k];
+    let w = 1;
+    for (let i = 1; i < z.length; i += 2) if (z[i + 1] >= t - 1) { z[w++] = z[i]; z[w++] = z[i + 1]; }
+    z.length = w;
+    if (w === 1 && z[0] < t - 1) delete Z[k];
+  }
+}
+// The morning's measure the walkers are counted in (the island's open measure; a trial's own)
+function wkMeasureOf(s) {
+  if (s._tfBench) return null;
+  if (s._trial) return s._rushX || null;
+  const A = s.autos;
+  return A && A.cur && A.cur.x && carsOn(s) ? A.cur.x : null;
+}
+// Each tick, before T1's step: every walker on its way reaches its next zebras (those it comes to in this tick), steps
+// out when it may, and arrives. The island's walkers (state.autos.list), a trial's (s._walkers), a crossing's copy's
+// (s._wkEv: the morning's arrivals at its crossing).
+function wkAdvance(s) {
+  const t = s.tick, Z = zbStore(s), X = wkMeasureOf(s), on = zbOn(s);
+  const step = (c) => {
+    const ev = c.we || [];
+    while (c.ke < ev.length && c.wt0 + ev[c.ke][0] + c.wq < t + 1) {
+      const [b, J, arm, D] = ev[c.ke], ta = c.wt0 + b + c.wq;
+      const wait = on ? zbWalk(s, Z, J, arm, ta, D, X) : 0;
+      (c.wl || (c.wl = [])).push(Math.round(b * 1000) / 1000, Math.round(wait * 1000) / 1000);
+      c.wq = Math.round((c.wq + wait) * 1000) / 1000; c.ke++;
+    }
+  };
+  if (s._wkEv) {
+    // (a crossing's copy: the morning's walkers at it, at their moments)
+    const E = s._wkEv;
+    while (E.i < E.ev.length && E.ev[E.i][0] < t + 1) { const [ta, J, arm, D] = E.ev[E.i++]; if (on) zbWalk(s, Z, J, arm, ta, D, null); }
+  }
+  const list = s._trial ? s._walkers || [] : s.autos && !s._tfBench ? s.autos.list : [];
+  for (const c of list) {
+    if (c.st !== 'wgo' && c.st !== 'wback') continue;
+    step(c);
+    if (t >= c.wt0 + wkTicks(c.wp.length - 1) + c.wq) {
+      // (in at work, or home: the walk's ticks with its waits kept for the card)
+      if (c.st === 'wgo') { c.wt = Math.round((wkTicks(c.wp.length - 1) + c.wq) * 100) / 100; c.wz = c.wq; c.st = 'wwork'; } else { c.wtb = Math.round((wkTicks(c.wp.length - 1) + c.wq) * 100) / 100; c.st = 'wdone'; }
+    }
+  }
+  if ((t & 7) === 0) zbTidy(s, Z, t);
+}
+// A walker sets off (to work in the morning, home in the evening) along its way on foot, its zebras worked out
+function wkGo(s, c, back) {
+  const p = c.wp && c.wp.length ? (back ? c.wp.slice().reverse() : c.wp) : null;
+  if (!p) { c.st = back ? 'wdone' : 'wwork'; return; }
+  Object.assign(c, { st: back ? 'wback' : 'wgo', wt0: s.tick, wq: 0, ke: 0, we: wkEvents(s, p, back ? -c.ws : c.ws), wl: [], wr: back ? 1 : 0 });
+  // (the morning's walkers, for the trial run of the rush, and the tiles they pass for the street's card)
+  if (!back) {
+    const G = tfRun(s).rushRec;
+    if (G) (G.walk || (G.walk = [])).push({ t: s.tick, wp: c.wp, ws: c.ws });
+    const A = carsState(s), M = A.cur;
+    if (M) { const T = M.wt || (M.wt = {}); for (const i of c.wp) T[i] = (T[i] || 0) + 1; }
+  }
+}
+{
+  // the walkers set off with the cars: at their minute, on the clock the sim keeps
+  const _ct = carsTick;
+  carsTick = function (s) {
+    const t0 = carsClock(s), r = _ct.apply(this, arguments), t1 = t0 + CARS.tick;
+    for (const c of carsState(s).list) {
+      if (c.mode !== 'walk') continue;
+      if (c.st === 'home' && carsCross(t0, t1, c.dep)) wkGo(s, c, false);
+      else if (c.st === 'wwork' && carsCross(t0, t1, c.ret)) wkGo(s, c, true);
+    }
+    return r;
+  };
+  const _ts = trafficStep;
+  trafficStep = function (s) {
+    if (s && (s.autos || s._walkers || s._wkEv) && (s._tfBench || s._trial || carsOn(s))) wkAdvance(s);
+    return _ts.apply(this, arguments);
+  };
+  // the cars give way on a zebra: a car may not drive in from an arm, or out into one, while people are on its zebra
+  // (before it is past it); a car let in close to its line holds the zebras it crosses until it is past them
+  const _ad = tfAdmit;
+  tfAdmit = function (s, net, S, at, q, Jt, appr, occ, t, pair) {
+    const ok = _ad.apply(this, arguments);
+    if (!ok || !q.car || q.gh > s.tick || !zbOn(s)) return ok;
+    const Z = zbStore(s), M = q.Mn, ain = (M.din + 2) % 4, aout = M.dout, zi = Z[Jt * 4 + ain], zo = Z[Jt * 4 + aout];
+    const v = Math.max(q.v, WALK.vMin * net.v0[Jt]), tIn = t + (Math.max(0, q.d) + WALK.inClear) / v, tOut = t + (Math.max(0, q.d) + WALK.outClear) / v;
+    if (zbBusy(zi, t, tIn) || zbBusy(zo, t, tOut)) {
+      // (the morning's measure: the time the zebras held the cars at the line, and how many cars they held)
+      const X = s._rushX;
+      if (X && t >= (X.from || 0)) {
+        const e = (X.zw || (X.zw = {}))[Jt] || (X.zw[Jt] = [0, 0, 0]);
+        e[1] = Math.round((e[1] + 1 / TF.sub) * 1000) / 1000;
+        const tag = (X.t0 || 0) + ':' + Jt;
+        if (q.c.zj !== tag) { q.c.zj = tag; e[2]++; }
+      }
+      return false;
+    }
+    // (committed: it could no longer stop before its line)
+    const br = tfBrake(q.P, net.v0[Jt]), dt = 1 / TF.sub;
+    if (q.d <= q.v * q.v / (2 * br) + 2 * q.v * dt + 0.12) {
+      if (zbAt(s, Jt, ain)) { const z = Z[Jt * 4 + ain] || (Z[Jt * 4 + ain] = [-1]); z[0] = Math.max(z[0], Math.round(tIn * 1000) / 1000); }
+      if (zbAt(s, Jt, aout)) { const z = Z[Jt * 4 + aout] || (Z[Jt * 4 + aout] = [-1]); z[0] = Math.max(z[0], Math.round(tOut * 1000) / 1000); }
+    }
+    return true;
+  };
+}
+
+// ---------- the morning's numbers (09:00) ----------
+{
+  const _cc = carsClose;
+  carsClose = function (s) {
+    const A = carsState(s), M = A.cur, X = M && M.x, last0 = A.last;
+    const r = _cc.apply(this, arguments);
+    if (A.last && A.last !== last0) {
+      // each crossing with walkers this morning: [walkers crossed, s the zebras held the cars, cars held]
+      const zw = {};
+      if (X && X.zw) for (const k in X.zw) { const e = X.zw[k]; zw[k] = [e[0], Math.round(e[1] * TF.sec * 10) / 10, e[2]]; }
+      A.last.zw = zw;
+      // (the copy of a crossing replays its walkers too)
+      if (X && X.wa && A.last.xb) for (const k in A.last.xb) if (X.wa[k]) A.last.xb[k].w = X.wa[k].slice();
+      A.last.wtl = M && M.wt ? M.wt : {};
+      // the walking families this morning, and those walking because it is quicker
+      let walk = 0, quick = 0;
+      for (const c of A.list) if (c.mode === 'walk') { walk++; if (c.why === 'quick') quick++; }
+      A.last.wn = [walk, quick];
+    }
+    return r;
+  };
+  // C2's copy of a crossing in the rush: the morning's walkers at it, by their moments and arms
+  const _rs = carsRushSpec;
+  carsRushSpec = function (s, i) {
+    const spec = _rs.apply(this, arguments), L = s.autos && s.autos.last, b = L && L.xb && L.xb[i];
+    if (!spec || !b || !b.w || !b.w.length || !zbOn(s)) return spec;
+    const D = [0, 1, 2, 3].map((a) => (zbAt(s, i, a) ? zbCross(s, i, a) : 0));
+    return Object.assign(spec, { rush: Object.assign({}, spec.rush, { walk: b.w.slice(), wD: D }) });
+  };
+  // the copy runs its crossing with those walkers (the first state carsBench makes is the copy; the others are the cars
+  // driving alone, the free time)
+  let WK_BENCH = null;
+  const _cb = carsBench;
+  carsBench = function (spec, k) {
+    WK_BENCH = spec && spec.rush && spec.rush.walk ? spec.rush : null;
+    try { return _cb.apply(this, arguments); } finally { WK_BENCH = null; }
+  };
+  const _bs = jctBenchState;
+  jctBenchState = function (spec, k) {
+    const B = _bs.apply(this, arguments);
+    if (WK_BENCH) {
+      const R = WK_BENCH, ev = [];
+      WK_BENCH = null;
+      for (const v of R.walk) { const arm = v & 3, ta = CARS.lead + (v >> 2) / 4; if (R.wD[arm] > 0) ev.push([ta, B.j, arm, R.wD[arm]]); }
+      ev.sort((a, b) => a[0] - b[0]);
+      B.st._wkEv = { ev, i: 0 };
+    }
+    return B;
+  };
+  // the trial run of the morning: the morning's walkers walk again in the copy
+  const _tm = trialMake;
+  trialMake = function (s, apply, focus, ticks) {
+    const job = _tm.apply(this, arguments), G = focus && focus.rush ? carsRushLog(s) : null;
+    if (!G || !G.walk || !job || !job.rush || !zbOn(s)) return job;
+    const st = job.st, off = st.tick - G.t0;
+    st._wz = {};
+    st._walkers = G.walk.filter((e) => e.wp && e.wp.every((i) => st.road[i])).map((e) => ({ st: 'wgo', wp: e.wp, ws: e.ws, wt0: e.t + off, wq: 0, ke: 0, we: wkEvents(st, e.wp, e.ws), wl: [] }));
+    return job;
+  };
+}
+
+// ---------- what the cards, the legend and Rosa read ----------
+// The morning's walkers at crossing i, while its numbers stand (C2's carsRushAt: the same morning, its rule as then):
+// { walkers, sec (s the zebras held the cars at the line), cars (held) } or null
+function zbRushAt(s, i) {
+  const L = carsOn(s) && s.autos && s.autos.last, e = L && L.zw && L.zw[i];
+  if (!e || !zbOn(s)) return null;
+  if (L.x && L.x[i] && !carsRushAt(s, i)) return null;
+  return { walkers: e[0], sec: e[1], cars: e[2] };
+}
+// The zebras of crossing i: the arms (0 E, 1 S, 2 W, 3 N) that have one
+function zbArms(s, i) { const out = []; for (let a = 0; a < 4; a++) if (zbAt(s, i, a)) out.push(a); return out; }
+// The walkers on their way now (the island's): [{ c, d (path position, tiles), wait (standing at a kerb) }]
+function wkWalkersNow(s, tf) {
+  const out = [];
+  for (const c of s.autos ? s.autos.list : []) {
+    if ((c.st !== 'wgo' && c.st !== 'wback') || !c.wp) continue;
+    out.push(Object.assign({ c }, wkPosAt(c, tf === undefined ? s.tick : tf)));
+  }
+  return out;
+}
+// Where along its way walker c is at time t (ticks, fractional): { d (tiles from the start of the way it walks now),
+// wait (true: standing at a kerb for a car or the lights), n (tiles) }
+function wkPosAt(c, t) {
+  const tk = wkTicks(1), n = c.wp.length - 1;
+  let b = t - c.wt0, wait = false;
+  const L = c.wl || [];
+  for (let k = 0; k < L.length; k += 2) {
+    if (b <= L[k]) break;
+    if (b - L[k] < L[k + 1]) { b = L[k]; wait = true; break; }
+    b -= L[k + 1];
+  }
+  return { d: Math.max(0, Math.min(n, b / tk)), wait, n };
+}
+// Rosa's car-jam line (C1's, C2's numbers): where the crossing's zebras held the cars this morning she says how long and
+// for how many walkers (the crossing's card has the same), and how many car families walk to work instead.
+{
+  const P = GUIDE_PROBLEMS.find((p) => p.key === 'carjam');
+  if (P) {
+    const _ck = P.check;
+    P.check = function (s) {
+      const r = _ck.apply(this, arguments);
+      if (!r || !r.text || !zbOn(s)) return r;
+      const J = carsJam(s), Z = J && J.xr >= 0 ? zbRushAt(s, J.xr) : null, L = s.autos && s.autos.last, q = L && L.wn ? L.wn[1] : 0;
+      let add = '';
+      if (Z && Z.sec >= 2) add += ' Its zebras held the cars ' + Z.sec + ' s in all (' + plural(Z.walkers, 'walker', 'walkers') + ' crossed).';
+      if (q && walkOn(s)) add += ' ' + plural(q, 'car family walks', 'car families walk') + ' to work instead: on foot it is quicker than their drive in the rush.';
+      if (!add) return r;
+      const a = r.text.indexOf(' s for '), k = a >= 0 ? r.text.indexOf('.', a + 7) : -1;
+      return Object.assign({}, r, { text: k >= 0 ? r.text.slice(0, k + 1) + add + r.text.slice(k + 1) : r.text + add });
+    };
+  }
+}
+
 // ---- src/sim/newland.js
 // L1 (4 Nov 2026, nova/land): new land with the palace. P1 measured her second evening: her player builds the palace on
 // every seed, and after it the pill stands still for 30-40 minutes on "every quarter served" or "the first apartment
@@ -23240,6 +23639,763 @@ if (typeof STILL_GOALS !== 'undefined') {
           items.push({ icon: 'log', text: G.title.replace(/^./, (x) => x.toUpperCase()) + ' stepped aside' + (a.at ? ' at ' + a.at : '') + ': a year without a new ' + G.one + '.' });
         }
         for (const it of items.slice(0, 3)) { if (g.items.length >= 6) g.items.splice(g.items.length - 1, 1); g.items.push(it); }
+      }
+    } catch (e) { /* the page as it is */ }
+    return g;
+  };
+}
+
+// ---- src/sim/goals2.js
+// P4 (6 Nov 2026, nova/goals2): more goals after the resort, and each goal's building at its own size. Tomáš chose (6
+// Nov): "Ďalšie ciele" (2-3 more buildings that grow part by part, as P3's three) and "each building may have its own
+// size as it needs: the point is that we also play with space". DESIGN.md §56; sources: docs/research/goals2.md.
+// - Sizes. P3 put the university, the stadium and the resort on 2 x 2 lots drawn at two thirds. Each now takes the lot
+//   its use calls for, drawn at full scale: the campus 3 x 3 (P3's own layout of six halls round a quad), the ballpark
+//   4 x 3 (the diamond with the grandstand behind home plate), the beach resort 4 x 2 along the shore. The
+//   whole lot is taken with the first part (as Mona's University College was handed its site in 1947 before its first
+//   hall stood), so a later part never needs room. New building types of their own (quad1..6, ballpark1..5,
+//   seaside1..5): an old save's 2 x 2 campus (campus1..6) keeps standing and growing on its lot as before.
+// - Room. Where the lot fits she sees it lit; where it does not, she is shown where room can be made: forest cleared
+//   (its price a tile), homes moved to free lots by a road (their people with them, A7's price a home), a road laid to
+//   it (A7's price a tile), each place with its price, and chooses (up to three places: the cheapest, and the cheapest
+//   of each other kind of room). Nothing is moved, cleared or built without her tap. Where no room can be made at all,
+//   the pill says so and what would make it. (Measured on v37: on her islands 1902 --isle and 1904 the university had
+//   no lot because A7's road plan looked only at the one free 2 x 2 lot walled in by homes and markets, and never at
+//   the 103-143 forest lots behind it: LOG P4.)
+// - More goals after the resort, in the order of their years: the television station (from 1950: Unión Radio began
+//   in a house and its garage in Havana; 2 x 2), the cruise pier (from 1966: the Sunward, the first modern cruise ship
+//   out of Miami; 4 x 2 on the shore), the botanical garden (from 1968: Havana's Jardín Botánico Nacional; 4 x 4, its
+//   forest kept). Each with its count, its parts, its price, its reward, its card, Rosa's line, the ritual and the
+//   Gazette, as P3's three; P2's year and A9's six months apply as to them.
+// Kill switches: TUNE.goals4Off (no new goals: the open loop after the resort, as v37), TUNE.g4SizesOff (P3's three on
+// their 2 x 2 lots by A8's one offer, as v37). NOVA_NO_P4=1 leaves this file out of the tests' sim; NOVA_P4_OFF=1 sets
+// both switches, NOVA_P4_GOALS_OFF=1 and NOVA_P4_SIZES_OFF=1 one each.
+
+const G4 = {
+  maxHomes: 4,         // a place may move up to four homes (to free lots by a road, their people with them)
+  maxRoad: 10,         // ... and lay up to ten tiles of road to reach the town's streets
+  opts: 3,             // the places she is shown ...
+  spread: 10,          // ... within 10 tiles of the first, so that one view holds them (else the next cheapest anywhere)
+  tries: 36,           // places tried on the island (a trial: nothing changes) to find them
+  tvReach: 14,         // the signal: homes within 14 tiles of the station ...
+  tvReachTall: 24,     // ... 24 with the tall mast
+  tvPay: 1,            // sponsors pay $1 a month for each home in its signal, for each part on the air
+  gardenReach: 12,     // homes within 12 tiles of the garden (the opera's reach) ...
+  gardenRent: 0.03,    // ... pay 3 % more rent for each garden
+  pax: 10,             // the cruise pier: 10 passengers a berth a month ...
+  spend: 45,           // ... who spend $45 each in the town (H2.spend), and sleep aboard
+};
+// P3's three at their own sizes: a type family of their own (an old 2 x 2 building keeps its P3 type)
+const G4_SIZE = {
+  univ: { base: 'quad', w: 3, h: 3, what: 'campus' },
+  stadium: { base: 'ballpark', w: 4, h: 3, what: 'ballpark' },
+  resort: { base: 'seaside', w: 4, h: 2, what: 'beach resort' },
+};
+// The new goals (after the resort, in the order of their years)
+const G4_GOALS = {
+  tv: { id: 'tv', title: 'the television station', year: 1950, base: 'tvst', name: 'Television station', short: 'TV', w: 2, h: 2,
+    parts: ['the studio and its mast', 'the second studio', 'the newsroom and its mobile unit', 'the tall mast', 'the colour studio'],
+    btn: ['Studio and mast', 'Second studio', 'Newsroom', 'Tall mast', 'Colour studio'],
+    what: 'parts', one: 'part', unit: 'hours on the air a day', per: 4, jobs: 1, months: 6, tm: 0.5, floor: 3500, who: 'tvboard', gives: 'tv', icon: 'tv', color: '#d9d2c4',
+    reward: 'sponsors pay $1 a month for every home in its signal, for each part' },
+  cruise: { id: 'cruise', title: 'the cruise pier', year: 1966, base: 'cruise', name: 'Cruise pier', short: 'Cruise', w: 4, h: 2, site: 'coast',
+    parts: ['the first berth and its terminal', 'the second berth', 'the customs hall and the crafts market', 'the third berth'],
+    btn: ['First berth', 'Second berth', 'Customs hall', 'Third berth'],
+    what: 'parts', one: 'part', unit: 'passengers a month', per: 10, jobs: 2, months: 12, tm: 0.9, floor: 6000, who: 'portauth', gives: 'cruise', icon: 'ship', color: '#e8edf0',
+    reward: 'its passengers spend $45 each in the town and sleep aboard' },
+  botanic: { id: 'botanic', title: 'the botanical garden', year: 1968, base: 'botanic', name: 'Botanical garden', short: 'Garden', w: 4, h: 4, keepForest: true,
+    parts: ['the palm avenue and its gate', 'the orchid house', 'the cactus garden', 'the lily lake', 'the great glasshouse'],
+    btn: ['Palm avenue', 'Orchid house', 'Cactus garden', 'Lily lake', 'Great glasshouse'],
+    what: 'gardens', one: 'garden', unit: 'species', per: 300, jobs: 1, months: 12, tm: 0.8, floor: 5000, who: 'botanists', gives: 'botanic', icon: 'leaf', color: '#b9d79a',
+    reward: 'homes within 12 tiles pay 3 % more rent for each garden' },
+};
+const G4_IDS = Object.keys(G4_GOALS);
+const G4_P3 = G3.order.slice();
+const G4_ALL = G4_P3.concat(G4_IDS);
+// (the order P3's code reads: the six, or P3's three with the new goals switched off; P3's first line names its three)
+const G4_ORD = { hello: false };
+Object.defineProperty(G3, 'order', { configurable: true, get() { return TUNE.goals4Off || TUNE.goals3Off || G4_ORD.hello ? G4_P3 : G4_ALL; } });
+
+// the building types: P3's goals at their sizes, the new goals (a level is its type, as P3's)
+for (const id of G4_P3) {
+  const G = G3_GOALS[id], Z = G4_SIZE[id];
+  for (let k = 1; k <= G.max; k++) {
+    const t = Z.base + k;
+    G3_TYPE[t] = { goal: id, lv: k, base: Z.base };
+    BUILDINGS[t] = Object.assign({}, BUILDINGS[G.base + k], { w: Z.w, h: Z.h, fam: Z.base });
+  }
+}
+for (const id of G4_IDS) {
+  const G = G4_GOALS[id];
+  G3_GOALS[id] = G;
+  G.max = G.parts.length;
+  for (let k = 1; k <= G.max; k++) {
+    const t = G.base + k;
+    G3_TYPE[t] = { goal: id, lv: k };
+    BUILDINGS[t] = { name: G.name, short: G.short, kind: 'service', w: G.w, h: G.h, cost: G.floor * k, jobs: G.jobs * k, stage: STAGES.length - 1, year: G.year,
+      gives: G.gives, island: true, project: G.months, upkeep: 0.01, icon: G.icon, art: G.base, color: G.color, group: 'services', g3: id, g3lv: k };
+    if (G.site) BUILDINGS[t].site = G.site;
+    if (G.keepForest) BUILDINGS[t].keepForest = true;
+  }
+  G.need = () => false;
+  G.done = (s) => g3Count(s, id).fin >= G.max;
+  G.step = (s) => g3Step(s, id);
+  G.waits = () => 'room for its ' + G.w + ' x ' + G.h + ' lot' + (G.site ? ' by the sea' : '');
+}
+PROJECT_FX.tv = { happy: 0, text: 'the studio and its mast go on the air: 4 hours a day, and its sponsors pay for every home in its signal' };
+PROJECT_FX.cruise = { happy: 0, text: 'the first berth takes its first ship: 10 passengers a month, who spend in the town and sleep aboard' };
+PROJECT_FX.botanic = { happy: 0, text: 'the palm avenue opens: 300 species, and the homes round it pay 3 % more rent' };
+COM_WHO.tvboard = { role: 'the broadcasting company', form: 'body', col: '#4a5a8a', body: 'The broadcasting company', ini: 'TV' };
+COM_WHO.portauth = { role: 'the port authority', form: 'body', col: '#2e6f9a', body: 'The port authority', ini: 'PA' };
+COM_WHO.botanists = { role: 'the natural history society', form: 'body', col: '#3f8a52', body: 'The natural history society', ini: 'NH' };
+
+function g4On() { return g3On() && !TUNE.goals4Off; }
+function g4Is(id) { return !!G4_GOALS[id]; }
+// The goal's first part is placed by the site search (P4's lots): the new goals always, P3's three while the sizes run.
+function g4Sited(id) { return g3On() && (g4Is(id) ? !TUNE.goals4Off : !TUNE.g4SizesOff && !!G4_SIZE[id]); }
+// The type of the goal's first part (P3's three at their sizes, or the new goals').
+function g4First(id) { return (G4_SIZE[id] ? G4_SIZE[id].base : G3_GOALS[id].base) + '1'; }
+// "3 x 3": a lot's size in words
+function g4Size(t) { const d = BUILDINGS[t]; return d ? d.w + ' x ' + d.h : ''; }
+
+// ---------- the places a goal's building can stand: free lots, and room made ----------
+// One Dijkstra from the town's streets (the pier's network) over open land: a tile of road costs TUNE.roadCost, forest on
+// the way its clearing too (from Village); homes, works and the sea are in the way. dist (in $), prev, len (tiles laid).
+function g4Roads(s) {
+  const c = simCache(s);
+  if (c.g4roads) return c.g4roads;
+  const n = MAP_W * MAP_H, dist = new Float64Array(n).fill(Infinity), prev = new Int32Array(n).fill(-1), len = new Int16Array(n), done = new Uint8Array(n), heap = [];
+  const out = { dist, prev, len };
+  const pier = s.b.find((b) => b.type === 'pier');
+  if (!pier) return (c.g4roads = out);
+  const net = roadNets(s), town = new Set(bNets(s, pier)), ct = clearTileCost(s), canClear = s.stage >= TUNE.clearStage;
+  const cost = (i) => {
+    if (s.road[i]) return -1;
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
+    if (s.terrain[i] === FOREST) return canClear && tileOpenAt(s, i) && !occMap(s)[i] ? TUNE.roadCost + ct : -1;
+    return canRoad(s, x, y) === '' ? TUNE.roadCost : -1;
+  };
+  for (let i = 0; i < n; i++) if (s.road[i] && town.has(net[i])) { dist[i] = 0; heapPush(heap, 0, i); }
+  while (heap.length) {
+    const [d, i] = heapPop(heap);
+    if (done[i]) continue;
+    done[i] = 1;
+    if (len[i] >= G4.maxRoad) continue;
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
+    for (const [dx, dy] of DIRS4) {
+      const nx = x + dx, ny = y + dy;
+      if (!inMap(nx, ny)) continue;
+      const j = tileIdx(nx, ny), k = cost(j);
+      if (k < 0 || done[j] || d + k >= dist[j]) continue;
+      dist[j] = d + k; prev[j] = i; len[j] = len[i] + 1; heapPush(heap, d + k, j);
+    }
+  }
+  return (c.g4roads = out);
+}
+// The ring of side tiles round a lot (its possible entrances, as bEntrances reads them).
+function g4Ring(x, y, w, h) {
+  const out = [];
+  for (let ty = y - 1; ty <= y + h; ty++) for (let tx = x - 1; tx <= x + w; tx++) {
+    const side = (tx === x - 1 || tx === x + w) !== (ty === y - 1 || ty === y + h);
+    if (side && inMap(tx, ty)) out.push(tileIdx(tx, ty));
+  }
+  return out;
+}
+// Homes with families within r tiles of a lot (the garden's and the station's reach), not counting `skip` (ids).
+function g4HomesNear(s, L, r, skip) {
+  let n = 0;
+  for (const h of s.b) if (h.type === 'casita' && h.res > 0 && !(skip && skip.includes(h.id)) && footDist(L, h) <= r) n++;
+  return n;
+}
+// One lot (x, y) of w x h for the goal's first part (type t, turn f): what stands on it and what it takes to make it a
+// lot, or null. { goal, type, f, x, y, w, h, clear (the lot's forest and the road's), ids (homes that move), road (tiles
+// to lay), extra (what the room costs), how ('free' | 'forest' | 'homes'), keep (forest tiles kept: the garden) }
+function g4Foot(s, id, t, x, y, w, h, f, R) {
+  const def = BUILDINGS[t], occ = occMap(s), keepF = !!def.keepForest, coast = def.site === 'coast', canClear = s.stage >= TUNE.clearStage;
+  const clear = [], keep = [], ids = [];
+  for (let ty = y; ty < y + h; ty++) for (let tx = x; tx < x + w; tx++) {
+    if (!inMap(tx, ty)) return null;
+    const i = tileIdx(tx, ty), tr = s.terrain[i];
+    if (tr === SEA || !tileOpenAt(s, i) || s.road[i]) return null;
+    if (occ[i]) {
+      const b = bById(s, occ[i]);
+      if (!b || b.type !== 'casita' || b.build) return null;
+      if (!ids.includes(b.id)) { ids.push(b.id); if (ids.length > G4.maxHomes) return null; }
+      continue;
+    }
+    if (tr === FOREST) { if (keepF) keep.push(i); else if (canClear) clear.push(i); else return null; continue; }
+    if (tr === BEACH && !coast) return null;
+  }
+  // by the sea: the resort within two tiles of it (P3's rule), the pier on the shore itself
+  if (def.g3 === 'resort' && !g3SeaNear(s, x, y, w, h, 2)) return null;
+  if (coast && def.g3 !== 'resort' && !nearTerrain(s, { x, y, w, h }, SEA)) return null;
+  // its road: a street beside it, else the cheapest way to one (not through the lot itself)
+  let road = [], rcost = 0;
+  const ring = g4Ring(x, y, w, h);
+  if (!ring.some((i) => s.road[i])) {
+    const inLot = (i) => { const tx = i % MAP_W, ty = (i / MAP_W) | 0; return tx >= x && tx < x + w && ty >= y && ty < y + h; };
+    const cand = ring.filter((i) => isFinite(R.dist[i])).sort((a, b) => R.dist[a] - R.dist[b]);
+    let ok = false;
+    for (const e of cand.slice(0, 4)) {
+      const path = [];
+      for (let i = e; i >= 0 && !s.road[i]; i = R.prev[i]) path.push(i);
+      if (path.some(inLot)) continue;
+      road = path.reverse(); rcost = R.dist[e]; ok = true;
+      break;
+    }
+    if (!ok) return null;
+  }
+  const ct = clearTileCost(s);
+  // the lot's forest is cleared a share at a time, with each part (the first part its share and the road's forest); the
+  // rest stands as the lot's woods until the next parts clear it, each its share, on its price
+  const per = clear.length ? Math.ceil(clear.length / G3_GOALS[id].max) : 0, wood = clear.slice(per);
+  for (const i of road) if (s.terrain[i] === FOREST) clear.push(i);
+  const moves = ids.reduce((a, k) => a + moveCost(bById(s, k)), 0);
+  const extra = Math.round((clear.length - wood.length) * ct + moves + road.length * TUNE.roadCost), later = wood.length * ct;
+  const how = ids.length ? 'homes' : clear.length - road.filter((i) => s.terrain[i] === FOREST).length > 0 ? 'forest' : 'free';
+  return { goal: id, type: t, f, x, y, w, h, clear, keep, ids, road, extra, later, wood, per, how, rcost };
+}
+// The goal's places now (cached per change of the island and its prices): { list: [candidate with cost, moves (the
+// homes' new lots), reach], n (lots looked at), why (none: what is in the way) }. The cheapest first; then the cheapest
+// of each other kind of room; for the garden and the station also the place that reaches the most homes.
+function g4Sites(s, id) {
+  const c = simCache(s), key = id + '|' + (s.gross || 0) + '|' + s.month;
+  if (!c.g4sites) c.g4sites = {};
+  if (c.g4sites[key]) return c.g4sites[key];
+  const out = { list: [], n: 0, tried: 0, why: '' };
+  c.g4sites[key] = out;
+  const t = g4First(id), def = BUILDINGS[t];
+  if (!def) return out;
+  const R = g4Roads(s), price = g3Price(s, id), near = g3Near(s, id), all = [];
+  const fs = def.w === def.h ? [0] : [0, 1];
+  for (const f of fs) {
+    const w = f ? def.h : def.w, h = f ? def.w : def.h;
+    for (let y = 0; y <= MAP_H - h; y++) for (let x = 0; x <= MAP_W - w; x++) {
+      const q = g4Foot(s, id, t, x, y, w, h, f, R);
+      if (!q) continue;
+      out.n++;
+      q.cost = price + q.extra;
+      q.all = q.cost + q.later;
+      q.d = Math.hypot(x + w / 2 - near[0], y + h / 2 - near[1]);
+      all.push(q);
+    }
+  }
+  // (the cheapest by all its room, now and with its next parts)
+  all.sort((a, b) => a.all - b.all || a.d - b.d);
+  const reachR = id === 'botanic' ? G4.gardenReach : id === 'tv' ? G4.tvReach : 0;
+  const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  const picked = [];
+  // (the homes that move need free lots by a road, and her islands have few left when the ladder ends: a place that
+  // moves more homes than there are such lots, and lays no road that could open new ones, is not tried)
+  const st = landStubs(s), lots = fitAnchors(s, 'casita').filter(([x, y]) => !st.has(tileIdx(x, y)));
+  const lotsOff = (q) => lots.filter(([x, y]) => !(x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h)).length;
+  const per = {};
+  const tryOne = (q) => {
+    if (out.tried >= G4.tries || (per[q.how] || 0) >= G4.tries / 3 || picked.some((p) => overlaps(p, q))) return false;
+    if (q.ids.length && !q.road.length && lotsOff(q) < q.ids.length) return false;
+    out.tried++; per[q.how] = (per[q.how] || 0) + 1;
+    const r = g4Try(s, q, false);
+    if (!r.ok) return false;
+    q.moves = r.moves;
+    if (reachR) q.reach = g4HomesNear(s, q, reachR, q.ids);
+    picked.push(q);
+    return true;
+  };
+  // the others near the first (one view holds them all: the screen's free band between the pill and Rosa's panel)
+  const near0 = (q) => !picked.length || Math.max(Math.abs(q.x + q.w / 2 - picked[0].x - picked[0].w / 2), Math.abs(q.y + q.h / 2 - picked[0].y - picked[0].h / 2)) <= G4.spread;
+  // the cheapest that works, then the cheapest of each other kind of room (a free lot, forest cleared, homes moved)
+  for (const kind of ['', 'free', 'forest', 'homes']) {
+    if (picked.length >= G4.opts || (kind && picked.some((p) => p.how === kind))) continue;
+    for (const q of all) if ((!kind || q.how === kind) && near0(q) && tryOne(q)) break;
+  }
+  // a place nearer the town's middle, within half as much again as the cheapest (a dearer place in town, a cheaper one
+  // far out: hers to choose)
+  if (picked.length && picked.length < G4.opts) {
+    const lim = 1.5 * picked[0].all, d0 = Math.min(...picked.map((p) => p.d));
+    for (const q of all.filter((c) => c.all <= lim && c.d < d0 - 3 && near0(c)).sort((a, b) => a.d - b.d || a.all - b.all)) if (tryOne(q)) break;
+  }
+  // still one place only: the next cheapest near it, else anywhere (a choice where the island has one)
+  if (picked.length === 1) for (const q of all) if (near0(q) && tryOne(q)) break;
+  if (picked.length === 1) for (const q of all) if (tryOne(q)) break;
+  // the garden and the station: the place within twice the cheapest's price that reaches the most homes
+  if (reachR && picked.length && picked.length < G4.opts + 1) {
+    const lim = 2 * picked[0].all, best = all.filter((q) => q.all <= lim && !picked.includes(q) && near0(q)).map((q) => ({ q, n: g4HomesNear(s, q, reachR, q.ids) })).sort((a, b) => b.n - a.n || a.q.all - b.q.all);
+    const top = picked.reduce((m, p) => Math.max(m, p.reach || 0), 0);
+    for (const o of best.slice(0, 8)) { if (o.n <= top + 10) break; if (tryOne(o.q)) { if (picked.length > G4.opts) picked.splice(picked.length - 2, 1); break; } }
+  }
+  out.list = picked.slice(0, G4.opts).sort((a, b) => a.all - b.all || a.d - b.d);
+  if (!out.list.length) out.why = g4WhyNone(s, id, all.length);
+  return out;
+}
+// No place at all: what is in the way, and what would make room (the pill and A9's words).
+function g4WhyNone(s, id, n) {
+  const t = g4First(id), sz = g4Size(t);
+  if (!n) return 'no ' + sz + ' lot of open land, forest or up to ' + G4.maxHomes + ' homes lies within ' + G4.maxRoad + ' tiles of a street' + (BUILDINGS[t].site ? ' by the sea' : '') + ': a new street into open land would make room';
+  return 'the homes on every ' + sz + ' lot that could be cleared have no free lot by a road to move to: new home lots (a street into open land) would make room';
+}
+// A place tried on the island (real: done): the forest cleared, the road laid, the homes moved to the free lots by a road
+// nearest them (not on the lot), the building's first part placed. { ok, why, moves, built, cost }.
+let g4Seq = 0;
+function g4Try(s, q, real) {
+  const t = q.type, homes = q.ids.map((k) => bById(s, k));
+  if (homes.some((h) => !h || h.type !== 'casita' || h.build)) return { ok: false, why: 'Something is in the way' };
+  const cost = q.extra + g3Price(s, q.goal);
+  if (real && s.money < cost) return { ok: false, poor: true, cost, why: 'Not enough money (' + money$(cost) + ')' };
+  const keep = { road: s.road, terrain: s.terrain, b: s.b, ver: s.ver, c: s._c };
+  const bump = () => { if (real) s.ver++; else s.ver = -3e9 - (++g4Seq); };
+  const L = { x: q.x, y: q.y, w: q.w, h: q.h };
+  let out = null;
+  try {
+    if (!real) { s.road = s.road.slice(); s.terrain = s.terrain.slice(); }
+    const moved = homes.map((h) => (real ? h : Object.assign({}, h)));
+    s.b = s.b.filter((b) => !q.ids.includes(b.id));
+    for (const i of q.clear.concat(q.keep || [])) s.terrain[i] = GRASS;
+    for (const i of q.road) s.road[i] = 1;
+    bump();
+    const fits = () => turnCanPlace(s, t, q.x, q.y, q.f, { free: true }) === '';
+    if (!fits()) { out = { ok: false, why: 'The lot is not free' }; return out; }
+    const to = [];
+    for (const h of moved) {
+      const st = landStubs(s);
+      const lots = fitAnchors(s, 'casita').filter(([x, y]) => !st.has(tileIdx(x, y)) && footDist(L, { x, y, w: 1, h: 1 }) > 0)
+        .map(([x, y]) => ({ x, y, d: Math.abs(x - h.x) + Math.abs(y - h.y) })).sort((a, b) => a.d - b.d).slice(0, 12);
+      s.b.push(h);
+      let best = null;
+      for (const l of lots) { h.x = l.x; h.y = l.y; bump(); if (fits()) { best = l; break; } }
+      if (!best) { out = { ok: false, why: 'No free lot by a road for the home' }; return out; }
+      to.push({ id: h.id, to: [best.x, best.y] });
+    }
+    out = { ok: true, moves: to, cost };
+    if (real) {
+      s.money -= q.extra;
+      if (q.clear.length || (q.keep || []).length) s.tver = (s.tver || 0) + 1;
+      s.stats.moved = (s.stats.moved || 0) + to.length;
+      const pb = placeBuilding(s, t, q.x, q.y, q.f);
+      if (!pb.ok) { s.money += q.extra; out = { ok: false, why: pb.why }; return out; }
+      out.built = pb.b.id;
+      // (the lot's woods its next parts clear, a share each: b.g4wood = { t: tiles, per })
+      if (q.wood && q.wood.length) pb.b.g4wood = { t: q.wood.slice(), per: q.per };
+      const G = G3_GOALS[q.goal], w = g4Words(s, q);
+      simLog(s, (w ? 'Room for ' + G.title + ': ' + w + '; ' : '') + G.parts[0] + (g3Plural(G.parts[0]) ? ' are' : ' is') + ' being built: ' + money$(cost) + ', ' + G.months + ' months.', [q.x + q.w / 2, q.y + q.h / 2]);
+      if (q.extra) simEvent(s, { kind: 'landopen', cost: q.extra, at: [q.x, q.y], clear: q.clear.length, moved: to.map((m) => m.id), id: pb.b.id });
+    }
+    return out;
+  } finally {
+    if (!real) { s.road = keep.road; s.terrain = keep.terrain; s.b = keep.b; s.ver = keep.ver; s._c = keep.c; }
+  }
+}
+// Her words for the room a place makes: "5 forest tiles cleared, 2 homes move (their people with them), 3 tiles of road"
+function g4Words(s, q) {
+  const w = [], road = q.road || [], cl = q.clear.length - road.filter((i) => q.clear.includes(i)).length, wd = (q.wood || []).length;
+  if (cl > 0) w.push(wd ? plural(cl, 'forest tile', 'forest tiles') + ' on it, ' + (cl - wd) + ' cleared now and the rest with its next parts' : plural(cl, 'forest tile', 'forest tiles') + ' cleared');
+  if ((q.keep || []).length) w.push(plural(q.keep.length, 'forest tile', 'forest tiles') + ' kept as its woods');
+  if (q.ids.length) w.push(q.ids.length === 1 ? 'a home moves (its people with it)' : q.ids.length + ' homes move (their people with them)');
+  if (road.length) w.push(plural(road.length, 'tile', 'tiles') + ' of road' + (road.some((i) => q.clear.includes(i)) ? ' through the forest' : ''));
+  return w.join(', ');
+}
+// The short label of a place: "Free lot" · "Clear 5 forest tiles" · "Move 2 homes and lay a road" · "In the woods"
+function g4Short(q) {
+  const road = q.road || [], cl = q.clear.length - road.filter((i) => q.clear.includes(i)).length, w = [];
+  if (q.ids.length) w.push('move ' + plural(q.ids.length, 'home', 'homes'));
+  if (cl > 0) w.push('clear ' + plural(cl, 'forest tile', 'forest tiles') + ((q.wood || []).length ? ' (' + (cl - q.wood.length) + ' now)' : ''));
+  if (road.length) w.push('lay a road');
+  if (!w.length) return (q.keep || []).length ? 'In the woods' : 'Free lot';
+  const t = w.length > 1 ? w.slice(0, -1).join(', ') + ' and ' + w[w.length - 1] : w[0];
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+// A place's descriptor (what a plan, an ask and Rosa's line keep): the lot and its turn.
+function g4Desc(q) { return { kind: 'g4site', goal: q.goal, x: q.x, y: q.y, f: q.f || 0 }; }
+// One place by its descriptor (among the shown ones, else worked out again on its own), or null.
+function g4Cand(s, d) {
+  const o = g4Sites(s, d.goal), q = o.list.find((c) => c.x === d.x && c.y === d.y && (c.f || 0) === (d.f || 0));
+  if (q) return q;
+  const t = g4First(d.goal), def = BUILDINGS[t];
+  if (!def) return null;
+  const w = d.f & 1 ? def.h : def.w, h = d.f & 1 ? def.w : def.h, c = g4Foot(s, d.goal, t, d.x, d.y, w, h, d.f || 0, g4Roads(s));
+  if (!c) return null;
+  const r = g4Try(s, c, false);
+  if (!r.ok) return null;
+  c.moves = r.moves; c.cost = g3Price(s, d.goal) + c.extra; c.all = c.cost + c.later;
+  const rr = d.goal === 'botanic' ? G4.gardenReach : d.goal === 'tv' ? G4.tvReach : 0;
+  if (rr) c.reach = g4HomesNear(s, c, rr, c.ids);
+  return c;
+}
+// The plan of a place: { kind, goal, type, f, lot, lots, line, clear, ids, moves, cost, extra, how, name, btn, short,
+// words, reach, alts (the other places' descriptors), at }
+function g4PlanOf(s, d) {
+  if (!g4Sited(d.goal) || g3Bld(s, d.goal)) return null;
+  const q = g4Cand(s, d);
+  if (!q) return null;
+  const G = G3_GOALS[d.goal], mid = tileIdx(q.x + Math.floor((q.w - 1) / 2), q.y + Math.floor((q.h - 1) / 2));
+  const alts = g4Sites(s, d.goal).list.filter((c) => c !== q).map(g4Desc);
+  return { kind: 'g4site', goal: d.goal, type: q.type, f: q.f, lot: [q.x, q.y], lots: [{ x: q.x, y: q.y, w: q.w, h: q.h }], line: q.road.concat([mid]), road: q.road,
+    clear: q.clear.slice(), keep: (q.keep || []).slice(), ids: q.ids.slice(), moves: q.moves || [], cost: q.cost, extra: q.extra, price: q.cost - q.extra, how: q.how, wood: (q.wood || []).length, later: q.later || 0,
+    name: G.parts[0], btn: G.btn[0], short: g4Short(q), words: g4Words(s, q), reach: q.reach, alts, at: [q.x + Math.floor((q.w - 1) / 2), q.y + Math.floor((q.h - 1) / 2)] };
+}
+// Her tap on a place: the room made and the first part placed, in one tap (a lot made and left would be taken by the
+// next home before she came back to it).
+function g4Run(s, d) {
+  const p = planOf(s, d);
+  if (!p) return { ok: false, why: 'Nothing to do here now' };
+  if (s.money < p.cost) return { ok: false, poor: true, cost: p.cost, why: 'Not enough money yet (' + money$(p.cost) + ')' };
+  const q = g4Cand(s, d), r = q ? g4Try(s, q, true) : { ok: false, why: 'The lot is not free' };
+  return r.ok ? { ok: true, cost: r.cost, at: p.at, built: r.built } : r;
+}
+// The place in words for the pill, the ask and Rosa: "Its 3 x 3 lot: 5 forest tiles cleared ($9,050 in all); 2 other
+// places on the map." · "No room for its 4 x 4 lot: …"
+function g4PlaceLine(s, id) {
+  if (!g4Sited(id) || g3Bld(s, id)) return '';
+  const o = g4Sites(s, id), t = g4First(id), sz = g4Size(t), q = o.list[0];
+  if (!q) return 'No room for its ' + sz + ' lot: ' + o.why + '.';
+  const reach = id === 'botanic' ? ' (' + plural(q.reach || 0, 'home', 'homes') + ' within ' + G4.gardenReach + ' tiles)' : id === 'tv' ? ' (' + plural(q.reach || 0, 'home', 'homes') + ' in its signal)' : '';
+  const w = g4Words(s, q), n = o.list.length - 1;
+  return 'Its ' + sz + ' lot: ' + (w ? w : 'a free lot') + reach + (q.extra ? ', ' + money$(q.cost) + ((q.wood || []).length ? ' now' : ' in all') : '') + (n ? '; ' + plural(n, 'other place', 'other places') + ' on the map' : '') + '.';
+}
+
+// ---------- the plan kind: the map's lot, the tap, the words ----------
+{
+  const _po = planOf;
+  planOf = function (s, d) {
+    if (!d || d.kind !== 'g4site') return _po.apply(this, arguments);
+    _po.call(this, s, null);
+    const c = simCache(s), key = JSON.stringify(d);
+    if (!c.plans) c.plans = {};
+    if (key in c.plans) return c.plans[key];
+    let p = null;
+    try { p = g4PlanOf(s, d); } catch (e) { p = null; }
+    if (p) p.d = d;
+    return (c.plans[key] = p);
+  };
+  const _pr = planRun;
+  planRun = function (s, d) {
+    if (!d || d.kind !== 'g4site') return _pr.apply(this, arguments);
+    return g4Run(s, d);
+  };
+  const _pl = planLabel;
+  planLabel = function (p) {
+    if (p && p.kind === 'g4site') return (p.extra ? p.short + ', build ' : 'Tap to build ') + p.name + (p.extra ? '' : ' here') + ' · ' + money$(p.cost);
+    return _pl.apply(this, arguments);
+  };
+  const _pb = planBtn;
+  planBtn = function (p) {
+    if (p && p.kind === 'g4site') return p.btn;
+    return _pb.apply(this, arguments);
+  };
+  const _ps = planSay;
+  planSay = function (s, p) {
+    if (p && p.kind === 'g4site') return (p.words ? 'The dotted lot makes room (' + p.words + ') and builds ' : 'The lit lot builds ') + p.name + ' · ' + money$(p.cost) + '.';
+    return _ps.apply(this, arguments);
+  };
+  // the overlay: the place's lot glows, its forest is marked, the homes that move glow, its road is dotted
+  const _so = screenOverlay;
+  screenOverlay = function (s, hint) {
+    const ov = _so.apply(this, arguments);
+    if (ov && ov.p && ov.p.kind === 'g4site') { ov.lots = ov.p.lots; ov.glowBs = ov.p.ids.slice(); ov.clear = ov.p.clear.concat(ov.p.keep || []); }
+    return ov;
+  };
+}
+
+// ---------- the goals' building types, the step, the months ----------
+{
+  // the first part's place: the site search (P3's 2 x 2 lot by A8's offer with the sizes off); a new goal's next part
+  const _st = g3Step;
+  g3Step = function (s, id) {
+    if (!g4Sited(id)) return _st.apply(this, arguments);
+    const G = G3_GOALS[id], b = g3Bld(s, id);
+    if (!b) {
+      const o = g4Sites(s, id), q = o.list[0];
+      if (!q) return null;
+      const d = g4Desc(q), lead = g4Is(id) ? G4_LEAD[id] + G4_FIRST[id] : G3_LEAD[id] + G3_FIRST[id];
+      return { k: id + '1', who: G.who, tool: q.type, need: 0, near: [q.x + Math.floor(q.w / 2), q.y + Math.floor(q.h / 2)], plan: d, joy: 0,
+        ask: lead + ' ' + g4PlaceLine(s, id), praise: 'The scaffolding is up: ' + G.parts[0] + (g3Plural(G.parts[0]) ? ' open' : ' opens') + ' in ' + G.months + ' months.' };
+    }
+    if (!g4Is(id)) return _st.apply(this, arguments);
+    if (b.wip || b.g3up) return null;
+    const lv = G3_TYPE[b.type].lv;
+    if (lv >= G.max) return null;
+    const d = { kind: 'g3up', id: b.id, goal: id };
+    return { k: id + (lv + 1), who: G.who, tool: '', need: 0, near: [b.x + 1, b.y + 1], plan: d, joy: 0,
+      ask: g4Have(s, id) + '. ' + G.parts[lv].replace(/^./, (x) => x.toUpperCase()) + ' next: ' + g3PartGives(id) + ' · ' + money$(g3Price(s, id)) + ', ' + G.months + ' months to build.',
+      praise: 'The scaffolding is up: ' + G.parts[lv] + (g3Plural(G.parts[lv]) ? ' open' : ' opens') + ' in ' + G.months + ' months.' };
+  };
+  // a part opens: P3's three keep their own family of types (quad, ballpark, seaside); the new goals open with their words
+  const _tk = g3Tick;
+  g3Tick = function (s) {
+    const fam = [], mine = [];
+    for (const b of s.b) {
+      if (!b.g3up) continue;
+      const t = G3_TYPE[b.type];
+      if (t && g4Is(t.goal)) mine.push([b, b.g3up]);
+      else if (t && t.base) fam.push([b, t.base]);
+    }
+    for (const [b] of mine) delete b.g3up;
+    try { _tk.apply(this, arguments); } finally { for (const [b, u] of mine) b.g3up = u; }
+    for (const [b, base] of fam) { const t = G3_TYPE[b.type]; if (t && !t.base) b.type = base + t.lv; }
+    for (const [b] of mine) g4Open(s, b);
+  };
+  // prices in town-months, read at use time: the new families' and the new goals' levels
+  const _pa = pricesApply;
+  pricesApply = function (state) {
+    const r = _pa.apply(this, arguments);
+    for (const id of G4_P3) { const G = G3_GOALS[id], p = g3Price(state, id); for (let k = 1; k <= G.max; k++) BUILDINGS[G4_SIZE[id].base + k].cost = p * k; }
+    for (const id of G4_IDS) { const G = G3_GOALS[id], p = g3Price(state, id); for (let k = 1; k <= G.max; k++) BUILDINGS[G.base + k].cost = p * k; }
+    return r;
+  };
+}
+// A later part clears its share of the lot's woods, on its price (b.g4wood): { k (tiles), cost } or null.
+function g4WoodShare(s, b) {
+  const W = b && b.g4wood;
+  if (!W || !Array.isArray(W.t) || !W.t.length || !g3On()) return null;
+  const k = Math.min(W.per || 1, W.t.length);
+  return { k, cost: k * clearTileCost(s), left: W.t.length };
+}
+{
+  const _up = g3UpPlanOf;
+  g3UpPlanOf = function (s, d) {
+    const p = _up.apply(this, arguments);
+    if (!p) return p;
+    const w = g4WoodShare(s, bById(s, d.id));
+    if (w) { p.cost += w.cost; p.wood = w.k; p.woodCost = w.cost; }
+    return p;
+  };
+  const _ur = g3UpRun;
+  g3UpRun = function (s, d) {
+    const b = bById(s, d.id), w = g4WoodShare(s, b);
+    const r = _ur.apply(this, arguments);
+    if (r && r.ok && w && b.g4wood) {
+      b.g4wood.t.splice(0, w.k);
+      if (!b.g4wood.t.length) delete b.g4wood;
+      s.ver++;
+      simLog(s, plural(w.k, 'forest tile', 'forest tiles') + ' of its lot cleared with it: ' + money$(w.cost) + ' of its price.', [b.x + b.w / 2, b.y + b.h / 2]);
+    }
+    return r;
+  };
+}
+// A new goal's part opens (P3's g3Tick for the three).
+function g4Open(s, b) {
+  const u = b.g3up;
+  if (!u || --u.t > 0) return;
+  const t = G3_TYPE[b.type];
+  delete b.g3up;
+  if (!t) return;
+  const G = G3_GOALS[t.goal], name = G.parts[u.lv - 1];
+  b.type = G.base + u.lv;
+  s.ver++;
+  simLog(s, name.replace(/^./, (x) => x.toUpperCase()) + (g3Plural(name) ? ' open: ' : ' opens: ') + g4OpenWords(s, t.goal, u.lv) + '.', [b.x + b.w / 2, b.y + b.h / 2]);
+  simEvent(s, { kind: 'g3part', what: 'open', goal: t.goal, id: b.id, lv: u.lv, name });
+  const I = isleState(s);
+  I.g3opened = (Array.isArray(I.g3opened) ? I.g3opened : []).concat([{ m: s.month, goal: t.goal, lv: u.lv }]).slice(-24);
+}
+function g4OpenWords(s, id, lv) {
+  const G = G3_GOALS[id];
+  if (id === 'tv') return lv * G.per + ' hours on the air a day' + (lv >= 4 ? ', its signal over the whole island' : '');
+  if (id === 'cruise') return lv * G.per + ' passengers a month, who sleep aboard';
+  return (lv * G.per).toLocaleString('en-US') + ' species in ' + plural(lv, 'garden', 'gardens') + '; the homes within ' + G4.gardenReach + ' tiles pay ' + Math.round(100 * G4.gardenRent * lv) + ' % more rent';
+}
+// "The station is on the air 8 hours a day", for the ask's first words
+function g4Have(s, id) {
+  const c = g3Count(s, id);
+  if (id === 'tv') return 'The station is on the air ' + c.cap + ' hours a day, its signal reaching ' + plural(g4Signal(s).homes, 'home', 'homes');
+  if (id === 'cruise') return 'The pier takes ' + c.cap + ' passengers a month';
+  return 'The garden holds ' + c.cap.toLocaleString('en-US') + ' species';
+}
+// The asks' first words (docs/research/goals2.md)
+const G4_LEAD = {
+  tv: 'The radio shows sell soap and rum all day; the sets in the shop windows show Havana’s stations. ',
+  cruise: 'The cruise ships out of Miami pass our coast on their way south. ',
+  botanic: 'The island’s botanists keep their palms and orchids in a schoolyard. ',
+};
+const G4_FIRST = {
+  tv: 'A station of our own: the studio and its mast first, 4 hours on the air a day (Unión Radio went on the air in Havana in October 1950 from a house and its garage). Its sponsors pay $1 a month for every home in its signal, for each part.',
+  cruise: 'A cruise pier: the first berth and its terminal, 10 passengers a month who spend $45 each in the town and sleep aboard (the Sunward began weekly cruises out of Miami in 1966).',
+  botanic: 'A botanical garden: the palm avenue first, 300 species (Havana’s national garden was founded in 1968). The homes within 12 tiles pay 3 % more rent for each garden; its lot may keep its forest as its woods.',
+};
+{
+  const _pg = g3PartGives;
+  g3PartGives = function (id) {
+    if (id === 'tv') return G3_GOALS.tv.per + ' more hours on the air a day; its sponsors pay $1 more a month for each home in its signal';
+    if (id === 'cruise') return G3_GOALS.cruise.per + ' more passengers a month, $45 each';
+    if (id === 'botanic') return G3_GOALS.botanic.per + ' more species; the homes within ' + G4.gardenReach + ' tiles pay 3 % more rent';
+    return _pg.apply(this, arguments);
+  };
+}
+
+// ---------- what the new goals give ----------
+// The parts that run now (open, staffed, finished), by the staff they have.
+function g4Running(s, id) { return g3Running(s, id); }
+// The station's signal: { parts, reach (tiles), homes (with families in it), pay ($ a month) }
+function g4Signal(s) {
+  const c = simCache(s);
+  if (c.g4sig && c.g4sig.t === s.tick) return c.g4sig;
+  const b = g3Bld(s, 'tv'), out = { t: s.tick, parts: 0, reach: G4.tvReach, homes: 0, pay: 0 };
+  if (b && !b.wip) {
+    const lv = G3_TYPE[b.type].lv;
+    out.reach = lv >= 4 ? G4.tvReachTall : G4.tvReach;
+    out.homes = g4HomesNear(s, b, out.reach);
+    out.parts = g4On() ? g4Running(s, 'tv') : 0;
+    out.pay = Math.round(G4.tvPay * out.homes * out.parts);
+  }
+  return (c.g4sig = out);
+}
+// The garden: { gardens (running), pct (the rent its homes pay more), homes (in reach) }
+function g4Garden(s) {
+  const c = simCache(s);
+  if (c.g4gar && c.g4gar.t === s.tick) return c.g4gar;
+  const b = g3Bld(s, 'botanic'), out = { t: s.tick, b, gardens: 0, pct: 0, homes: 0 };
+  if (b && !b.wip) {
+    out.gardens = g4On() ? g4Running(s, 'botanic') : 0;
+    out.pct = G4.gardenRent * out.gardens;
+    out.homes = g4HomesNear(s, b, G4.gardenReach);
+  }
+  return (c.g4gar = out);
+}
+// What the garden's homes pay more a month (its card and its Shut down button)
+function g4GardenSum(s) {
+  const G = g4Garden(s);
+  let v = 0;
+  if (G.pct > 0) for (const h of s.b) if (h.type === 'casita' && h.res) v += bNumber(s, h).g4rent || 0;
+  return v;
+}
+// The cruise pier's passengers a month
+function g4Pax(s) { return g4On() ? Math.round(G4.pax * g4Running(s, 'cruise')) : 0; }
+{
+  const _bn = bNumber;
+  bNumber = function (state, b) {
+    const x = _bn.apply(this, arguments);
+    if (!b || !g4On()) return x;
+    const d = BUILDINGS[b.type];
+    if (d && d.kind === 'home') {
+      const G = g4Garden(state);
+      if (G.pct > 0 && x.rent > 0 && footDist(G.b, b) <= G4.gardenReach) { const v = Math.round(x.rent * G.pct); x.rent += v; x.n += v; x.g4rent = v; }
+    } else if (d && d.g3 === 'tv') {
+      const v = g4Signal(state).pay;
+      if (v) { x.exports += v; x.n += v; x.sponsors = v; }
+    } else if (d && d.g3 === 'cruise') {
+      const p = g4Pax(state), v = p * G4.spend;
+      if (v) { x.exports += v; x.n += v; x.pax = p; }
+    }
+    return x;
+  };
+  if (typeof closeInc === 'function') {
+    const _ci = closeInc;
+    closeInc = function (state, b, L) {
+      const v = _ci.apply(this, arguments), d = b && BUILDINGS[b.type];
+      if (!d || !g4Is(d.g3) || !g4On()) return v;
+      if (d.g3 === 'tv') return Math.max(v, g4Signal(state).pay);
+      if (d.g3 === 'cruise') return Math.max(v, g4Pax(state) * G4.spend);
+      return Math.max(v, g4GardenSum(state));
+    };
+  }
+}
+
+// ---------- the pill, the reward, the hello, the moment ----------
+{
+  // the pill: the new goals' reward with its number now
+  const _rn = g3RewardNow;
+  g3RewardNow = function (s, id) {
+    if (id === 'tv') { const g = g4Signal(s); return 'Sponsors pay $1 a home a part: ' + plural(g.homes, 'home', 'homes') + ' in its signal (+' + money$(g.pay) + ' a month now)'; }
+    if (id === 'cruise') return 'Passengers spend $45 each in the town (' + g4Pax(s) + ' a month now)';
+    if (id === 'botanic') { const g = g4Garden(s); return 'Homes within ' + G4.gardenReach + ' tiles pay 3 % more rent a garden (+' + Math.round(100 * g.pct) + ' % now' + (g.b && !g.b.wip ? ', ' + plural(g.homes, 'home', 'homes') : '') + ')'; }
+    return _rn.apply(this, arguments);
+  };
+  // P3's first line names its three goals (the new ones get their own when the first of them comes)
+  const _hl = g3Hello;
+  g3Hello = function (s, g) {
+    if (g4Is(g.id)) return g4Hello(s, g);
+    G4_ORD.hello = true;
+    try { return _hl.apply(this, arguments); } finally { G4_ORD.hello = false; }
+  };
+  // A9's words: what the goal waits for at its size
+  for (const id of G4_P3) {
+    const G = G3_GOALS[id], _w = G.waits;
+    G.waits = (s) => (g4Sited(id) ? 'room for its ' + g4Size(g4First(id)) + ' ' + G4_SIZE[id].what + (id === 'resort' ? ' by the sea' : '') : _w(s));
+  }
+  // the moment: the ritual's head, Rosa's line and the reward of a new goal
+  const _ir = isleReach;
+  isleReach = function (s, g) {
+    const was = s.isle && s.isle.done ? s.isle.done[g.id] : undefined, e0 = s.ev ? s.ev.length : 0;
+    const r = _ir.apply(this, arguments);
+    if (!g || !g4Is(g.id) || was !== undefined) return r;
+    try {
+      const c = g3Count(s, g.id);
+      const head = g.id === 'tv' ? 'Isla Nueva on the air' : g.id === 'cruise' ? 'The cruise pier: ' + c.cap + ' passengers a month' : 'The botanical garden: ' + c.cap.toLocaleString('en-US') + ' species';
+      const line = g.id === 'tv' ? 'Five parts, ' + c.cap + ' hours a day on the air, its signal over the whole island: the telenovela at night, the ball game live from the stadium. Its sponsors pay $1 a month for every home that watches, for each part.'
+        : g.id === 'cruise' ? c.max + ' parts and three berths: the white ships tie up below the town, and ' + c.cap + ' passengers a month walk up the hill. They spend ' + money$(G4.spend) + ' each and sleep aboard.'
+          : 'Five gardens, ' + c.cap.toLocaleString('en-US') + ' species: the royal palms, the orchids, the cacti, the lilies and the great glasshouse. The homes within ' + G4.gardenReach + ' tiles pay ' + Math.round(100 * G4.gardenRent * c.max) + ' % more rent.';
+      const reward = g.id === 'tv' ? 'Sponsors pay $1 a month for every home in its signal, for each of its 5 parts' : g.id === 'cruise' ? c.cap + ' passengers a month spend ' + money$(G4.spend) + ' each in the town' : 'The homes within ' + G4.gardenReach + ' tiles pay ' + Math.round(100 * G4.gardenRent * c.max) + ' % more rent';
+      for (let k = e0; k < s.ev.length; k++) { const e = s.ev[k]; if (e.kind === 'isle' && e.id === g.id) Object.assign(e, { head, line, reward, at: [c.b.x + c.b.w / 2 - 0.5, c.b.y + c.b.h / 2 - 0.5] }); }
+    } catch (e) { /* the words as P3 says them */ }
+    return r;
+  };
+  // Rosa's first line of the new goals (once, when the first of them is the goal: at a look free of a problem's line,
+  // at the latest three months on)
+  const _ck = isleCheck;
+  isleCheck = function (s) {
+    if (g4On() && s.palace && s.isle && s.isle.ladder) {
+      try {
+        const g = isleCur(s), I = s.isle;
+        if (g && g4Is(g.id)) {
+          if (!I.g4) I.g4 = {};
+          const m = s.guide && s.guide.msg, busy = m && !/^com-/.test(m.key) && (!/^hint/.test(m.key) || (m.key === 'hint-still' && s.month - (m.m || 0) < (typeof STILL_KEEP === 'number' ? STILL_KEEP : 6)));
+          if (!I.g4.hi && I.g4.wait === undefined) I.g4.wait = s.month;
+          if (!I.g4.hi && (!busy || s.month - I.g4.wait >= 3)) { I.g4.hi = s.month; g4Hello(s, g); }
+        }
+      } catch (e) { /* A9's six months as they are */ }
+    }
+    return _ck.apply(this, arguments);
+  };
+  // the goal's step for Rosa: where its first part can stand (her offer names the place and the others on the map)
+  const P = GUIDE_PROBLEMS.find((p) => p.key === 'g3');
+  if (P) {
+    const _c = P.check;
+    P.check = function (s) {
+      const r = _c.apply(this, arguments);
+      if (r && r.act && r.act.plan && r.act.plan.kind === 'g3up') {
+        const p = planOf(s, r.act.plan);
+        return p && p.wood ? Object.assign({}, r, { text: r.text.replace(/ Build it now\?$/, ' Its price clears ' + plural(p.wood, 'forest tile', 'forest tiles') + ' of its lot (' + money$(p.woodCost) + '). Build it now?') }) : r;
+      }
+      if (!r || !r.act || !r.act.plan || r.act.plan.kind !== 'g4site') return r;
+      const g = isleGoal(s), line = g ? g4PlaceLine(s, g.id) : '';
+      return line ? Object.assign({}, r, { text: r.text.replace(/ Build it now\?$/, ' ' + line + ' Build it now?') }) : r;
+    };
+  }
+}
+// Rosa's first line of the new goals.
+function g4Hello(s, g) {
+  const rest = G4_IDS.filter((o) => o !== g.id && s.isle.done[o] === undefined).map((o) => G3_GOALS[o].title.replace(/^the /, 'a '));
+  const G = G3_GOALS[g.id];
+  const text = 'More goals for the capital: ' + G.title.replace(/^the /, 'a ') + (rest.length ? ', then ' + listAnd(rest) : '') + '. ' +
+    'Each grows a part at a time on a lot of its own size: the pill counts its parts, and the map shows where it can stand, each place with its price.';
+  guideSay(s, { key: 'hint-g3', text, btn: 'OK', act: {}, m: s.month });
+}
+
+// ---------- P2: the year without progress counts the new goals' parts too ----------
+if (typeof STILL_GOALS !== 'undefined') {
+  for (const id of G4_IDS) {
+    const G = G3_GOALS[id];
+    STILL_GOALS[id] = {
+      v: (s) => { const c = g3Count(s, id); return [c.placed, c.fin * 100 + Math.floor(c.part * 99)]; },
+      at: (s) => g3Count(s, id).placed + ' / ' + G.max + ' ' + G.what,
+      without: 'a new ' + G.one,
+      counts: (s) => 'a new ' + G.one + ' placed or built (' + g3Count(s, id).placed + ' / ' + G.max + ' now)' };
+  }
+}
+
+// ---------- the year's Gazette: a new goal reached as the headline, its parts opened ----------
+{
+  const _gz = gazetteMake;
+  gazetteMake = function (state, Y) {
+    const g = _gz.apply(this, arguments);
+    try {
+      const I = state.isle;
+      if (g4On() && g && I) {
+        const m0 = (Y.y - TUNE.startYear) * 12, inY = (m) => m >= m0 && m < m0 + 12;
+        const last = (I.log || []).filter((o) => inY(o.m)).slice(-1)[0];
+        if (last && g4Is(last.id)) g.head = last.id === 'tv' ? 'Isla Nueva on the air!' : last.id === 'cruise' ? 'The white ships tie up at our own cruise pier!' : 'The botanical garden opens its gates!';
+        for (const it of g.items || []) {
+          const k = G4_IDS.find((id) => G3_GOALS[id].parts.some((p) => it.text.startsWith(p.replace(/^./, (x) => x.toUpperCase()) + ' open')));
+          if (k) it.icon = k === 'tv' ? 'people' : k === 'cruise' ? 'ship' : 'leaf';
+        }
       }
     } catch (e) { /* the page as it is */ }
     return g;
@@ -26278,7 +27434,7 @@ const ISO = (() => {
   }
   // Paved streets: kerbs of light stone, cobbles in staggered rows (the lanes), joints showing between them.
   function pavedGeom(has, x0, y0, x1, y1) {
-    const core = new Path2D(), fil = new Path2D(), lanes = [new Path2D(), new Path2D(), new Path2D(), new Path2D(), new Path2D()], dots = []; let n = 0;
+    const core = new Path2D(), fil = new Path2D(), lanes = [new Path2D(), new Path2D(), new Path2D(), new Path2D(), new Path2D()], dots = [], walk = new Path2D(); let n = 0;
     const mids = [[1, 0.5], [0.5, 1], [0, 0.5], [0.5, 0]], offs = [-0.2, -0.1, 0, 0.1, 0.2];
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       if (!has(x, y)) continue;
@@ -26294,13 +27450,21 @@ const ISO = (() => {
         if (cnt >= 3) for (let k = 0; k < 4; k++) if (nb[k] && nb[(k + 1) % 4]) addPl(fil, quadPts(M2(k), [cx, cy], M2((k + 1) % 4), 8));
       }
       for (const pl of pls) { addPl(core, pl); if (cnt <= 2) offs.forEach((o, i) => addPl(lanes[i], offsetPl(pl, o))); }
+      // (C4: the middle of each sidewalk, for the flags' joints)
+      if (cnt <= 2) for (const pl of pls) for (const o of [-0.415, 0.415]) addPl(walk, offsetPl(pl, o));
     }
-    return { core, fil, lanes, dots, n };
+    return { core, fil, lanes, dots, n, walk };
   }
   function pavedStroke(g, rg) {
     g.lineCap = 'round'; g.lineJoin = 'round';
     const both = (col, w, a) => { g.globalAlpha = a === undefined ? 1 : a; g.strokeStyle = col; g.lineWidth = w; g.stroke(rg.core); g.stroke(rg.fil); g.globalAlpha = 1; };
-    both('#5f6e45', RW + 0.3, 0.22);
+    // C4 (nova/walk, DESIGN.md §57): sidewalks of stone flags on both sides of every paved street and avenue, the kerb
+    // between them and the carriageway (a dirt road has none: its walkers keep to its edge). The shade on the grass
+    // moves out with them.
+    both('#5f6e45', RW + 0.44, 0.2);
+    both('#8f826c', RW + 0.36);
+    both('#e7dbbd', RW + 0.32);
+    if (rg.walk) { g.setLineDash([0.016, 0.1]); g.lineCap = 'butt'; g.strokeStyle = 'rgba(120,100,78,.55)'; g.lineWidth = 0.09; g.stroke(rg.walk); g.setLineDash([]); g.lineCap = 'round'; }
     both('#857b6d', RW + 0.14);
     both('#e6dfcf', RW + 0.08);
     both('#a89c86', RW - 0.04);
@@ -26584,6 +27748,8 @@ const ISO = (() => {
     rbtPaint(g, s, rx0, ry0, rx1, ry1);
     // T1: lane lines, stop lines and give-way marks on paved streets (painted from TF_LINES' year)
     if (typeof tfMarks === 'function') laneMarks(g, s, rx0, ry0, rx1, ry1);
+    // C4: the zebras on the crossings' paved arms (walk_ui.js)
+    if (typeof zbPaint === 'function') { world(); zbPaint(g, s, rx0, ry0, rx1, ry1); }
     // T2: turn lanes' cobbles, islands and paint (streets_ui.js)
     if (typeof stGround === 'function') stGround(g, s, rx0, ry0, rx1, ry1);
     // M5: avenue medians (a planted promenade between the two carriageways), tram tracks, the cane railway
@@ -26612,7 +27778,8 @@ const ISO = (() => {
   }
   // Roads and the stage are the only things the ground depends on: changed tiles mark their chunks stale.
   function groundCheck(R, s) {
-    const lines = typeof tfMarks === 'function' && yearOf(s) >= TF.linesYear;
+    // (C4: and the zebras' paint, two lines or stripes by the year: walk_ui.js zbEra)
+    const lines = (typeof tfMarks === 'function' && yearOf(s) >= TF.linesYear) + (typeof zbEra === 'function' ? zbEra(s) : '');
     // (L1: the shallows the palace fills are painted into the ground: a change of them repaints it)
     const nlk = typeof nlShownGeo === 'function' ? nlShownGeo(s).key : '';
     if (R.groundStage !== s.stage || R.groundLines !== lines || R.nlKey !== nlk) {
@@ -28702,9 +29869,36 @@ const ISO = (() => {
     const tod = dayClock(s), st = R.stats.dayDyn = { moving: 0, drawn: 0, cars: 0, bikes: 0, kids: 0, shoppers: 0 };
     const go = typeof APP !== 'undefined' && APP.speed > 0, cap = COMMUTE.onScreen;
     const onScr = (x, y) => { const p = P(x, y, 0); return p[0] > -40 && p[0] < R.w + 40 && p[1] > -40 && p[1] < R.h + 60; };
+    // C4 (nova/walk, DESIGN.md §57): the families on foot the sim has (their place from their own clock: standing at a
+    // kerb while a car or the lights hold them), first; then A1's walkers and children on the sidewalks, round the
+    // corners and across the zebras (walk_ui.js wkFigAt), at a dirt road's edge
+    const wkSide = typeof wkFigAt === 'function';
+    if (wkSide && typeof wkFigsNow === 'function') {
+      for (const W of wkFigsNow(s, s.tick + frac())) {
+        if (st.drawn >= cap) break;
+        const q = wkFigAt(s, W.p, W.d, W.sd, ((W.v * 5) % 7 - 3) * 0.008);
+        if (!onScr(q[0], q[1])) continue;
+        out.push({ k: 'walk', x: q[0], y: q[1], v: W.v, leaving: false, fr: go && !W.wait ? (Math.floor(now / 190) + W.v) % 2 : 0 });
+        st.drawn++; st.sim = (st.sim || 0) + 1;
+      }
+    }
     commutersAt(s, tod, (f, u, back) => {
       st.moving++;
       if (st.drawn >= cap) return;
+      if (wkSide && (f.mode === 'walk' || f.mode === 'kid')) {
+        const len = f.path.length - 1, sd = (f.v >> 4) & 1 ? 1 : -1, fr0 = go ? (Math.floor(now / 190) + f.v) % 2 : 0, jit = (((f.v >> 5) % 5) - 2) * 0.012;
+        const q = wkFigAt(s, f.path, u * len, sd, jit);
+        if (!onScr(q[0], q[1])) return;
+        if (f.mode === 'kid') { out.push({ k: 'kid', x: q[0], y: q[1], v: f.v % 12, fr: fr0 }); st.kids++; st.drawn++; return; }
+        // (in twos and threes, one behind another on the sidewalk)
+        const grp = 1 + ((f.v >> 7) % 3);
+        for (let j = 0; j < grp && st.drawn < cap; j++) {
+          const g2 = j ? wkFigAt(s, f.path, clamp(u * len + (back ? 0.3 : -0.3) * j, 0, len), sd, jit + (j === 1 ? 0.03 : -0.03)) : q;
+          out.push({ k: 'walk', x: g2[0], y: g2[1], v: (f.v + j * 5) % 12, leaving: false, fr: (fr0 + j) % 2 });
+          st.drawn++;
+        }
+        return;
+      }
       let [x, y, dx, dy] = pathAt(f.path, u * (f.path.length - 1), f.mode === 'car' || f.mode === 'bike' ? rbtSetOf(s) : null, back);
       if (back) { dx = -dx; dy = -dy; }
       const fr = go ? (Math.floor(now / 190) + f.v) % 2 : 0;
@@ -30875,6 +32069,238 @@ const ISO = (() => {
       const def = bDef(b);
       if (!def || !def.g3) return _ph.apply(this, arguments);
       return (def.w / 3) * (def.art === 'stadium' ? 0.55 : def.art === 'resort' && def.g3lv >= 5 ? 1.8 : 1.1);
+    };
+  }
+  // ---------- P4 (sim/goals2.js): each goal's building at its own size, the new goals, the places on the map ----------
+  // Full scale: the campus on 3 x 3 is P3's layout as it was drawn for (no shrinking); the ballpark's 3 x 3 layout is
+  // stretched along its long side onto 4 x 3 (the pen's strokes, the crowd and the heights as they are); the resort
+  // and the cruise pier are laid out for 4 x 2 and drawn transposed on a lot turned 2 x 4 (TX, as A13's turned
+  // buildings); the station 2 x 2 and the garden 4 x 4 have layouts of their own. Drawn with the island's pen, not
+  // copied from any game: the station after Havana's early studios (a low modern block, a lattice mast; Unión Radio's
+  // mobile unit), the pier after the cruise terminals of the 1960s (a long shed with a wave roof, gangway towers, the
+  // customs hall's clock), the garden after the tropical botanic gardens (a royal palm avenue, a glasshouse, a lily
+  // lake, cacti, the woods kept round it).
+  // a square layout of 3 x 3 stretched onto a lot of w x h (no transposition: walls() and the faces stay as they are)
+  function g4Stretch(w, h, fn) {
+    const kx = w / 3, ky = h / 3;
+    if (kx === 1 && ky === 1) return fn();
+    const P0 = P;
+    P = function (x, y, z) { return P0(x * kx, y * ky, z); };
+    try { return fn(); } finally { P = P0; }
+  }
+  // a layout of 4 x 2 (its long side along x) on a lot of w x h: transposed when the lot stands 2 x 4
+  function g4Long(w, h, fn) {
+    if (w >= h) return fn();
+    const t0 = TX;
+    TX = !TX;
+    try { return fn(); } finally { TX = t0; }
+  }
+  // ---- the resort along the shore (4 x 2): the tower and the slab at the back, the garden wing at the end, the pool and
+  // its club, the cabañas along the front ----
+  const G4_RESORT = [[0.85, 0.1, 2.2, 0.55, 1.3], [0.2, 1.3, 1.5, 0.5, 0.32], [1.8, 0.85, 1.3, 0.95, 0.36], [3.2, 0.1, 0.66, 1.15, 0.7], [0.1, 0.1, 0.62, 0.62, 2.7]];
+  function g4ResortPart(k) {
+    if (k === 0) {
+      const [x, y, w, d, h] = G4_RESORT[0], wv = g3Slab(x, y, w, d, h, 4, '#7ec4cf');
+      poly(fq(wv.fl, w * 0.5 - 0.32, w * 0.5 + 0.32, h - 0.02, h + 0.14), '#24786f', INK, 0.8 * S); faceText(wv.fl, w * 0.5, h + 0.06, 'HOTEL', 9, '#fbf3df');
+    } else if (k === 1) {
+      for (const xx of [0.22, 0.75, 1.28]) { const wv = walls(xx, 1.35, 0.42, 0.42, 0, 0.32, '#f3e3c4'); door(wv.fl, 0.21, 0.1, 0.2, '#2e9a91'); win(wv.fr, 0.21, 0.12, 0.1, 0.12, '#2e9a91'); wallsOutline(wv); hipRoof(xx, 1.35, 0.42, 0.42, 0.32, 0.24, 0.07, '#c9a46a', { rows: 3 }); }
+    } else if (k === 2) {
+      const pts = []; for (let q = 0; q < 28; q++) { const a = q / 28 * TAU, r = 0.36 + 0.08 * Math.sin(2 * a + 0.6); pts.push(P(2.3 + Math.cos(a) * r * 1.35, 1.2 + Math.sin(a) * r * 0.8)); }
+      poly(pts, '#fbf7ee', '#c9bfa8', 3.4 * S); poly(pts, '#4fb3cf', ln('#4fb3cf'), 0.9 * S);
+      seg(P(2.0, 1.1), P(2.5, 1.3), 'rgba(255,255,255,.55)', 1.2 * S);
+      const cx = 2.0, cy = 1.55, cw = 0.95, cd = 0.32, ch = 0.34;
+      const wv = walls(cx, cy, cw, cd, 0, ch, '#fbf7ee'); wallsOutline(wv);
+      for (let i = 0; i < 6; i++) { const u0 = i / 6, u1 = (i + 1) / 6, c = i % 2 ? '#f8f2e4' : '#df684c'; poly([P(cx + cw * u0, cy, ch + 0.12), P(cx + cw * u1, cy, ch + 0.12), P(cx + cw * u1, cy + cd + 0.1, ch - 0.02), P(cx + cw * u0, cy + cd + 0.1, ch - 0.02)], c, ln(c), 0.6 * S); }
+      for (const [ux, uy, c] of [[3.05, 1.55, '#df684c'], [1.7, 0.95, '#2e9a91'], [3.1, 1.0, '#f2c75a']]) g3Umbrella(ux, uy, c);
+    } else if (k === 3) g3Slab(3.2, 0.1, 0.66, 1.15, 0.7, 2, '#e9a3a8');
+    else { const wv = g3Slab(0.1, 0.1, 0.62, 0.62, 2.7, 10, '#7ec4cf'); poly(fq(wv.fr, 0.1, 0.52, 2.62, 2.74), '#2e9a91', INK, 0.7 * S); }
+  }
+  function g4PaintResort(lv, up) {
+    poly(rrPts(0.04, 0.04, 3.96, 1.96, 0.18).map((p) => P(p[0], p[1])), '#efe0bd', '#d6c49a', 0.8 * S);
+    poly([P(1.75, 0.75), P(3.15, 0.75), P(3.15, 1.92), P(1.75, 1.92)], 'rgba(134,182,90,.4)');
+    for (const i of [4, 0, 3, 2, 1]) {
+      if (i < lv) g4ResortPart(i);
+      else if (i === up - 1) { const [x, y, w, d, h] = G4_RESORT[i]; g3Scaffold(x, y, w, d, Math.min(1.4, h)); }
+    }
+    for (const [px, py] of [[3.9, 1.9], [0.12, 1.9], [1.7, 1.95]]) royalPalm(px, py, 1.6, 0.8);
+  }
+  // ---- the television station (2 x 2) ----
+  // its lattice mast: two legs to the top, the bracing, red and white bands on the tall one, the beacon
+  function g4Mast(x, y, hgt, tall) {
+    const top = P(x, y, hgt), a = P(x - 0.09, y + 0.05, 0), b = P(x + 0.09, y - 0.05, 0), c = P(x + 0.04, y + 0.09, 0);
+    ctx.lineCap = 'round';
+    for (const f of [a, b, c]) seg(f, top, '#5a5048', 1.3 * S);
+    const n = Math.round(hgt * 6);
+    for (let i = 0; i < n; i++) {
+      const u0 = i / n, u1 = (i + 1) / n, l = (p, u) => [p[0] + (top[0] - p[0]) * u, p[1] + (top[1] - p[1]) * u];
+      const col = tall && i % 2 ? '#c4553f' : tall ? '#f6efe2' : '#7a6e64';
+      seg(l(a, u0), l(b, u1), col, 0.9 * S); seg(l(b, u0), l(a, u1), col, 0.9 * S);
+    }
+    if (tall) for (const [gx, gy] of [[x - 0.5, y + 0.4], [x + 0.45, y - 0.45], [x + 0.45, y + 0.45]]) seg(P(x, y, hgt * 0.7), P(gx, gy, 0), 'rgba(70,60,50,.55)', 0.6 * S);
+    // the antennas at its top and the red beacon
+    seg([top[0] - 4 * S, top[1] + 2 * S], [top[0] + 4 * S, top[1] - 2 * S], '#4a4440', 1.4 * S);
+    circ(top[0], top[1] - 2 * S, 1.8 * S, '#e0583e', INK, 0.6 * S);
+  }
+  const G4_TV = [[0.75, 0.12, 1.13, 0.83, 0.62], [0.12, 1.05, 0.58, 0.83, 0.5], [0.85, 1.12, 0.72, 0.36, 0.42], [0.22, 0.22, 0.32, 0.32, 1.6], [0.95, 0.24, 0.6, 0.5, 0.3]];
+  function g4PaintTv(lv, up) {
+    poly(rrPts(0.04, 0.04, 1.96, 1.96, 0.16).map((p) => P(p[0], p[1])), '#d9d2c4', '#bdb3a2', 0.8 * S);
+    // the mast (the short one; the tall mast replaces it), then the studio and its rooftop colour studio, the others
+    if (lv >= 1) g4Mast(0.38, 0.38, lv >= 4 ? 3.2 : 1.7, lv >= 4);
+    else if (up === 4) g3Scaffold(0.24, 0.24, 0.28, 0.28, 1.4);
+    for (const i of [0, 4, 1, 2]) {
+      const [x, y, w, d, h] = G4_TV[i];
+      if (i < lv) {
+        if (i === 0) { const wv = walls(x, y, w, d, 0, h, '#efe9de'); bands(wv, w, d, h); for (const [f, L] of [[wv.fl, w], [wv.fr, d]]) poly(fq(f, 0.06, L - 0.06, h * 0.38, h * 0.72), '#3d5560'); wallsOutline(wv); flatRoof(x, y, w, d, h, 0.05, '#e3dccd'); faceText(wv.fl, w * 0.5, h * 0.18, 'TELEVISIÓN', 7, '#24486f'); }
+        else if (i === 4) { const wv = walls(x, y, w, d, G4_TV[0][4], h, '#fbf7ee'); for (const [c, u] of [['#d9533f', 0.1], ['#f2c75a', 0.3], ['#3f8a52', 0.5], ['#3f74a8', 0.7]]) poly(fq(wv.fl, u * w, (u + 0.18) * w, G4_TV[0][4] + 0.08, G4_TV[0][4] + 0.22), c); wallsOutline(wv); flatRoof(x, y, w, d, G4_TV[0][4] + h, 0.04, '#ece4d4'); }
+        else if (i === 1) { const wv = walls(x, y, w, d, 0, h, '#e6dccb'); door(wv.fl, w * 0.5, 0.16, 0.26, '#3f74a8'); win(wv.fr, d * 0.3, 0.18, 0.12, 0.16, '#24486f'); win(wv.fr, d * 0.7, 0.18, 0.12, 0.16, '#24486f'); wallsOutline(wv); flatRoof(x, y, w, d, h, 0.04, '#dcd2bf'); }
+        else {
+          const wv = walls(x, y, w, d, 0, h, '#f1e7d2'); for (let q = 0; q < 3; q++) win(wv.fl, w * (q + 0.5) / 3, 0.14, 0.12, 0.16, '#24486f'); wallsOutline(wv); flatRoof(x, y, w, d, h, 0.04, '#e1d6c0');
+          // the mobile unit: Unión Radio sent the ball games out by microwave from its van
+          boxAt(1.18, 1.6, 0.46, 0.24, 0.04, 0.22, '#d9533f'); boxAt(1.56, 1.6, 0.14, 0.24, 0.04, 0.16, '#e9e2d4');
+          const r = P(1.4, 1.72, 0.32); seg(r, [r[0], r[1] - 6 * S], '#4a4440', 1 * S); circ(r[0], r[1] - 7 * S, 2.2 * S, '#f6efe2', INK, 0.6 * S);
+        }
+      } else if (i === up - 1) g3Scaffold(x, y, w, d, i === 4 ? G4_TV[0][4] + h : h);
+    }
+  }
+  // ---- the cruise pier (4 x 2): the quay along the front, the terminal shed with its wave roof, the gangway towers,
+  // the customs hall with its clock and the crafts market ----
+  const G4_CRUISE = [[0.2, 0.15, 2.1, 0.9, 0.55], [2.6, 1.35, 0.3, 0.3, 0.9], [2.5, 0.12, 1.35, 0.8, 0.62], [0.35, 1.35, 0.3, 0.3, 0.9]];
+  function g4Gangway(x, y) {
+    boxAt(x, y, 0.26, 0.26, 0, 0.9, '#e9e6df');
+    poly([P(x + 0.26, y + 0.04, 0.82), P(x + 0.26, y + 0.22, 0.82), P(x + 0.26, y + 0.22, 0.7), P(x + 0.26, y + 0.04, 0.7)], '#c4553f', INK, 0.6 * S);
+    const f = P(x + 0.13, y + 0.13, 0.9); seg(f, [f[0], f[1] - 9 * S], '#4a4440', 0.9 * S); poly([[f[0], f[1] - 9 * S], [f[0] + 6 * S, f[1] - 7.5 * S], [f[0], f[1] - 6 * S]], '#2e6f9a', INK, 0.5 * S);
+  }
+  function g4PaintCruise(lv, up) {
+    poly(rrPts(0.03, 0.03, 3.97, 1.97, 0.1).map((p) => P(p[0], p[1])), '#d6d3cc', '#b5b0a6', 0.8 * S);
+    // the quay's edge and its bollards
+    poly([P(0.03, 1.72), P(3.97, 1.72), P(3.97, 1.97), P(0.03, 1.97)], '#bdb7ab', ln('#bdb7ab'), 0.7 * S);
+    for (let k = 0; k < 8; k++) { const q = P(0.3 + k * 0.48, 1.84, 0); circ(q[0], q[1] - 1.2 * S, 1.6 * S, '#3a3430'); }
+    for (const i of [0, 2, 1, 3]) {
+      const [x, y, w, d, h] = G4_CRUISE[i];
+      if (i < lv) {
+        if (i === 0) {
+          // the terminal: a long shed, glass along its front, a roof in three waves
+          const wv = walls(x, y, w, d, 0, h, '#f4f1ea'); poly(fq(wv.fl, 0.08, w - 0.08, 0.1, h - 0.12), '#7fb3c8'); for (let q = 1; q < 8; q++) seg(fp(wv.fl, w * q / 8, 0.1), fp(wv.fl, w * q / 8, h - 0.12), '#f4f1ea', 1.2 * S); wallsOutline(wv);
+          for (let q = 0; q < 3; q++) { const u0 = x + w * q / 3, u1 = x + w * (q + 1) / 3, um = (u0 + u1) / 2, pts = []; for (let k = 0; k <= 10; k++) { const u = u0 + (u1 - u0) * k / 10, z = h + 0.16 * Math.sin(Math.PI * k / 10); pts.push([u, z]); } poly(pts.map(([u, z]) => P(u, y + d, z)).concat(pts.slice().reverse().map(([u, z]) => P(u, y, z))), '#e8e2d6', ln('#e8e2d6'), 0.8 * S); seg(P(um, y + d, h + 0.16), P(um, y, h + 0.16), '#d2cabb', 0.7 * S); }
+          g4Gangway(1.0, 1.35);
+          for (const [px, py, c] of [[0.6, 1.55, '#df684c'], [1.4, 1.5, '#3f74a8'], [1.8, 1.58, '#f2c75a'], [2.3, 1.48, '#2e9a91']]) { const q = P(px, py); seg(q, [q[0], q[1] - 4 * S], c, 2 * S); circ(q[0], q[1] - 5 * S, 1.1 * S, '#8a5a3c'); }
+        } else if (i === 2) {
+          const wv = walls(x, y, w, d, 0, h, '#efe2c8'); bands(wv, w, d, h); for (let q = 0; q < 4; q++) win(wv.fl, w * (q + 0.5) / 4, 0.12, 0.14, 0.26, '#2e6f9a'); wallsOutline(wv); hipRoof(x, y, w, d, h, 0.22, 0.05, '#b9553c', { rows: 3, cols: 8 });
+          const c = fp(wv.fl, w * 0.5, h + 0.02); circ(c[0], c[1] - 4 * S, 3.4 * S, '#fbf7ee', INK, 0.8 * S); seg([c[0], c[1] - 4 * S], [c[0], c[1] - 6.4 * S], INK, 0.7 * S); seg([c[0], c[1] - 4 * S], [c[0] + 1.8 * S, c[1] - 4 * S], INK, 0.7 * S);
+          for (const [ux, uy, cc] of [[2.75, 1.15, '#df684c'], [3.25, 1.2, '#f2c75a'], [3.7, 1.12, '#2e9a91']]) g3Umbrella(ux, uy, cc);
+        } else g4Gangway(x, y);
+      } else if (i === up - 1) g3Scaffold(x, y, w, d, Math.min(1, h));
+    }
+    if (lv >= 4) for (const px of [0.1, 3.9]) { const q = P(px, 1.7, 0); seg(q, [q[0], q[1] - 16 * S], '#4a4440', 1 * S); poly([[q[0], q[1] - 16 * S], [q[0] + 8 * S, q[1] - 13.5 * S], [q[0], q[1] - 11 * S]], '#f2c75a', INK, 0.5 * S); }
+  }
+  // ---- the botanical garden (4 x 4): its woods kept round the edges, the palm avenue to its gate, the orchid house, the
+  // cactus garden, the lily lake, the great glasshouse ----
+  function g4Glass(x, y, w, d, h, cupola) {
+    boxShadow(x, y, x + w, y + d, h + 0.3);
+    const wv = walls(x, y, w, d, 0, h, '#cfe8ea', true);
+    for (const [f, L] of [[wv.fl, w], [wv.fr, d]]) { const n = Math.max(3, Math.round(L * 6)); for (let q = 1; q < n; q++) seg(fp(f, L * q / n, 0), fp(f, L * q / n, h), 'rgba(255,255,255,.85)', 0.9 * S); seg(fp(f, 0, h * 0.5), fp(f, L, h * 0.5), 'rgba(255,255,255,.7)', 0.8 * S); }
+    wallsOutline(wv);
+    if (cupola) { drum(x + w / 2, y + d / 2, h, h + 0.1, Math.min(w, d) * 0.42, '#cfe8ea'); dome(x + w / 2, y + d / 2, h + 0.1, Math.min(w, d) * 0.42, 0.45, '#d8eef0'); }
+    else hipRoof(x, y, w, d, h, 0.22, 0.03, '#d8eef0', { rows: 2, cols: 6 });
+  }
+  function g4Cactus(x, y, k) {
+    const b = P(x, y, 0), hgt = (9 + 4 * k) * S;
+    ctx.lineCap = 'round'; seg(b, [b[0], b[1] - hgt], '#3f7a3a', 3.2 * S); seg(b, [b[0], b[1] - hgt], '#5f9a4f', 1.8 * S);
+    seg([b[0], b[1] - hgt * 0.55], [b[0] + 3.5 * S, b[1] - hgt * 0.55], '#3f7a3a', 2.2 * S); seg([b[0] + 3.5 * S, b[1] - hgt * 0.55], [b[0] + 3.5 * S, b[1] - hgt * 0.85], '#3f7a3a', 2.2 * S);
+  }
+  const G4_GARDEN = [[1.7, 2.0, 0.6, 1.95, 0.2], [0.35, 2.35, 0.85, 0.6, 0.42], [2.55, 2.55, 0.95, 0.9, 0.2], [2.35, 0.85, 1.25, 1.0, 0.1], [0.45, 0.55, 1.25, 1.0, 0.6]];
+  function g4PaintGarden(lv, up) {
+    poly(rrPts(0.03, 0.03, 3.97, 3.97, 0.2).map((p) => P(p[0], p[1])), '#8fbf62', '#6f9a4a', 0.8 * S);
+    // the paths: round the lot and across it to the gate at the front, flower beds along them once it opens
+    pline([P(0.3, 1.8), P(3.7, 1.8)], '#eadfc4', 2.6 * S); pline([P(2.0, 0.3), P(2.0, 3.95)], '#eadfc4', 3.2 * S);
+    if (lv >= 1) for (let k = 0; k < 14; k++) { const u = 0.45 + k * 0.24, q = k % 2 ? P(u, 1.62) : P(u, 1.98); if (Math.abs(u - 2) < 0.3) continue; circ(q[0], q[1] - 1 * S, 2.1 * S, ['#df684c', '#f2c75a', '#c0567a', '#f6efe2'][k % 4], ln('#5f9a4f'), 0.5 * S); }
+    // the woods kept along the back edges
+    for (let k = 0; k < 7; k++) { drawTree(0.18 + k * 0.6, 0.18, 0.95, '#3f7a3a', 11 + k * 7); if (k && k < 6) drawTree(0.18, 0.18 + k * 0.6, 0.95, '#467f3c', 31 + k * 5); }
+    for (const i of [4, 3, 1, 2, 0]) {
+      const [x, y, w, d, h] = G4_GARDEN[i];
+      if (i < lv) {
+        if (i === 0) {
+          // the palm avenue from its gate (two pillars and an iron arch at the front)
+          for (let k = 0; k < 4; k++) for (const sx of [1.72, 2.28]) royalPalm(sx, 2.15 + k * 0.48, 1.55, 0.75);
+          for (const sx of [1.78, 2.22]) boxAt(sx - 0.05, 3.82, 0.1, 0.1, 0, 0.42, '#e9dfc8');
+          pline([P(1.78, 3.87, 0.44), P(2.0, 3.87, 0.58), P(2.22, 3.87, 0.44)], '#3a3430', 1.4 * S);
+        } else if (i === 1) g4Glass(x, y, w, d, h, false);
+        else if (i === 2) {
+          poly([P(x, y), P(x + w, y), P(x + w, y + d), P(x, y + d)], '#e2cf9a', ln('#e2cf9a'), 0.7 * S);
+          for (let k = 0; k < 7; k++) g4Cactus(x + 0.15 + (k % 3) * 0.33 + (k > 2 ? 0.15 : 0), y + 0.15 + Math.floor(k / 3) * 0.3, k % 3);
+        } else if (i === 3) {
+          const pts = []; for (let q = 0; q < 26; q++) { const a = q / 26 * TAU, r = 0.42 + 0.06 * Math.sin(3 * a); pts.push(P(x + w / 2 + Math.cos(a) * r * 1.35, y + d / 2 + Math.sin(a) * r)); }
+          poly(pts, '#5aa9c4', ln('#5aa9c4'), 1 * S);
+          for (let k = 0; k < 9; k++) { const q = P(x + 0.3 + (k % 3) * 0.32, y + 0.3 + Math.floor(k / 3) * 0.2); ell(q[0], q[1], 3 * S, 1.6 * S, '#5f9a4f'); if (k % 2) circ(q[0] + 1 * S, q[1] - 1 * S, 1.1 * S, '#f2a0b8'); }
+        } else g4Glass(x, y, w, d, h, true);
+      } else if (i === up - 1) g3Scaffold(x, y, w, d, Math.max(0.3, h));
+    }
+    for (const [px, py] of [[3.7, 3.7], [0.4, 3.6]]) royalPalm(px, py, 1.5, 0.8);
+  }
+  // the woods still on a goal's lot: a few trees on the places of the parts not yet built
+  function g4Woods(art, lv, up, vd) {
+    const slots = art === 'campus' ? G3_CAMPUS : art === 'stadium' ? G3_STANDS : art === 'resort' ? G4_RESORT : art === 'cruise' ? G4_CRUISE : art === 'tvst' ? G4_TV : [];
+    const run = (fn) => (art === 'stadium' ? g4Stretch(vd.w, vd.h, fn) : art === 'resort' || art === 'cruise' ? g4Long(vd.w, vd.h, fn) : fn());
+    run(() => {
+      slots.forEach((q, i) => {
+        if (i < lv || i === up - 1) return;
+        const [x, y, w, d] = q, n = Math.max(1, Math.round(w * d * 3));
+        for (let k = 0; k < Math.min(n, 5); k++) drawTree(x + w * (0.25 + 0.5 * ((k * 0.618) % 1)), y + d * (0.25 + 0.5 * ((k * 0.382 + 0.3) % 1)), 0.8, k % 2 ? '#3f7a3a' : '#467f3c', 71 + i * 13 + k);
+      });
+    });
+  }
+  {
+    // the sprites: a goal's building at its own size (P3's 2 x 2 types as P3 drew them)
+    const _sp = bSpriteOf0;
+    bSpriteOf0 = function (R, s, b) {
+      const def = bDef(b), t = def && typeof G3_TYPE !== 'undefined' ? G3_TYPE[b.type] : null;
+      if (!t || !(t.base || G4_GOALS[t.goal]) || !(def.g3lv >= 1)) return _sp.apply(this, arguments);
+      const lv = b.wip ? 0 : def.g3lv, up = b.g3up ? b.g3up.lv : 0, vd = viewDef(def, R.rot || 0), H = bHeight(b) + 0.35, art = def.art;
+      // (the lot's woods its next parts will clear stand where those parts will: trees on their places)
+      const wood = b.g4wood && b.g4wood.t && b.g4wood.t.length ? 1 : 0;
+      const paint0 = art === 'campus' ? () => paintCampus(lv, up) : art === 'stadium' ? () => g4Stretch(vd.w, vd.h, () => paintStadium(lv, up))
+        : art === 'resort' ? () => g4Long(vd.w, vd.h, () => g4PaintResort(lv, up)) : art === 'cruise' ? () => g4Long(vd.w, vd.h, () => g4PaintCruise(lv, up))
+          : art === 'tvst' ? () => g4PaintTv(lv, up) : () => g4PaintGarden(lv, up);
+      const paint = wood ? () => { paint0(); g4Woods(art, lv, up, vd); } : paint0;
+      return sprite(R, 'g4|' + art + '|' + lv + '|' + up + '|' + wood + '|' + vd.w + 'x' + vd.h, [vd.w, vd.h], H, paint);
+    };
+    const G4_H = { campus: (lv) => (lv >= 3 ? 2.5 : 1.7), stadium: () => 1.9, resort: (lv) => (lv >= 5 ? 3.1 : 1.8), tvst: (lv) => (lv >= 4 ? 3.6 : 2.1), cruise: () => 1.4, botanic: (lv) => (lv >= 5 ? 1.6 : 1.4) };
+    const _bh = bHeight;
+    bHeight = function (b) {
+      const def = bDef(b), t = def && typeof G3_TYPE !== 'undefined' ? G3_TYPE[b.type] : null;
+      if (!t || !(t.base || G4_GOALS[t.goal]) || !G4_H[def.art]) return _bh.apply(this, arguments);
+      return G4_H[def.art](b.g3up ? Math.max(b.g3up.lv, def.g3lv) : def.g3lv);
+    };
+    const _ph = pickHeight;
+    pickHeight = function (b) {
+      const def = bDef(b), t = def && typeof G3_TYPE !== 'undefined' ? G3_TYPE[b.type] : null;
+      if (!t || !(t.base || G4_GOALS[t.goal])) return _ph.apply(this, arguments);
+      return def.art === 'stadium' ? 0.55 : def.art === 'botanic' ? 0.6 : def.art === 'cruise' ? 0.7 : def.art === 'resort' && def.g3lv >= 5 ? 1.8 : 1.1;
+    };
+    // the places on the map: the other places of a goal's first part, each with its own price (the gold one is the
+    // ask's own lot, drawn above): a cream dashed lot, its forest marked, the homes it would move ringed
+    const _co = comOverlay;
+    comOverlay = function (R, s, ui, t) {
+      const r = _co.apply(this, arguments);
+      const cm = ui.com;
+      if (!cm || !cm.alts || !cm.alts.length || ui.money) return r;
+      try {
+        const pulse = 0.5 + 0.5 * Math.sin(t * 2.6 + 1.3);
+        for (const a of cm.alts) {
+          const l = a.lot;
+          diamond(R, l.x - 0.06, l.y - 0.06, l.x + l.w + 0.06, l.y + l.h + 0.06, null, 'rgba(255,250,236,' + (0.35 + 0.3 * pulse).toFixed(3) + ')', 6 + 3 * pulse);
+          diamond(R, l.x + 0.04, l.y + 0.04, l.x + l.w - 0.04, l.y + l.h - 0.04, 'rgba(255,248,222,' + (0.22 + 0.14 * pulse).toFixed(3) + ')', '#fffaf0', 2.6, [8, 5]);
+          for (const i of a.p.clear.concat(a.p.keep || [])) { const x = i % MAP_W, y = (i / MAP_W) | 0; diamond(R, x + 0.12, y + 0.12, x + 0.88, y + 0.88, null, 'rgba(255,250,236,.85)', 1.8, [4, 4]); }
+          for (const id of a.p.ids) { const b = bById(s, id); if (b) diamond(R, b.x - 0.12, b.y - 0.12, b.x + b.w + 0.12, b.y + b.h + 0.12, 'rgba(255,248,222,.18)', 'rgba(255,250,236,.95)', 2.4, [6, 4]); }
+          for (const i of a.p.road || []) { const p = P(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5, 0); circ(p[0], p[1], Math.max(2.5, R.hw * 0.12), '#fffaf0', 'rgba(150,100,20,.8)', 1.2); }
+          const q = P(l.x + l.w / 2, l.y + l.h / 2, 0), sp = labelSprite(R, a.label, true), lift = 34 + 0.25 * Math.max(l.w, l.h) * R.hw;
+          const at = labelClear(R, ui, [[q[0], q[1] - lift], [q[0], q[1] + 26], [q[0], q[1] - lift - 40]], sp);
+          a.labelPt = at;
+          uiDraw(R, sp, at[0], at[1]);
+        }
+        R.stats.g4alts = cm.alts.length;
+      } catch (e) { /* the gold place alone */ }
+      return r;
     };
   }
   return { create, draw, toScreen, toTile, pick, pickAll, mem, trim, reset };
@@ -37083,7 +38509,8 @@ function isleNearLot(sx, sy, l) {
 {
   const _cs = comShort;
   comShort = function (q) {
-    if (q && q.key === 'quarter') { const p = q.plan ? planOf(APP.state, q.plan) : null; return 'ask for a new quarter' + (p ? ' (' + plural(p.n, 'home', 'homes') + ')' : ''); }
+    // v38: a plan that has gone since the ask (planOf gives no count) showed "(undefined homes)": then the count asked for
+    if (q && q.key === 'quarter') { const p = q.plan ? planOf(APP.state, q.plan) : null, n = p && p.n > 0 ? p.n : q.plan && q.plan.n > 0 ? q.plan.n : 0; return 'ask for a new quarter' + (n ? ' (' + plural(n, 'home', 'homes') + ')' : ''); }
     if (q && q.key === 'isle') {
       const p = q.plan ? planOf(APP.state, q.plan) : null;
       if (p && p.kind === 'quarter' && p.far) return 'asks for a second town on the far coast';
@@ -43095,6 +44522,204 @@ function cwHowWords(list) {
   };
 }
 
+// ---- src/ui/walk_ui.js
+// C4 (6 Nov 2026, nova/walk): what she sees of the sidewalks, the zebras and the families who walk (sim/walk.js).
+// DESIGN.md §57. Every number here is the one the sim walks and waits by:
+// - the home's card: a family that leaves its car at home says why, the walk's minutes against the drive's with its queue;
+// - the crossing's card: its zebras, the walkers who crossed in the morning rush and how long the zebras held the cars;
+// - the street's card: a paved street's sidewalks and the walkers on them (a dirt road: its edge, paving gives sidewalks);
+// - the Traffic legend: how many walk because it is quicker, the walkers at the zebras, the time the cars gave way;
+// - drawn: the zebras on the crossings' paved arms (zbPaint, from chunkPaint: two white lines from 1917, the stripes from
+//   1951), the walkers on the sidewalks, round the corners and across the zebras (wkFigAt, from commutersCollect), the
+//   families on foot among them where the sim has them (standing at a kerb while a car or the lights hold them).
+
+const ZB = {
+  stripes: 1951,         // the striped zebra (Slough, 31 Oct 1951; trialled 1949-51); before it two white lines across
+  near: 0.25, far: 0.46, // a zebra's depth along its arm, from the crossing's centre (the stop line is at 0.47): about
+                         // 2.5 m; v38 drew it deeper and its stripes wider than C4's (2 m, 70 cm) so it reads at the
+                         // iPad's zoom (the stripes are wider than the real 40-60 cm for the same reason)
+  half: 0.27,            // and half its width across the carriageway (the cobbles: RW - 0.04)
+  rbt: [0.55, 0.7],      // a roundabout's zebras on the arm, set back from the ring
+  side: 0.415,           // a sidewalk's middle from the street's centre line (render/iso.js pavedStroke)
+  edge: 0.3,             // where walkers keep on a dirt road (its edge)
+};
+// The paint's era: '' before TF.linesYear, 'l' two lines, 'z' the stripes (the ground is painted again when it changes)
+function zbEra(s) { const y = yearOf(s); return typeof TF === 'undefined' || y < TF.linesYear ? '' : y < ZB.stripes ? 'l' : 'z'; }
+// The zebras on the ground (world tile coordinates; chunkPaint calls it after the lane marks)
+function zbPaint(g, s, x0, y0, x1, y1) {
+  const era = zbEra(s);
+  if (!era || typeof zbAt !== 'function') return;
+  const bars = new Path2D(), lines = new Path2D();
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const J = tileIdx(x, y);
+    if (!(s.road[J] >= 2) || !jctAt(s, J)) continue;
+    const rb = rbtAt(s, J), r0 = rb ? ZB.rbt[0] : ZB.near, r1 = rb ? ZB.rbt[1] : ZB.far, cx = x + 0.5, cy = y + 0.5;
+    for (let a = 0; a < 4; a++) {
+      if (!zbAt(s, J, a)) continue;
+      const h = TF_H[a], w = [-h[1], h[0]];
+      if (era === 'l') {
+        for (const r of [r0, r1]) { lines.moveTo(cx + h[0] * r - w[0] * ZB.half, cy + h[1] * r - w[1] * ZB.half); lines.lineTo(cx + h[0] * r + w[0] * ZB.half, cy + h[1] * r + w[1] * ZB.half); }
+        continue;
+      }
+      // stripes along the way the cars go, across the carriageway (40-60 cm wide, as wide apart)
+      for (let k = 0; k < 5; k++) {
+        const o = -ZB.half + 0.04 + k * (2 * ZB.half - 0.08) / 4, bw = 0.038;
+        const p = (r, oo) => [cx + h[0] * r + w[0] * oo, cy + h[1] * r + w[1] * oo];
+        const A = p(r0, o - bw), B = p(r1, o - bw), C = p(r1, o + bw), D = p(r0, o + bw);
+        bars.moveTo(A[0], A[1]); bars.lineTo(B[0], B[1]); bars.lineTo(C[0], C[1]); bars.lineTo(D[0], D[1]); bars.closePath();
+      }
+    }
+  }
+  g.save();
+  g.lineCap = 'butt';
+  g.fillStyle = 'rgba(70,60,50,.26)'; g.translate(0.008, 0.012); g.fill(bars); g.translate(-0.008, -0.012);
+  g.fillStyle = 'rgba(255,253,244,.94)'; g.fill(bars);
+  g.strokeStyle = 'rgba(255,253,244,.9)'; g.lineWidth = 0.028; g.stroke(lines);
+  g.restore();
+}
+
+// ---------- the walkers' places ----------
+const WK_D = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+function wkDirOf(a, b) { const d = b - a; return d === 1 ? 0 : d === MAP_W ? 1 : d === -1 ? 2 : d === -MAP_W ? 3 : -1; }
+// A walker at d (tiles along way p) keeping to side sd (+1: the right-hand sidewalk of the way it walks, -1: the left):
+// on a paved street its sidewalk, through a crossing round its corners and across its zebras, on a dirt road at its edge
+// (jit: a little to the side, a group walking together). [x, y] in tile coordinates.
+function wkFigAt(s, p, d, sd, jit) {
+  const n = p.length, k = Math.max(0, Math.min(n - 1, Math.round(d))), u = Math.max(0, Math.min(1, d - k + 0.5)), i = p[k];
+  const c = [i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5];
+  let din = k > 0 ? wkDirOf(p[k - 1], i) : n > 1 ? wkDirOf(i, p[1]) : 0, dout = k < n - 1 ? wkDirOf(i, p[k + 1]) : din;
+  if (din < 0) din = dout < 0 ? 0 : dout;
+  if (dout < 0) dout = din;
+  const paved = s.road[i] >= 2, off = (paved ? ZB.side : ZB.edge) + (jit || 0), vi = WK_D[din], vo = WK_D[dout];
+  const R = (v) => [-v[1] * sd, v[0] * sd];
+  if (paved && jctAt(s, i)) {
+    // round the corners: in at the edge on its sidewalk, to the corner, across the zebras it takes, out at the far edge
+    const o = rbtAt(s, i) ? (ZB.rbt[0] + ZB.rbt[1]) / 2 : off, ri = R(vi), ro = R(vo);
+    const E0 = [c[0] - vi[0] * 0.5 + ri[0] * off, c[1] - vi[1] * 0.5 + ri[1] * off];
+    const Ce = [c[0] + (-vi[0] + ri[0]) * o, c[1] + (-vi[1] + ri[1]) * o], Cx = [c[0] + (vo[0] + ro[0]) * o, c[1] + (vo[1] + ro[1]) * o];
+    const X1 = [c[0] + vo[0] * 0.5 + ro[0] * off, c[1] + vo[1] * 0.5 + ro[1] * off];
+    const pts = [E0, Ce];
+    const same = Math.abs(Ce[0] - Cx[0]) < 1e-6 && Math.abs(Ce[1] - Cx[1]) < 1e-6, opp = Math.abs(Ce[0] - Cx[0]) > 1e-6 && Math.abs(Ce[1] - Cx[1]) > 1e-6;
+    if (opp) pts.push([c[0] + (-vi[0] - ri[0]) * o, c[1] + (-vi[1] - ri[1]) * o]);
+    if (!same) pts.push(Cx);
+    pts.push(X1);
+    let L = 0; const seg = [];
+    for (let j = 1; j < pts.length; j++) { const l = Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]); seg.push(l); L += l; }
+    let t = u * L;
+    for (let j = 0; j < seg.length; j++) {
+      if (t <= seg[j] || j === seg.length - 1) { const f = seg[j] ? Math.min(1, t / seg[j]) : 0, A = pts[j], B = pts[j + 1]; return [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f]; }
+      t -= seg[j];
+    }
+  }
+  // a straight piece, or a bend (the street's own curve), at its side
+  if (din === dout) { const r = R(vi); return [c[0] + vi[0] * (u - 0.5) + r[0] * off, c[1] + vi[1] * (u - 0.5) + r[1] * off]; }
+  const p0 = [c[0] - vi[0] * 0.5, c[1] - vi[1] * 0.5], p2 = [c[0] + vo[0] * 0.5, c[1] + vo[1] * 0.5], v = 1 - u;
+  const x = v * v * p0[0] + 2 * v * u * c[0] + u * u * p2[0], y = v * v * p0[1] + 2 * v * u * c[1] + u * u * p2[1];
+  const dx = 2 * v * (c[0] - p0[0]) + 2 * u * (p2[0] - c[0]), dy = 2 * v * (c[1] - p0[1]) + 2 * u * (p2[1] - c[1]), l = Math.hypot(dx, dy) || 1;
+  return [x - dy / l * sd * off, y + dx / l * sd * off];
+}
+// The families on foot now (the sim's walkers: their way, side, place, standing at a kerb or not), for the drawing
+function wkFigsNow(s, tf) {
+  if (typeof wkWalkersNow !== 'function' || !s.autos) return [];
+  return wkWalkersNow(s, tf).map((o) => {
+    const c = o.c, back = c.st === 'wback', p = back ? c.wp.slice().reverse() : c.wp;
+    return { p, d: o.d, sd: back ? -c.ws : c.ws, wait: o.wait, v: (c.h * 7 + (c.fid || 0) * 3) % 12, id: c.h * 16 + (c.f || 0) };
+  });
+}
+
+// ---------- the words ----------
+function wkMin(t) { return carsMin(t); }
+// "Pedro walks to the bakery: 7 road tiles, 15 min on foot, quicker than the drive in the rush (77 min by car the last
+// morning, 60 of them in queues). The car stays home; each morning a third of the families choose again."
+function wkHomeLine(s, c) {
+  const K = c.wk, who = c.nm || 'the father', w = carsWorkName(c.t);
+  if (!K) return who + ' walks to the ' + w + ': on foot it is quicker than the drive in the rush.';
+  const dm = wkMin(K.d), qm = Math.max(0, Math.min(dm, wkMin(K.q))), xn = K.J >= 0 ? placeName(s, K.J).replace(/^the road by/, 'the crossing by') : '';
+  const drive = K.how === 'own' ? dm + ' min by car the last morning' + (qm >= 1 ? ', ' + qm + ' of them in queues' : '')
+    : K.how === 'still' ? 'the last morning\'s drive was still in its queue at dawn'
+      : 'about ' + dm + ' min by car: ' + Math.max(1, dm - qm) + ' on the road' + (qm >= 1 ? ' and about ' + qm + ' waiting' + (xn ? ' for ' + xn : ' at its crossings') + ' (the cars\' waits, the last mornings)' : '');
+  let t = who + ' walks to the ' + w + ': ' + plural(K.n, 'road tile', 'road tiles') + ', ' + wkMin(K.w) + ' min on foot, quicker than the drive in the rush (' + drive + '). The car stays home; each morning a third of the families choose again.';
+  if (c.wt) { const z = Math.round((c.wz || 0) * TF.sec); t += ' This morning ' + wkMin(c.wt) + ' min' + (z >= 4 ? ', ' + z + ' s of it at the zebras' : '') + '.'; }
+  return t;
+}
+// The crossing's line: its zebras, the walkers this morning, how long the zebras held the cars ('' without a zebra)
+function zbCrossLine(s, i) {
+  const arms = typeof zbArms === 'function' ? zbArms(s, i) : [];
+  if (!arms.length || !zbEra(s)) return '';
+  const names = arms.map((a) => JC_SIDE[a]), lt = tfCtl(s, i) === 'lights';
+  let t = 'Zebra crossings on its ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0]) + ' ' + (names.length > 1 ? 'arms' : 'arm') + ': the cars give way to people on foot' + (lt ? '; at the lights the walkers cross on the cars\' red, and the turning cars give way' : '') + '.';
+  if (!carsClockOwn(s) || TUNE.zebraOff) return t;
+  const R = zbRushAt(s, i);
+  if (R && R.walkers) t += ' Morning rush: ' + plural(R.walkers, 'walker', 'walkers') + ' crossed here; ' + (R.sec >= 0.5 ? 'the zebras held the cars ' + R.sec + ' s at the line (' + plural(R.cars, 'car', 'cars') + ')' : 'no car had to wait for them') + '.';
+  else if (s.autos && s.autos.last) t += ' No one crossed on foot here this morning.';
+  return t;
+}
+// The street's line: sidewalks, and the walkers on them in the morning rush
+function wkStreetLine(s, i) {
+  if (!s.road[i] || jctAt(s, i)) return '';
+  const L = carsClockOwn(s) && s.autos && s.autos.last, n = L && L.wtl ? L.wtl[i] || 0 : 0;
+  if (s.road[i] >= 2) return (s.road[i] === 3 ? 'An avenue' : 'A paved street') + ': sidewalks on both sides' + (n ? '; ' + plural(n, 'walker', 'walkers') + ' passed on them in the morning rush' : '') + '.';
+  return n ? plural(n, 'walker', 'walkers') + ' passed here in the morning rush, at the road\'s edge: a dirt road has no sidewalk (paving it gives one).' : '';
+}
+// The legend's walkers ('' when nobody walks): [the walkers' share, the zebras' sentence]
+function wkLegendBits(s, phone) {
+  const A = s.autos, L = A && A.last;
+  let q = 0;
+  for (const c of A ? A.list : []) if (c.mode === 'walk' && c.why === 'quick') q++;
+  let zn = 0, zs = 0;
+  if (L && L.zw && !TUNE.zebraOff) for (const k in L.zw) { zn += L.zw[k][0]; zs += L.zw[k][1]; }
+  const held = Math.round(zs) >= 1;
+  const z = !zn ? '' : phone ? ' Zebras: ' + zn + ' crossed' + (held ? ', cars waited ' + Math.round(zs) + ' s.' : '.') : ' At the zebras this morning ' + plural(zn, 'walker', 'walkers') + ' crossed; ' + (held ? 'the cars gave way ' + Math.round(zs) + ' s in all.' : 'no car had to wait for them.');
+  return { q, z };
+}
+{
+  // the home's card: a family on foot because it is quicker (C1's line for the near ones stays)
+  const _ht = carsHomeText;
+  carsHomeText = function (s, h) {
+    const r = _ht.apply(this, arguments);
+    if (!r) return r;
+    let t = r.t;
+    for (const c of carsOfHome(s, h).slice(0, 2)) {
+      if (c.mode !== 'walk' || c.why !== 'quick') continue;
+      const who = c.nm || 'the father', old = who + ' walks to the ' + carsWorkName(c.t) + ': it is a few steps away.';
+      t = t.includes(old) ? t.replace(old, wkHomeLine(s, c)) : t + ' ' + wkHomeLine(s, c);
+    }
+    return t === r.t ? r : Object.assign({}, r, { t });
+  };
+  // the legend: the walkers for the quicker walk, the zebras
+  const _lt = carsLegendText;
+  carsLegendText = function (s) {
+    const t = _lt.apply(this, arguments);
+    if (!t || !s.autos) return t;
+    const phone = typeof innerWidth === 'number' && innerWidth < 600, B = wkLegendBits(s, phone);
+    let o = t;
+    if (B.q) o = phone ? o.replace(/(\d+) walk([,.])/, (m, n, e) => n + ' walk (' + B.q + ' quicker)' + e) : o.replace(/(\d+) walk([,.])/, (m, n, e) => n + ' walk (' + B.q + ' because it is quicker than the drive)' + e);
+    // (the zebras' sentence after the families', before the jam's)
+    if (B.z) { const k = o.search(/ (At 7:30 cars|Car jam at 7:30|[A-Z][^.]*: at 7:30 the cars jam)/); o = k >= 0 ? o.slice(0, k) + B.z + o.slice(k) : o + B.z; }
+    return o;
+  };
+  // the street's card
+  const _rh = rcardHtml;
+  rcardHtml = function (s, i) { const h = _rh.apply(this, arguments), t = wkStreetLine(s, i); return t ? h + '<p class="why walk">' + esc(t) + '</p>' : h; };
+  // the rush card's rules: its copy and its trial run replay the morning's walkers too (at lights they cross on red)
+  const _rr = carsRulesHtml;
+  carsRulesHtml = function (s, i, RA) {
+    const h = _rr.apply(this, arguments), R = zbRushAt(s, i);
+    return R && R.walkers ? h.split('rush with its cars and carts').join('rush with its cars, carts and walkers') : h;
+  };
+  // the crossing's card
+  const _jh = jcardHtml;
+  jcardHtml = function (s, i) { const h = _jh.apply(this, arguments), t = zbCrossLine(s, i); return t ? h + '<p class="why walk">' + esc(t) + '</p>' : h; };
+}
+
+// The console and the tests: the walkers and the zebras now.
+function walkInfo() {
+  const s = APP.state, A = s && s.autos, L = A && A.last, md = {}, st = {};
+  for (const c of A ? A.list : []) if (c.mode === 'walk') { md[c.why || 'near'] = (md[c.why || 'near'] || 0) + 1; st[c.st] = (st[c.st] || 0) + 1; }
+  const zw = L && L.zw ? Object.entries(L.zw).sort((a, b) => b[1][1] - a[1][1] || b[1][0] - a[1][0]).slice(0, 6).map(([k, e]) => ({ i: +k, walkers: e[0], sec: e[1], cars: e[2] })) : [];
+  return { walk: md, st, now: wkFigsNow(s).length, zw, drawn: APP.R && APP.R.stats && APP.R.stats.dayDyn ? APP.R.stats.dayDyn.sim || 0 : 0, legend: typeof carsLegendText === 'function' ? carsLegendText(s) : '' };
+}
+
 // ---- src/ui/newland_ui.js
 // L1 (4 Nov 2026, nova/land): what she sees of sim/newland.js (DESIGN.md §50).
 // - The map, from Capital on until the palace stands: the shallows the palace fills, washed sand over the water,
@@ -43517,6 +45142,204 @@ function g3CardHtml(s, b) {
   eventsHandle = function () {
     APP.isleNow = !!(APP.state && APP.state.ev && APP.state.ev.some((e) => e.kind === 'isle'));
     try { return _eh.apply(this, arguments); } finally { APP.isleNow = false; }
+  };
+}
+
+// ---- src/ui/goals2_ui.js
+// P4 (6 Nov 2026): what she sees of sim/goals2.js (more goals after the resort; each goal's building at its own size).
+// - The places: while a goal waits for its first part, its place glows gold with its price ("Clear 5 forest tiles,
+//   build the Faculty of Medicine · $9,000") and the other places it could take glow cream, each with its own price;
+//   the forest each would clear is marked, the homes it would move glow. A tap on a place builds there (the room made
+//   and the first part placed in that one tap). The pill's button shows the places first when there is more than one
+//   or room must be made (Rosa says what each moves and costs), then builds the gold one.
+// - The pill's third line says where it stands ("Its 3 x 3 lot: 5 forest tiles cleared ($9,000 in all); 1 other place
+//   on the map.") or that no room can be made and what would make it; the to-do list's goal row the same.
+// - The new goals' cards (the station's signal and its sponsors, the pier's passengers, the garden's homes and their
+//   rent), their status line, the ritual's line, the icons.
+
+Object.assign(ICONS, {
+  // a television set with its antenna
+  tv: 'M8 2.5 L12 7 L16 2.5 L17.2 3.5 L13.6 7.5 H20 C21 7.5 21.5 8 21.5 9 V19 C21.5 20 21 20.5 20 20.5 H4 C3 20.5 2.5 20 2.5 19 V9 C2.5 8 3 7.5 4 7.5 H10.4 L6.8 3.5 Z M5 10 V18 H16 V10 Z M18 11 H19.5 V12.5 H18 Z M18 14 H19.5 V15.5 H18 Z',
+});
+ISLE_RITUAL_LINE.tv = 'The station is on the air every evening: the telenovela, the news, the ball game live from the stadium.';
+ISLE_RITUAL_LINE.cruise = 'The white ships tie up below the town; their passengers walk up the hill to the markets.';
+ISLE_RITUAL_LINE.botanic = 'The botanical garden opens its gates: royal palms, orchids, cacti, lilies and the great glasshouse.';
+
+// ---------- the pill's third line and the to-do row: where the first part can stand; a new goal's part being built ----------
+{
+  const _bl = g3BuildLine;
+  g3BuildLine = function (s, id) {
+    try {
+      if (g4Sited(id) && !g3Bld(s, id)) return g4PlaceLine(s, id);
+      // the next part clears its share of the lot's woods: said with its price
+      const b = g3Bld(s, id), w = b && !b.wip && !b.g3up ? g4WoodShare(s, b) : null;
+      if (w) { const p = planOf(s, { kind: 'g3up', id: b.id, goal: id }); if (p) return 'Its next part clears ' + plural(w.k, 'forest tile', 'forest tiles') + ' of its lot\u2019s woods (' + money$(w.cost) + ' of its ' + money$(p.cost) + '); ' + plural(w.left, 'tile is', 'tiles are') + ' still woods.'; }
+      if (g4Is(id)) {
+        const G = G3_GOALS[id], c = g3Count(s, id);
+        if (c.placed <= c.fin || !c.building) return '';
+        const then = id === 'tv' ? G.per + ' more hours on the air a day' + (c.placed === 4 ? ' and its signal over the whole island' : '') : id === 'cruise' ? G.per + ' more passengers a month' : G.per + ' more species and +3 % rent round it';
+        return c.building.replace(/^./, (x) => x.toUpperCase()) + (g3Plural(c.building) ? ' are' : ' is') + ' being built: ' + Math.max(0, G.months - c.left) + ' of ' + G.months + ' months; then ' + then + '.';
+      }
+    } catch (e) { /* P3's line */ }
+    return _bl.apply(this, arguments);
+  };
+}
+
+// ---------- the new goals' cards ----------
+function g4CardHtml(s, b) {
+  const t = G3_TYPE[b.type], G = G3_GOALS[t.goal], c = g3Count(s, t.goal), lines = [];
+  const parts = G.parts.slice(0, c.fin).map((p) => p.replace(/^the /, '')).join(', ');
+  let h = '<div class="line"><span>' + esc(G.what.replace(/^./, (q) => q.toUpperCase())) + '</span><span>' + esc(c.placed + ' / ' + c.max + (parts ? ': ' + parts : '')) + '</span></div>';
+  if (t.goal === 'tv') {
+    const g = g4Signal(s);
+    h += '<div class="line"><span>On the air</span><span>' + esc(c.cap + ' hours a day') + '</span></div>';
+    h += '<div class="line"><span>Its signal</span><span>' + esc(plural(g.homes, 'home', 'homes') + ' within ' + g.reach + ' tiles') + '</span></div>';
+    h += '<div class="line"><span>Sponsors</span><span>' + esc('$1 a home for each part on the air: +' + money$(g.pay) + ' a month') + '</span></div>';
+    lines.push('Its sponsors pay $' + G4.tvPay + ' a month for every home within its signal, for each part on the air (staffed). The signal reaches ' + G4.tvReach + ' tiles round the station, ' + G4.tvReachTall + ' with the tall mast: where it stands decides how many homes watch. Each part takes ' + plural(G.jobs, 'person', 'people') + ' at the stage’s wage.');
+  } else if (t.goal === 'cruise') {
+    const p = g4Pax(s);
+    h += '<div class="line"><span>Passengers</span><span>' + esc(p + ' a month spend ' + money$(G4.spend) + ' each: +' + money$(p * G4.spend)) + '</span></div>';
+    lines.push('Each part brings ' + G4.pax + ' passengers a month off the cruise ships; they spend ' + money$(G4.spend) + ' each in the town and sleep aboard, so they need no hotel beds. Each part takes ' + plural(G.jobs, 'person', 'people') + ' at the stage’s wage.');
+  } else {
+    const g = g4Garden(s), sum = g4GardenSum(s);
+    h += '<div class="line"><span>Species</span><span>' + esc(c.cap.toLocaleString('en-US')) + '</span></div>';
+    h += '<div class="line"><span>Its homes</span><span>' + esc(plural(g.homes, 'home', 'homes') + ' within ' + G4.gardenReach + ' tiles pay ' + Math.round(100 * g.pct) + ' % more rent: +' + money$(sum) + ' a month') + '</span></div>';
+    lines.push('Each garden makes the homes within ' + G4.gardenReach + ' tiles pay ' + Math.round(100 * G4.gardenRent) + ' % more rent (as the opera does): where it stands decides how many. Its woods were kept, not cleared. Each garden takes ' + G.jobs + ' gardener at the stage’s wage.');
+  }
+  const bl = g3BuildLine(s, t.goal);
+  if (bl) lines.push(bl);
+  h += '<p class="note good">' + esc(lines.join(' ')) + '</p>';
+  const d = { kind: 'g3up', id: b.id, goal: t.goal }, p = planOf(s, d);
+  if (p) h += '<div class="btns"><button id="cardG3"' + (s.money < p.cost ? ' class="poor"' : '') + '>' + esc('Build ' + p.name + ' · ' + money$(p.cost)) + '<small>' + esc(G.months + ' months · ' + g3PartGives(t.goal)) + '</small></button></div>';
+  else if (c.placed >= c.max && c.fin >= c.max) h += '<p class="note good">' + esc('All ' + c.max + ' ' + G.what + ' stand: the island goal is reached.') + '</p>';
+  const x = bNumber(s, b);
+  if (x.wages || x.upkeep) h += '<div class="line"><span>It costs a month</span><span>' + esc('wages ' + money$(x.wages) + ' · upkeep ' + money$(x.upkeep)) + '</span></div>';
+  return h;
+}
+{
+  const _ch = g3CardHtml;
+  g3CardHtml = function (s, b) {
+    const t = G3_TYPE[b.type];
+    if (t && g4Is(t.goal)) return g4CardHtml(s, b);
+    return _ch.apply(this, arguments);
+  };
+  const _ch2 = cardHtml;
+  cardHtml = function (s, b) {
+    let h = _ch2.apply(this, arguments);
+    const t = b && G3_TYPE[b.type];
+    // the next part's button says the woods its price clears
+    const w = t && g3On() && !b.wip && !b.g3up ? g4WoodShare(s, b) : null;
+    if (w && h.indexOf('id="cardG3"') >= 0) h = h.replace(/(<button id="cardG3"[^>]*>[^<]*<small>[^<]*)(<\/small>)/, '$1' + esc(' · clears ' + plural(w.k, 'forest tile', 'forest tiles') + ' of its lot') + '$2');
+    if (!t || !g4Is(t.goal) || !g3On()) return h;
+    // (the card's line names what it brings in "ship +$" for a works; the new goals' own words)
+    return h.replace('ship +$', t.goal === 'tv' ? 'sponsors +$' : t.goal === 'cruise' ? 'passengers +$' : 'rent +$');
+  };
+  const _bs = bStatus;
+  bStatus = function (s, b) {
+    const t = b && G3_TYPE[b.type];
+    if (!t || !g4Is(t.goal) || !g3On() || !b.open || b.wip || !b.workers) return _bs.apply(this, arguments);
+    const c = g3Count(s, t.goal);
+    if (t.goal === 'tv') { const g = g4Signal(s); return { text: 'On the air ' + c.cap + ' hours a day: ' + plural(g.homes, 'home', 'homes') + ' in its signal, +' + money$(g.pay) + ' a month from its sponsors.', good: true }; }
+    if (t.goal === 'cruise') return { text: 'Its ships bring ' + g4Pax(s) + ' passengers a month.', good: true };
+    const g = g4Garden(s);
+    return { text: 'Open: ' + c.cap.toLocaleString('en-US') + ' species; ' + plural(g.homes, 'home', 'homes') + ' round it pay ' + Math.round(100 * g.pct) + ' % more rent.', good: true };
+  };
+}
+
+// ---------- the places: shown, chosen ----------
+// The places of the overlay's plan (the gold one and the others), for the map: [{ d, p, lot, label }]
+function g4Alts(s, p) {
+  const out = [];
+  for (const d of (p && p.alts) || []) {
+    const q = planOf(s, d);
+    // (the other places' labels short: what it moves or clears, the homes it reaches, its price)
+    if (q) out.push({ d, p: q, lot: q.lots[0], label: q.short + (q.reach !== undefined ? ' · ' + plural(q.reach, 'home', 'homes') : '') + ' · ' + money$(q.cost) });
+  }
+  return out;
+}
+// Rosa's words for the places: "Where should the campus stand? Its 3 x 3 lot fits in 2 places on the map: 5 forest tiles
+// cleared, $9,000 (the gold lot); or 9 forest tiles cleared, $13,000. Tap a lot to build there."
+function g4PlacesText(s, g, p) {
+  const G = G3_GOALS[g.id], alts = g4Alts(s, p).map((a) => a.p), all = [p].concat(alts);
+  const one = (q) => q.short + (q.reach !== undefined ? ', ' + plural(q.reach, 'home', 'homes') + (g.id === 'tv' ? ' in its signal' : ' near it') : '') + ' · ' + money$(q.cost);
+  const what = g.id === 'univ' ? 'the campus' : g.id === 'stadium' ? 'the ballpark' : g.id === 'resort' ? 'the resort' : G.title;
+  const wood = all.some((q) => q.wood) ? ' The rest of a lot’s forest is cleared with its next parts, a share on each one’s price.' : '';
+  return 'Where should ' + what + ' stand? Its ' + g4Size(p.type) + ' lot ' + (all.length > 1 ? 'fits in ' + all.length + ' places: the gold one (' + one(p) + ') or ' + (alts.length > 1 ? 'the cream ones (' + alts.map(one).join('; ') + ')' : 'the cream one (' + one(alts[0]) + ')') + '. Tap a lot to build ' + G.parts[0] + ' there.' : 'fits here: ' + one(p) + '. Tap the lot to build ' + G.parts[0] + '.') + wood;
+}
+// The view on all the places at once: their middle in the free middle of the screen (flyAim's), zoomed out until the
+// box of their lots fits in it (the band between the pill and Rosa's panel or the stack; on a phone the same)
+function g4FreeBox() {
+  const w = window.innerWidth, h = window.innerHeight, vis = (id) => { const e = $(id); if (!e) return null; const st = getComputedStyle(e); if (st.display === 'none' || st.visibility === 'hidden') return null; const r = e.getBoundingClientRect(); return r.width && r.height ? r : null; };
+  let top = 0, bottom = h;
+  const tb = vis('top'); if (tb) top = Math.max(top, tb.bottom);
+  const pill = vis('pill'); if (pill && pill.bottom < h / 2) top = Math.max(top, pill.bottom);
+  const bar = vis('bar'); if (bar) bottom = Math.min(bottom, bar.top);
+  const lower = vis('guide'); if (lower && lower.top > h / 2) bottom = Math.min(bottom, lower.top);
+  const cs = vis('comstack'); if (cs && cs.top > h / 3) bottom = Math.min(bottom, cs.top);
+  return { w, h: Math.max(120, bottom - top) };
+}
+function g4Frame(s, p) {
+  const lots = [p.lots[0]].concat(g4Alts(s, p).map((a) => a.lot));
+  const x0 = Math.min(...lots.map((l) => l.x)), x1 = Math.max(...lots.map((l) => l.x + l.w)), y0 = Math.min(...lots.map((l) => l.y)), y1 = Math.max(...lots.map((l) => l.y + l.h));
+  // (a box of dx x dy tiles is about (dx + dy) tile-halves wide and half that high on screen at either turn; its labels
+  // stand above it)
+  const span = (x1 - x0) + (y1 - y0) + 3, F = g4FreeBox();
+  const z = Math.max(ZOOM_MIN, Math.min(flyZoom(), (0.8 * F.w) / span, (1.5 * (F.h - 70)) / span));
+  cameraFlyTo((x0 + x1) / 2, (y0 + y1) / 2, z);
+}
+function g4ShowPlaces(s, g, p) {
+  cardClose();
+  APP.g4shownT = performance.now();
+  APP.ui.hint = { key: 'plan:g4site', text: g4PlacesText(s, g, p), btn: planBtn(p) + ' · ' + money$(p.cost), act: { plan: p.d, at: p.at } };
+  APP.ui.com = null;
+  comUiUpdate();
+  guideRender();
+  g4Frame(s, p);
+}
+{
+  // the pill's button: the places first (when there is a choice or room to make), then the gold one
+  const _pt = islePillTap;
+  islePillTap = function () {
+    const s = APP.state, g = APP.pillIsle, st = g && g.step;
+    let p = null;
+    try { p = st && st.plan && st.plan.kind === 'g4site' ? planOf(s, st.plan) : null; } catch (e) { p = null; }
+    if (!p) return _pt.apply(this, arguments);
+    const key = JSON.stringify(st.plan);
+    const shown = APP.ui.hint && APP.ui.hint.key === 'plan:g4site' && APP.g4shown === key;
+    if (!shown && (p.alts.length || p.extra)) { APP.g4shown = key; g4ShowPlaces(s, g, p); return; }
+    APP.g4shown = '';
+    return _pt.apply(this, arguments);
+  };
+  // the overlay: the other places of a g4site plan, each with its own price
+  const _cu = comUiUpdate;
+  comUiUpdate = function () {
+    // the places' line goes when its place went away (built over, the goal moved on) or after a minute and a half
+    const h = APP.ui.hint;
+    if (h && h.key === 'plan:g4site' && APP.state && (performance.now() - (APP.g4shownT || 0) > 90000 || !planOf(APP.state, h.act.plan))) { APP.ui.hint = null; APP.g4shown = ''; try { guideRender(); } catch (e) { /* the panel next frame */ } }
+    const r = _cu.apply(this, arguments);
+    const s = APP.state, cm = APP.ui.com;
+    if (!s || !cm || !cm.plan || cm.plan.kind !== 'g4site' || cm.g4k === cm.k) return r;
+    cm.g4k = cm.k;
+    try { const p = planOf(s, cm.plan); cm.alts = p ? g4Alts(s, p) : []; } catch (e) { cm.alts = []; }
+    return r;
+  };
+  // a tap on another place builds there
+  const _ct = comTapHit;
+  comTapHit = function (sx, sy) {
+    const cm = APP.ui.com;
+    if (cm && cm.alts && cm.alts.length && APP.ui.tool === 'look' && !APP.ui.move && !bubbleAt(sx, sy) && !(APP.landTapNull && APP.landTapNull === APP.landTapN)) {
+      const t = screenToTile(APP.R, APP.view, sx, sy), tx = Math.floor(t.x), ty = Math.floor(t.y);
+      const a = cm.alts.find((o) => tx >= o.lot.x && tx < o.lot.x + o.lot.w && ty >= o.lot.y && ty < o.lot.y + o.lot.h);
+      if (a) return { plan: a.d, then: '', line: true };
+    }
+    return _ct.apply(this, arguments);
+  };
+  // her tap built it: the places' line goes
+  const _lr = landRunUi;
+  landRunUi = function (d, then) {
+    const ok = _lr.apply(this, arguments);
+    if (ok && d && d.kind === 'g4site') { if (APP.ui.hint && APP.ui.hint.key === 'plan:g4site') APP.ui.hint = null; APP.g4shown = ''; APP.ui.com = null; comUiUpdate(); guideRender(); }
+    return ok;
   };
 }
 
