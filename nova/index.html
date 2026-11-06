@@ -768,6 +768,14 @@ body.titled #gzslip, body.titled #gazette { display: none !important; }
    wraps inside the pill and never widens it, as S1's; a phone has it in the to-do list's goal */
 #pill .still { display: block; width: 0; min-width: 100%; font-size: 12.5px; font-weight: 700; color: #6b5214; margin-top: 3px; white-space: normal; text-align: center; line-height: 1.25; }
 @media (max-width: 600px) { #pill .still { display: none; } }
+/* P3: the part of a goal after the ladder being built (the phone has it in the to-do list) */
+#pill .g3b { display: block; width: 0; min-width: 100%; font-size: 12.5px; font-weight: 700; color: #6b5214; margin-top: 3px; white-space: normal; text-align: center; line-height: 1.25; }
+@media (max-width: 600px) { #pill .g3b { display: none; } }
+/* v37: the upright iPad: the part's button goes under the reward when the two do not fit on a line (the stadium's
+   "Match days: +1 happiness a stand (+0 now) · 0 visitors a month" stood five lines high beside its button) */
+@media (min-width: 601px) and (max-width: 900px) { #pill.g3 .blk { flex-wrap: wrap; row-gap: 4px; } }
+#card #cardG3 { height: auto; padding: 7px 10px 9px; line-height: 1.2; }
+#card #cardG3 small { display: block; font-size: 12px; font-weight: 600; opacity: 0.8; margin-top: 1px; }
 /* a phone: the pill already has its blocker's line and button: the saving line waits (the money panel says it too) */
 @media (max-width: 600px) { #pill .blk ~ .sav { display: none; } }
 /* (A12 + turning: the plans' longer button words beside the blocker's text left it a column five words wide, six lines
@@ -22595,6 +22603,649 @@ function stillAside(s, g) {
   };
 }
 
+// ---- src/sim/goals.js
+// P3 (5 Nov 2026, nova/goals): a university, a stadium, a resort after the ladder. P2 measured (LOG P2) that her island
+// is through its ladder of goals after the palace by her minute 90-101 of a 121-minute evening; after it only the open
+// loop is left (the island's next chapter, a record every 250 people), which held the pill 4.3-10.2 minutes at a time
+// when the people did not grow (six runs of eight). Tomáš chose (5 Nov): **new goals after the ladder: a university, a
+// stadium, a resort, each with its own count and steps that really move it.** Rules (DESIGN.md §55; sources:
+// docs/research/goals.md):
+// - When the ladder is done (the census reached or stepped aside: A10's isleCur would give the open loop) the island's
+//   goal is the first of three not yet done whose year has come: the university (from 1903: the University of Puerto
+//   Rico, Río Piedras), the stadium (from 1946: Havana's Gran Stadium), the resort (from 1949: the Caribe Hilton, San
+//   Juan). Then the open loop, as before. ISLE_GOALS and ISLE_NEXT are as they were;
+//   this file wraps isleCur, isleGoal, isleCheck, isleReach, isleStepDone and P2's stillNextOf.
+// - Each is one building on one lot that grows a part at a time: the campus (2 x 2) by its faculties (six: Medicine,
+//   Natural Sciences, Arts as Mona's University College began in 1948-1950, then Law, Engineering and Education), the
+//   stadium (2 x 2) by its stands (five: the ballpark with its grandstand, two stands along the base lines, two bleachers
+//   in the outfield, the Gran Stadium's plan of 1946 at a thirtieth: 1,000 seats), the resort (2 x 2 on the coast) by
+//   its buildings (five, 20 beds each). A 2 x 2 lot: her islands have no 3 x 3 lot left when the ladder ends (measured
+//   on 1903: a 3 x 3 needed 10-12 forest tiles cleared, $14,500-18,700; a 2 x 2 five, as a school's). The pill counts them: "The university: 2 / 6 faculties, 40 students"; each part
+//   is one tap on the pill's button (or the glowing lot, the glowing building, the governor's ask), its price on it; the
+//   first part takes its lot by A8's offer machinery (a free lot, else A7's road that opens one, else room made by moving
+//   one to three homes); each next part is built on the same lot (a G3_KINDS plan: the building glows). Nothing is built,
+//   moved or shut without her tap. A part takes its months to build (the first: the grand projects' scaffolding, b.wip;
+//   the next: b.g3up); the count moves at her tap, its numbers (students, seats, beds) when the part opens.
+// - Prices in town-months (A5): a faculty 0.6, a stand 0.7, a resort building 0.9 (at least $4,000, $5,000, $6,000);
+//   upkeep 1 % a month of what was paid; staff 3 a faculty, 1 a stand, 4 a resort building at the stage's wage.
+// - What each part gives (while it runs: open, staffed, finished; every number on its card, the pill, Rosa's line):
+//   a faculty: 40 students; its graduates earn more: every home pays 1 % more rent (the grand project University's
+//   rule, PROJECT_FX.university, a faculty at a time). A stand: 200 seats; match days: +1 happiness (up to +3, the first
+//   three stands); the big games bring 4 visitors a month a stand who spend $45 each in the town (the airfield's
+//   visitors' rule, TR.visitSpend: on the stadium's own number). A resort building: 20 beds, H2's hotel beds (the
+//   harbour's tourists and the airfield's route visitors sleep there as in a hotel, first come first served), and its
+//   own guests fill 40 % of its beds a month (60 % while the airfield runs: they fly in); each guest spends $45
+//   (H2.spend) on the resort's own number.
+// - P2's year without progress, A9's six months without a step and Q2 apply as on the ladder: the count P2 compares is
+//   the parts placed and the months built (a part being built is progress), the words its own ("A year without a new
+//   faculty: the university steps aside at 2 / 6 faculties; the island moves on to the stadium."). A goal reached: A10's
+//   ritual with its own head and Rosa's line, the Gazette's headline.
+// - Old saves: an island past the ladder (in the open loop) gets the first new goal at its next look, with Rosa's line.
+// - Saved: state.isle.done[id] (A10's), state.isle.g3 = { hi } (Rosa's first line said); a building's level is its type
+//   (campus1..6, stadium1..5, resort1..5: no new field in an old record), a part being built b.g3up = { lv, t, n }, the
+//   resort's guests b.mGuests / b.lastGuests (H2's fields).
+// Kill switch: TUNE.goals3Off (NOVA_NO_P3=1 leaves this file out of the tests' sim; NOVA_P3_OFF=1 sets the switch).
+
+const G3 = {
+  order: ['univ', 'stadium', 'resort'],
+  spend: 45,          // what a stadium visitor or a resort guest spends in the town (TR.visitSpend, H2.spend)
+  fill: 0.4,          // the resort's own guests a month: 40 % of its beds ...
+  fillAir: 0.6,       // ... 60 % while the airfield runs (they fly in)
+  visit: 4,           // the stadium's visitors a month for each stand
+  happyMax: 3,        // match days: +1 happiness a stand, up to +3
+  keep: 2,            // Rosa keeps the first line of the new goals this many months over the asks' lines
+};
+// id, title, its year, the building's base type, the parts (the first stands for the building), the count's unit and
+// how many a part adds, staff a part, months to build a part, price in town-months and its floor, who asks
+const G3_GOALS = {
+  univ: { id: 'univ', title: 'the university', year: 1903, base: 'campus', name: 'University campus', short: 'Campus', w: 2, h: 2,
+    parts: ['the Faculty of Medicine', 'the Faculty of Natural Sciences', 'the Faculty of Arts', 'the Faculty of Law', 'the Faculty of Engineering', 'the Faculty of Education'],
+    btn: ['Faculty of Medicine', 'Faculty of Sciences', 'Faculty of Arts', 'Faculty of Law', 'Faculty of Engineering', 'Faculty of Education'],
+    what: 'faculties', one: 'faculty', unit: 'students', per: 40, jobs: 3, months: 12, tm: 0.6, floor: 4000, who: 'rector', gives: 'faculty', icon: 'cap', color: '#e9dcc0',
+    reward: 'its graduates earn more: every home pays 1 % more rent for each faculty' },
+  stadium: { id: 'stadium', title: 'the stadium', year: 1946, base: 'stadium', name: 'Stadium', short: 'Stadium', w: 2, h: 2,
+    parts: ['the ballpark and its grandstand', 'the first-base stand', 'the third-base stand', 'the left-field bleachers', 'the right-field bleachers'],
+    btn: ['Ballpark and grandstand', 'First-base stand', 'Third-base stand', 'Left-field bleachers', 'Right-field bleachers'],
+    what: 'stands', one: 'stand', unit: 'seats', per: 200, jobs: 1, months: 6, tm: 0.7, floor: 5000, who: 'league', gives: 'stadium', icon: 'diamond', color: '#8fc06a',
+    reward: 'match days: +1 happiness for each stand (up to +3); the big games bring 4 visitors a stand each month' },
+  resort: { id: 'resort', title: 'the resort', year: 1949, base: 'resort', name: 'Beach resort', short: 'Resort', w: 2, h: 2, site: 'coast',
+    parts: ['the beach hotel', 'the cabañas', 'the beach club and its pool', 'the garden wing', 'the tower'],
+    btn: ['Beach hotel', 'Cabañas', 'Beach club and pool', 'Garden wing', 'Tower'],
+    what: 'buildings', one: 'building', unit: 'beds', per: 20, jobs: 4, months: 12, tm: 0.9, floor: 6000, who: 'hoteliers', gives: 'resort', icon: 'umbrella', color: '#f3e3c4',
+    reward: 'its guests spend $45 each in the town: 20 beds a building' },
+};
+// the building types, one a level (its level is its type: campus1 … campus6)
+const G3_TYPE = {};
+for (const id of G3.order) {
+  const G = G3_GOALS[id];
+  G.max = G.parts.length;
+  for (let k = 1; k <= G.max; k++) {
+    const t = G.base + k;
+    G3_TYPE[t] = { goal: id, lv: k };
+    BUILDINGS[t] = { name: G.name, short: G.short, kind: 'service', w: G.w, h: G.h, cost: G.floor * k, jobs: G.jobs * k, stage: STAGES.length - 1, year: G.year,
+      gives: G.gives, island: true, project: G.months, upkeep: 0.01, icon: G.icon, art: G.base, color: G.color, group: 'services', g3: id, g3lv: k };
+    if (G.site) BUILDINGS[t].site = G.site;
+  }
+}
+// the grand projects' words for the first part's scaffolding (levers.js: "The university campus is finished: …")
+PROJECT_FX.faculty = { happy: 0, text: 'the Faculty of Medicine takes its first 40 students; every home pays 1 % more rent (its graduates earn more)' };
+PROJECT_FX.stadium = { happy: 0, text: 'the ballpark and its grandstand: 200 seats, match days (+1 happiness) and 4 visitors a month' };
+PROJECT_FX.resort = { happy: 0, text: 'the beach hotel takes its first guests: 20 beds' };
+COM_WHO.rector = { role: 'the university’s rector', form: 'dr', col: '#7a5a9a' };
+COM_WHO.league = { role: 'the baseball league', form: 'body', col: '#b5402c', body: 'The baseball league', ini: 'BL' };
+COM_WHO.hoteliers = { role: 'the hotel association', form: 'body', col: '#2e9a91', body: 'The hotel association', ini: 'HA' };
+
+function g3On() { return !TUNE.goals3Off && isleOn(); }
+// "the cabañas are", "the Faculty of Law is"
+function g3Plural(name) { return /(cabañas|bleachers)$/.test(name || ''); }
+function g3Is(id) { return !!G3_GOALS[id]; }
+function g3TypeOf(b) { return b && G3_TYPE[b.type]; }
+// The goal's building (the first of its types on the island), or null.
+function g3Bld(s, id) { return s.b.find((b) => { const t = G3_TYPE[b.type]; return t && t.goal === id; }) || null; }
+// What a part costs now (town-months, A5; read at use time).
+function g3Price(s, id) {
+  const G = G3_GOALS[id], m = typeof townMonth === 'function' ? townMonth(s) : 0;
+  return Math.max(G.floor, (typeof purseRound === 'function' ? purseRound : (v) => Math.round(v / 500) * 500)(G.tm * m));
+}
+// Where the goal stands: { fin (parts finished), placed (with the one being built), max, cap (students / seats / beds of
+// the finished parts), part (0-1 of the part being built), building (its name), left (months), b }
+function g3Count(s, id) {
+  const G = G3_GOALS[id], b = g3Bld(s, id), o = { fin: 0, placed: 0, max: G.max, cap: 0, part: 0, building: '', left: 0, b };
+  if (!b) return o;
+  const lv = G3_TYPE[b.type].lv;
+  if (b.wip) {
+    const n = projectTicks(BUILDINGS[b.type]);
+    Object.assign(o, { fin: 0, placed: 1, part: n ? 1 - b.wip / n : 0, building: G.parts[0], left: Math.ceil(b.wip / TUNE.ticksPerMonth) });
+  } else {
+    o.fin = lv; o.placed = lv;
+    if (b.g3up) Object.assign(o, { placed: lv + 1, part: b.g3up.n ? 1 - b.g3up.t / b.g3up.n : 0, building: G.parts[b.g3up.lv - 1], left: Math.ceil(b.g3up.t / TUNE.ticksPerMonth) });
+  }
+  o.cap = o.fin * G.per;
+  return o;
+}
+// The parts that run now (open, staffed, finished), by the staff it has: a faculty short of its professors teaches less.
+function g3Running(s, id) {
+  const b = g3Bld(s, id);
+  if (!b || b.wip || !b.open || !(b.workers > 0)) return 0;
+  const d = BUILDINGS[b.type];
+  return G3_TYPE[b.type].lv * Math.min(1, b.workers / d.jobs);
+}
+// (one look a tick: the rent of every home and the hotels read them)
+// (a cache key starting with "_" is never saved)
+function g3Fx(s) {
+  const c = s._g3fx;
+  if (c && c.t === s.tick && c.v === s.ver && c.n === s.b.length) return c;
+  const out = { t: s.tick, v: s.ver, n: s.b.length, fac: 0, stands: 0 };
+  if (g3On()) { out.fac = g3Running(s, 'univ'); out.stands = g3Running(s, 'stadium'); }
+  s._g3fx = out;
+  return out;
+}
+// The rent every home pays more (the faculties' graduates), 0-0.06.
+function g3RentPct(s) { return 0.01 * g3Fx(s).fac; }
+// What that rent comes to a month, over the homes with families (the campus's card and its Shut down button).
+function g3RentSum(s) {
+  let v = 0;
+  if (g3RentPct(s) > 0) for (const h of s.b) if (BUILDINGS[h.type] && BUILDINGS[h.type].kind === 'home' && h.res) v += bNumber(s, h).g3rent || 0;
+  return v;
+}
+// Match days: happiness, the visitors a month.
+function g3Happy(s) { return Math.min(G3.happyMax, Math.floor(g3Fx(s).stands + 1e-9)); }
+function g3Visitors(s) { return Math.round(G3.visit * g3Fx(s).stands); }
+// The resort's beds a month (staffed), and the share its own guests fill.
+function g3Beds(s, b) {
+  if (!b || b.wip || !b.open || !(b.workers > 0)) return 0;
+  const t = G3_TYPE[b.type], d = BUILDINGS[b.type];
+  return t && t.goal === 'resort' ? Math.round(t.lv * G3_GOALS.resort.per * Math.min(1, b.workers / d.jobs)) : 0;
+}
+function g3Fill(s) { return typeof airfieldOn === 'function' && airfieldOn(s) ? G3.fillAir : G3.fill; }
+// her-play's measure of the pill: how far the goal is, 0-1 (the parts finished and the one being built)
+function g3Progress(s, id) { const c = g3Count(s, id); return Math.min(0.99, (c.fin + c.part) / c.max); }
+
+// ---------- the goals after the ladder ----------
+// The goal now: the first of the three not done whose year has come (they come in the order of their years), or null.
+function g3Due(s) {
+  const I = s.isle;
+  if (!I || !I.done) return null;
+  for (const id of G3.order) {
+    if (I.done[id] !== undefined) continue;
+    return yearOf(s) >= G3_GOALS[id].year ? G3_GOALS[id] : null;
+  }
+  return null;
+}
+// The goal after `id` (or the first, with null) not done whose year has come: what the island moves on to.
+function g3After(s, id) {
+  const I = s.isle, k = id ? G3.order.indexOf(id) : -1;
+  for (const o of G3.order.slice(k + 1)) {
+    if (I && I.done && I.done[o] !== undefined) continue;
+    return yearOf(s) >= G3_GOALS[o].year ? G3_GOALS[o] : null;
+  }
+  return null;
+}
+// The next goal when the open loop waits for its year (the stadium before 1946, the resort before 1949), else null.
+function g3Waits(s) {
+  const I = s.isle;
+  if (!I || !I.done) return null;
+  for (const id of G3.order) if (I.done[id] === undefined) return yearOf(s) < G3_GOALS[id].year ? G3_GOALS[id] : null;
+  return null;
+}
+// The ask's first words, with the history behind it (docs/research/goals.md).
+const G3_LEAD = {
+  univ: 'The island’s young people sail to Havana to study, and few come back. ',
+  stadium: 'The island’s team plays on a field behind the cane mill. ',
+  resort: 'Visitors ask for the beach. ',
+};
+const G3_FIRST = {
+  univ: 'A university here: the Faculty of Medicine first, 40 students (Mona’s University College in Jamaica opened in 1948 with 33 medical students). Its graduates earn more: every home pays 1 % more rent for each faculty.',
+  stadium: 'A ballpark with its grandstand: 200 seats (Havana’s Gran Stadium opened in 1946 with 30,000). Match days: +1 happiness for each stand, and the big games bring visitors.',
+  resort: 'A beach hotel on the shore: 20 beds (San Juan’s Caribe Hilton opened in 1949 with 300 rooms, built by the island’s own government). Its guests spend $45 each in the town.',
+};
+function g3PartGives(id) {
+  const G = G3_GOALS[id];
+  return id === 'univ' ? G.per + ' more students and +1 % rent from every home' : id === 'stadium' ? G.per + ' more seats, ' + G3.visit + ' more visitors a month' + ' (+1 happiness up to +' + G3.happyMax + ')' : G.per + ' more beds';
+}
+// The step the pill's button and the ask offer: the first part on its lot, else the next part on the building, else none
+// (a part being built: the next one waits for it).
+function g3Step(s, id) {
+  const G = G3_GOALS[id], b = g3Bld(s, id), who = G.who;
+  if (!b) {
+    const t = G.base + 1, near = g3Near(s, id);
+    let d = null;
+    try { d = typeof offerPlace === 'function' ? offerPlace(s, t, near) : null; } catch (e) { d = null; }
+    if (!d) return null;
+    return { k: id + '1', who, tool: t, need: 0, near: d.at || near, plan: d, joy: 0, ask: G3_LEAD[id] + G3_FIRST[id],
+      praise: 'The scaffolding is up: ' + G.parts[0] + ' opens in ' + G.months + ' months.' };
+  }
+  if (b.wip || b.g3up) return null;
+  const lv = G3_TYPE[b.type].lv;
+  if (lv >= G.max) return null;
+  const c = g3Count(s, id), d = { kind: 'g3up', id: b.id, goal: id };
+  const have = id === 'univ' ? plural(c.fin, 'faculty teaches', 'faculties teach') + ' ' + c.cap + ' students' : id === 'stadium' ? 'The stadium holds ' + c.cap.toLocaleString('en-US') + ' on match days' : 'The resort has ' + c.cap + ' beds';
+  return { k: id + (lv + 1), who, tool: '', need: 0, near: [b.x + 1, b.y + 1], plan: d, joy: 0,
+    ask: have + '. ' + G.parts[lv].replace(/^./, (x) => x.toUpperCase()) + ' next: ' + g3PartGives(id) + ' · ' + money$(g3Price(s, id)) + ', ' + G.months + ' months to build.',
+    praise: 'The scaffolding is up: ' + G.parts[lv] + (g3Plural(G.parts[lv]) ? ' open' : ' opens') + ' in ' + G.months + ' months.' };
+}
+// Where the first part goes: the campus by the grand project's University (if it stands), else the town's middle.
+function g3Near(s, id) {
+  if (id === 'univ') { const u = s.b.find((b) => b.type === 'university'); if (u) return [u.x + 1, u.y + 1]; }
+  return comCentre(s);
+}
+for (const id of G3.order) {
+  const G = G3_GOALS[id];
+  G.need = () => false;
+  G.done = (s) => g3Count(s, id).fin >= G.max;
+  G.step = (s) => g3Step(s, id);
+  G.waits = () => (id === 'resort' ? 'a lot by the sea' : 'room by a road');
+}
+
+// ---------- the part on the building: the plan, the months, the opening ----------
+// A part on the goal's building: d = { kind: 'g3up', id, goal }: { kind, id, goal, lv, name, cost, line, lots, glow, at }.
+function g3UpPlanOf(s, d) {
+  const b = bById(s, d.id), t = g3TypeOf(b);
+  if (!b || !t || b.wip || b.g3up) return null;
+  const G = G3_GOALS[t.goal];
+  if (t.lv >= G.max) return null;
+  const line = [];
+  for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) line.push(tileIdx(x, y));
+  return { kind: 'g3up', id: b.id, goal: t.goal, lv: t.lv + 1, name: G.parts[t.lv], btn: G.btn[t.lv], cost: g3Price(s, t.goal), line, lots: [], glow: [b.id], at: [b.x + 1, b.y + 1] };
+}
+// Her tap: the part is paid and its scaffolding goes up; it opens after its months.
+function g3UpRun(s, d) {
+  const p = g3UpPlanOf(s, d);
+  if (!p) return { ok: false, why: 'Nothing to do here now' };
+  if (s.money < p.cost) return { ok: false, poor: true, cost: p.cost, why: 'Not enough money yet (' + money$(p.cost) + ')' };
+  const b = bById(s, d.id), G = G3_GOALS[p.goal], n = G.months * TUNE.ticksPerMonth;
+  s.money -= p.cost;
+  b.g3up = { lv: p.lv, t: n, n };
+  s.ver++;
+  simLog(s, p.name.replace(/^./, (x) => x.toUpperCase()) + (g3Plural(p.name) ? ' are' : ' is') + ' being built: ' + money$(p.cost) + ', ' + G.months + ' months.', [b.x + b.w / 2, b.y + b.h / 2]);
+  simEvent(s, { kind: 'g3part', what: 'start', goal: p.goal, id: b.id, lv: p.lv, name: p.name });
+  return { ok: true, cost: p.cost, at: p.at, built: b.id };
+}
+// A month's tick of the scaffolding; the part opens: the building's type moves up a level (its staff, its upkeep).
+function g3Tick(s) {
+  for (const b of s.b) {
+    const u = b.g3up;
+    if (!u || --u.t > 0) continue;
+    const t = G3_TYPE[b.type];
+    delete b.g3up;
+    if (!t) continue;
+    const G = G3_GOALS[t.goal], name = G.parts[u.lv - 1];
+    b.type = G.base + u.lv;
+    s.ver++;
+    const cap = u.lv * G.per;
+    simLog(s, name.replace(/^./, (x) => x.toUpperCase()) + (g3Plural(name) ? ' open: ' : ' opens: ') + (t.goal === 'univ' ? cap + ' students in ' + plural(u.lv, 'faculty', 'faculties') + '; every home pays ' + u.lv + ' % more rent' :
+      t.goal === 'stadium' ? cap.toLocaleString('en-US') + ' seats on match days' : cap + ' beds by the beach') + '.', [b.x + b.w / 2, b.y + b.h / 2]);
+    simEvent(s, { kind: 'g3part', what: 'open', goal: t.goal, id: b.id, lv: u.lv, name });
+    // (the year's Gazette names it)
+    const I = isleState(s);
+    I.g3opened = (Array.isArray(I.g3opened) ? I.g3opened : []).concat([{ m: s.month, goal: t.goal, lv: u.lv }]).slice(-24);
+  }
+}
+const G3_KINDS = { g3up: 1 };
+{
+  const _po = planOf;
+  planOf = function (s, d) {
+    if (!d || !G3_KINDS[d.kind]) return _po.apply(this, arguments);
+    _po.call(this, s, null);
+    const c = simCache(s), key = JSON.stringify(d);
+    if (!c.plans) c.plans = {};
+    if (key in c.plans) return c.plans[key];
+    let p = null;
+    try { p = g3On() ? g3UpPlanOf(s, d) : null; } catch (e) { p = null; }
+    if (p) p.d = d;
+    return (c.plans[key] = p);
+  };
+  const _pr = planRun;
+  planRun = function (s, d) {
+    if (!d || !G3_KINDS[d.kind]) return _pr.apply(this, arguments);
+    return g3UpRun(s, d);
+  };
+  const _pl = planLabel;
+  planLabel = function (p) {
+    if (p && p.kind === 'g3up') return 'Tap to build ' + p.name + ' · ' + money$(p.cost);
+    const t = p && G3_TYPE[p.type];
+    if (t && t.lv === 1) {
+      const nm = G3_GOALS[t.goal].parts[0];
+      if (p.kind === 'room') return 'Tap to make room for ' + nm + ' · ' + money$(p.cost);
+      return 'Tap to build ' + nm + ' here · ' + money$(p.cost);
+    }
+    return _pl.apply(this, arguments);
+  };
+  const _pb = planBtn;
+  planBtn = function (p) {
+    if (p && p.kind === 'g3up') return p.btn;
+    const t = p && G3_TYPE[p.type];
+    if (t && t.lv === 1) return G3_GOALS[t.goal].btn[0];
+    return _pb.apply(this, arguments);
+  };
+  const _ps = planSay;
+  planSay = function (s, p) {
+    if (p && p.kind === 'g3up') return 'The building glows: one tap builds ' + p.name + ' · ' + money$(p.cost) + '.';
+    return _ps.apply(this, arguments);
+  };
+  const _so = screenOverlay;
+  screenOverlay = function (s, hint) {
+    const ov = _so.apply(this, arguments);
+    if (ov && ov.p && G3_KINDS[ov.p.kind]) { ov.lots = []; ov.glowBs = (ov.glowBs || []).concat(ov.p.glow || []); }
+    return ov;
+  };
+  const _lt = leversTick;
+  leversTick = function (state) {
+    const r = _lt.apply(this, arguments);
+    if (g3On()) { try { g3Tick(state); } catch (e) { /* the scaffolding as it stands */ } }
+    return r;
+  };
+  // prices in town-months (A5), read at use time: a level's value is its parts (its upkeep is 1 % of it a month)
+  const _pa = pricesApply;
+  pricesApply = function (state) {
+    const r = _pa.apply(this, arguments);
+    for (const id of G3.order) { const G = G3_GOALS[id], p = g3Price(state, id); for (let k = 1; k <= G.max; k++) BUILDINGS[G.base + k].cost = p * k; }
+    return r;
+  };
+}
+
+// ---------- the goal on the pill and in the ladder's machinery ----------
+{
+  // after the ladder: the new goals, then the open loop
+  const _ic = isleCur;
+  isleCur = function (s) {
+    const g = _ic.apply(this, arguments);
+    if (!g || g.id !== 'next' || !g3On()) return g;
+    return g3Due(s) || g;
+  };
+  // the pill: "The university: 2 / 6 faculties, 40 students · goal 1 of 3", the reward with its number now, the part's
+  // name and price on the button
+  const _ig = isleGoal;
+  isleGoal = function (s) {
+    const g = _ig.apply(this, arguments);
+    if (!g || !g3On()) return g;
+    try {
+      if (g3Is(g.id)) {
+        const G = G3_GOALS[g.id], c = g3Count(s, g.id), n = G3.order.indexOf(g.id) + 1;
+        g.n = n; g.of = G3.order.length;
+        g.prog = c.placed + ' / ' + c.max + ' ' + G.what + ', ' + c.cap.toLocaleString('en-US') + ' ' + G.unit + (g.id === 'resort' ? ' by the beach' : '');
+        g.text = G.title.replace(/^./, (x) => x.toUpperCase()) + ': ' + g.prog + ' · goal ' + n + ' of ' + g.of;
+        g.reward = g3RewardNow(s, g.id);
+        g.g3 = c;
+        if (g.step && g.p) g.btn = (g.p.kind === 'g3up' ? g.p.btn : G.btn[0]) + ' · ' + money$(g.p.cost);
+      } else if (g.id === 'next') {
+        // the open loop waits for the next goal's year: said on the pill
+        const W = g3Waits(s);
+        if (W && !g.reward) g.reward = 'In ' + W.year + ': ' + W.title + (W.id === 'resort' ? ' by the beach' : '');
+      }
+    } catch (e) { /* the pill as A10 says it */ }
+    return g;
+  };
+  // A9's six months without a step: a part being built is the goal's step (its next part waits for it)
+  const _ck = isleCheck;
+  isleCheck = function (s) {
+    if (g3On() && s.palace && s.isle && s.isle.ladder) {
+      try {
+        const g = isleCur(s), I = s.isle;
+        if (g && g3Is(g.id)) {
+          const c = g3Count(s, g.id);
+          if (c.placed > c.fin) I.noStep = undefined;
+          // Rosa's first line of the new goals (an old island in the open loop sees it at its next look too)
+          // (not over P2's moment, which says the island moves on to it, nor over a problem's line: at a later look)
+          if (!I.g3) I.g3 = {};
+          const m = s.guide && s.guide.msg, busy = m && !/^com-/.test(m.key) && (!/^hint/.test(m.key) || (m.key === 'hint-still' && s.month - (m.m || 0) < (typeof STILL_KEEP === 'number' ? STILL_KEEP : 6)));
+          // (a problem's line that stays for months does not keep it back more than three)
+          if (!I.g3.hi && I.g3.wait === undefined) I.g3.wait = s.month;
+          if (!I.g3.hi && (!busy || s.month - I.g3.wait >= 3)) { I.g3.hi = s.month; g3Hello(s, g); }
+        }
+      } catch (e) { /* A9's six months as they are */ }
+    }
+    return _ck.apply(this, arguments);
+  };
+  // the governor's ask for a part is done when the part is placed
+  const _sd = isleStepDone;
+  isleStepDone = function (s, q) {
+    if (q && g3Is(q.goal) && q.step && g3On()) return g3Count(s, q.goal).placed > (q.g3n0 || 0);
+    return _sd.apply(this, arguments);
+  };
+  const _cm = comMake;
+  comMake = function (s, T, r) {
+    const q = _cm.apply(this, arguments);
+    if (T && T.key === 'isle' && g3Is(q.goal)) q.g3n0 = g3Count(s, q.goal).placed;
+    return q;
+  };
+  // a goal reached: the ritual's head, Rosa's line and the reward with its number (A10's ritual reads e.head, e.line)
+  const _ir = isleReach;
+  isleReach = function (s, g) {
+    const was = s.isle && s.isle.done ? s.isle.done[g.id] : undefined, e0 = s.ev ? s.ev.length : 0;
+    const r = _ir.apply(this, arguments);
+    if (!g || !g3Is(g.id) || was !== undefined) return r;
+    try {
+      const c = g3Count(s, g.id);
+      const head = g.id === 'univ' ? 'The University of Isla Nueva' : g.id === 'stadium' ? 'The stadium: ' + c.cap.toLocaleString('en-US') + ' seats' : 'The beach resort: ' + c.cap + ' beds';
+      const line = g.id === 'univ' ? c.max + ' faculties teach ' + c.cap + ' students: the island’s own doctors, scientists, writers, lawyers, engineers and teachers. Their graduates earn more: every home pays ' + c.max + ' % more rent.'
+        : g.id === 'stadium' ? 'Five stands, ' + c.cap.toLocaleString('en-US') + ' seats: the whole town comes on match days (+' + G3.happyMax + ' happiness), and the big games bring ' + G3.visit * c.max + ' visitors a month.'
+          : c.cap + ' beds by the beach: its own guests fill ' + Math.round(100 * G3.fill) + ' % of them a month, ' + Math.round(100 * G3.fillAir) + ' % while the airfield runs, and the harbour’s tourists sleep there too. Each spends ' + money$(G3.spend) + ' in the town.';
+      const reward = g.id === 'univ' ? 'Its graduates earn more: every home pays ' + c.max + ' % more rent' : g.id === 'stadium' ? 'Match days: +' + G3.happyMax + ' happiness; ' + G3.visit * c.max + ' visitors a month for the big games' : 'Its guests spend ' + money$(G3.spend) + ' each in the town: ' + c.cap + ' beds';
+      for (let k = e0; k < s.ev.length; k++) { const e = s.ev[k]; if (e.kind === 'isle' && e.id === g.id) Object.assign(e, { head, line, reward, at: [c.b.x + c.b.w / 2 - 0.5, c.b.y + c.b.h / 2 - 0.5] }); }
+      const LG = isleState(s).log, L = LG[LG.length - 1];
+      if (L && L.id === g.id) L.cap = c.cap;
+      // the open loop while the next goal waits for its year: the log says when it comes
+      const W = isleCur(s) && isleCur(s).id === 'next' ? g3Waits(s) : null;
+      if (W) for (let k = s.log.length - 1; k >= 0 && k >= s.log.length - 3; k--) if (/^Island goal reached: /.test(s.log[k].text || '') && / Next: the island’s next chapter\.$/.test(s.log[k].text)) { s.log[k].text = s.log[k].text.replace(/\.$/, ' (' + W.title + ' in ' + W.year + ').'); break; }
+    } catch (e) { /* the words as A10 says them */ }
+    return r;
+  };
+}
+// What the reward is now: the pill's second line.
+function g3RewardNow(s, id) {
+  const c = g3Count(s, id);
+  if (id === 'univ') return 'Graduates earn more: +1 % rent a faculty (+' + Math.round(100 * g3RentPct(s)) + ' % now)';
+  if (id === 'stadium') return 'Match days: +1 happiness a stand (+' + g3Happy(s) + ' now) · ' + g3Visitors(s) + ' visitors a month';
+  const b = c.b, last = b && b.lastGuests ? b.lastGuests : 0;
+  return 'Guests spend ' + money$(G3.spend) + ' each in the town' + (c.fin ? ' (' + last + ' last month)' : '');
+}
+// Rosa's first line of the three new goals.
+function g3Hello(s, g) {
+  const G = G3_GOALS[g.id];
+  const rest = G3.order.filter((o) => o !== g.id && (s.isle.done[o] === undefined)).map((o) => G3_GOALS[o].title.replace(/^the /, 'a '));
+  const text = 'The ladder is done. New goals for the capital: ' + G.title.replace(/^the /, 'a ') + (rest.length ? ', then ' + listAnd(rest) : '') + '. ' +
+    'Each is one building that grows a part at a time: the pill counts its ' + G.what + ', and its button builds the next one.';
+  guideSay(s, { key: 'hint-g3', text, btn: 'OK', act: {}, m: s.month });
+}
+{
+  // Rosa keeps that line G3.keep months over the asks' lines (a look every half minute at 3x sees it)
+  const _gm = guideMonth;
+  guideMonth = function (state) {
+    const m = state.guide && state.guide.msg, keep = g3On() && m && m.key === 'hint-g3' && state.month - (m.m || 0) < G3.keep ? m : null;
+    const r = _gm.apply(this, arguments);
+    const now = state.guide && state.guide.msg;
+    // (over the asks' lines and hints only: a problem's line takes her voice at once)
+    if (keep && now !== keep && (!now || /^(com-|hint-(?!still))/.test(now.key))) state.guide.msg = keep;
+    // P2's moment names the goal the island moves on to; after two months, when the treasury holds that goal's next
+    // part, Rosa offers it (her line "The treasury holds …" would wait four months more behind P2's)
+    try {
+      const m2 = state.guide && state.guide.msg, g = state.guide;
+      if (g3On() && m2 && m2.key === 'hint-still' && state.month - (m2.m || 0) >= 2 && (g.cnt.g3 || 0) >= TUNE.guideMonths && !(g.snooze.g3 > state.month)) {
+        const P = GUIDE_PROBLEMS.find((p) => p.key === 'g3'), say = P && P.check(state);
+        if (say) guideSay(state, Object.assign({ key: 'g3' }, say));
+      }
+    } catch (e) { /* P2's line as it is */ }
+    // Her-play without the pill (seeds 1902 and 1904): Rosa's food line held her voice for a year while the treasury
+    // held a faculty's price, and P2's year set the goal aside before she ever heard of it. While the next part's price
+    // is in hand, a line that has been Rosa's for three months gives the goal's line one month in four; the urgent
+    // lines (red, strikes, storms, losses, homes stepping down) and the hints keep her voice.
+    try {
+      const g = state.guide, m3 = g && g.msg;
+      if (g3On() && m3 && m3.key !== 'g3' && m3.key === g.sameKey && state.month - (g.sameSince || state.month) >= 2 && !g3Urgent(m3.key) &&
+        (g.cnt.g3 || 0) >= TUNE.guideMonths && !(g.snooze.g3 > state.month)) {
+        const P = GUIDE_PROBLEMS.find((p) => p.key === 'g3'), say = P && P.check(state);
+        if (say) guideSay(state, Object.assign({ key: 'g3' }, say));
+      }
+    } catch (e) { /* her line as it is */ }
+    return r;
+  };
+}
+// the lines that keep Rosa's voice over the goal's turn
+function g3Urgent(k) {
+  return /^(i-|red|strike|landmark|storm|apstorm|loss|down|sailed|acc|hint|g3)/.test(k) || GUIDE_PROBLEMS.some((p) => p.now && p.key === k);
+}
+
+// ---------- Rosa: the money for the next part is in hand ----------
+// (P1's rule for the landmarks: while the treasury holds the price of the goal's next part, Rosa says it with its button;
+// after the landmark's line, before the works' and the families' lines; it goes when the money is spent or the part placed)
+{
+  const P = { key: 'g3', check(s) {
+    if (!g3On() || !s.palace || stageConds(s).next) return null;
+    const g = isleGoal(s);
+    if (!g || !g3Is(g.id) || !g.step || !g.p || s.money < g.p.cost) return null;
+    const G = G3_GOALS[g.id], up = g.p.kind === 'g3up', name = up ? g.p.name : G.parts[0];
+    return { text: 'The treasury holds the ' + money$(g.p.cost) + ' for ' + name + (up ? '' : ', the first part of ' + G.title) + ': ' + g3PartGives(g.id) + '. Build it now?',
+      btn: (up ? g.p.btn : G.btn[0]) + ' · ' + money$(g.p.cost), act: { plan: g.step.plan, at: g.p.at } };
+  } };
+  const k = GUIDE_PROBLEMS.findIndex((o) => o.key === 'landmark');
+  GUIDE_PROBLEMS.splice(k >= 0 ? k + 1 : GUIDE_PROBLEMS.length, 0, P);
+}
+
+// ---------- the resort's lot: by the beach, the sea within two tiles ----------
+// (on her islands the shore itself is lined with harbours, quays, fishing huts and homes by the time the ladder ends:
+// measured on 1903, no 2 x 2 lot touched the sea; a beach resort may stand a row back, its beach in front of it)
+function g3SeaNear(state, x, y, w, h, r) {
+  for (let ty = y - r; ty < y + h + r; ty++) for (let tx = x - r; tx < x + w + r; tx++) if (inMap(tx, ty) && state.terrain[tileIdx(tx, ty)] === SEA) return true;
+  return false;
+}
+{
+  const _cp = canPlace;
+  canPlace = function (state, type, x, y, opts) {
+    const r = _cp.apply(this, arguments), def = BUILDINGS[type];
+    if (r !== 'Must be on the coast' || !def || def.g3 !== 'resort' || !g3On()) return r;
+    if (!g3SeaNear(state, x, y, def.w, def.h, 2)) return 'Must be by the sea (within 2 tiles)';
+    // (the base's checks after the coast's: a road, the money, the railway)
+    if (!(opts && opts.noRoad) && needsRoad(def) && bEntrances(state, { x, y, w: def.w, h: def.h }).length === 0) return 'Needs a road next to it';
+    if (!(opts && opts.free) && state.money < def.cost) return 'Not enough money ($' + def.cost + ')';
+    if (typeof railAt === 'function' && (state.rail || []).length) for (let ty = y; ty < y + def.h; ty++) for (let tx = x; tx < x + def.w; tx++) if (railAt(state, tileIdx(tx, ty))) return 'The railway is in the way';
+    return '';
+  };
+}
+
+// ---------- P2: the year without progress counts the parts and the months built ----------
+if (typeof STILL_GOALS !== 'undefined') {
+  for (const id of G3.order) {
+    const G = G3_GOALS[id];
+    STILL_GOALS[id] = {
+      v: (s) => { const c = g3Count(s, id); return [c.placed, c.fin * 100 + Math.floor(c.part * 99)]; },
+      at: (s) => g3Count(s, id).placed + ' / ' + G.max + ' ' + G.what,
+      without: 'a new ' + G.one,
+      counts: (s) => 'a new ' + G.one + ' placed or built (' + g3Count(s, id).placed + ' / ' + G.max + ' now)' };
+  }
+  if (typeof stillNextOf === 'function') {
+    const _sn = stillNextOf;
+    stillNextOf = function (s, id) {
+      if (!g3On()) return _sn.apply(this, arguments);
+      if (g3Is(id)) return g3After(s, id) || ISLE_NEXT;
+      const r = _sn.apply(this, arguments);
+      return r && r.id === 'next' ? g3After(s, null) || r : r;
+    };
+  }
+}
+
+// ---------- what the parts give ----------
+{
+  const _bn = bNumber;
+  bNumber = function (state, b) {
+    const x = _bn.apply(this, arguments);
+    if (!b || !g3On()) return x;
+    const d = BUILDINGS[b.type];
+    if (d && d.kind === 'home') {
+      // the faculties' graduates: every home pays 1 % more rent a faculty
+      const p = g3RentPct(state);
+      if (p > 0 && x.rent > 0) { const v = Math.round(x.rent * p); x.rent += v; x.n += v; x.g3rent = v; }
+    } else if (d && d.g3 === 'stadium') {
+      // the big games' visitors spend in the town (the stadium's own number, as the airfield's visitors on its own)
+      const v = g3Visitors(state) * G3.spend;
+      if (v) { x.exports += v; x.n += v; x.visitors = g3Visitors(state); }
+    } else if (d && d.g3 === 'resort') {
+      const v = (b.mGuests || 0) * G3.spend;
+      if (v) { x.exports += v; x.n += v; }
+      x.guests = b.mGuests || 0;
+    }
+    return x;
+  };
+  const _hc = happyCalc;
+  happyCalc = function (state) {
+    const r = _hc.apply(this, arguments);
+    if (g3On()) {
+      const v = g3Happy(state);
+      if (v > 0) { r.parts.push({ label: 'Match days at the stadium', v }); r.value = Math.max(0, Math.min(100, r.value + v)); }
+    }
+    return r;
+  };
+  // the resort's beds are hotel beds (H2): the harbour's tourists and the airfield's route visitors sleep there too
+  if (typeof hotelsOf === 'function') {
+    const _ho = hotelsOf;
+    hotelsOf = function (state) {
+      const out = _ho.apply(this, arguments);
+      return g3On() ? out.concat(state.b.filter((b) => BUILDINGS[b.type] && BUILDINGS[b.type].g3 === 'resort')) : out;
+    };
+    const _hb = hotelBeds;
+    hotelBeds = function (state, b) {
+      if (b && BUILDINGS[b.type] && BUILDINGS[b.type].g3 === 'resort') return g3On() ? g3Beds(state, b) : 0;
+      return _hb.apply(this, arguments);
+    };
+  }
+  // at payday: the resort's own guests fill its free beds, up to 40 % of its beds (60 % while the airfield runs); after
+  // it, the month's guests are last month's
+  const _pr = paydayRun;
+  paydayRun = function (state) {
+    const res = g3On() ? state.b.filter((b) => BUILDINGS[b.type] && BUILDINGS[b.type].g3 === 'resort') : [];
+    for (const b of res) {
+      const beds = g3Beds(state, b), free = Math.max(0, beds - (b.mGuests || 0)), own = Math.min(free, Math.round(beds * g3Fill(state)));
+      b.mGuests = (b.mGuests || 0) + own; b.g3own = own;
+    }
+    const r = _pr.apply(this, arguments);
+    for (const b of res) { b.lastGuests = b.mGuests || 0; b.mGuests = 0; }
+    return r;
+  };
+  // the Shut down button counts what the visitors and the guests spend (Fix4's rule for the hotel)
+  if (typeof closeInc === 'function') {
+    const _ci = closeInc;
+    closeInc = function (state, b, L) {
+      const v = _ci.apply(this, arguments), d = b && BUILDINGS[b.type];
+      if (!d || !d.g3 || !g3On()) return v;
+      if (d.g3 === 'resort') return Math.max(v, Math.round((b.lastGuests || 0) * G3.spend));
+      if (d.g3 === 'stadium') return Math.max(v, g3Visitors(state) * G3.spend);
+      // (v37: the campus's card said "Shut down · saves $152 a month" while its faculties brought +$312 of rent: shut, they
+      // teach no one and the homes pay the rent they paid before; now "Shut down · −$160 a month / saves $152, loses $312")
+      if (d.g3 === 'univ') return Math.max(v, g3RentSum(state));
+      return v;
+    };
+  }
+  // the first part's place: where the grand projects stand (A8's offer: the fit with the fewest homes around it)
+}
+
+// ---------- the year's Gazette: the goal reached as the headline, a part opened, a goal stepped aside ----------
+{
+  const _gz = gazetteMake;
+  gazetteMake = function (state, Y) {
+    const g = _gz.apply(this, arguments);
+    try {
+      const I = state.isle;
+      if (g3On() && g && Array.isArray(g.items) && I) {
+        const m0 = (Y.y - TUNE.startYear) * 12, inY = (m) => m >= m0 && m < m0 + 12, items = [];
+        const reached = (I.log || []).filter((o) => inY(o.m) && g3Is(o.id));
+        const last = (I.log || []).filter((o) => inY(o.m)).slice(-1)[0];
+        if (last && g3Is(last.id)) g.head = last.id === 'univ' ? 'The University of Isla Nueva!' : last.id === 'stadium' ? 'Play ball: ' + (last.cap || 1000).toLocaleString('en-US') + ' seats at the stadium!' : 'The beach resort: ' + (last.cap || 100) + ' beds by the sea!';
+        for (const o of (I.g3opened || []).filter((q) => inY(q.m))) {
+          const G = G3_GOALS[o.goal];
+          if (!G || reached.some((q) => q.id === o.goal && o.lv === G.max)) continue;
+          items.push({ icon: o.goal === 'univ' ? 'school' : o.goal === 'stadium' ? 'people' : 'bed', text: G.parts[o.lv - 1].replace(/^./, (x) => x.toUpperCase()) + ' opens: ' + (o.lv * G.per).toLocaleString('en-US') + ' ' + G.unit + '.' });
+        }
+        for (const a of (I.asides || []).filter((q) => inY(q.m) && g3Is(q.id))) {
+          const G = G3_GOALS[a.id];
+          items.push({ icon: 'log', text: G.title.replace(/^./, (x) => x.toUpperCase()) + ' stepped aside' + (a.at ? ' at ' + a.at : '') + ': a year without a new ' + G.one + '.' });
+        }
+        for (const it of items.slice(0, 3)) { if (g.items.length >= 6) g.items.splice(g.items.length - 1, 1); g.items.push(it); }
+      }
+    } catch (e) { /* the page as it is */ }
+    return g;
+  };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -29997,6 +30648,235 @@ const ISO = (() => {
     }
   }
   { const _co = comOverlay; comOverlay = function (R, s, ui, t) { const r = _co.apply(this, arguments); wkOverlay(R, s); return r; }; }
+  // ---------- P3 (sim/goals.js): the university's campus, the stadium, the beach resort, a part at a time ----------
+  // Each stands on a 2 x 2 lot (painted as a 3 x 3 layout at two thirds); its level is its type (campus1 … campus6); a part being built (b.g3up) stands in its
+  // scaffolding; the first part under the grand projects' scaffolding (b.wip: the lot only). Drawn with the island's pen,
+  // not copied from any game: the campus after the University of Havana's hill (columned halls round a quad, the Alma
+  // Mater in the middle) and Mona's low halls; the stadium after Havana's Gran Stadium of 1946 (a roofed grandstand
+  // behind home plate, the stands along the lines, the bleachers in the outfield, light towers); the resort after the
+  // white modernist beach hotels of 1949-1958 (the Caribe Hilton's slab, cabañas, a kidney pool, striped umbrellas).
+  const G3_WALL = '#efe4cc', G3_ROOF = '#b9553c', G3_CROWD = ['#f6f0e2', '#e0583e', '#3f74a8', '#f2c75a', '#2e9a91', '#c0567a'];
+  // a part being built: a half-raised wall in its timber scaffolding
+  function g3Scaffold(x, y, w, d, h) {
+    const wood = '#b07d4a';
+    groundPatch(x - 0.04, y - 0.04, x + w + 0.04, y + d + 0.04, 'rgba(160,130,90,.5)');
+    boxAt(x + 0.06, y + 0.06, w - 0.12, d - 0.12, 0, h * 0.42, '#d8cdb4');
+    ctx.lineCap = 'round';
+    const n = Math.max(2, Math.round(w / 0.42)), m = Math.max(2, Math.round(d / 0.42));
+    for (let k = 0; k <= n; k++) seg(P(x + w * k / n, y + d, 0), P(x + w * k / n, y + d, h), dk(wood, 0.2), 1.4 * S);
+    for (let k = 0; k < m; k++) seg(P(x + w, y + d * k / m, 0), P(x + w, y + d * k / m, h), dk(wood, 0.2), 1.4 * S);
+    for (let z = 0.32; z <= h + 0.01; z += 0.32) { pline([P(x, y + d, z), P(x + w, y + d, z), P(x + w, y, z)], wood, 2.4 * S); pline([P(x, y + d, z), P(x + w, y + d, z), P(x + w, y, z)], INK, 0.5 * S); }
+    seg(P(x, y + d, 0), P(x + w, y + d, h), dk(wood, 0.3), 0.9 * S);
+  }
+  // ---- the campus ----
+  function g3Hall(x, y, w, d, h, shut, roof) {
+    boxShadow(x, y, x + w, y + d, h + 0.4);
+    const wv = walls(x, y, w, d, 0, h, G3_WALL); bands(wv, w, d, h);
+    for (const [f, L] of [[wv.fl, w], [wv.fr, d]]) {
+      const n = Math.max(2, Math.round(L * 2.8));
+      for (let k = 0; k < n; k++) { const sx = L * (k + 0.5) / n; win(f, sx, 0.12, 0.1, 0.22, shut); if (h > 0.62) win(f, sx, h * 0.56, 0.1, 0.2, shut); }
+    }
+    wallsOutline(wv);
+    hipRoof(x, y, w, d, h, 0.28, 0.06, roof || G3_ROOF, { rows: 4, cols: Math.max(4, Math.round(w * 7)) });
+    return wv;
+  }
+  function g3CampusPart(k, x, y, w, d, h) {
+    if (k === 0) {
+      // Medicine: the main hall with its portico of six columns and a cupola
+      const wv = g3Hall(x, y, w, d, h, '#3f74a8');
+      boxAt(x + w * 0.28, y + d + 0.02, w * 0.44, 0.2, 0, 0.08, '#d9cfb6');
+      for (let c = 0; c < 6; c++) column(x + w * (0.31 + c * 0.076), y + d + 0.14, 0.08, h * 0.92, 0.035, '#fbf7ee');
+      boxAt(x + w * 0.27, y + d - 0.02, w * 0.46, 0.24, h * 0.92, 0.1, '#f3ead8');
+      drum(x + w * 0.5, y + d * 0.5, h + 0.2, h + 0.42, 0.17, G3_WALL); dome(x + w * 0.5, y + d * 0.5, h + 0.42, 0.17, 0.2, '#8aa7a0');
+      faceText(wv.fl, w * 0.5, h * 0.8, 'MEDICINA', 8, '#7a4a2e');
+    } else if (k === 2) {
+      // Arts: the library with its clock tower in the back corner
+      const wv = g3Hall(x, y, w, d, h, '#2f8f88');
+      const tx = x + w * 0.3, ty = y + d * 0.3, tw = w * 0.4;
+      const tv = walls(tx, ty, tw, tw, h, 1.05, G3_WALL); bands(tv, tw, tw, 1.05); wallsOutline(tv);
+      const c = fp(tv.fl, tw * 0.5, 0.78); circ(c[0], c[1], 3.6 * S, '#fbf7ee', INK, 0.9 * S); seg(c, [c[0], c[1] - 2.6 * S], INK, 0.8 * S); seg(c, [c[0] + 1.8 * S, c[1]], INK, 0.8 * S);
+      hipRoof(tx, ty, tw, tw, h + 1.05, 0.32, 0.05, '#6f8f9a');
+      win(wv.fl, w * 0.5, 0.12, 0.14, 0.3, null);
+    } else if (k === 5) {
+      // Education: a low pavilion with an arcade (the normal school, where the University of Puerto Rico began in 1903)
+      const wv = walls(x, y, w, d, 0, h, '#f3ead8'); bands(wv, w, d, h);
+      for (const [f, L] of [[wv.fl, w], [wv.fr, d]]) { const n = Math.max(2, Math.round(L * 3)); for (let q = 0; q < n; q++) poly(farch(f, L * (q + 0.5) / n, 0.02, L / n * 0.62, h * 0.62), '#6b4a33', ln('#6b4a33'), 0.8 * S); }
+      wallsOutline(wv); hipRoof(x, y, w, d, h, 0.22, 0.06, G3_ROOF, { rows: 3, cols: 5 });
+    } else g3Hall(x, y, w, d, h, ['#3f74a8', '#7a5a9a', '#2f8f88', '#b5682c', '#3f8a52', '#3f74a8'][k]);
+  }
+  // the Alma Mater on her pedestal (Havana's bronze of 1919, at the foot of the university's stair)
+  function g3Statue(x, y) {
+    boxAt(x - 0.08, y - 0.08, 0.16, 0.16, 0, 0.2, '#d6cdb8');
+    const p = P(x, y, 0.2);
+    poly([[p[0] - 4 * S, p[1]], [p[0] + 4 * S, p[1]], [p[0] + 2.4 * S, p[1] - 9 * S], [p[0] - 2.4 * S, p[1] - 9 * S]], '#6f7a62', ln('#6f7a62'), 0.7 * S);
+    circ(p[0], p[1] - 11 * S, 2.3 * S, '#6f7a62', ln('#6f7a62'), 0.7 * S);
+    seg([p[0] - 2.4 * S, p[1] - 8 * S], [p[0] - 6 * S, p[1] - 11 * S], '#6f7a62', 1.6 * S); seg([p[0] + 2.4 * S, p[1] - 8 * S], [p[0] + 6 * S, p[1] - 11 * S], '#6f7a62', 1.6 * S);
+  }
+  const G3_CAMPUS = [[1.0, 0.15, 1.85, 0.6, 0.92], [0.15, 1.0, 0.6, 1.85, 0.86], [0.15, 0.15, 0.7, 0.7, 0.92], [2.38, 1.05, 0.48, 1.15, 0.66], [1.05, 2.38, 1.15, 0.48, 0.66], [2.36, 2.36, 0.5, 0.5, 0.48]];
+  function paintCampus(lv, up) {
+    poly(rrPts(0.06, 0.06, 2.94, 2.94, 0.2).map((p) => P(p[0], p[1])), '#d9cfb6', '#b9ad8f', 0.8 * S);
+    // the quad's lawn, its paths crossing to the halls
+    poly([P(0.92, 0.92), P(2.28, 0.92), P(2.28, 2.28), P(0.92, 2.28)], '#86b65a', ln('#86b65a'), 0.8 * S);
+    pline([P(1.6, 0.8), P(1.6, 2.4)], '#e8dcc0', 2.4 * S); pline([P(0.8, 1.6), P(2.4, 1.6)], '#e8dcc0', 2.4 * S);
+    // the lots still to build: dotted
+    const order = G3_CAMPUS.map((q, i) => i).sort((a, b) => (G3_CAMPUS[a][0] + G3_CAMPUS[a][2] / 2 + G3_CAMPUS[a][1] + G3_CAMPUS[a][3] / 2) - (G3_CAMPUS[b][0] + G3_CAMPUS[b][2] / 2 + G3_CAMPUS[b][1] + G3_CAMPUS[b][3] / 2));
+    let statue = false;
+    for (const i of order) {
+      const [x, y, w, d, h] = G3_CAMPUS[i];
+      if (!statue && x + w / 2 + y + d / 2 > 3.2) { g3Statue(1.6, 1.6); statue = true; }
+      if (i < lv) g3CampusPart(i, x, y, w, d, h);
+      else if (i === up - 1) g3Scaffold(x, y, w, d, h);
+      else poly([P(x, y), P(x + w, y), P(x + w, y + d), P(x, y + d)], 'rgba(134,182,90,.55)', 'rgba(110,90,60,.35)', 0.8 * S);
+    }
+    if (!statue) g3Statue(1.6, 1.6);
+    if (lv >= 2) for (const [px, py] of [[0.9, 2.82], [2.82, 0.9]]) royalPalm(px, py, 1.5, 0.7);
+  }
+  // ---- the stadium ----
+  // A stand along a side: n rows of seats rising away from the field, the crowd on them; `out`: the side the rows rise
+  // toward ('-y', '-x', '+y', '+x'); a roof on posts over a grandstand.
+  function g3Stand(x, y, w, d, out, h, roof) {
+    const n = 4, rows = [];
+    for (let k = 0; k < n; k++) {
+      const f = k / n, g = (k + 1) / n, z = h * (k + 1) / n;
+      if (out === '-y') rows.push([x, y + d * (1 - g), w, d / n, z]);
+      else if (out === '+y') rows.push([x, y + d * f, w, d / n, z]);
+      else if (out === '-x') rows.push([x + w * (1 - g), y, w / n, d, z]);
+      else rows.push([x + w * f, y, w / n, d, z]);
+    }
+    rows.sort((a, b) => (a[0] + a[2] / 2 + a[1] + a[3] / 2) - (b[0] + b[2] / 2 + b[1] + b[3] / 2));
+    for (const [rx, ry, rw, rd, z] of rows) {
+      boxAt(rx, ry, rw, rd, 0, z, '#cfc6b2');
+      const along = rw >= rd, L = along ? rw : rd, m = Math.max(3, Math.round(L * 9));
+      for (let q = 0; q < m; q++) { const u = (q + 0.5) / m, cx = along ? rx + rw * u : rx + rw / 2, cy = along ? ry + rd / 2 : ry + rd * u, c = P(cx, cy, z); circ(c[0], c[1] - 1.4 * S, 1.3 * S, G3_CROWD[(q * 7 + Math.round(z * 31)) % G3_CROWD.length]); }
+    }
+    if (roof) {
+      const zr = h + 0.32, inner = out === '-y' ? [[x, y + d], [x + w, y + d]] : out === '-x' ? [[x + w, y], [x + w, y + d]] : null;
+      if (inner) for (const [px, py] of inner) seg(P(px, py, 0), P(px, py, zr), '#5a4434', 1.4 * S);
+      poly([P(x - 0.02, y - 0.02, zr + 0.08), P(x + w + 0.02, y - 0.02, zr + 0.08), P(x + w + 0.02, y + d + 0.02, zr), P(x - 0.02, y + d + 0.02, zr)], '#7f8a8c', ln('#7f8a8c'), 0.9 * S);
+    }
+  }
+  function g3LightTower(x, y, hgt) {
+    const a = P(x, y, 0), b = P(x, y, hgt);
+    seg(a, b, '#4a4440', 1.6 * S);
+    poly([[b[0] - 5 * S, b[1] - 4 * S], [b[0] + 5 * S, b[1] - 4 * S], [b[0] + 5 * S, b[1] + 2 * S], [b[0] - 5 * S, b[1] + 2 * S]], '#f4ecd8', INK, 0.8 * S);
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) circ(b[0] - 3.2 * S + i * 3.2 * S, b[1] - 2.4 * S + j * 3 * S, 0.9 * S, '#f2c75a');
+  }
+  const G3_STANDS = [[0.04, 0.04, 1.3, 0.42, '-y', 0.5, 1], [1.34, 0.04, 1.2, 0.36, '-y', 0.4, 0], [0.04, 1.34, 0.36, 1.2, '-x', 0.4, 0], [0.7, 2.6, 1.9, 0.34, '+y', 0.3, 0], [2.6, 0.7, 0.34, 1.9, '+x', 0.3, 0]];
+  function paintStadium(lv, up) {
+    poly(rrPts(0.03, 0.03, 2.97, 2.97, 0.12).map((p) => P(p[0], p[1])), '#6fae4c', '#4f8a3a', 0.9 * S);
+    for (let k = 0; k < 6; k++) { const a = 0.45 + k * 0.42; poly([P(a, 0.45), P(a + 0.21, 0.45), P(a + 0.21, 2.95), P(a, 2.95)], 'rgba(255,255,255,.07)'); }
+    // home plate at the back corner: the stands behind it do not hide the game
+    const hp = [0.62, 0.62], B = 0.85, arc = (r) => { const pts = [P(hp[0], hp[1])]; for (let k = 0; k <= 16; k++) { const a = k / 16 * Math.PI / 2; pts.push(P(hp[0] + Math.cos(a) * r, hp[1] + Math.sin(a) * r)); } return pts; };
+    poly(arc(1.28), '#c9925a', ln('#c9925a'), 0.8 * S);
+    poly([P(hp[0] + 0.12, hp[1] + 0.12), P(hp[0] + B - 0.1, hp[1] + 0.12), P(hp[0] + B - 0.1, hp[1] + B - 0.1), P(hp[0] + 0.12, hp[1] + B - 0.1)], '#7cba55');
+    pline([P(hp[0], hp[1]), P(2.9, hp[1])], '#fbf7ee', 1.3 * S); pline([P(hp[0], hp[1]), P(hp[0], 2.9)], '#fbf7ee', 1.3 * S);
+    for (const [bx, by] of [[hp[0] + B, hp[1]], [hp[0] + B, hp[1] + B], [hp[0], hp[1] + B], [hp[0], hp[1]]]) { const c = P(bx, by); poly([[c[0], c[1] - 2 * S], [c[0] + 3 * S, c[1]], [c[0], c[1] + 2 * S], [c[0] - 3 * S, c[1]]], '#fbf7ee', ln('#fbf7ee'), 0.6 * S); }
+    const mo = P(hp[0] + B / 2, hp[1] + B / 2); ell(mo[0], mo[1], 0.15 * hw, 0.075 * hw, '#c9925a');
+    // the outfield fence
+    const fence = []; for (let k = 0; k <= 18; k++) { const a = k / 18 * Math.PI / 2; fence.push([hp[0] + Math.cos(a) * 2.22, hp[1] + Math.sin(a) * 2.22]); }
+    for (let k = 0; k < fence.length - 1; k++) { const [ax, ay] = fence[k], [bx, by] = fence[k + 1]; poly([P(ax, ay, 0), P(bx, by, 0), P(bx, by, 0.1), P(ax, ay, 0.1)], '#2f6f3a', ln('#2f6f3a'), 0.5 * S); }
+    // the players: the pitcher, the batter, the catcher, the fielders (white uniforms)
+    for (const [px, py] of [[hp[0] + B / 2, hp[1] + B / 2], [hp[0] - 0.08, hp[1] + 0.06], [hp[0] - 0.1, hp[1] - 0.08], [hp[0] + B + 0.1, hp[1] + 0.15], [hp[0] + 0.15, hp[1] + B + 0.1], [hp[0] + B * 1.1, hp[1] + B * 1.1], [2.1, 1.0], [1.0, 2.1], [1.75, 1.75]]) {
+      const c = P(px, py); seg(c, [c[0], c[1] - 4.6 * S], '#f8f2e4', 2.2 * S); circ(c[0], c[1] - 5.6 * S, 1.2 * S, '#8a5a3c');
+    }
+    // the stands: back (behind home plate) first, the outfield bleachers last
+    for (let i = 0; i < G3_STANDS.length; i++) {
+      const [x, y, w, d, out, h, roof] = G3_STANDS[i];
+      if (i < lv) g3Stand(x, y, w, d, out, h, roof);
+      else if (i === up - 1) g3Scaffold(x, y, w, d, h + 0.1);
+      if (i === 0 && lv >= 1) { g3LightTower(0.08, 1.5, 1.6); g3LightTower(1.5, 0.08, 1.6); }
+    }
+    if (lv >= 4) g3LightTower(2.92, 2.4, 1.5);
+    if (lv >= 5) g3LightTower(2.4, 2.92, 1.5);
+  }
+  // ---- the resort ----
+  function g3Slab(x, y, w, d, h, floors, rail) {
+    boxShadow(x, y, x + w, y + d, h + 0.3);
+    const wv = walls(x, y, w, d, 0, h, '#fbf7ee');
+    for (const [f, L] of [[wv.fl, w], [wv.fr, d]]) {
+      for (let k = 0; k < floors; k++) {
+        const t = 0.1 + k * (h - 0.16) / floors;
+        poly(fq(f, 0.02, L - 0.02, t, t + 0.05), rail, ln(rail), 0.6 * S);
+        const n = Math.max(2, Math.round(L * 4));
+        for (let q = 0; q < n; q++) { const sx = L * (q + 0.5) / n; poly(fq(f, sx - 0.05, sx + 0.05, t + 0.06, t + (h - 0.16) / floors - 0.02), '#3d5560'); }
+      }
+    }
+    wallsOutline(wv);
+    flatRoof(x, y, w, d, h, 0.05, '#f3ead8', '#d8c7a6');
+    return wv;
+  }
+  function g3Umbrella(x, y, c) {
+    const a = P(x, y, 0), b = P(x, y, 0.32);
+    seg(a, b, '#5a4434', 1.1 * S);
+    ctx.beginPath(); ctx.ellipse(b[0], b[1], 6 * S, 2.6 * S, 0, Math.PI, 0); ctx.closePath(); ctx.fillStyle = c; ctx.fill(); ctx.strokeStyle = ln(c); ctx.lineWidth = 0.7 * S; ctx.stroke();
+  }
+  function g3ResortPart(k) {
+    if (k === 0) {
+      // the beach hotel: a white slab on four floors, aqua balcony rails, its sign
+      const x = 1.0, y = 0.14, w = 1.86, d = 0.66, h = 1.3, wv = g3Slab(x, y, w, d, h, 4, '#7ec4cf');
+      poly(fq(wv.fl, w * 0.5 - 0.32, w * 0.5 + 0.32, h - 0.02, h + 0.14), '#24786f', INK, 0.8 * S); faceText(wv.fl, w * 0.5, h + 0.06, 'HOTEL', 9, '#fbf3df');
+    } else if (k === 1) {
+      // the cabañas: three cottages with thatched roofs along the side
+      for (const yy of [1.05, 1.65, 2.25]) { const wv = walls(0.18, yy, 0.5, 0.42, 0, 0.32, '#f3e3c4'); door(wv.fl, 0.25, 0.1, 0.2, '#2e9a91'); win(wv.fr, 0.21, 0.12, 0.1, 0.12, '#2e9a91'); wallsOutline(wv); hipRoof(0.18, yy, 0.5, 0.42, 0.32, 0.24, 0.07, '#c9a46a', { rows: 3 }); }
+    } else if (k === 2) {
+      // the beach club and its pool: a kidney of blue water with its rim, the club's striped awning, umbrellas
+      const pts = []; for (let q = 0; q < 28; q++) { const a = q / 28 * TAU, r = 0.42 + 0.1 * Math.sin(2 * a + 0.6); pts.push(P(1.68 + Math.cos(a) * r * 1.25, 1.6 + Math.sin(a) * r * 0.85)); }
+      poly(pts, '#fbf7ee', '#c9bfa8', 3.4 * S); poly(pts, '#4fb3cf', ln('#4fb3cf'), 0.9 * S);
+      const p0 = P(1.4, 1.5), p1 = P(1.9, 1.7); seg(p0, p1, 'rgba(255,255,255,.55)', 1.2 * S);
+      const cx = 1.15, cy = 2.3, cw = 0.9, cd = 0.4, ch = 0.36;
+      const wv = walls(cx, cy, cw, cd, 0, ch, '#fbf7ee'); wallsOutline(wv);
+      const n = 6; for (let i = 0; i < n; i++) { const u0 = i / n, u1 = (i + 1) / n, c = i % 2 ? '#f8f2e4' : '#df684c'; poly([P(cx + cw * u0, cy, ch + 0.12), P(cx + cw * u1, cy, ch + 0.12), P(cx + cw * u1, cy + cd + 0.12, ch - 0.02), P(cx + cw * u0, cy + cd + 0.12, ch - 0.02)], c, ln(c), 0.6 * S); }
+      for (const [ux, uy, c] of [[2.3, 1.15, '#df684c'], [2.32, 2.05, '#2e9a91'], [1.0, 1.2, '#f2c75a']]) g3Umbrella(ux, uy, c);
+    } else if (k === 3) {
+      // the garden wing: two floors along the other side, pink balconies
+      g3Slab(2.38, 1.05, 0.48, 1.6, 0.7, 2, '#e9a3a8');
+    } else {
+      // the tower: ten floors of the jet age in the back corner
+      const wv = g3Slab(0.16, 0.16, 0.7, 0.7, 2.7, 10, '#7ec4cf');
+      poly(fq(wv.fr, 0.12, 0.58, 2.62, 2.74), '#2e9a91', INK, 0.7 * S);
+    }
+  }
+  const G3_RESORT = [[1.0, 0.14, 1.86, 0.66, 1.3], [0.18, 1.05, 0.5, 1.62, 0.32], [1.0, 1.05, 1.3, 1.65, 0.36], [2.38, 1.05, 0.48, 1.6, 0.7], [0.16, 0.16, 0.7, 0.7, 2.7]];
+  function paintResort(lv, up) {
+    poly(rrPts(0.04, 0.04, 2.96, 2.96, 0.2).map((p) => P(p[0], p[1])), '#efe0bd', '#d6c49a', 0.8 * S);
+    poly([P(0.9, 0.95), P(2.3, 0.95), P(2.3, 2.75), P(0.9, 2.75)], 'rgba(134,182,90,.45)');
+    // back to front: the tower, the hotel, the cabañas, the pool and its club, the garden wing
+    for (const i of [4, 0, 1, 2, 3]) {
+      if (i < lv) g3ResortPart(i);
+      else if (i === up - 1) { const [x, y, w, d, h] = G3_RESORT[i]; g3Scaffold(x, y, w, d, Math.min(1.4, h)); }
+    }
+    for (const [px, py] of [[2.85, 2.85], [0.85, 2.9], [2.9, 0.88]]) royalPalm(px, py, 1.7, 0.8);
+  }
+  // The painters lay out a 3 x 3 lot; the buildings stand on 2 x 2 (her islands have no 3 x 3 lot left by the time the
+  // ladder ends): painted at two thirds, the pen's tile, heights and strokes scaled together (a model of the whole)
+  function g3Scaled(k, fn) {
+    const was = [hw, hh, zs, S, LW, TT];
+    hw *= k; hh *= k; zs *= k; S *= k * 1.1; LW = Math.max(0.6, LW * 0.85); TT *= k;
+    try { fn(); } finally { hw = was[0]; hh = was[1]; zs = was[2]; S = was[3]; LW = was[4]; TT = was[5]; }
+  }
+  {
+    const _sp = bSpriteOf0;
+    bSpriteOf0 = function (R, s, b) {
+      const def = bDef(b), art = def && def.g3 ? def.art : '';
+      if (!art || !(def.g3lv >= 1)) return _sp.apply(this, arguments);
+      const lv = b.wip ? 0 : def.g3lv, up = b.g3up ? b.g3up.lv : 0, vd = viewDef(def, R.rot || 0), H = bHeight(b) + 0.35, k = vd.w / 3;
+      const paint0 = art === 'campus' ? () => paintCampus(lv, up) : art === 'stadium' ? () => paintStadium(lv, up) : () => paintResort(lv, up);
+      return sprite(R, 'g3|' + art + '|' + lv + '|' + up + '|' + vd.w + 'x' + vd.h, [vd.w, vd.h], H, () => g3Scaled(k, paint0));
+    };
+    const _bh = bHeight;
+    bHeight = function (b) {
+      const def = bDef(b);
+      if (!def || !def.g3) return _bh.apply(this, arguments);
+      const lv = b.g3up ? b.g3up.lv : def.g3lv, k = def.w / 3;
+      return k * (def.art === 'campus' ? (lv >= 3 ? 2.5 : 1.7) : def.art === 'stadium' ? 1.9 : lv >= 5 ? 3.1 : 1.8);
+    };
+    const _ph = pickHeight;
+    pickHeight = function (b) {
+      const def = bDef(b);
+      if (!def || !def.g3) return _ph.apply(this, arguments);
+      return (def.w / 3) * (def.art === 'stadium' ? 0.55 : def.art === 'resort' && def.g3lv >= 5 ? 1.8 : 1.1);
+    };
+  }
   return { create, draw, toScreen, toTile, pick, pickAll, mem, trim, reset };
 })();
 
@@ -35096,11 +35976,21 @@ function albumOpen() {
 }
 
 // ---------- the ritual at each stage ----------
-function comSnap() {
+function comSnap(at) {
   try {
     // every photo 480 x 360 (4:3), cut from the middle of the screen (a phone's tall screen gives the middle band)
     const cv = $('map'), w = ALBUM_W, h = Math.round(ALBUM_W * 0.75), W = cv.width, H = cv.height;
-    const sw = Math.min(W, H / 0.75), sh = sw * 0.75, sx = (W - sw) / 2, sy = Math.max(0, (H - sh) / 2);
+    let sw = Math.min(W, H / 0.75), sh = sw * 0.75, sx = (W - sw) / 2, sy = Math.max(0, (H - sh) / 2);
+    // v37: a place given ([tx, ty], an island goal's building): the photo is cut round it, a little closer. The camera
+    // puts the place in the free part of the screen, above Rosa's panel; cut from the middle, the University of Isla
+    // Nueva's photo was three quarters sea with the campus a speck at its top.
+    const p = at ? tileToScreen(APP.R, APP.view, at[0], at[1]) : null;
+    if (p && isFinite(p.x) && isFinite(p.y)) {
+      const k = W / (cv.clientWidth || window.innerWidth);
+      sw = Math.round(sw * 0.7); sh = sw * 0.75;
+      // (a building stands up from its tile: the middle a little above it)
+      sx = Math.max(0, Math.min(W - sw, p.x * k - sw / 2)); sy = Math.max(0, Math.min(H - sh, (p.y - 30) * k - sh / 2));
+    }
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     c.getContext('2d').drawImage(cv, sx, sy, sw, sh, 0, 0, w, h);
@@ -36218,7 +37108,7 @@ function isleRitual(e) {
   }
   const prev = APP.speed, res = s.b.find((b) => b.type === 'residence'), I = s.isle || {};
   const at = e.id === 'town2' && I.town2 ? I.town2.at : e.id === 'railway' && (s.rail || []).length ? [s.rail[(s.rail.length / 2) | 0] % MAP_W, (s.rail[(s.rail.length / 2) | 0] / MAP_W) | 0]
-    : e.id === 'airfield' ? (() => { const a = s.b.find((b) => b.type === 'airfield'); return a ? [a.x + 1, a.y + 1] : null; })() : null;
+    : e.id === 'airfield' ? (() => { const a = s.b.find((b) => b.type === 'airfield'); return a ? [a.x + 1, a.y + 1] : null; })() : e.at || null;
   const x = at ? at[0] + 0.5 : res ? res.x + res.w / 2 : 0, y = at ? at[1] + 0.5 : res ? res.y + res.h : 0;
   speedSet(0); cardClose();
   if (APP.ui.tool !== 'look') toolSet('look');
@@ -36228,8 +37118,9 @@ function isleRitual(e) {
   APP.ui.com = null;
   confettiRun();
   setTimeout(() => {
-    // (S1: a goal reached at a share brings its own head and line: e.head, e.line)
-    const img = comSnap(), line = e.line || ISLE_RITUAL_LINE[e.id] || '';
+    // (S1: a goal reached at a share brings its own head and line: e.head, e.line; P3: its place, e.at)
+    // (v37: the photo cut round the place when the goal has one: the building, the railway, the airfield, the far town)
+    const img = comSnap(at ? [x, y] : null), line = e.line || ISLE_RITUAL_LINE[e.id] || '';
     const head = e.head || { railway: 'The planters’ railway runs', airfield: 'Our own airfield', town2: title + ' on the far coast', served: 'Every quarter served', census: 'The census: ' + popCount(s).toLocaleString('en-US') + ' people' }[e.id] || title;
     if (img) albumAdd({ img, stage: s.stage, m: s.month, pop: popCount(s), line: head + '. ' + line });
     const next = e.next === 'next' ? 'The island’s next chapter: a record every ' + ISLE.censusStep + ' people, and whatever the islanders ask for.' : e.nextTitle ? 'Next: ' + e.nextTitle + '.' : '';
@@ -42161,7 +43052,11 @@ function cwHowWords(list) {
   carsHomeText = function (s, h) {
     const r = _ht.apply(this, arguments);
     if (!r || !cwOn(s)) return r;
-    const lines = carsOfHome(s, h).slice(0, 2).filter((c) => c.mode === 'car' && c.alt && c.lw).map((c) => cwHomeLine(s, c));
+    const all = carsOfHome(s, h), round = (c) => c.mode === 'car' && c.alt && c.lw;
+    let lines = all.slice(0, 2).filter(round).map((c) => cwHomeLine(s, c));
+    // (v37: an apartment house of 11 car families names two, "And 9 more car families here.": when neither of the two
+    // drives round and one of the others does, the first of those is named with its family, as the street's card counts it)
+    if (!lines.length) { const c = all.slice(2).find(round); if (c) lines = [(c.sur ? 'The ' + c.sur + ' family: ' : '') + cwHomeLine(s, c)]; }
     return lines.length ? Object.assign({}, r, { t: r.t + ' ' + lines.join(' ') }) : r;
   };
   // the legend: how many drive the long way round
@@ -42431,6 +43326,198 @@ function legendFitCard() {
 {
   const _lgf = trafficLegend;
   trafficLegend = function () { const r = _lgf.apply(this, arguments); legendFitCard(); return r; };
+}
+
+// ---- src/ui/goals_ui.js
+// P3 (5 Nov 2026): what she sees of sim/goals.js (a university, a stadium, a resort after the ladder).
+// - The pill: "Capital → The university: 2 / 6 faculties, 40 students · goal 1 of 3", the reward with its number now and
+//   the next part's button with its price ("Faculty of Arts · $4,000"); while a part is being built a third line: "The
+//   Faculty of Arts is being built: 2 of 6 months; then 40 more students and +1 % rent." (a phone has it in the to-do
+//   list).
+// - The to-do list's goal: the parts as a row with the part being built, what each part gives.
+// - The building's card: its parts, what they give now (the students and the rent, the seats, match days and the
+//   visitors, the beds and the guests), what it costs a month, the next part with its price and months (one tap).
+// - A part opens: a floater over the building and a notice; a goal reached: A10's ritual with its own head and Rosa's
+//   line (the camera on the building).
+
+Object.assign(ICONS, {
+  // a mortarboard
+  cap: 'M12 3 L23 8.5 L12 14 L1 8.5 Z M5.5 11.2 L12 14.5 L18.5 11.2 V16 C18.5 18 15.5 19.5 12 19.5 C8.5 19.5 5.5 18 5.5 16 Z M21 10 H22.4 V16.5 H21 Z',
+  // a ball field's diamond with its home plate
+  diamond: 'M12 2.5 L21.5 12 L12 21.5 L2.5 12 Z M12 6.2 L6.2 12 L12 17.8 L17.8 12 Z M10.8 18.4 H13.2 V20.8 H10.8 Z',
+  // a beach umbrella over the sand
+  umbrella: 'M12 3 C17 3 21 6.5 21 11 H3 C3 6.5 7 3 12 3 Z M11.2 11 H12.8 V19 H11.2 Z M3 19 H21 V21 H3 Z',
+});
+
+ISLE_RITUAL_LINE.univ = 'Six faculties teach on the campus: the island’s own doctors, scientists, writers, lawyers, engineers and teachers.';
+ISLE_RITUAL_LINE.stadium = 'Five stands round the diamond: the whole town comes on match days.';
+ISLE_RITUAL_LINE.resort = 'The resort by the beach is full of guests in the season.';
+
+// The part being built, in words: "The Faculty of Arts is being built: 2 of 6 months; then 40 more students and +1 % rent."
+function g3BuildLine(s, id) {
+  const G = G3_GOALS[id], c = g3Count(s, id);
+  if (c.placed <= c.fin || !c.building) return '';
+  const done = G.months - c.left;
+  const then = id === 'univ' ? G.per + ' more students and +1 % rent' : id === 'stadium' ? G.per + ' more seats and ' + G3.visit + ' more visitors a month' : G.per + ' more beds';
+  return c.building.replace(/^./, (x) => x.toUpperCase()) + (g3Plural(c.building) ? ' are' : ' is') + ' being built: ' + Math.max(0, done) + ' of ' + G.months + ' months; then ' + then + '.';
+}
+
+// ---------- the pill: the part being built ----------
+function g3PillLine() {
+  const s = APP.state, el = $('pill');
+  if (!s || !el || APP.titleOn) return;
+  let t = '', on = false;
+  if (s.palace && !stageConds(s).next && g3On()) {
+    let g = null;
+    try { g = isleGoal(s); } catch (e) { g = null; }
+    if (g && g3Is(g.id) && el.querySelector('.isle')) { on = true; t = g3BuildLine(s, g.id); }
+  }
+  // (v37: on the upright iPad the part's button, "Ballpark and grandstand · $5,000", left the reward a column five words
+  // high; with this class the button goes under the reward there: page.html)
+  el.classList.toggle('g3', on);
+  let row = el.querySelector('.g3b');
+  if (!t) { if (row) { row.remove(); el.classList.toggle('two', !!el.querySelector('.blk') || !!el.querySelector('.sav') || !!el.querySelector('.aside') || !!el.querySelector('.still')); } return; }
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'g3b';
+    const sav = el.querySelector('.sav');
+    if (sav) el.insertBefore(row, sav); else el.appendChild(row);
+  }
+  if (row.textContent !== t) row.textContent = t;
+  el.classList.add('two');
+}
+
+// ---------- the building's card ----------
+function g3CardHtml(s, b) {
+  const t = G3_TYPE[b.type], G = G3_GOALS[t.goal], c = g3Count(s, t.goal), lines = [], x = bNumber(s, b);
+  const parts = G.parts.slice(0, c.fin).map((p) => p.replace(/^the /, '')).join(', ');
+  let h = '<div class="line"><span>' + esc(G.what.replace(/^./, (q) => q.toUpperCase())) + '</span><span>' + esc(c.placed + ' / ' + c.max + (parts ? ': ' + parts : '')) + '</span></div>';
+  if (t.goal === 'univ') {
+    const fac = g3Fx(s).fac, pct = Math.round(100 * g3RentPct(s));
+    const rent = g3RentSum(s);
+    h += '<div class="line"><span>Students</span><span>' + esc(c.cap + (fac < c.fin ? ' places · ' + Math.round(fac * G.per) + ' taught (short of professors)' : '')) + '</span></div>';
+    h += '<div class="line"><span>Its graduates</span><span>' + esc('every home pays ' + pct + ' % more rent: +' + money$(rent) + ' a month') + '</span></div>';
+    lines.push('Each faculty teaches ' + G.per + ' students; its graduates earn more, so every home pays 1 % more rent (as the University on the hill adds 5 %). A faculty takes ' + G.jobs + ' professors at the stage’s wage.');
+  } else if (t.goal === 'stadium') {
+    h += '<div class="line"><span>Seats</span><span>' + esc(c.cap.toLocaleString('en-US')) + '</span></div>';
+    h += '<div class="line"><span>Match days</span><span>' + esc('+' + g3Happy(s) + ' happiness · ' + g3Visitors(s) + ' visitors a month spend ' + money$(G3.spend) + ' each: +' + money$(g3Visitors(s) * G3.spend)) + '</span></div>';
+    lines.push('Each stand seats ' + G.per + ': +1 happiness on match days (up to +' + G3.happyMax + '), and the big games (the winter league, the Caribbean Series) bring ' + G3.visit + ' visitors a month a stand, who lodge in the town as the airfield’s visitors do.');
+  } else {
+    const beds = g3Beds(s, b), last = b.lastGuests || 0, own = b.g3own || 0;
+    h += '<div class="line"><span>Guests</span><span>' + esc((b.mGuests || 0) + ' this month · ' + last + ' last month · ' + beds + ' beds a month') + '</span></div>';
+    h += '<div class="line"><span>They spend</span><span>' + esc(money$(G3.spend) + ' each in the town: ' + money$(last * G3.spend) + ' last month') + '</span></div>';
+    lines.push('Its own guests fill ' + Math.round(100 * G3.fill) + ' % of its beds a month, ' + Math.round(100 * G3.fillAir) + ' % while the airfield runs (they fly in)' + (typeof airfieldOn === 'function' && airfieldOn(s) ? ': the airfield runs' : ': no airfield runs') + '. The harbour’s tourists and the airlines’ visitors sleep here too, as in a hotel.' + (own ? ' Last month ' + own + ' came for the resort itself.' : ''));
+  }
+  const bl = g3BuildLine(s, t.goal);
+  if (bl) lines.push(bl);
+  h += '<p class="note good">' + esc(lines.join(' ')) + '</p>';
+  // the next part, one tap (her tap: its price and months on the button)
+  const d = { kind: 'g3up', id: b.id, goal: t.goal }, p = planOf(s, d);
+  if (p) h += '<div class="btns"><button id="cardG3"' + (s.money < p.cost ? ' class="poor"' : '') + '>' + esc('Build ' + p.name + ' · ' + money$(p.cost)) + '<small>' + esc(G.months + ' months · ' + g3PartGives(t.goal)) + '</small></button></div>';
+  else if (c.placed >= c.max && c.fin >= c.max) h += '<p class="note good">' + esc('All ' + c.max + ' ' + G.what + ' stand: the island goal is reached.') + '</p>';
+  if (x.wages || x.upkeep) h += '<div class="line"><span>It costs a month</span><span>' + esc('wages ' + money$(x.wages) + ' · upkeep ' + money$(x.upkeep)) + '</span></div>';
+  return h;
+}
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!b || !G3_TYPE[b.type] || !g3On()) return h;
+    const t = G3_TYPE[b.type], word = t.goal === 'stadium' ? 'visitors +$' : t.goal === 'resort' ? 'guests +$' : 'ship +$';
+    const h2 = h.replace('ship +$', word), add = g3CardHtml(s, b), at = h2.indexOf('<div class="line"><span>Workers</span>');
+    return at >= 0 ? h2.slice(0, at) + add + h2.slice(at) : h2 + add;
+  };
+  const _cr = cardRender;
+  cardRender = function () {
+    const r = _cr.apply(this, arguments), el = $('cardG3');
+    if (el && !el.dataset.w) {
+      el.dataset.w = '1';
+      el.addEventListener('click', () => { const s = APP.state, b = APP.ui.sel && bById(s, APP.ui.sel); if (b && G3_TYPE[b.type]) { landRunUi({ kind: 'g3up', id: b.id, goal: G3_TYPE[b.type].goal }, ''); APP.cardKey = ''; cardRender(); } });
+    }
+    return r;
+  };
+  const _bs = bStatus;
+  bStatus = function (s, b) {
+    const t = b && G3_TYPE[b.type];
+    if (!t || !g3On()) return _bs.apply(this, arguments);
+    const G = G3_GOALS[t.goal], c = g3Count(s, t.goal);
+    if (!b.open) return _bs.apply(this, arguments);
+    if (b.wip) return { text: 'Being built: ' + Math.round(100 * projectDone(b)) + ' % (' + Math.ceil(b.wip / TUNE.ticksPerMonth) + ' of ' + G.months + ' months left). Then: ' + PROJECT_FX[G.gives].text + '.' };
+    if (!b.workers) return { text: 'No workers: nothing runs. Half of the people work: build homes.' };
+    if (t.goal === 'univ') return { text: 'Teaching: ' + Math.round(g3Fx(s).fac * G.per) + ' students in ' + plural(c.fin, 'faculty', 'faculties') + '.', good: true };
+    if (t.goal === 'stadium') return { text: 'Match days: ' + c.cap.toLocaleString('en-US') + ' seats, +' + g3Happy(s) + ' happiness, ' + g3Visitors(s) + ' visitors a month.', good: true };
+    const last = b.lastGuests || 0;
+    return last ? { text: 'Open: ' + last + ' guests last month.', good: true } : { text: 'Open: its first guests come at the month’s end.', good: true };
+  };
+}
+
+// ---------- the stack's line, the to-do list's goal ----------
+{
+  const _cs = comShort;
+  comShort = function (q) {
+    if (q && q.key === 'isle' && g3Is(q.goal) && q.step && q.step.plan) {
+      const p = planOf(APP.state, q.step.plan);
+      if (p && p.kind === 'g3up') return 'asks for ' + p.name;
+      if (p) return 'asks for ' + G3_GOALS[q.goal].parts[0];
+    }
+    return _cs.apply(this, arguments);
+  };
+  const _tg = todoGoal;
+  todoGoal = function (s) {
+    const r = _tg.apply(this, arguments);
+    try {
+      if (r && !r.next && s.palace && g3On()) {
+        const g = isleGoal(s);
+        if (g && g3Is(g.id)) {
+          const G = G3_GOALS[g.id], c = g3Count(s, g.id), bl = g3BuildLine(s, g.id);
+          r.rows.push({ key: 'g3', label: G.what.replace(/^./, (x) => x.toUpperCase()), have: c.placed, want: c.max, ok: false,
+            why: (bl ? bl + ' ' : '') + (g.step && g.p ? 'Next: ' + (g.p.kind === 'g3up' ? g.p.name : G.parts[0]) + ' · ' + money$(g.p.cost) + ' (' + g3PartGives(g.id) + ').' : '') });
+        }
+      }
+    } catch (e) { /* the list as it is */ }
+    return r;
+  };
+}
+
+// ---------- a part opens; the pill's line ----------
+{
+  const _eh = eventsHandle;
+  eventsHandle = function () {
+    const evs = APP.state && APP.state.ev ? APP.state.ev.slice() : [];
+    const r = _eh.apply(this, arguments);
+    for (const e of evs) {
+      if (e.kind !== 'g3part') continue;
+      const b = bById(APP.state, e.id), G = G3_GOALS[e.goal];
+      if (!b || !G) continue;
+      if (e.what === 'open') {
+        floaterAdd(b.x + b.w / 2, b.y + b.h / 2, e.name.replace(/^./, (x) => x.toUpperCase()) + (g3Plural(e.name) ? ' open' : ' opens'), '#167a7a', true, b.id);
+        try { audioCue('levelup'); } catch (err) { /* no sound */ }
+        toastShow(e.name.replace(/^./, (x) => x.toUpperCase()) + (g3Plural(e.name) ? ' open: ' : ' opens: ') + (e.lv * G.per).toLocaleString('en-US') + ' ' + G.unit + '.', { logged: true, id: b.id });
+      } else floaterAdd(b.x + b.w / 2, b.y + b.h / 2, 'Scaffolding: ' + e.name, '#8a5a2e', false, b.id);
+    }
+    return r;
+  };
+  const _ip = islePill;
+  islePill = function () {
+    const r = _ip.apply(this, arguments);
+    try { g3PillLine(); } catch (e) { /* the pill as it is */ }
+    return r;
+  };
+}
+
+// ---------- the moment and the New Year in the same month ----------
+// (the smoke's sixth faculty opened in a January: A10's ritual opens on a timer after the events, so the year's Gazette,
+// handled first, opened over it; now the page waits as the slip, its rule "never over a stage's ritual")
+{
+  const _ga = gazetteArrive;
+  gazetteArrive = function (y, ritual) {
+    return _ga.call(this, y, ritual || !!APP.isleNow);
+  };
+  const _eh = eventsHandle;
+  eventsHandle = function () {
+    APP.isleNow = !!(APP.state && APP.state.ev && APP.state.ev.some((e) => e.kind === 'isle'));
+    try { return _eh.apply(this, arguments); } finally { APP.isleNow = false; }
+  };
 }
 
 // ---- src/ui/phone.js
