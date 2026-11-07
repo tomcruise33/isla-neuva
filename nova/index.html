@@ -24442,6 +24442,7 @@ const AP5 = {
   inland: 1946,        // from 1946 an airfield may stand inland (the flying boats gone, 1945)
   partUpkeep: 0.01,    // a part's upkeep a month: 1 % of what it cost
   maxHomes: 4, maxRoad: 10, opts: 3, spread: 10, tries: 30,
+  both: true,          // P5d (Tomáš, 7 Nov: "Ponúknuť obe"): the cheapest place without room for the jet airport too
 };
 // The five parts: the footprint it needs (L long, S across), its months, its price in town-months and its floor, its
 // staff, what it does on the airfield's own ground (k), and its words.
@@ -24647,7 +24648,9 @@ function ap5Sites(s) {
   }
   // (where some place has room to grow into the jet airport, only those: an airport is sited with room for its runway)
   for (const q of all) q.jet = ap5JetRoom(s, q, q.road.length ? new Set(q.road) : null);
-  if (all.some((q) => q.jet)) for (let k = all.length - 1; k >= 0; k--) if (!all[k].jet) all.splice(k, 1);
+  // (P5d: the places without that room kept aside, the cheapest of them offered as well where it costs less)
+  const anyJet = all.some((q) => q.jet), nj = anyJet ? all.filter((q) => !q.jet).sort((a, b) => a.all - b.all || a.d - b.d) : [];
+  if (anyJet) for (let k = all.length - 1; k >= 0; k--) if (!all[k].jet) all.splice(k, 1);
   all.sort((a, b) => a.all - b.all || a.d - b.d);
   const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
   const picked = [], per = {};
@@ -24675,6 +24678,26 @@ function ap5Sites(s) {
   if (picked.length === 1) for (const q of all) if (near0(q) && tryOne(q)) break;
   if (picked.length === 1) for (const q of all) if (tryOne(q)) break;
   out.list = picked.slice(0, AP5.opts).sort((a, b) => a.all - b.all || a.d - b.d);
+  // P5d (Tomáš, 7 Nov, on her crowded island where the place with room for the jet airport costs more: "offer both"):
+  // the gold stays the place with room; the cheapest place where only the strip fits is offered beside it when it costs
+  // less (at most three places: it takes the dearest one's turn). Its words say it cannot grow there.
+  if (AP5.both && anyJet && out.list.length) {
+    const g = out.list[0], near = (q) => Math.max(Math.abs(q.x + q.w / 2 - g.x - g.w / 2), Math.abs(q.y + q.h / 2 - g.y - g.h / 2)) <= AP5.spread;
+    // (one within the view's reach of the gold first, as P4's places; else the cheapest anywhere)
+    const cands = nj.filter((q) => q.all < g.all), order = cands.filter(near).concat(cands.filter((q) => !near(q)));
+    let n = 0;
+    for (const q of order) {
+      if (++n > 12) break;
+      if (out.list.some((p) => overlaps(p, q))) continue;
+      const r = ap5Try(s, q, false);
+      if (!r.ok) continue;
+      q.moves = r.moves;
+      if (out.list.length >= AP5.opts) out.list.pop();
+      out.list.push(q);
+      break;
+    }
+  }
+  for (const q of out.list) q.nojet = !q.jet;
   if (!out.list.length) out.why = all.length ? 'the homes on every lot that could be cleared have no free lot by a road to move to' : 'no ' + AP5.w + ' x ' + AP5.h + ' lot of open land, forest or up to ' + AP5.maxHomes + ' homes lies' + (ap5Inland(s) ? '' : ' on the coast') + ' within ' + AP5.maxRoad + ' tiles of a street';
   return out;
 }
@@ -24687,6 +24710,7 @@ function ap5Cand(s, d) {
   const r = ap5Try(s, c, false);
   if (!r.ok) return null;
   c.moves = r.moves; c.cost = BUILDINGS.airfield.cost + c.extra; c.all = c.cost;
+  c.jet = ap5JetRoom(s, c, c.road.length ? new Set(c.road) : null); c.nojet = !c.jet;
   return c;
 }
 // The plan of a place (P4's shape: the map's lot, its forest, its homes, its road, its price, the other places).
@@ -24698,7 +24722,21 @@ function ap5SitePlanOf(s, d) {
   const alts = ap5Sites(s).list.filter((c) => c !== q).map(ap5Desc);
   return { kind: 'g5site', goal: 'airfield', type: 'airfield', f: q.f, lot: [q.x, q.y], lots: [{ x: q.x, y: q.y, w: q.w, h: q.h }], line: q.road.concat([mid]), road: q.road,
     clear: q.clear.slice(), keep: [], ids: q.ids.slice(), moves: q.moves || [], cost: q.cost, extra: q.extra, price: q.cost - q.extra, how: q.how, wood: 0, later: 0,
-    name: 'the airfield', btn: 'Airfield', short: g4Short(q), words: g4Words(s, q), alts, at: [q.x + Math.floor((q.w - 1) / 2), q.y + Math.floor((q.h - 1) / 2)] };
+    name: 'the airfield', btn: 'Airfield', short: q.nojet ? 'No room to grow' + (q.how === 'free' && !q.road.length ? '' : ': ' + g4Short(q).replace(/^./, (x) => x.toLowerCase())) : g4Short(q),
+    words: g4Words(s, q), nojet: !!q.nojet, later: q.nojet ? ap5LaterWords(s) : '', alts, at: [q.x + Math.floor((q.w - 1) / 2), q.y + Math.floor((q.h - 1) / 2)] };
+}
+// P5d: what a place without room for the jet airport means, with its cost: "It cannot grow into the jet airport here:
+// for its runways the airport will move later, to a place with room (about $13,500 of room today: the gold place's)."
+function ap5LaterWords(s) { return 'It cannot grow into the jet airport here: ' + ap5MoveLater(s); }
+function ap5MoveLater(s) {
+  const g = ap5Sites(s).list.find((q) => q.jet);
+  return 'for its runways the airport will move later, to a place with room' + (g && g.extra ? ' (about ' + money$(g.extra) + ' of room today, the gold place’s)' : '') + '.';
+}
+// The cream place without that room, when one is offered beside the gold (the words of the pill, Rosa and the ask).
+function ap5CheapWords(s) {
+  const o = ap5Sites(s), g = o.list[0], c = o.list.find((q) => q.nojet && q !== g);
+  if (!g || !c || !g.jet) return '';
+  return 'A cheaper place is on the map too, ' + money$(c.cost) + ', but the airfield cannot grow into the jet airport there: ' + ap5MoveLater(s);
 }
 function ap5SiteRun(s, d) {
   const p = planOf(s, d);
@@ -24713,7 +24751,9 @@ function ap5PlaceLine(s) {
   if (!q) return 'No room for its ' + AP5.w + ' x ' + AP5.h + ' strip: ' + o.why + '.';
   // ("Its 6 x 2 strip on the coast" before 1946; inland or on the coast after it)
   const w = g4Words(s, q), n = o.list.length - 1;
-  return 'Its ' + AP5.w + ' x ' + AP5.h + ' strip' + ap5Where(s) + ': ' + (w || 'a free lot') + (q.extra ? ', ' + money$(q.cost) + ' in all' : '') + (n ? '; ' + plural(n, 'other place', 'other places') + ' on the map' : '') + '.';
+  const c = o.list.find((p) => p.nojet && p !== q);
+  return 'Its ' + AP5.w + ' x ' + AP5.h + ' strip' + ap5Where(s) + ': ' + (w || 'a free lot') + (q.extra ? ', ' + money$(q.cost) + ' in all' : '') + (q.nojet ? ' (no room to grow into the jet airport there)' : '') +
+    (n ? '; ' + plural(n, 'other place', 'other places') + ' on the map' + (c ? ', one cheaper (' + money$(c.cost) + ') without room to grow' : '') : '') + '.';
 }
 
 // ---------- the airport grows: a part's places (the airport lengthened or widened) ----------
@@ -24924,8 +24964,11 @@ function ap5Grows(s, b, lv) {
     // (P5b, her 1905 island: the jet runway's homes had no free lot to move to, but the airport moved three tiles along
     // its own ground freed its old end for them; that slide grows it on the map and goes first, else the cheaper)
     const mv = ap5Moves(s, b, lv), one = mv.find((q) => q.slide) || mv[0];
+    // (P5d: an airfield that stands where it cannot grow (no land kept: the cream place, an old field) was told it
+    // would move later: the move goes first, its own lot the other choice; with land kept, the cheaper first)
+    const first = (q) => q.move && b.ap5land === 0;
     out.list = [{ x: b.x, y: b.y, w: b.w, h: b.h, ext: null, side: '', inplace: true, clear: [], keep: [], ids: [], road: [], extra: 0, wood: [], how: 'free', cost: ap5Price(s, lv) }].concat(one ? [one] : [])
-      .sort((a, z) => (z.slide ? 1 : 0) - (a.slide ? 1 : 0) || a.cost - z.cost || (z.move ? 1 : 0) - (a.move ? 1 : 0));
+      .sort((a, z) => (z.slide ? 1 : 0) - (a.slide ? 1 : 0) || (first(z) ? 1 : 0) - (first(a) ? 1 : 0) || a.cost - z.cost || (z.move ? 1 : 0) - (a.move ? 1 : 0));
   }
   if (!out.list.length) {
     const n = ap5Need(b, lv);
@@ -25118,7 +25161,7 @@ const AP5_KINDS = { g5site: 1, g5grow: 1 };
   };
   const _pl = planLabel;
   planLabel = function (p) {
-    if (p && p.kind === 'g5site') return (p.extra ? p.short + ', build ' : 'Tap to build ') + 'the airfield' + (p.extra ? '' : ' here') + ' · ' + money$(p.cost);
+    if (p && p.kind === 'g5site') return (p.extra || p.nojet ? p.short + ', build ' : 'Tap to build ') + 'the airfield' + (p.extra || p.nojet ? '' : ' here') + ' · ' + money$(p.cost);
     if (p && p.kind === 'g5grow') return (p.same ? 'Tap to build ' : p.short + ': ') + p.name + ' · ' + money$(p.cost);
     return _pl.apply(this, arguments);
   };
@@ -25126,7 +25169,7 @@ const AP5_KINDS = { g5site: 1, g5grow: 1 };
   planBtn = function (p) { return p && AP5_KINDS[p.kind] ? p.btn : _pb.apply(this, arguments); };
   const _ps = planSay;
   planSay = function (s, p) {
-    if (p && p.kind === 'g5site') return (p.words ? 'The dotted lot makes room (' + p.words + ') and builds ' : 'The lit lot builds ') + 'the airfield · ' + money$(p.cost) + '.';
+    if (p && p.kind === 'g5site') return (p.words ? 'The dotted lot makes room (' + p.words + ') and builds ' : 'The lit lot builds ') + 'the airfield · ' + money$(p.cost) + '.' + (p.nojet ? ' ' + p.later : '');
     if (p && p.kind === 'g5grow') return (p.words ? 'The airport ' + p.words + ': ' : 'The airport glows: one tap builds ') + p.name + ' · ' + money$(p.cost) + '.';
     return _ps.apply(this, arguments);
   };
@@ -25176,7 +25219,9 @@ const AP5_KINDS = { g5site: 1, g5grow: 1 };
       if (r && !ap5Boats(s)) r = Object.assign({}, r, { ask: ap5AskWords(s) + '.', praise: ap5PraiseWords(s) });
       if (!r || !ap5On() || !s.palace) return r;
       const q = ap5Sites(s).list[0];
-      return q ? Object.assign({}, r, { plan: ap5Desc(q), near: [q.x + Math.floor(q.w / 2), q.y + Math.floor(q.h / 2)] }) : r;
+      // (P5d: the cheaper place without room for the jet airport, when one is offered, said in the ask too)
+      const ch = ap5CheapWords(s);
+      return q ? Object.assign({}, r, { plan: ap5Desc(q), near: [q.x + Math.floor(q.w / 2), q.y + Math.floor(q.h / 2)], ask: r.ask + (ch ? ' ' + ch : '') }) : r;
     };
   }
   const _cm = comMake;
@@ -25195,6 +25240,8 @@ const AP5_KINDS = { g5site: 1, g5grow: 1 };
     const live = q.plan && q.plan.kind === 'g5site' && planOf(s, q.plan), g = live ? null : ap5Sites(s).list[0];
     if (live || g) {
       if (g) { q.plan = ap5Desc(g); q.near = [g.x + Math.floor(g.w / 2), g.y + Math.floor(g.h / 2)]; }
+      // (P5d: its words with the island as it is: the cheaper place without room, when one is offered)
+      if (/^(Visitors on the flying boats|The airliners)/.test(q.ask || '')) { const ch = ap5CheapWords(s); q.ask = ap5AskWords(s) + '.' + (ch ? ' ' + ch : ''); }
       q.sv = s.ver; q.spots = []; q.road = null; q.move = 0;
       return;
     }
@@ -25485,6 +25532,27 @@ function ap5PraiseWords(s) { return ap5Boats(s) ? 'The first flying boat touched
     const r = _hc.apply(this, arguments);
     if (!ap5Boats(state)) for (const p of r.parts || []) if (p.label === 'The airfield: flying boats to Havana and Key West') p.label = 'The airfield: airliners to Miami';
     return r;
+  };
+}
+
+// ---------- P5d: the flying boats' parts after their time ----------
+// (The airport's own screen offered the flying-boat ramp and the mooring after 1945.) The flying boats flew until 1945:
+// from 1946 neither is offered for building, and a new airfield's ground has no slipway (an old 3 x 3 field keeps the
+// one the island draws). Those that stand (an old save's) stay where they are, with what they cost and what they give back; their screen calls them the old slipway and
+// the old mooring (ui/goals3_ui.js). A part that stands may still be moved. TUNE.ap5Off: as AP1.
+function ap5BoatsGone(s) { return ap5On() && apYear(s) >= AP5.inland; }
+{
+  const _cp = apCanPlace;
+  apCanPlace = function (state, b, k, x, y, opt) {
+    if ((k === 'ramp' || k === 'mooring') && !(opt && opt.not) && ap5BoatsGone(state)) return 'Not after 1945: the flying boats flew until then';
+    return _cp.apply(this, arguments);
+  };
+  const _df = apDefault;
+  apDefault = function (state, b) {
+    const A = _df.apply(this, arguments);
+    // (an old 3 x 3 field is the island's picture of the flying boats' airfield, its slipway drawn: it keeps it)
+    if (ap5BoatsGone(state) && !(b && b.w === 3 && b.h === 3)) A.parts = A.parts.filter((p) => p.k !== 'ramp');
+    return A;
   };
 }
 
@@ -33607,11 +33675,12 @@ const ISO = (() => {
     // ask's own lot, drawn above): a cream dashed lot, its forest marked, the homes it would move ringed
     const _co = comOverlay;
     comOverlay = function (R, s, ui, t) {
-      const r = _co.apply(this, arguments);
       const cm = ui.com;
-      if (!cm || !cm.alts || !cm.alts.length || ui.money) return r;
+      if (!cm || !cm.alts || !cm.alts.length || ui.money) return _co.apply(this, arguments);
+      // (P5d: the other places' lots drawn first, under the gold one's lot and its label: their dashes crossed the gold
+      // label at 820 x 1180; their labels after it, placed clear of it)
+      const pulse = 0.5 + 0.5 * Math.sin(t * 2.6 + 1.3);
       try {
-        const pulse = 0.5 + 0.5 * Math.sin(t * 2.6 + 1.3);
         for (const a of cm.alts) {
           const l = a.lot;
           diamond(R, l.x - 0.06, l.y - 0.06, l.x + l.w + 0.06, l.y + l.h + 0.06, null, 'rgba(255,250,236,' + (0.35 + 0.3 * pulse).toFixed(3) + ')', 6 + 3 * pulse);
@@ -33619,6 +33688,12 @@ const ISO = (() => {
           for (const i of a.p.clear.concat(a.p.keep || [])) { const x = i % MAP_W, y = (i / MAP_W) | 0; diamond(R, x + 0.12, y + 0.12, x + 0.88, y + 0.88, null, 'rgba(255,250,236,.85)', 1.8, [4, 4]); }
           for (const id of a.p.ids) { const b = bById(s, id); if (b) diamond(R, b.x - 0.12, b.y - 0.12, b.x + b.w + 0.12, b.y + b.h + 0.12, 'rgba(255,248,222,.18)', 'rgba(255,250,236,.95)', 2.4, [6, 4]); }
           for (const i of a.p.road || []) { const p = P(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5, 0); circ(p[0], p[1], Math.max(2.5, R.hw * 0.12), '#fffaf0', 'rgba(150,100,20,.8)', 1.2); }
+        }
+      } catch (e) { /* the gold place alone */ }
+      const r = _co.apply(this, arguments);
+      try {
+        for (const a of cm.alts) {
+          const l = a.lot;
           const q = P(l.x + l.w / 2, l.y + l.h / 2, 0), sp = labelSprite(R, a.label, true), lift = 34 + 0.25 * Math.max(l.w, l.h) * R.hw;
           const at = labelClear(R, ui, [[q[0], q[1] - lift], [q[0], q[1] + 26], [q[0], q[1] - lift - 40]], sp);
           a.labelPt = at;
@@ -47026,7 +47101,11 @@ function ap5BuildLine(s) {
 function ap5PlacesText(s, p) {
   const alts = g4Alts(s, p).map((a) => a.p), all = [p].concat(alts), one = (q) => q.short + ' · ' + money$(q.cost);
   const list = all.length > 1 ? 'the gold one (' + one(p) + ') or ' + (alts.length > 1 ? 'the cream ones (' + alts.map(one).join('; ') + ')' : 'the cream one (' + one(alts[0]) + ')') : '';
-  if (p.kind === 'g5site') return 'Where should the airfield stand? Its ' + AP5.w + ' x ' + AP5.h + ' strip' + ap5Where(s) + ' ' + (list ? 'fits in ' + all.length + ' places: ' + list + '. Tap a lot to build the airfield there.' : 'fits here: ' + one(p) + '. Tap the lot to build the airfield.');
+  if (p.kind === 'g5site') {
+    // (P5d: the cream place without room for the jet airport says what that means, and the gold without it too)
+    const nj = alts.find((q) => q.nojet), tail = nj ? ' The cream one at ' + money$(nj.cost) + ' cannot grow into the jet airport: ' + ap5MoveLater(s) : p.nojet ? ' ' + p.later : '';
+    return 'Where should the airfield stand? Its ' + AP5.w + ' x ' + AP5.h + ' strip' + ap5Where(s) + ' ' + (list ? 'fits in ' + all.length + ' places: ' + list + '.' + tail + ' Tap a lot to build the airfield there.' : 'fits here: ' + one(p) + '.' + tail + ' Tap the lot to build the airfield.');
+  }
   // (the gold place's own size: its new lot, or the airport's own where the part is built on it)
   const f = p.full, n = f ? { L: Math.max(f.w, f.h), S: Math.min(f.w, f.h) } : { L: 0, S: 0 };
   return 'Where should the airport grow for ' + p.name + '? Its ' + n.L + ' x ' + n.S + ' lot ' + (list ? 'can grow ' + all.length + ' ways: ' + list + '. Tap the new ground to build ' + p.name + ' there.' : 'grows here: ' + one(p) + '. Tap it to build ' + p.name + '.');
@@ -47275,6 +47354,28 @@ function g5CostLine(s, b) {
     // (v40: first in the card's body, under its red sum: at the end it sat below the fold on the iPad)
     return line ? '<p class="note">' + esc(line) + '</p>' + h : h;
   };
+}
+
+// ---------- P5d: the flying boats' parts after their time (sim/airgrow.js: ap5BoatsGone) ----------
+// Not in the airport screen's list from 1946; those that stand are the old slipway and the old mooring.
+{
+  const K = FAC.kinds.airport;
+  if (K && K.tools) {
+    const _t = K.tools;
+    K.tools = function (s, b) { const out = _t.apply(this, arguments); return ap5BoatsGone(s) ? out.filter((o) => o.id !== 'ramp' && o.id !== 'mooring') : out; };
+  }
+  const OLD = {
+    ramp: { name: 'The old slipway', short: 'Old slipway', gives: 'the flying boats’ slipway and pontoon, from before 1946 (they flew until 1945): it stands, and no plane uses it now' },
+    mooring: { name: 'The old mooring', short: 'Old mooring', gives: 'the Clippers’ buoy in the bay, from before 1946 (they flew until 1945): it stands, and no plane uses it now' },
+  };
+  for (const k of ['ramp', 'mooring']) {
+    const d = AP_PARTS[k];
+    if (!d) continue;
+    for (const f of ['name', 'short', 'gives']) {
+      const v0 = d[f];
+      Object.defineProperty(d, f, { configurable: true, enumerable: true, get() { return APP.state && ap5BoatsGone(APP.state) ? OLD[k][f] : v0; } });
+    }
+  }
 }
 
 // ---- src/ui/phone.js
