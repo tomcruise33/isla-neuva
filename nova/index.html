@@ -25843,6 +25843,657 @@ if (typeof STILL_GOALS !== 'undefined') {
   GUIDE_PROBLEMS.splice(k >= 0 ? k + 1 : GUIDE_PROBLEMS.length, 0, P);
 }
 
+// ---- src/sim/beauty.js
+// B1 (8 Nov 2026, `nova/beauty`): beauty. Tomáš saw the browser game "Aesthetic City Builder" (The Aesthetic City): you
+// draw streets, squares and canals and the town fills in like the most beautiful old towns; it has no economy and no
+// score. He asked to bring that spirit here: a town that *looks* beautiful, that she sees bloom, and that pays back.
+// Inspiration only: no code, art or text from it (as V1 took land value from Cities: Skylines II's public diaries).
+// Rules and numbers: DESIGN.md §59; sources: docs/research/beauty.md (the Laws of the Indies, Sitte, Cullen, Havana).
+//
+// What is measured (every part on the street's card, the Beauty layer's legend and Rosa's line):
+// - A street is a straight line of road (what she draws in one stroke, through its crossings) where buildings stand
+//   along it, both sides together: a street is a room between two walls (Sitte; Cullen's "enclosure"), its proportion
+//   needs both walls, and one looks along its line (its view closed where it ends). It runs from its first built lot to
+//   its last (a tile more each end) and ends where 4 or more of its tiles in a row have nothing built along them: the
+//   road out of town is not a street yet. An avenue's two carriageways are one street. A street keeps its row's name.
+// - Its beauty, 0-100 (its look on the map steps up at 40, 60 and 75): 10 to begin with, and
+//     its street wall: the share of its lots (both sides) that hold a building facing it, up to +30 (an empty lot, a
+//       field, the forest or a works' yard is a gap; a garden, palms or a park are neither: they count as trees);
+//     its heights against its width: storeys of the buildings along it against what the street wants (a dirt lane 1,
+//       a paved street 2, an avenue 3), up to +10;
+//     its paving: a paved street or an avenue +5 (swept, with kerbs and sidewalks: C4);
+//     trees and gardens along it: palms +4, a garden +3, a park +5, a fountain, statue or bandstand beside it +3, an
+//       avenue's palm promenade between its carriageways +8; together at most +15;
+//     a closed view: what stands on its axis where its straight line ends, within 10 tiles of it (Sitte's closed
+//       street view, Cullen's "closure"): the cathedral or the opera +15, a church, a statue, the lighthouse, the
+//       university or the museum +12, a fountain or a bandstand +10, the residence +4 to +15 by its level, the sea +8,
+//       a house +3; the better end and half the other, at most +15;
+//     a promenade by the sea (one side open to the shore, as the Malecón): +15 paved, +6 a dirt lane;
+//   less what spoils it: smoke (as land value measures it, along the street) up to −15, traffic noise over 55 dB at
+//   its lots up to −8, a jam (its share of tiles jammed: −8, busy −3), a works' yard on it −4 each (at most −12), the
+//   power station within 2 tiles −8.
+// - The square (la plaza): the residence's square, as land value names it. 10 to begin with, and its enclosure (the
+//   lots within 2 tiles of the residence built, up to +35), the church on it (a chapel +8, a church +12, the
+//   cathedral +15, within 3 tiles: the Laws of the Indies set the church and the royal houses on the plaza), what
+//   stands on it (fountains, statues, a bandstand, gardens, a park within 2 tiles, up to +15), its floor (its streets
+//   paved, up to +10), the residence itself (+2 a level, up to +15); less smoke and works' yards.
+// Worked out at the month's end before land value (landvalue.js reads it), saved (state.beauty), so a reloaded island
+// pays and looks the same. What beauty does (DESIGN.md §59), from 60 (painted fronts: the step she sees): a street's
+// own look (its wall, heights and closed view: what land value does not already count) raises the land of the lots
+// along it (rent follows), and its homes make the island happier; the drawing of the streets follows its beauty
+// (render/iso.js, B1 block).
+// Kill switch TUNE.beautyOff: nothing is measured, saved, drawn or paid (v41 to the line).
+
+const BEAU = {
+  base: 10,
+  wall: 30, heights: 10, want: [0, 1, 2, 3], paved: 5,
+  trees: 15, tree: { palms: 4, garden: 3, park: 5, orn: 3, median: 8 },
+  view: 15, viewR: 10,
+  sea: [0, 6, 15, 15], seaShare: 0.6,
+  smokeK: 0.8, smokeMax: 15, noiseFrom: 55, noiseK: 0.4, noiseMax: 8, jam: 8, busy: 3, yard: 4, yardMax: 12, power: 8,
+  // the square
+  sq: { wall: 35, church: { chapel: 8, church: 12, cathedral: 15 }, churchR: 3, orn: { fountain: 6, statue: 6, bandstand: 8, garden: 3, palms: 3, park: 6 }, ornMax: 15, floor: 10, resLv: 2, resMax: 15 },
+  // the drawing's steps (iso.js): swept paving and lamps, painted fronts with flower boxes and awnings, cobbles and lanterns
+  tiers: [40, 60, 75],
+  // what it does, from 60: land along a street (its wall, heights and view: up to +8), happiness (homes on streets of 60+)
+  landStep: 60, landFrom: 44, landDiv: 1.5, landMax: 8, happyFrom: 60, happy: 4, sqHappy: 1, sqHappyFrom: 60,
+  nameGap: 8,        // a line within 8 tiles of a named one on the same row goes on with its name
+  gap: 4,            // a street ends where 4 or more of its line's tiles in a row have nothing built along them
+  fromStage: 1,      // measured and drawn from the Village on (a settlement's lane is a track to the pier)
+  payStage: 2,       // happiness from the Town on (land value's rent follows from the Town on as well)
+  bestWall: 4,       // the island's most beautiful street (the Gazette) has at least 4 buildings along it
+  rosaShow: 3, rosaRest: 9,  // Rosa's line: at most 3 months in a row, then 9 months' rest (no nagging)
+};
+// What closes a street's view (the building on its axis where its straight line ends): its points and its words.
+const BEAU_VIEW = {
+  cathedral: 15, opera: 15, church: 12, statue: 12, lighthouse: 12, university: 12, chapel: 8, fountain: 10, bandstand: 10,
+  hospital: 8, hotel: 8, lyceum: 6, school: 6, covered: 6, store: 8, market: 4, clinic: 4, waterworks: 4, station: 6,
+};
+// Havana's streets (Old Havana inside the walls, then Centro Habana's; docs/research/beauty.md) for the streets that
+// are not a quarter's (isle.js names those)
+const BEAU_NAMES = ['Calle Obispo', 'Calle Mercaderes', 'Calle de los Oficios', 'Calle Empedrado', 'Calle Obrapía', 'Calle Lamparilla',
+  'Calle Amargura', 'Calle Muralla', 'Calle Teniente Rey', 'Calle de la Luz', 'Calle Acosta', 'Calle de la Merced', 'Calle Paula',
+  'Calle San Ignacio', 'Calle Aguiar', 'Calle Compostela', 'Calle Villegas', 'Calle Bernaza', 'Calle del Cristo', 'Calle Tejadillo',
+  'Calle Chacón', 'Calle Cuarteles', 'Calle Refugio', 'Calle Trocadero', 'Calle Virtudes', 'Calle Neptuno', 'Calle San Miguel',
+  'Calle Concordia', 'Calle Galiano', 'Calle Reina', 'Calle Industria', 'Calle Consulado', 'Calle Habana', 'Calle Cuba',
+  'Calle Egido', 'Calle Picota', 'Calle Damas', 'Calle Inquisidor', 'Calle Jesús María', 'Calle Velasco', 'Calle San Lázaro',
+  'Calle Ánimas', 'Calle Colón', 'Calle Genios', 'Calle Lagunas', 'Calle Perseverancia', 'Calle Escobar', 'Calle Gervasio',
+  'Calle Lealtad', 'Calle Campanario', 'Calle Manrique', 'Calle San Nicolás', 'Calle Rayo', 'Calle Zanja', 'Calle Dragones',
+  'Calle Salud', 'Calle Estrella', 'Calle Maloja', 'Calle Sitios', 'Calle Monte'];
+const BEAU_SIDES = { 1: ['north', 'south'], 2: ['west', 'east'] };
+
+function beautyOn() { return !TUNE.beautyOff; }
+function beautyLive(s) { return beautyOn() && !!s && (s.stage || 0) >= BEAU.fromStage; }
+
+// ---------- the streets ----------
+// A street is a straight line of road (what she draws in one stroke, through its crossings) where it has buildings
+// along it: from its first built lot to its last (a tile more each end), split where 4 or more of its tiles in a row
+// have nothing built on either side (the road out of town is not a street yet). An avenue's two carriageways are one
+// street. The streets (cached with the roads and buildings): { list: [street], at, at2: Int32Array (a road tile's
+// street, and its second at a crossing or a bend; -1 none) }. A street: { k (its key), ax (1 along x, 2 along y), r (its
+// row or column), a, b (its first and last coordinate along the axis), lo, hi (its line's ends), tiles (its road tiles,
+// both carriageways), kind (1 dirt, 2 paved, 3 avenue: most of its tiles), twin (1: an avenue's other carriageway in
+// the next row) }.
+function bmNet(s) {
+  const c = simCache(s);
+  if (c.bmNet) return c.bmNet;
+  const W = MAP_W, H = MAP_H, R = s.road, n = W * H, occ = occMap(s);
+  const rd = (x, y) => x >= 0 && y >= 0 && x < W && y < H && R[y * W + x] > 0;
+  // two tiles side by side that both have road ahead and behind across them are an avenue's two carriageways (or two
+  // roads laid beside each other): not a line between them (jctMap's rule)
+  const side = (x, y, dx, dy) => { const px = -dy, py = dx; return rd(x + px, y + py) && rd(x - px, y - py) && rd(x + dx + px, y + dy + py) && rd(x + dx - px, y + dy - py); };
+  const lines = [], byRow = {};
+  for (const A of [1, 2]) {
+    const L = A === 1 ? H : W, M = A === 1 ? W : H;
+    for (let r = 0; r < L; r++) {
+      const road = (k) => { const q = bmXY(A, r, k); return rd(q[0], q[1]); };
+      let k = 0;
+      while (k < M) {
+        if (!road(k)) { k++; continue; }
+        let k1 = k;
+        while (k1 + 1 < M && road(k1 + 1)) { const q = bmXY(A, r, k1); if (side(q[0], q[1], A === 1 ? 1 : 0, A === 1 ? 0 : 1)) break; k1++; }
+        if (k1 > k) { const ln = { A, r, lo: k, hi: k1, twin: 0, into: null }; lines.push(ln); (byRow[A + ':' + r] = byRow[A + ':' + r] || []).push(ln); }
+        k = k1 + 1;
+      }
+    }
+  }
+  const kindAt = (A, r, k) => { const q = bmXY(A, r, k); return inMap(q[0], q[1]) ? R[tileIdx(q[0], q[1])] : 0; };
+  const av = (ln) => { let a = 0; for (let k = ln.lo; k <= ln.hi; k++) if (kindAt(ln.A, ln.r, k) === 3) a++; return a * 2 >= ln.hi - ln.lo + 1; };
+  // an avenue's other carriageway: the avenue line in the next row beside it, overlapping half of it
+  for (const ln of lines) {
+    if (ln.into || !av(ln)) continue;
+    for (const o of byRow[ln.A + ':' + (ln.r + 1)] || []) {
+      const ov = Math.min(ln.hi, o.hi) - Math.max(ln.lo, o.lo) + 1;
+      if (!o.into && !o.twin && ov * 2 >= Math.min(ln.hi - ln.lo, o.hi - o.lo) + 1 && av(o)) { ln.twin = 1; o.into = ln; ln.lo2 = o.lo; ln.hi2 = o.hi; break; }
+    }
+  }
+  const list = [], at = new Int32Array(n).fill(-1), at2 = new Int32Array(n).fill(-1);
+  const put = (i, k) => { if (at[i] < 0) at[i] = k; else if (at[i] !== k && at2[i] < 0) at2[i] = k; };
+  for (const ln of lines) {
+    if (ln.into) continue;
+    const A = ln.A, r = ln.r, far = ln.twin ? 2 : 1;
+    // what stands along it, position by position
+    const built = (k) => {
+      for (const d of [-1, far]) {
+        const q = bmXY(A, r + d, k);
+        if (!inMap(q[0], q[1])) continue;
+        const i = tileIdx(q[0], q[1]);
+        if (R[i] || !occ[i]) continue;
+        const w = bmWhat(s, bById(s, occ[i]), i).what;
+        if (w === 'wall' || w === 'green') return true;
+      }
+      return false;
+    };
+    let a = -1, last = -1;
+    const flush = () => {
+      if (a < 0) return;
+      const st = bmStreet(s, ln, Math.max(ln.lo, a - 1), Math.min(ln.hi, last + 1));
+      for (const i of st.tiles) put(i, list.length);
+      list.push(st);
+      a = -1;
+    };
+    for (let k = ln.lo; k <= ln.hi; k++) {
+      if (!built(k)) continue;
+      if (a >= 0 && k - last > BEAU.gap) flush();
+      if (a < 0) a = k;
+      last = k;
+    }
+    flush();
+  }
+  return (c.bmNet = { list, at, at2 });
+}
+function bmXY(A, r, k) { return A === 1 ? [k, r] : [r, k]; }
+function bmStreet(s, ln, a, b) {
+  const A = ln.A, r = ln.r, tiles = [], kinds = [0, 0, 0, 0];
+  for (let k = a; k <= b; k++) for (const d of ln.twin ? [0, 1] : [0]) {
+    const q = bmXY(A, r + d, k);
+    if (!inMap(q[0], q[1])) continue;
+    const i = tileIdx(q[0], q[1]);
+    if (s.road[i]) { tiles.push(i); if (!d) kinds[s.road[i]]++; }
+  }
+  const nn = kinds[1] + kinds[2] + kinds[3];
+  const kind = ln.twin || kinds[3] * 2 >= nn ? 3 : kinds[2] + kinds[3] >= kinds[1] ? 2 : 1;
+  return { k: A + ':' + r + ':' + a, ax: A, r, a, b, lo: ln.lo, hi: ln.hi, tiles, kind, twin: ln.twin };
+}
+
+// The lots along a street, each side: [{ i, side (0 or 1), what, b, st (storeys) }]. what: 'wall' | 'gap' | 'yard' |
+// 'green' | 'sea' | 'skip'. An avenue looks past its other carriageway.
+function bmLots(s, st, hyp) {
+  const occ = occMap(s), out = [], A = st.ax;
+  for (let k = st.a; k <= st.b; k++) for (let sd = 0; sd < 2; sd++) {
+    const [x, y] = bmXY(A, st.r + (sd ? (st.twin ? 2 : 1) : -1), k);
+    if (!inMap(x, y)) continue;
+    const i = tileIdx(x, y);
+    if (s.road[i]) continue;
+    const hb = hyp && hyp.add && hyp.add[i];
+    const b = hb ? { type: hb, x, y, w: 1, h: 1, level: 1, hyp: 1 } : occ[i] ? bById(s, occ[i]) : null;
+    out.push(Object.assign({ i, side: sd }, bmWhat(s, b, i)));
+  }
+  return out;
+}
+// What a tile beside a street is for its look: { what, b, st, name }.
+function bmWhat(s, b, i) {
+  if (!b) {
+    const t = s.terrain[i];
+    if (t === SEA || t === BEACH) return { what: 'sea' };
+    if (t === FOREST) return { what: 'gap', name: 'forest' };
+    return { what: 'gap', name: 'an empty lot', lot: 1 };
+  }
+  const d = defOf(b);
+  if (!d) return { what: 'skip' };
+  if (d.kind === 'home') return { what: 'wall', b, st: [0, 1, 2, 2, 3, 3, 4, 8, 16][b.level || 1] || 2 };
+  if (d.kind === 'deco') return { what: 'green', b, g: d.deco };
+  if (d.gives === 'park' || d.art === 'botanic') return { what: 'green', b, g: 'park' };
+  if (d.gives === 'power') return { what: 'yard', b, power: 1, name: 'the power station' };
+  if (d.kind === 'producer') {
+    if (d.art === 'workshop' || (bArtSim(d) === 'workshop')) {
+      // a bakery or a butcher's shop is a shop front; a works has its yard of carts and piles
+      if (b.w * b.h <= 1 && (d.jobs || 0) < 10) return { what: 'wall', b, st: 1 };
+      return { what: 'yard', b, name: 'the ' + (d.short || d.name).toLowerCase() + '’s yard' };
+    }
+    return { what: 'gap', b, name: d.art === 'hut' || bArtSim(d) === 'hut' ? 'a hut' : 'a field' };
+  }
+  if (b.type === 'roadyard') return { what: 'yard', b, name: 'the road depot’s yard' };
+  if (d.kind === 'harbor' || d.kind === 'fixed' && b.type === 'pier' || d.art === 'cruise') return { what: 'skip', b };
+  if (d.art === 'airfield') return { what: 'gap', b, name: 'the airfield' };
+  if (b.type === 'residence') return { what: 'wall', b, st: [1, 1, 2, 2, 2, 3, 3][Math.min(6, b.level || 0)] };
+  if (d.kind === 'market') return { what: 'wall', b, st: b.type === 'store' ? 5 : b.type === 'covered' ? 2 : 1 };
+  if (b.type === 'cathedral') return { what: 'wall', b, st: 4 };
+  if (d.kind === 'service' || d.kind === 'depot') return { what: 'wall', b, st: d.w >= 3 || d.h >= 3 ? 3 : 2 };
+  return { what: 'wall', b, st: 2 };
+}
+// the renderer's archetype of a def, as iso.js bArt reckons it (sim side: no renderer here)
+function bArtSim(d) { return d.art || (d.kind === 'producer' ? (d.uses ? 'workshop' : d.w * d.h > 1 ? 'field' : 'hut') : ''); }
+
+// What closes the view at one end of a street's line (the tiles past its last road tile, on its axis): { v, label, id }.
+function bmViewEnd(s, st, dir, hyp) {
+  const occ = occMap(s);
+  for (let k = 1; k <= 2; k++) {
+    const [x, y] = bmXY(st.ax, st.r, dir > 0 ? st.hi + k : st.lo - k);
+    if (!inMap(x, y)) return null;
+    const i = tileIdx(x, y), hb = hyp && hyp.add && hyp.add[i];
+    const b = hb ? { type: hb, x, y, w: 1, h: 1, hyp: 1 } : occ[i] ? bById(s, occ[i]) : null;
+    if (b) {
+      const d = defOf(b);
+      if (!d) return null;
+      let v = BEAU_VIEW[b.type] || 0;
+      if (b.type === 'residence') v = Math.min(15, 4 + 2 * ((s.res || 0) + (s.palace ? 1 : 0)));
+      if (!v && /^museum/.test(b.type)) v = 12;
+      if (!v && d.kind === 'home') v = 3;
+      if (!v && d.kind === 'service' && !/^(power|roadyard|airfield)$/.test(b.type) && bArtSim(d) !== 'airfield') v = 6;
+      const nm = d.kind === 'home' ? 'a house' : b.type === 'residence' ? 'the residence' : 'the ' + (d.short || d.name).toLowerCase();
+      return v ? { v, label: nm, id: b.id || 0, i } : null;
+    }
+    const t = s.terrain[i];
+    if (t === SEA || t === BEACH) return { v: 8, label: 'the sea', id: 0, i };
+    if (k === 1 && t !== FOREST && !s.road[i]) continue;
+    return null;
+  }
+  return null;
+}
+
+// The smoke along a street (land value's sources and rule), its loudest lot (dB) and its jam.
+function bmSmoke(s, st, src) {
+  let sum = 0, by = null, byV = 0;
+  for (const i of st.tiles) {
+    const t = { x: i % MAP_W, y: (i / MAP_W) | 0, w: 1, h: 1 };
+    for (const [b, k, r] of src.smoke) {
+      const d = footDist(b, t);
+      if (d > r) continue;
+      const v = k * (1 - d / (r + 1));
+      sum += v;
+      if (v > byV) { byV = v; by = b; }
+    }
+  }
+  return { v: sum / st.tiles.length, by };
+}
+
+// A street's beauty and its parts: { v, look (its wall, heights and view: the land's part), parts: [{ k, v, label }],
+// lots, gaps: [per side, the empty lots], view: [lo end, hi end] }. hyp: { add: { tile: type }, kind } (what a step would do).
+function bmParts(s, st, src, hyp) {
+  src = src || bmSources(s);
+  const parts = [], add = (k, v, label) => { v = Math.round(v); if (v) parts.push({ k, v, label }); };
+  const lots = bmLots(s, st, hyp), kind = (hyp && hyp.kind) || st.kind;
+  let wall = 0, gap = 0, sto = 0;
+  const gaps = [[], []], sea = [0, 0], side = [0, 0];
+  for (const L of lots) {
+    side[L.side]++;
+    if (L.what === 'wall') { wall++; sto += L.st; }
+    else if (L.what === 'gap' || L.what === 'yard') { gap++; if (L.lot) gaps[L.side].push(L.i); }
+    else if (L.what === 'sea') sea[L.side]++;
+  }
+  const den = wall + gap, share = den ? wall / den : 0;
+  add('wall', BEAU.wall * share, den ? 'its street wall: ' + wall + ' of ' + den + ' lots built' : 'no lots along it');
+  if (wall) {
+    const mean = sto / wall, want = BEAU.want[kind] || 1;
+    add('heights', BEAU.heights * Math.min(1, mean / want), 'heights: ' + (Math.round(mean * 10) / 10) + (mean === 1 ? ' storey' : ' storeys') + ' for ' + (kind === 3 ? 'an avenue' : kind === 2 ? 'a paved street' : 'a lane') + ' (' + want + ' wanted)');
+  }
+  if (kind >= 2) add('paved', BEAU.paved, kind === 3 ? 'an avenue' : 'paved');
+  // trees and gardens along it
+  let tr = 0;
+  const parks = new Set();
+  for (const L of lots) {
+    if (L.what !== 'green') continue;
+    if (L.g === 'park') { if (!parks.has(L.b.id)) { parks.add(L.b.id); tr += BEAU.tree.park; } }
+    else tr += L.g === 'palms' ? BEAU.tree.palms : L.g === 'garden' ? BEAU.tree.garden : BEAU.tree.orn;
+  }
+  const med = !!st.twin && st.b > st.a;
+  if (med) tr += BEAU.tree.median;
+  add('trees', Math.min(BEAU.trees, tr), med && tr === BEAU.tree.median ? 'the avenue’s palm promenade' : 'trees and gardens along it');
+  // the closed view
+  const v0 = bmViewEnd(s, st, -1, hyp), v1 = bmViewEnd(s, st, 1, hyp);
+  const near0 = v0 && st.a - st.lo <= BEAU.viewR ? v0 : null, near1 = v1 && st.hi - st.b <= BEAU.viewR ? v1 : null;
+  const best = [near0, near1].filter(Boolean).sort((a, b) => b.v - a.v);
+  if (best.length) {
+    const same = best[1] && best[1].label === best[0].label, one = best[0].label === 'the sea' ? 'the sea at its end' : best[0].label + ' closes its view';
+    add('view', Math.min(BEAU.view, best[0].v + (best[1] ? best[1].v / 2 : 0)), same ? (best[0].label === 'the sea' ? 'the sea at both ends' : best[0].label.replace(/^a /, '') + 's close its view both ways') : one + (best[1] ? ' (and ' + best[1].label + ' the other way)' : ''));
+  }
+  // a promenade by the sea
+  const sx = [0, 1].find((k) => side[k] >= 2 && sea[k] >= BEAU.seaShare * side[k]);
+  if (sx !== undefined) add('sea', BEAU.sea[kind], kind >= 2 ? 'a promenade by the sea' : 'a lane by the sea');
+  // what spoils it
+  const sm = bmSmoke(s, st, src);
+  if (sm.v > 0.5) add('smoke', -Math.min(BEAU.smokeMax, sm.v * BEAU.smokeK), 'smoke from the ' + (defOf(sm.by).short || defOf(sm.by).name).toLowerCase());
+  let db = 0, dn = 0;
+  for (const L of lots) { db += src.noise[L.i] || 0; dn++; }
+  db = dn ? db / dn : 0;
+  if (db > BEAU.noiseFrom) add('noise', -Math.min(BEAU.noiseMax, (db - BEAU.noiseFrom) * BEAU.noiseK), 'traffic noise (' + Math.round(db) + ' dB)');
+  let jm = 0, bz = 0;
+  if (typeof trafficLevel === 'function') for (const i of st.tiles) { const l = trafficLevel(s, i); if (l >= TR.jam) jm++; else if (l > TR.busy) bz++; }
+  const jv = (BEAU.jam * jm + BEAU.busy * bz) / st.tiles.length;
+  if (jv >= 0.5) add('jam', -jv, jm ? 'jammed' : 'busy with carts');
+  const yards = [], seen = new Set();
+  let pw = 0;
+  for (const L of lots) if (L.what === 'yard' && L.b && !seen.has(L.b.id)) { seen.add(L.b.id); if (L.power) pw = 1; else yards.push(L.name); }
+  if (yards.length) add('yard', -Math.min(BEAU.yardMax, BEAU.yard * yards.length), yards.length > 1 ? yards.length + ' works’ yards on it' : yards[0]);
+  if (!pw) for (const b of src.power) if (st.tiles.some((i) => footDist(b, { x: i % MAP_W, y: (i / MAP_W) | 0, w: 1, h: 1 }) <= 2)) { pw = 1; break; }
+  if (pw) add('power', -BEAU.power, 'the power station');
+  const v = Math.max(0, Math.min(100, Math.round(BEAU.base + parts.reduce((a, p) => a + p.v, 0))));
+  const look = parts.filter((p) => p.k === 'wall' || p.k === 'heights' || p.k === 'view').reduce((a, p) => a + p.v, 0);
+  return { v, look, parts, gaps, wall, den, view: [v0, v1] };
+}
+// The month's sources: land value's (smoke, noise) and the power station.
+function bmSources(s) {
+  const src = landSources(s);
+  src.power = s.b.filter((b) => b.type === 'power' && !b.wip);
+  return src;
+}
+
+// ---------- the square ----------
+// The residence's square: { v, parts, id } or null (no residence).
+function bmSquare(s, src) {
+  const r = s.b.find((b) => b.type === 'residence');
+  if (!r) return null;
+  src = src || bmSources(s);
+  const parts = [], add = (k, v, label) => { v = Math.round(v); if (v) parts.push({ k, v, label }); }, occ = occMap(s);
+  let wall = 0, gap = 0, yards = 0, paved = 0, roads = 0, orn = 0;
+  const seen = new Set();
+  for (let y = r.y - 2; y < r.y + r.h + 2; y++) for (let x = r.x - 2; x < r.x + r.w + 2; x++) {
+    if (!inMap(x, y)) continue;
+    const i = tileIdx(x, y), d = footDist(r, { x, y, w: 1, h: 1 });
+    if (d < 1) continue;
+    if (s.road[i]) { if (d === 1) { roads++; if (s.road[i] >= 2) paved++; } continue; }
+    const b = occ[i] ? bById(s, occ[i]) : null, q = bmWhat(s, b, i);
+    if (q.what === 'wall') wall++;
+    else if (q.what === 'gap') gap++;
+    else if (q.what === 'yard') { gap++; if (!seen.has(b.id)) { seen.add(b.id); yards++; } }
+    else if (q.what === 'green' && !seen.has(b.id)) { seen.add(b.id); orn += BEAU.sq.orn[q.g] || 3; }
+  }
+  const den = wall + gap;
+  add('wall', BEAU.sq.wall * (den ? wall / den : 0), den ? 'its enclosure: ' + wall + ' of ' + den + ' lots round it built' : 'open all round');
+  let ch = null;
+  for (const b of s.b) if (defOf(b) && defOf(b).gives === 'church' && footDist(r, b) <= BEAU.sq.churchR) { const v = BEAU.sq.church[b.type] || 8; if (!ch || v > ch.v) ch = { v, b }; }
+  if (ch) add('church', ch.v, 'the ' + (defOf(ch.b).short || defOf(ch.b).name).toLowerCase() + ' on the square');
+  add('orn', Math.min(BEAU.sq.ornMax, orn), 'fountains, statues and gardens on it');
+  if (roads) add('floor', BEAU.sq.floor * paved / roads, paved === roads ? 'its streets paved' : paved + ' of its ' + roads + ' street tiles paved');
+  const lv = (s.res || 0) + (s.palace ? 1 : 0);
+  add('res', Math.min(BEAU.sq.resMax, BEAU.sq.resLv * (lv + 1)), 'the ' + (s.palace ? 'Governor’s palace' : (RESIDENCE[s.res || 0] || { name: 'residence' }).name));
+  let sm = 0, smB = null, smV = 0;
+  for (const [b, k, rr] of src.smoke) { const d = footDist(b, r); if (d <= rr) { const v = k * (1 - d / (rr + 1)); sm += v; if (v > smV) { smV = v; smB = b; } } }
+  if (sm > 0.5) add('smoke', -Math.min(BEAU.smokeMax, sm * BEAU.smokeK), 'smoke from the ' + (defOf(smB).short || defOf(smB).name).toLowerCase());
+  if (yards) add('yard', -Math.min(BEAU.yardMax, BEAU.yard * yards), yards > 1 ? yards + ' works’ yards on it' : 'a works’ yard on it');
+  const v = Math.max(0, Math.min(100, Math.round(BEAU.base + parts.reduce((a, p) => a + p.v, 0))));
+  return { v, parts, id: r.id };
+}
+
+// ---------- names ----------
+// A street's name is its row's (or column's): kept in the save (state.beauty.nm: 'axis:row' -> [[from, to, name]]),
+// shared by the stretches of one line and by a line near another on the same row (a street that goes on past a
+// gap); a quarter's street (A10) keeps the quarter's name. Old Havana's names first, then the Vedado's way (its
+// streets along the sea odd numbers, those across letters and even numbers: laid out from 1859).
+function bmName(s, st) {
+  const B = s.beauty;
+  if (!B) return 'a street';
+  const key = st.ax + ':' + st.r, L = (B.nm[key] = B.nm[key] || []);
+  let e = L.find((q) => q[0] <= st.hi && q[1] >= st.lo);
+  if (!e) {
+    // a quarter's street: the quarter whose homes stand along it
+    const I = s.isle;
+    if (I && Array.isArray(I.quarters) && I.quarters.length) {
+      const ids = new Set(bmLots(s, st).filter((q) => q.b && q.b.type === 'casita').map((q) => q.b.id));
+      const q = I.quarters.find((o) => !o.far && o.name && (o.ids || []).filter((id) => ids.has(id)).length >= 2);
+      if (q) { e = [st.lo, st.hi, 'q:' + q.name]; L.push(e); }
+    }
+  }
+  if (!e) e = L.find((q) => Math.max(q[0], st.lo) - Math.min(q[1], st.hi) <= BEAU.nameGap);
+  if (!e) { const n = B.nx || 0; B.nx = n + 1; e = [st.lo, st.hi, n]; L.push(e); }
+  else { e[0] = Math.min(e[0], st.lo); e[1] = Math.max(e[1], st.hi); }
+  const n = e[2];
+  if (typeof n === 'string') return n.slice(2);
+  if (n < BEAU_NAMES.length) return BEAU_NAMES[n];
+  const m = n - BEAU_NAMES.length;
+  return st.ax === 1 ? 'Calle ' + (2 * m + 1) : m < 16 ? 'Calle ' + 'ABCDEFGHIJKLMNOP'[m] : 'Calle ' + 2 * (m - 15);
+}
+// "Calle Obispo" (one block) or "Calle Obispo by the market" (a line of several blocks: the nearest building not a home)
+function bmTitle(s, st) {
+  const nm = bmName(s, st), N = bmNet(s);
+  const many = N.list.some((o) => o !== st && o.ax === st.ax && o.r === st.r && o.lo === st.lo && o.hi === st.hi);
+  if (!many) return nm;
+  const mid = st.tiles[st.tiles.length >> 1], b = typeof nearestB === 'function' ? nearestB(s, mid) : null;
+  return b ? nm + ' by the ' + (defOf(b).short || defOf(b).name).toLowerCase() : nm;
+}
+
+// ---------- the month ----------
+function beautyState(s) {
+  if (!s.beauty || typeof s.beauty !== 'object') s.beauty = { m: -1, st: {}, nm: {}, nx: 0, land: {}, sq: null, best: null, rosa: -99 };
+  const B = s.beauty;
+  if (!B.st) B.st = {};
+  if (!B.nm) B.nm = {};
+  if (!B.land) B.land = {};
+  return B;
+}
+// Every street's beauty this month (saved: state.beauty.st key -> [v, look, buildings along it]), the square's, the land along the streets
+// (state.beauty.land: tile -> the land's points) and the island's most beautiful street.
+function beautyCompute(s) {
+  const B = beautyState(s), N = bmNet(s), src = bmSources(s), st = {}, land = {};
+  for (const x of N.list) {
+    const q = bmParts(s, x, src);
+    st[x.k] = [q.v, Math.round(q.look), q.wall];
+    const lp = bmLandOf(q.look, q.v);
+    if (lp > 0) for (const L of bmLots(s, x)) if (!land[L.i] || land[L.i] < lp) land[L.i] = lp;
+    bmName(s, x);
+  }
+  const sq = bmSquare(s, src);
+  B.m = s.month; B.st = st; B.land = land; B.sq = sq ? [sq.v, sq.id] : null;
+  if (s._c) s._c.bmT = null;
+  return B;
+}
+// The land's points for a fine street (beauty v of 60 or more: painted fronts, the step she sees) by its own look (its
+// wall, heights and view; land value counts the rest itself): what it has above a lane lined with homes whose view a
+// house closes (44), two thirds of it, at most +8. (Measured: from any lane, as first drafted, it reached 34-176 lots an
+// island and the scripted islands' red paydays rose; from 60 it is the fine streets' own: nova/docs/LOG.md, B1.)
+function bmLandOf(look, v) { return v < BEAU.landStep ? 0 : Math.min(BEAU.landMax, Math.round(Math.max(0, look - BEAU.landFrom) / BEAU.landDiv)); }
+// A street's beauty as last measured (-1: not yet: a street laid this month).
+function beautyOf(s, st) { const B = s.beauty, q = B && B.st && B.st[st.k]; return q ? q[0] : -1; }
+// The street a road tile belongs to (a bend: the better of its two), or null.
+function beautyStreetAt(s, i) {
+  const N = bmNet(s), a = N.at[i], b = N.at2[i];
+  if (a < 0) return null;
+  if (b < 0) return N.list[a];
+  return beautyOf(s, N.list[b]) > beautyOf(s, N.list[a]) ? N.list[b] : N.list[a];
+}
+// The street a home (or any building) fronts: the road beside its door first (+y, +x, -x, -y), its best otherwise.
+function beautyStreetOf(s, b) {
+  const N = bmNet(s);
+  let best = null;
+  for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) {
+    for (let k = 0; k < Math.max(b.w, b.h); k++) {
+      const x = dx ? (dx > 0 ? b.x + b.w : b.x - 1) : b.x + Math.min(k, b.w - 1), y = dy ? (dy > 0 ? b.y + b.h : b.y - 1) : b.y + Math.min(k, b.h - 1);
+      if (!inMap(x, y)) continue;
+      const st = beautyStreetAt(s, tileIdx(x, y));
+      if (st && (!best || (b.w === 1 && b.h === 1 ? false : beautyOf(s, st) > beautyOf(s, best)))) best = st;
+    }
+    if (best && b.w === 1 && b.h === 1) return best;
+  }
+  return best;
+}
+// Every road tile's step of the drawing (0 plain, 1 swept with lamps, 2 painted fronts, 3 cobbles and lanterns), for
+// the renderer: Uint8Array, cached for the month and the roads.
+function beautyTiers(s) {
+  const c = simCache(s), B = s.beauty, key = B ? B.m : -1;
+  if (c.bmT && c.bmT.key === key) return c.bmT.t;
+  const t = new Uint8Array(MAP_W * MAP_H);
+  if (beautyOn() && B && B.st) {
+    const N = bmNet(s);
+    N.list.forEach((st) => { const v = beautyOf(s, st), k = bmTier(v); if (k) for (const i of st.tiles) if (t[i] < k) t[i] = k; });
+    // a crossing takes the best step of the streets that meet in it
+    for (let i = 0; i < t.length; i++) if (s.road[i] && N.at[i] < 0) { let k = 0; for (const [dx, dy] of DIRS4) { const x = i % MAP_W + dx, y = ((i / MAP_W) | 0) + dy; if (inMap(x, y)) { const j = tileIdx(x, y); if (N.at[j] >= 0 && t[j] > k) k = t[j]; } } t[i] = k; }
+  }
+  c.bmT = { key, t };
+  return t;
+}
+function bmTier(v) { return v >= BEAU.tiers[2] ? 3 : v >= BEAU.tiers[1] ? 2 : v >= BEAU.tiers[0] ? 1 : 0; }
+const BEAU_TIER_WORDS = ['plain', 'swept, with street lamps', 'painted fronts, flower boxes and awnings', 'cobbles and lanterns at night'];
+
+// ---------- what helps most ----------
+// Up to three steps for a street, the biggest gain first: { k, gain, cost, text, tiles (to outline), tool }.
+function beautySteps(s, st, src) {
+  src = src || bmSources(s);
+  const q0 = bmParts(s, st, src), out = [];
+  const tryHyp = (hyp) => bmParts(s, st, src, hyp).v - q0.v;
+  // fill the empty lots (homes): the side with most first
+  const lots = (side) => q0.gaps[side].filter((i) => canPlace(s, 'casita', i % MAP_W, (i / MAP_W) | 0, { free: true }) === '');
+  const sides = [0, 1].map((k) => ({ k, l: lots(k) })).filter((o) => o.l.length).sort((a, b) => b.l.length - a.l.length);
+  const hc = BUILDINGS.casita.cost;
+  if (sides.length) {
+    const o = sides[0], add = {};
+    for (const i of o.l) add[i] = 'casita';
+    const g = tryHyp({ add });
+    const both = sides.length > 1 ? sides[0].l.concat(sides[1].l) : null;
+    if (g > 0) out.push({ k: 'fill', gain: g, cost: o.l.length * hc, tiles: o.l, tool: 'casita', text: 'fill the ' + (o.l.length === 1 ? 'empty lot' : o.l.length + ' empty lots') + ' on its ' + BEAU_SIDES[st.ax][o.k] + ' side with homes' });
+    if (both) { const a2 = {}; for (const i of both) a2[i] = 'casita'; const g2 = tryHyp({ add: a2 }); if (g2 > g) out.push({ k: 'fill2', gain: g2, cost: both.length * hc, tiles: both, tool: 'casita', text: 'fill its ' + both.length + ' empty lots with homes' }); }
+  }
+  // the forest on its lots cleared and homes built there (Village on: the Clear forest tool)
+  if (s.stage >= TUNE.clearStage) {
+    const fl = bmLots(s, st).filter((L) => L.what === 'gap' && L.name === 'forest' && tileOpenAt(s, L.i)).map((L) => L.i);
+    if (fl.length) {
+      const add = {};
+      for (const i of fl) add[i] = 'casita';
+      const g = tryHyp({ add });
+      if (g > 0) out.push({ k: 'forest', gain: g, cost: fl.length * (clearTileCost(s) + hc), tiles: fl, tool: 'clear', text: 'clear the forest on its ' + (fl.length === 1 ? 'lot' : fl.length + ' lots') + ' and build homes there' });
+    }
+  }
+  // a landmark at the end of its line (the first tile past it, free): the dearest the stage has that she could place
+  const vNow = Math.max(q0.view[0] ? q0.view[0].v : 0, q0.view[1] ? q0.view[1].v : 0);
+  if (vNow < 12) {
+    const kinds = ['statue', 'fountain'].filter((t) => BUILDINGS[t] && BUILDINGS[t].stage <= s.stage);
+    for (const dir of [-1, 1]) {
+      if ((dir < 0 ? st.a - st.lo : st.hi - st.b) > BEAU.viewR) continue;
+      const [x, y] = bmXY(st.ax, st.r, dir > 0 ? st.hi + 1 : st.lo - 1);
+      if (!inMap(x, y)) continue;
+      for (const t of kinds) {
+        if (canPlace(s, t, x, y, { free: true }) !== '') continue;
+        const add = {}; add[tileIdx(x, y)] = t;
+        const g = tryHyp({ add });
+        if (g > 0) { out.push({ k: 'view', gain: g, cost: BUILDINGS[t].cost, tiles: [tileIdx(x, y)], tool: t, text: 'a ' + BUILDINGS[t].name.toLowerCase() + ' at its end' }); break; }
+      }
+    }
+  }
+  // palms on an empty lot along it
+  if (BUILDINGS.palms.stage <= s.stage) {
+    const l = q0.gaps[0].concat(q0.gaps[1]).find((i) => canPlace(s, 'palms', i % MAP_W, (i / MAP_W) | 0, { free: true }) === '');
+    if (l !== undefined) { const add = {}; add[l] = 'palms'; const g = tryHyp({ add }); if (g > 0) out.push({ k: 'palms', gain: g, cost: BUILDINGS.palms.cost, tiles: [l], tool: 'palms', text: 'a palm row on an empty lot along it' }); }
+  }
+  // pave it
+  if (st.kind === 1 && s.stage >= PAVED_STAGE) {
+    const g = tryHyp({ kind: 2 }), n = st.tiles.filter((i) => s.road[i] === 1).length;
+    if (g > 0 && n) out.push({ k: 'pave', gain: g, cost: n * TUNE.pavedCost, tiles: st.tiles.slice(), tool: 'paved', text: 'pave it' });
+  }
+  return out.sort((a, b) => b.gain - a.gain || a.cost - b.cost).slice(0, 3);
+}
+// The island's street easiest to improve (Rosa, the to-do list): the step with the most beauty a dollar among the
+// streets with homes along them that she can pay for, { st, step, v } or null.
+function beautyEasiest(s) {
+  if (!beautyLive(s) || !s.beauty || s.beauty.m < 0) return null;
+  const N = bmNet(s), src = bmSources(s), cand = [];
+  for (const st of N.list) {
+    if (st.tiles.length < 2) continue;
+    const v = beautyOf(s, st);
+    if (v < 0 || v >= 95) continue;
+    const homes = bmLots(s, st).filter((q) => q.b && q.b.type === 'casita').length;
+    if (homes >= 2) cand.push([st, v, (BEAU.tiers.find((t) => t > v) || 100) - v]);
+  }
+  // (the streets nearest their next step first: the steps of at most 24 are worked out, about 30 ms on a full island)
+  cand.sort((a, b) => a[2] - b[2] || b[1] - a[1]);
+  let best = null;
+  for (const [st, v] of cand.slice(0, 24)) {
+    for (const step of beautySteps(s, st, src)) {
+      if (step.gain < 5) continue;
+      // crossing a step of the drawing counts double: she sees it
+      const up = bmTier(v + step.gain) > bmTier(v) ? 2 : 1, score = step.gain * up / Math.max(200, step.cost);
+      if (!best || score > best.score) best = { st, step, v, score };
+    }
+  }
+  return best;
+}
+
+// ---------- the island's numbers (tests, her-play) ----------
+function beautySummary(s) {
+  const N = bmNet(s), vs = [], b = beautyBest(s), best = b ? { v: b.v, name: b.name } : null;
+  for (const st of N.list) { const v = beautyOf(s, st); if (v >= 0) vs.push(v); }
+  vs.sort((a, b) => a - b);
+  const q = (p) => (vs.length ? vs[Math.min(vs.length - 1, Math.floor(p * vs.length))] : 0);
+  const tiers = [0, 0, 0, 0];
+  for (const v of vs) tiers[bmTier(v)]++;
+  const sq = s.beauty && s.beauty.sq;
+  return { y: yearOf(s), n: vs.length, p25: q(0.25), med: q(0.5), p75: q(0.75), max: vs.length ? vs[vs.length - 1] : 0, tiers, best, sq: sq ? sq[0] : -1, happy: bmHappy(s).v };
+}
+
+// ---------- what beauty does ----------
+// The homes on streets of 60 and more: { v (happiness), n, of }.
+function bmHappy(s) {
+  if (!beautyLive(s) || s.stage < BEAU.payStage || !s.beauty || s.beauty.m < 0) return { v: 0, n: 0, of: 0 };
+  const homes = homesOccupied(s);
+  let n = 0;
+  for (const h of homes) { const st = beautyStreetOf(s, h); if (st && beautyOf(s, st) >= BEAU.happyFrom) n++; }
+  return { v: homes.length ? Math.round(BEAU.happy * n / homes.length) : 0, n, of: homes.length };
+}
+function bmSqHappy(s) { const q = beautyLive(s) && s.stage >= BEAU.payStage && s.beauty && s.beauty.sq; return q && q[0] >= BEAU.sqHappyFrom ? BEAU.sqHappy : 0; }
+// The beauty of the street of that name today (the best of its lines; -1: none).
+function bmByName(s, name) {
+  let v = -1;
+  for (const st of bmNet(s).list) { const x = beautyOf(s, st); if (x > v && bmTitle(s, st) === name) v = x; }
+  return v;
+}
+// The island's most beautiful street now: { st, v, name } or null.
+function beautyBest(s) {
+  if (!s.beauty || s.beauty.m < 0) return null;
+  let best = null;
+  // (a street with at least 4 buildings along it: two homes on a short stub are not the island's finest street)
+  for (const st of bmNet(s).list) { const v = beautyOf(s, st), q = s.beauty.st[st.k]; if (v >= 0 && (q[2] || 0) >= BEAU.bestWall && (!best || v > best.v)) best = { st, v }; }
+  if (best) best.name = bmTitle(s, best.st);
+  return best;
+}
+{
+  // the month's end: the streets are measured first (land value reads them, then payday)
+  const _me = monthEnd;
+  monthEnd = function (state) {
+    if (beautyLive(state)) beautyCompute(state);
+    return _me.apply(this, arguments);
+  };
+  // land value: a fine street's own look (its wall, heights and closed view) raises the land along it
+  const _lp = landParts;
+  landParts = function (s, i) {
+    const r = _lp.apply(this, arguments);
+    const B = beautyLive(s) && s.beauty, v = B && B.land ? B.land[i] || 0 : 0;
+    if (v > 0) {
+      r.parts.push({ k: 'beauty', v, label: arguments[4] ? '' : 'a fine street (its wall, heights and view)', id: 0 });
+      r.v = Math.max(0, Math.min(100, Math.round(LANDV.base + r.parts.reduce((a, p) => a + p.v, 0))));
+    }
+    return r;
+  };
+  // happiness: the homes on beautiful streets, the square
+  const _hc = happyCalc;
+  happyCalc = function (state) {
+    const r = _hc.apply(this, arguments);
+    if (!beautyLive(state)) return r;
+    const H = bmHappy(state), q = bmSqHappy(state);
+    if (H.v) { r.parts.push({ label: 'Beautiful streets (' + H.n + ' of ' + H.of + ' homes on streets of ' + BEAU.happyFrom + '+)', v: H.v }); r.value = Math.max(0, Math.min(100, r.value + H.v)); }
+    if (q) { r.parts.push({ label: 'A beautiful square', v: q }); r.value = Math.max(0, Math.min(100, r.value + q)); }
+    return r;
+  };
+  // the Gazette: the island's most beautiful street, when it changes
+  const _gz = gazetteMake;
+  gazetteMake = function (state, Y) {
+    const g = _gz.apply(this, arguments);
+    try {
+      if (beautyLive(state) && g && Array.isArray(g.items)) {
+        const B = beautyState(state), b = beautyBest(state);
+        // News only when another street is now more beautiful than the last one named is today (two streets of about
+        // the same beauty would trade the title every year: up to 30 pages in a run; so, about 3-8). A page has
+        // at most six items: when it is full the street waits for a later year's page.
+        if (b && b.v >= BEAU.tiers[0] && (!B.best || (B.best.name !== b.name && b.v > bmByName(state, B.best.name))) && g.items.length < 6) {
+          const home = bmLots(state, b.st).find((q) => q.b && q.b.id && q.what === 'wall');
+          const look = b.v >= BEAU.tiers[2] ? ': cobbles, and lanterns at night' : b.v >= BEAU.tiers[1] ? ': painted fronts, flower boxes and awnings' : ': swept, with street lamps';
+          g.items.push({ icon: 'flower', id: home ? home.b.id : 0, text: (B.best ? 'The island’s most beautiful street is now ' : 'The island’s most beautiful street: ') + b.name + ', beauty ' + b.v + look + '.' });
+          B.best = { name: b.name, v: b.v, y: Y.y };
+        } else if (b && B.best && B.best.name === b.name) B.best.v = b.v;
+      }
+    } catch (e) { /* the page as it is */ }
+    return g;
+  };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -34033,6 +34684,354 @@ const ISO = (() => {
       }
     };
   }
+
+  // ---------- B1 (sim/beauty.js, ui/beauty_ui.js; DESIGN.md §59): beauty on the map ----------
+  // 1. The Beauty layer: every street a line in its colour (ui/beauty_ui.js bmCol) over a dark edge, as the Traffic
+  //    layer draws its streets; the roads out of town stay plain. Its number on each street when the map is close.
+  // 2. The streets show it: what the street's people do as its beauty passes a step (never a building, nothing that
+  //    looks buildable): at 40 the lane is swept (a clean, brushed band) and the town sets street lamps along it; at 60
+  //    its homes are painted fresh, with flower boxes under the windows and an awning over the door; at 75 it is
+  //    cobbled in fan-shaped rows (as Old Havana's restored streets) and a lantern hangs by every door, lit at night.
+  //    The ground is painted into the chunks (repainted where a street's step changes, at a month's end); the lamps
+  //    are objects among the buildings, lit at night by A1's street lamps (the same places); the homes' looks are
+  //    sprites of their own (a key per step). Cheap: nothing is drawn per frame that was not drawn before, but the
+  //    lanterns' glows (at most BM_LANTERNS).
+  // 3. The plans: the street her card is about outlined; the lots a step on it would take, dotted with the step's words.
+  const BM_LANTERNS = 40;
+  function bmOn(s) { return !!s && typeof beautyLive === 'function' && beautyLive(s) && !!s.beauty && s.beauty.m >= 0; }
+  function bmCols(v) { return typeof bmCol === 'function' ? bmCol(v) : '#e0c060'; }
+  // A road tile's step (0-3), from the month's measure (sim/beauty.js beautyTiers).
+  function bmTierAt(s, i) { const T = bmOn(s) ? beautyTiers(s) : null; return T ? T[i] : 0; }
+  // A home's step: its street's (cached with the island and the month).
+  function bmHomeTier(R, s, b) {
+    if (!bmOn(s)) return 0;
+    const key = s.ver + ':' + s.beauty.m;
+    if (!R.bmH || R.bmH.key !== key || R.bmH.s !== s) R.bmH = { key, s, m: new Map() };
+    let k = R.bmH.m.get(b.id);
+    if (k === undefined) { const st = beautyStreetOf(s, b), v = st ? beautyOf(s, st) : -1; k = v >= 0 ? bmTier(v) : 0; R.bmH.m.set(b.id, k); }
+    return k;
+  }
+  // ---- 1. the layer ----
+  function bmLayerGround(R, s, ui) {
+    if (!ui || !ui.beauty || !bmOn(s)) return;
+    const key = s.beauty.m + ':' + s.ver;
+    let c = R.bmC;
+    if (!c || c.key !== key || c.s !== s) {
+      const paths = [], all = new Path2D();
+      for (let k = 0; k <= 10; k++) paths.push(new Path2D());
+      for (const st of bmNet(s).list) {
+        const v = beautyOf(s, st), p = v < 0 ? null : paths[Math.min(10, Math.round(v / 10))];
+        for (const d of st.twin ? [0, 1] : [0]) {
+          const A = bmXY(st.ax, st.r + d, st.a), B2 = bmXY(st.ax, st.r + d, st.b);
+          for (const q of p ? [p, all] : [all]) { q.moveTo(A[0] + 0.5, A[1] + 0.5); q.lineTo(B2[0] + 0.5, B2[1] + 0.5); }
+        }
+      }
+      c = R.bmC = { key, s, paths, all };
+    }
+    tileXf(R);
+    const g = R.ctx;
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    g.strokeStyle = 'rgba(40,28,18,.5)'; g.lineWidth = 0.62; g.stroke(c.all);
+    c.paths.forEach((p, k) => { g.strokeStyle = bmCols(k * 10); g.lineWidth = 0.46; g.stroke(p); });
+    g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = 0.08; g.stroke(c.all);
+    R.stats.bmLayer = (R.stats.bmLayer || 0) + 1;
+  }
+  { const _tg = trafficGround; trafficGround = function (R, s, t) { const r = _tg.apply(this, arguments); if (typeof APP !== 'undefined') bmLayerGround(R, s, APP.ui); return r; }; }
+  function bmTagSprite(R, v) {
+    const key = 'bm|' + v + '|' + R.dpr;
+    let sp = uiGet(R, key);
+    if (sp) return sp;
+    const d = R.dpr, font = '800 12px ' + SANS, t = String(v), meas = measCtx(); meas.font = font;
+    const tw = meas.measureText(t).width + 22, h = 18, W = tw + 4, H = h + 4;
+    const c = canvasNew(W * d, H * d), g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+    rrPath(g, 2, 2, tw, h, h / 2); g.fillStyle = bmCols(v); g.fill(); g.strokeStyle = 'rgba(58,42,31,.8)'; g.lineWidth = 1.4; g.stroke();
+    // a small flower before the number
+    g.fillStyle = v >= 60 ? '#fff7ea' : '#3a2a1f';
+    for (let k = 0; k < 5; k++) { const a = k / 5 * TAU; g.beginPath(); g.arc(10 + Math.cos(a) * 2.6, 2 + h / 2 + Math.sin(a) * 2.6, 1.9, 0, TAU); g.fill(); }
+    g.font = font; g.fillStyle = v >= 60 ? '#fff7ea' : '#2a1e14'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, 2 + 10 + (tw - 10) / 2, 2 + h / 2 + 0.5);
+    sp = { c, ax: W / 2, ay: H / 2, w: W, h: H, lbl: 1 };
+    uiPut(R, key, sp);
+    return sp;
+  }
+  // ---- 3. the plans and the numbers (after the commissions' marks) ----
+  function bmOverlay(R, s, ui, t) {
+    if (!bmOn(s)) return;
+    const sel = ui.bsel ? bmNet(s).list.find((o) => o.k === ui.bsel) : null;
+    if (sel) {
+      const A = bmXY(sel.ax, sel.r, sel.a), B2 = bmXY(sel.ax, sel.r + (sel.twin ? 1 : 0), sel.b);
+      diamond(R, Math.min(A[0], B2[0]) - 0.04, Math.min(A[1], B2[1]) - 0.04, Math.max(A[0], B2[0]) + 1.04, Math.max(A[1], B2[1]) + 1.04, 'rgba(255,246,223,.16)', '#fffaf0', 3, [7, 5]);
+      diamond(R, Math.min(A[0], B2[0]) - 0.04, Math.min(A[1], B2[1]) - 0.04, Math.max(A[0], B2[0]) + 1.04, Math.max(A[1], B2[1]) + 1.04, null, 'rgba(160,60,90,.9)', 1.4, [7, 5]);
+      R.stats.bmSel = sel.k;
+    }
+    const pl = ui.bmPlan;
+    if (pl && pl.tiles && pl.tiles.length) {
+      const occ = occMap(s), pulse = 0.5 + 0.5 * Math.sin(t * 3.2);
+      let n = 0, sx = 0, sy = 0, maxY = -1;
+      for (const i of pl.tiles) {
+        const x = i % MAP_W, y = (i / MAP_W) | 0;
+        if (pl.tool !== 'paved' && (occ[i] || (pl.tool !== 'clear' && s.road[i]))) continue;
+        if (pl.tool === 'paved' && s.road[i] >= 2) continue;
+        diamond(R, x + 0.06, y + 0.06, x + 0.94, y + 0.94, 'rgba(255,236,200,' + (0.2 + 0.14 * pulse).toFixed(3) + ')', '#fffaf0', 3, [6, 5]);
+        diamond(R, x + 0.06, y + 0.06, x + 0.94, y + 0.94, null, 'rgba(170,70,100,.95)', 1.4, [6, 5]);
+        n++; sx += x + 0.5; sy += y + 0.5; maxY = Math.max(maxY, y + 1);
+      }
+      if (n) { const p = P(sx / n, sy / n, 0); uiDraw(R, moneyTagSprite(R, pl.label, 'a'), p[0], p[1] + 22); R.stats.bmPlan = n; }
+      else ui.bmPlan = null;
+    }
+    // (v43: each tag drawn is kept with its place, so a tap on it opens its street's card: beauty_ui.js, bmTagAt)
+    R.bmTagHits = null;
+    if (ui.beauty && R.hw >= 20) {
+      let n = 0;
+      const hits = [];
+      for (const st of bmNet(s).list) {
+        const v = beautyOf(s, st);
+        if (v < 0 || st.tiles.length < 2) continue;
+        const m = st.tiles[st.tiles.length >> 1], p = P(m % MAP_W + 0.5, ((m / MAP_W) | 0) + 0.5, 0.15);
+        if (p[0] < -30 || p[0] > R.w + 30 || p[1] < -20 || p[1] > R.h + 20) continue;
+        const sp = bmTagSprite(R, v);
+        uiDraw(R, sp, p[0], p[1]);
+        hits.push({ k: st.k, x: p[0], y: p[1], w: sp.w, h: sp.h });
+        n++;
+      }
+      R.bmTagHits = hits;
+      R.stats.bmTags = n;
+    }
+  }
+  { const _co = comOverlay; comOverlay = function (R, s, ui, t) { const r = _co.apply(this, arguments); try { bmOverlay(R, s, ui, t); } catch (e) { /* no plans drawn */ } return r; }; }
+
+  // ---- 2. the streets show it ----
+  // the ground: a road tile's step is part of what the ground shows (its chunk is painted again when it changes; the
+  // steps change at a month's end, when the roads may not: the check then looks again)
+  {
+    const _tc = trackCodes;
+    trackCodes = function (s) { const o = _tc(s); if (bmOn(s)) { const T = beautyTiers(s); for (let i = 0; i < o.length; i++) if (T[i]) o[i] = (o[i] + 41 * T[i] + 7) & 255; } return o; };
+    const _gc = groundCheck;
+    groundCheck = function (R, s) {
+      const m = bmOn(s) ? s.beauty.m : -1;
+      if (R.bmS !== s) { R.bmS = s; R.bmM = m; }
+      else if (R.bmM !== m) { R.bmM = m; R.roadVer = -1; R.objKey = ''; R.bmH = null; }
+      return _gc.apply(this, arguments);
+    };
+  }
+  // The street's ground by its step, painted in the chunk under the tracks (world tile units).
+  function bmDress(g, s, x0, y0, x1, y1) {
+    if (!bmOn(s)) return;
+    const T = beautyTiers(s), N = bmNet(s);
+    g.lineCap = 'butt';
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const i = tileIdx(x, y), k = T[i];
+      if (!k) continue;
+      if (N.at[i] < 0 || N.at2[i] >= 0) {
+        // a crossing or a bend of a cobbled lane: cobbles round its middle (a paved crossing has its own fan of stones)
+        if (k >= 3 && s.road[i] === 1) {
+          const cx = x + 0.5, cy = y + 0.5;
+          g.beginPath(); g.arc(cx, cy, RW / 2 + 0.02, 0, TAU); g.fillStyle = '#857b6d'; g.fill();
+          g.beginPath(); g.arc(cx, cy, RW / 2 - 0.03, 0, TAU); g.fillStyle = '#d6cab2'; g.fill();
+          g.beginPath(); for (const r of [0.1, 0.2]) { g.moveTo(cx + r, cy); g.arc(cx, cy, r, 0, TAU); } g.strokeStyle = 'rgba(120,104,84,.5)'; g.lineWidth = 0.014; g.stroke();
+        }
+        continue;
+      }
+      const st = N.list[N.at[i]], ax = st.ax, kind = s.road[i];
+      // the tile's arms along its street (to the next road tile each way)
+      const dx = ax === 1 ? 1 : 0, dy = ax === 1 ? 0 : 1, cx = x + 0.5, cy = y + 0.5;
+      const fw = isRoad(s, x + dx, y + dy), bw = isRoad(s, x - dx, y - dy);
+      if (!fw && !bw) continue;
+      const a = [bw ? x + 0.5 - dx * 0.5 : cx, bw ? y + 0.5 - dy * 0.5 : cy], b = [fw ? x + 0.5 + dx * 0.5 : cx, fw ? y + 0.5 + dy * 0.5 : cy];
+      const line = (w, col) => { g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.strokeStyle = col; g.lineWidth = w; g.stroke(); };
+      if (k >= 3) {
+        // cobbles in fan-shaped rows (segmental arcs across the street), on a stone bed with a gutter down the middle
+        if (kind === 1) { line(RW + 0.04, '#857b6d'); line(RW - 0.02, '#e6dfcf'); }
+        line(RW - 0.1, '#d6cab2');
+        const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(L / 0.12)), half = (RW - 0.12) / 2;
+        g.beginPath();
+        for (let q = 0; q <= n; q++) {
+          const u = q / n, px = lerp(a[0], b[0], u), py = lerp(a[1], b[1], u);
+          // an arc bulging along the street: from one kerb through the middle to the other
+          const ex = -dy * half, ey = dx * half;
+          g.moveTo(px + ex, py + ey); g.quadraticCurveTo(px + dx * 0.09, py + dy * 0.09, px - ex, py - ey);
+        }
+        g.strokeStyle = 'rgba(120,104,84,.55)'; g.lineWidth = 0.014; g.stroke();
+        line(0.03, 'rgba(150,135,110,.55)');
+      } else if (kind === 1) {
+        // swept: a clean brushed band down the lane, its ruts gone, the broom's strokes across it
+        line(RW * 0.82, 'rgba(236,214,168,.85)');
+        g.beginPath();
+        for (let q = 0; q < 4; q++) {
+          const u = (q + 0.5) / 4, px = lerp(a[0], b[0], u), py = lerp(a[1], b[1], u), r2 = h2(x * 3 + q, y * 7 - q) - 0.5;
+          const ex = -dy * 0.2, ey = dx * 0.2;
+          g.moveTo(px + ex, py + ey); g.quadraticCurveTo(px + dx * (0.06 + r2 * 0.04), py + dy * (0.06 + r2 * 0.04), px - ex, py - ey);
+        }
+        g.strokeStyle = 'rgba(176,138,90,.35)'; g.lineWidth = 0.012; g.stroke();
+      } else {
+        // a paved street swept clean: its stones a shade lighter
+        line(RW - 0.06, 'rgba(255,250,236,.22)');
+      }
+    }
+    g.lineCap = 'round';
+  }
+  { const _tp = trackPaint; trackPaint = function (g, s, x0, y0, x1, y1) { try { bmDress(g, s, x0, y0, x1, y1); } catch (e) { /* the street as it is */ } return _tp.apply(this, arguments); }; }
+  // the street lamps: on a street of 40+ every third tile (A1's places: lit at night as the paved roads' lamps are),
+  // on a street of 75+ every other tile too; an iron post, the lantern a little grander on the finest streets
+  function bmLampTiles(s) {
+    if (!bmOn(s)) return [];
+    // (cached with the island and the month: A1's lights ask every night frame)
+    const c = simCache(s);
+    if (c.bmLamps && c.bmLamps.m === s.beauty.m) return c.bmLamps.out;
+    const out = [], T = beautyTiers(s), N = bmNet(s);
+    c.bmLamps = { m: s.beauty.m, out };
+    for (let i = 0; i < T.length; i++) {
+      if (!T[i] || N.at[i] < 0 || N.at2[i] >= 0) continue;
+      const x = i % MAP_W, y = (i / MAP_W) | 0;
+      if ((x + 2 * y) % 3 === 0 || (T[i] >= 3 && (x + y) % 2 === 0)) out.push([i, T[i]]);
+    }
+    return out;
+  }
+  {
+    const _ro = rbtObjs;
+    rbtObjs = function (s) {
+      const o = _ro(s);
+      // (h 0.5: a thin post hides no lit window behind it, A1's dayHidden)
+      for (const [i, k] of bmLampTiles(s)) { const x = i % MAP_W, y = (i / MAP_W) | 0; o.push({ k: 'bmlamp', v: k, x0: x, y0: y, x1: x + 0.36, y1: y + 0.36, h: 0.5 }); }
+      return o;
+    };
+    const _os = objSprite;
+    objSprite = function (R, s, o) {
+      if (o.k === 'bmlamp') return sprite(R, 'bmlamp|' + (o.v >= 3 ? 3 : 1), [0.36, 0.36, 0.1, 0.1], 0.9, () => paintBmLamp(o.v >= 3));
+      return _os.apply(this, arguments);
+    };
+    // at night they are lit with the paved roads' lamps (the same corner of the tile)
+    const _dl = dayLamps;
+    dayLamps = function (s) {
+      const o = _dl(s), L = bmLampTiles(s);
+      if (L.length) { const has = new Set(o); for (const [i] of L) if (!has.has(i)) o.push(i); }
+      return o;
+    };
+  }
+  function paintBmLamp(fine) {
+    const x = 0.18, y = 0.18, b = P(x, y, 0), t = P(x, y, 0.62);
+    ell(b[0], b[1] + 0.6 * S, 2.6 * S, 1.2 * S, 'rgba(40,28,50,.22)');
+    seg(b, t, '#2f2a28', (fine ? 1.8 : 1.4) * S);
+    if (fine) {
+      // a cast-iron lantern on a fluted post with a bracket
+      seg(P(x, y, 0.05), P(x, y, 0.12), '#2f2a28', 3 * S);
+      poly([[t[0] - 2.6 * S, t[1] - 1 * S], [t[0] + 2.6 * S, t[1] - 1 * S], [t[0] + 1.8 * S, t[1] + 3.2 * S], [t[0] - 1.8 * S, t[1] + 3.2 * S]], '#f6d98a', '#2f2a28', 0.8 * S);
+      poly([[t[0] - 3.2 * S, t[1] - 1 * S], [t[0] + 3.2 * S, t[1] - 1 * S], [t[0], t[1] - 4.2 * S]], '#2f2a28');
+    } else {
+      circ(t[0], t[1] - 1.5 * S, 2.2 * S, '#f6d98a', '#2f2a28', 0.8 * S);
+      seg([t[0] - 2 * S, t[1] - 3.4 * S], [t[0] + 2 * S, t[1] - 3.4 * S], '#2f2a28', 1 * S);
+    }
+  }
+  // the homes: a fresh coat of paint, flower boxes under the windows, an awning over the door (60+); a lantern by the
+  // door (75+). BMK: the step of the home whose sprite is looked up; BMD: of the one being painted.
+  let BMK = 0, BMD = 0, BMC = '#c0503a';
+  const BM_AWN = ['#c0503a', '#2f8f88', '#3f74a8', '#3f8a52', '#d98a2b'];
+  {
+    const _sp = sprite;
+    sprite = function (R, base, foot, H, paint) {
+      if (!BMK || !(base.startsWith('home|') || base.startsWith('^home|'))) return _sp.apply(this, arguments);
+      const k = BMK;
+      return _sp.call(this, R, base + '|bm' + k, foot, H, () => { const was = BMD; BMD = k; try { paint(); } finally { BMD = was; } });
+    };
+    const _bs = bSpriteOf0;
+    bSpriteOf0 = function (R, s, b) {
+      if (b.type !== 'casita') return _bs.apply(this, arguments);
+      const k = bmHomeTier(R, s, b);
+      if (k < 2) return _bs.apply(this, arguments);
+      const was = BMK; BMK = k;
+      try { return _bs.apply(this, arguments); } finally { BMK = was; }
+    };
+    const _ph = paintHome;
+    paintHome = function (level, lk, face, empty) {
+      if (BMD < 2) return _ph.apply(this, arguments);
+      // freshly painted: the wall a shade brighter and cleaner, the door a strong colour, the awning in its own
+      const lk2 = Object.assign({}, lk, { wall: mix(lk.wall, '#fffaf0', 0.14), door: lk.door === '#9a5b39' ? '#2f8f88' : lk.door });
+      const was = BMC; BMC = BM_AWN[(WALLS.indexOf(lk.wall) + ROOFS.indexOf(lk.roof) * 3 + 5) % BM_AWN.length];
+      try { return _ph.call(this, level, lk2, face, empty); } finally { BMC = was; }
+    };
+    const _w = win;
+    win = function (f, s0, t, w, h) {
+      const r = _w.apply(this, arguments);
+      if (BMD >= 2 && !f.cull && t < 1.35) bmBox(f, s0, t, w);
+      return r;
+    };
+    const _d = door;
+    door = function (f, s0, w, h) {
+      const r = _d.apply(this, arguments);
+      if (BMD >= 2 && !f.cull && !BK) { bmAwning(f, s0, w, h); if (BMD >= 3) bmLantern(f, s0 + w / 2 + 0.06, h * 0.8); }
+      return r;
+    };
+  }
+  // a flower box under a window: a painted wooden trough, red, pink and yellow flowers in green
+  function bmBox(f, s0, t, w) {
+    const a = s0 - w / 2 - 0.015, b = s0 + w / 2 + 0.015, z0 = t - 0.07, z1 = t - 0.025, o = 0.04;
+    poly([fpo(f, a, z1, 0), fpo(f, b, z1, 0), fpo(f, b, z1, o), fpo(f, a, z1, o)], '#4f8a45');
+    poly([fpo(f, a, z0, o), fpo(f, b, z0, o), fpo(f, b, z1, o), fpo(f, a, z1, o)], '#8a5a34', ln('#8a5a34'), 0.5 * S);
+    const cols = ['#e0583e', '#f0a3c0', '#f2c75a', '#e0583e'];
+    for (let k = 0; k < 4; k++) { const q = fpo(f, lerp(a + 0.01, b - 0.01, (k + 0.5) / 4), z1 + 0.012, o * 0.6); circ(q[0], q[1] - 0.6 * S, 1.3 * S, '#4f8a45'); circ(q[0], q[1] - 1.4 * S, 1.05 * S, cols[(k + Math.round(s0 * 10)) % 4]); }
+  }
+  // an awning over the door: striped canvas sloping out from the wall, a scalloped edge
+  function bmAwning(f, s0, w, h) {
+    const a = s0 - w / 2 - 0.05, b = s0 + w / 2 + 0.05, z0 = h + 0.09, z1 = h - 0.02, o = 0.13, n = 5;
+    for (let k = 0; k < n; k++) {
+      const u0 = lerp(a, b, k / n), u1 = lerp(a, b, (k + 1) / n), c = k % 2 ? '#fbf3df' : BMC;
+      poly([fpo(f, u0, z0, 0), fpo(f, u1, z0, 0), fpo(f, u1, z1, o), fpo(f, u0, z1, o)], c);
+    }
+    pline([fpo(f, a, z0, 0), fpo(f, a, z1, o), fpo(f, b, z1, o), fpo(f, b, z0, 0)], ln(BMC), 0.7 * S);
+    for (let k = 0; k < n; k++) { const q = fpo(f, lerp(a, b, (k + 0.5) / n), z1 - 0.012, o); circ(q[0], q[1], 1.2 * S, k % 2 ? '#fbf3df' : BMC); }
+  }
+  // a wall lantern by the door (lit at night: bmLanterns)
+  function bmLantern(f, s0, z) {
+    const p = fpo(f, s0, z, 0.05), w0 = fpo(f, s0, z + 0.04, 0);
+    if (!isFinite(p[0])) return;
+    seg(w0, [p[0], p[1] - 2 * S], '#2f2a28', 0.8 * S);
+    poly([[p[0] - 1.5 * S, p[1] - 2 * S], [p[0] + 1.5 * S, p[1] - 2 * S], [p[0] + 1.1 * S, p[1] + 1.6 * S], [p[0] - 1.1 * S, p[1] + 1.6 * S]], '#f6d98a', '#2f2a28', 0.6 * S);
+  }
+  // A door lantern's glow hidden by what stands between it and the eye (as A1's dayHidden), but palms, gardens, a park,
+  // a grove and a fountain let it through: their trunks and leaves are no wall (v43: on her 1980 island the street
+  // dressed with two palm rows showed none of its lanterns' glows, every one counted behind a palm's 2.4-tile box).
+  const BM_SEE = { palms: 1, garden: 1, park: 1, grove: 1, fountain: 1 };
+  function bmHidden(R, u, v, z, self) {
+    if (TOP) return false;
+    const VW = R.gridW, VH = R.gridH;
+    for (let a = 0.3; a < 3.8; a += 0.42) {
+      const uu = Math.floor(u + a), vv = Math.floor(v + a);
+      if (uu < 0 || vv < 0 || uu >= VW || vv >= VH) return false;
+      const k = R.grid[vv * VW + uu];
+      if (k < 0 || k <= self) continue;
+      const o = R.order[k];
+      if (o.k === 'b' && BM_SEE[o.b.type]) continue;
+      if (o.k === 'b' && o.b.type === 'casita') { const fu = u + a - uu, fv = v + a - vv; if (fu < 0.08 || fu > 0.88 || fv < 0.08 || fv > 0.88) continue; }
+      if (o.h * 0.85 >= z + a / ZS) return true;
+    }
+    return false;
+  }
+  // at night: the lanterns by the doors of the finest streets' homes (a warm glow each, at most BM_LANTERNS)
+  function bmLanterns(R, s) {
+    if (!bmOn(s) || !dayOn(s) || TOP) return;
+    const dk = dayDark(dayClock(s));
+    if (dk < 0.3) return;
+    const g = R.ctx, d = R.dpr, gl = glowSprite(R), k = R.hw / 44, n = Math.min(1, 0.2 + dk * 1.1), r = R.rot || 0;
+    g.save(); g.setTransform(d, 0, 0, d, 0, 0); g.globalCompositeOperation = 'lighter';
+    pen(g, R.ox, R.oy, R.hw, d, R.rot);
+    let c = 0, cand = 0, hid = 0;
+    for (const ob of R.order) {
+      if (c >= BM_LANTERNS) break;
+      if (ob.k !== 'b' || ob.b.type !== 'casita' || !onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1) || bmHomeTier(R, s, ob.b) < 3) continue;
+      cand++;
+      const b = ob.b, D = FDIR[bFrontW(s, b)], wx = b.x + 0.5 + D[0] * 0.44, wy = b.y + 0.5 + D[1] * 0.44, p = P(wx, wy, 0.4);
+      if (p[0] < -20 || p[0] > R.w + 20 || p[1] < -20 || p[1] > R.h + 20) continue;
+      const q = rotPt(r, wx, wy);
+      if (bmHidden(R, q[0], q[1], 0.4, ob.i)) { hid++; continue; }
+      // a warm pool on the wall and the street, then the lantern itself
+      const r1 = 16 * k + 3, r2 = 6 * k + 1.5;
+      g.globalAlpha = Math.min(1, 0.45 * n); g.drawImage(gl, p[0] - r1, p[1] - r1 * 0.7, 2 * r1, 2 * r1 * 0.7);
+      g.globalAlpha = Math.min(1, 0.9 * n); g.drawImage(gl, p[0] - r2, p[1] - r2, 2 * r2, 2 * r2);
+      c++;
+    }
+    g.restore();
+    R.stats.bmLanterns = c; R.stats.bmLanternHomes = cand; R.stats.bmLanternsHidden = hid;
+  }
+  { const _dd = dayDraw; dayDraw = function (R, s, now, t) { const r = _dd.apply(this, arguments); try { bmLanterns(R, s); } catch (e) { /* no lanterns */ } return r; }; }
   return { create, draw, toScreen, toTile, pick, pickAll, mem, trim, reset };
 })();
 
@@ -46172,19 +47171,39 @@ function cwCrossLine(s, J) {
   if (!parts.length && !n) return '';
   return 'Cars choose their way to work by the last mornings\' rush here' + (parts.length ? ': ' + parts.join(', ') : '') + (n ? '; ' + plural(n, 'car family drives', 'car families drive') + ' the long way round it' : '; every car family still comes this way') + ' (each morning a third of the families choose again, and every one a queue held).';
 }
-function cwStreetLine(s, i) {
-  if (!cwOn(s) || !s.road[i] || jctAt(s, i)) return '';
-  const x = i % MAP_W;
-  // (the street tile beside a crossing: a car from here comes in from that side)
+// The street's line (a car from tile i into the crossing beside it): the wait the cars choose by there and the
+// families who drive the long way round that queue, as their home's card says; '' when there is neither.
+// (v43: the tile a queue's cars come in from can be a crossing itself, two crossings side by side: its card is the
+// crossing's, which named only its own queues, "every car family still comes this way", while a home's card said its
+// family drives round the queue from there. The crossing's card now carries this line too: cwFromHereLines.)
+function cwFromLine(s, J, side) {
+  const w = cwWaitAt(s, J, side), n = cwRound(s, J, side).length;
+  if (w < CW.name && !n) return '';
+  const xn = placeName(s, J).replace(/^the road by/, 'the crossing by'), from = ' (coming in from the ' + JC_SIDE[side] + ')';
+  if (w >= CW.name) return 'a car from here waits about ' + cwSec(cwR1(w * TF.sec)) + ' for ' + xn + from + (n ? '; ' + plural(n, 'car family drives', 'car families drive') + ' the long way round it' : '; every car family still comes this way');
+  return plural(n, 'car family drives', 'car families drive') + ' the long way round ' + xn + from + ', chosen when the queue from here was longer; it is shorter now, and ' + (n > 1 ? 'they choose' : 'it chooses') + ' again on a morning soon';
+}
+function cwFromHere(s, i) {
+  const x = i % MAP_W, out = [];
   for (let side = 0; side < 4; side++) {
     const J = side === 0 ? (x > 0 ? i - 1 : -1) : side === 1 ? i - MAP_W : side === 2 ? (x + 1 < MAP_W ? i + 1 : -1) : i + MAP_W;
     if (J < 0 || J >= s.road.length || !jctAt(s, J)) continue;
-    const w = cwWaitAt(s, J, side);
-    if (w < CW.name) continue;
-    const n = cwRound(s, J, side).length, xn = placeName(s, J).replace(/^the road by/, 'the crossing by');
-    return 'Cars choose their way to work by the last mornings\' rush: a car from here waits about ' + cwSec(cwR1(w * TF.sec)) + ' for ' + xn + (n ? '; ' + plural(n, 'car family drives', 'car families drive') + ' the long way round it.' : '; every car family still comes this way.');
+    const t = cwFromLine(s, J, side);
+    if (t) out.push(t);
   }
-  return '';
+  return out;
+}
+function cwStreetLine(s, i) {
+  if (!cwOn(s) || !s.road[i] || jctAt(s, i)) return '';
+  // (the street tile beside a crossing: a car from here comes in from that side)
+  const L = cwFromHere(s, i);
+  return L.length ? 'Cars choose their way to work by the last mornings\' rush: ' + L[0] + '.' : '';
+}
+// A crossing's own card, where the cars from it queue for the crossing beside it.
+function cwFromHereLines(s, i) {
+  if (!cwOn(s) || !s.road[i] || !jctAt(s, i)) return '';
+  const L = cwFromHere(s, i);
+  return L.length ? 'From this crossing into the next: ' + L.join('; ') + '.' : '';
 }
 // The estimates not by T1's ratio, in words: '' when every ≈ is. list: [{ who, live (the wait here), how (k -> 'add' |
 // 'cap'), w0 (k -> the copy's own wait under the rule there now), wk (k -> the copy's own wait under rule k) }]
@@ -46230,8 +47249,9 @@ function cwHowWords(list) {
   const _jh = jcardHtml;
   jcardHtml = function (s, i) {
     let h = _jh.apply(this, arguments);
-    const t = cwCrossLine(s, i);
+    const t = cwCrossLine(s, i), f = cwFromHereLines(s, i);
     if (t) h += '<p class="why car">' + esc(t) + '</p>';
+    if (f) h += '<p class="why car">' + esc(f) + '</p>';
     // (T1's card, the carts' rules: the rush's card has its own words, carsRulesHtml below)
     if (!TUNE.carRoutesOff && carsOn(s) && !(typeof carsRushMode === 'function' && carsRushMode(s, i) && carsRushSpec(s, i))) {
       const A = jctAdvice(s, i), w0 = {};
@@ -48306,6 +49326,448 @@ function pcAlbumFill() {
 function pcState() {
   return pcCards().then((list) => ({ store: PCS.B ? PCS.B.kind : 'opening', mem: PCS.mem.length, cards: list.map((r) => ({ k: r.k, when: pcWhen(r), style: r.style, und: !!r.und, rate: r.rate, bytes: r.bytes, shotPx: r.shotPx })),
     frame: APP.pc ? Object.assign({ style: APP.pc.st.k }, APP.pc.box) : null, last: PCS.last || null }));
+}
+
+// ---- src/ui/beauty_ui.js
+// B1 (8 Nov 2026, `nova/beauty`): what she sees of sim/beauty.js (DESIGN.md §59).
+// - The Beauty layer: a round map button (a flower) beside the Land value button; every street coloured by its beauty
+//   (render/iso.js, B1 block), its number on it when the map is close, a legend that says what makes a street
+//   beautiful, what spoils it, what it does, and the street easiest to improve with Show.
+// - A street's card: a tap on a street with the layer on. Its beauty with each part and its sign, why it looks as it
+//   does (the families keep it: swept with lamps at 40, painted fronts, flower boxes and awnings at 60, cobbles and
+//   lanterns at 75), what would help most with its price (a tap arms the tool and outlines the lots: nothing is built
+//   before her tap on the map), and what it does (the land along it, the island's happiness).
+// - A home's card: its street and its beauty (a button opens the street's card); the residence's: the square's (at its end).
+// - Rosa: when she has nothing else to say (or over an ask's line that stood two months), one line naming the street
+//   easiest to improve, the step and its price
+//   (Show), at most three months in a row and then nine months' rest. The to-do list's This evening: the same street.
+// No sim state is changed here except Rosa's rest (state.beauty.rosa) and nothing is built.
+
+{
+  // (B1's own CSS, here so page.html stays as it was: nova/postcard works there)
+  const st = document.createElement('style');
+  st.textContent = [
+    '#rotbtns #bBeauty { position: absolute; right: 56px; top: calc(100% + 6px); }',
+    '#rotbtns #bBeauty.on { background: #d4627e; }',
+    '#rotbtns #bBeauty.on svg { fill: #fff7ea; }',
+    // (on a phone the open row has no room for one more button: it hangs under the row's right end, as Land value does
+    // on the iPad)
+    '@media (max-width: 600px) { #rotbtns.fold.open #bBeauty { position: absolute; right: 0; top: calc(100% + 6px); } }',
+    '#bmlegend { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--pill-b, 118px) + 8px); z-index: 30; display: none; align-items: center; flex-wrap: wrap; justify-content: center;',
+    '  gap: 2px 8px; max-width: min(600px, calc(100vw - 24px)); padding: 6px 10px; border-radius: 14px; background: var(--paper); border: 2px solid var(--ink); box-shadow: 0 3px 0 rgba(58, 42, 31, .25); font-size: 14px; color: var(--ink); }',
+    '#bmlegend.show { display: flex; }',
+    '#bmlegend .sc { font-weight: 700; }',
+    '#bmlegend .sc span { white-space: nowrap; }',
+    '#bmlegend .sc i { display: inline-block; width: 14px; height: 12px; border-radius: 4px; margin: 0 2px 0 6px; vertical-align: -2px; border: 1px solid rgba(58, 42, 31, .35); }',
+    '#bmlegend .t { text-align: center; font-size: 13px; }',
+    '#bmlegend small { flex-basis: 100%; text-align: center; opacity: .8; font-size: 12px; }',
+    '#bmlegend .ez { flex-basis: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; text-align: left; }',
+    '#bmlegend .ez button { min-height: 40px; min-width: 64px; padding: 0 12px; border-radius: 20px; border: 2px solid var(--ink); background: var(--paper2); font-weight: 700; font-size: 13px; color: var(--ink); flex: none; }',
+    '#bmlegend { padding-right: 44px; }',
+    '#bmlegend > button.x { position: absolute; right: 0; top: 0; width: 44px; height: 44px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; }',
+    '#bmlegend > button.x svg { width: 18px; height: 18px; fill: var(--ink); }',
+    '#bmlegend > button.q { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 2px solid var(--ink); background: var(--paper2); font-weight: 800; font-size: 16px; color: var(--ink); margin: -4px 0; }',
+    '#bmlegend > button.q.on { background: #d4627e; color: #fff7ea; }',
+    '#bmlegend .t { flex-basis: 100%; }',
+    '@media (max-width: 600px) { #bmlegend { font-size: 13px; padding: 6px 10px; gap: 2px 6px; width: calc(100vw - 16px); box-sizing: border-box; padding-right: 44px; } #bmlegend small, #bmlegend .ez { font-size: 11.5px; } }',
+    '#card .bmbar { position: relative; height: 12px; border-radius: 6px; background: #ece2cc; box-shadow: inset 0 0 0 1px rgba(58,42,31,.25); margin: 4px 0 2px; overflow: hidden; }',
+    '#card .bmbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; }',
+    '#card .bmbar b { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(58,42,31,.45); }',
+    '#card .bmticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink2); margin: 0 0 4px; }',
+    '#card .bmparts { margin: 2px 0 6px; }',
+    '#card .bmparts div { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; padding: 2px 0; border-bottom: 1px dotted rgba(58,42,31,.18); }',
+    '#card .bmparts div b.p { color: #2e7a3a; } #card .bmparts div b.m { color: #b5402c; } #card .bmparts div.base { color: var(--ink2); }',
+    '#card button.bmstep { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 10px; text-align: left; margin: 4px 0; padding: 6px 12px; border-radius: 12px; border: 2px solid var(--ink); background: #fff8e8; font-size: 13.5px; font-weight: 600; color: var(--ink); }',
+    '#card button.bmstep b { white-space: nowrap; color: #2e7a3a; }',
+    '#card button.bmstep.poor b { color: #b5402c; }',
+    '#card button.bmst { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; text-align: left; margin: 6px 0 2px; padding: 6px 12px; border-radius: 12px; border: 2px solid rgba(58,42,31,.5); background: var(--paper); font-size: 13.5px; color: var(--ink); }',
+    '#card button.bmst i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(58,42,31,.35); }',
+    '#card p.bmlook { font-size: 13px; margin: 4px 0; }',
+  ].join('\n');
+  document.head.appendChild(st);
+}
+
+// The colour of a beauty (the layer, the tags, the card's bar): pale stone plain, gold swept, coral painted, rose and
+// plum the finest.
+function bmCol(v) {
+  const st = [[0, [185, 173, 160]], [30, [217, 199, 167]], [40, [242, 207, 98]], [60, [239, 143, 95]], [75, [210, 79, 122]], [100, [143, 59, 143]]];
+  let a = st[0], b = st[st.length - 1];
+  for (let k = 0; k < st.length - 1; k++) if (v >= st[k][0] && v <= st[k + 1][0]) { a = st[k]; b = st[k + 1]; break; }
+  const f = b[0] === a[0] ? 0 : (v - a[0]) / (b[0] - a[0]), c = a[1].map((x, i) => Math.round(x + (b[1][i] - x) * f));
+  return 'rgb(' + c.join(',') + ')';
+}
+// A street found again by its key (the card stays on it while the island changes), or null.
+function bmByKey(s, k) { return bmNet(s).list.find((o) => o.k === k) || null; }
+function bmMid(st) { return st.tiles[st.tiles.length >> 1]; }
+
+// ---------- the Beauty layer ----------
+{
+  const _ri = rotInit;
+  rotInit = function () {
+    const r = _ri.apply(this, arguments), el = $('rotbtns');
+    if (el && el.style.display !== 'none' && !$('bBeauty') && beautyOn()) {
+      const b = document.createElement('button');
+      b.id = 'bBeauty'; b.setAttribute('aria-label', 'Beauty layer'); b.title = 'Beauty'; b.innerHTML = iconSvg('flower');
+      el.appendChild(b);
+      b.addEventListener('click', () => beautyLayer(!APP.ui.beauty));
+      APP.rotKey = '';
+    }
+    return r;
+  };
+  const _tt = trafficToggle;
+  trafficToggle = function () { const r = _tt.apply(this, arguments); if (APP.ui.layer === 'traffic' && APP.ui.beauty) beautyLayer(false); return r; };
+  const _ml = moneyLayer;
+  moneyLayer = function (on) { const r = _ml.apply(this, arguments); if (on && APP.ui.beauty) beautyLayer(false); return r; };
+  const _ll = landLayer;
+  landLayer = function (on) { const r = _ll.apply(this, arguments); if (on && APP.ui.beauty) beautyLayer(false); return r; };
+}
+// (the phone's folded button lights while a layer is on: the Beauty layer too)
+{ const _pf = phoneFit; phoneFit = function () { const r = _pf.apply(this, arguments), b = $('bMap'); if (b && APP.ui.beauty && !b.classList.contains('on')) b.classList.add('on'); return r; }; }
+function beautyLayer(on) {
+  APP.ui.beauty = !!on && beautyOn();
+  if (APP.ui.beauty) { if (APP.ui.layer === 'traffic') trafficToggle(false); if (APP.ui.money) moneyLayer(false); if (APP.ui.land) landLayer(false); }
+  const b = $('bBeauty');
+  if (b) b.classList.toggle('on', APP.ui.beauty);
+  if (!APP.ui.beauty && APP.ui.bsel) cardClose();
+  beautyLegend();
+}
+function beautyLegend() {
+  let el = $('bmlegend');
+  if (!el) { el = document.createElement('div'); el.id = 'bmlegend'; document.body.appendChild(el); el.addEventListener('click', bmLegendClick); }
+  const on = !!APP.ui.beauty;
+  if (!on) { if (el.classList.contains('show')) uiGone(el); el.classList.remove('show'); el.dataset.key = ''; return; }
+  const s = APP.state, narrow = innerWidth < 600, e = bmEasiestNow(s);
+  // (v43, the coordinator: the legend covered a third of the map's left half at 1180 x 820. What raises and lowers a
+  // street now sits behind its "?" (every street's card lists its own parts with their signs); the steps' colours,
+  // what 60 does and the easiest street stay in view.)
+  const why = !!APP.ui.bmWhy;
+  const key = narrow + '|' + why + '|' + (s.beauty ? s.beauty.m : -1) + '|' + (e ? e.text : '') + '|' + s.stage;
+  if (el.dataset.key !== key) {
+    el.dataset.key = key;
+    el.innerHTML = '<b>Beauty</b><span class="sc">' + [[20, 'plain'], [BEAU.tiers[0], BEAU.tiers[0] + ' swept'], [BEAU.tiers[1], BEAU.tiers[1] + ' painted'], [BEAU.tiers[2], BEAU.tiers[2] + ' cobbles']].map((q) => '<span><i style="background:' + bmCol(q[0]) + '"></i>' + q[1] + '</span>').join('') + '</span>' +
+      '<button class="q' + (why ? ' on' : '') + '" id="bmWhy" aria-label="What makes a street beautiful" aria-expanded="' + why + '">?</button>' +
+      (why ? '<span class="t">' + (narrow ? 'up: homes all along it, heights, paving, trees, a landmark at its end, the sea · down: smoke, noise, jams, yards' :
+        'up: homes all along it, heights for its width, paving, trees, a landmark at its end, the sea · down: smoke, noise, jams, works’ yards') + '</span>' : '') +
+      '<button class="x" id="bmlegendX" aria-label="Close">' + iconSvg('close') + '</button>' +
+      '<small>' + esc('From ' + BEAU.landStep + ': its land up to +' + BEAU.landMax + ' (rent follows), happiness up to +' + BEAU.happy + ' · tap a street or its number') + '</small>' +
+      (e ? '<div class="ez"><span>' + esc(e.text) + '</span><button id="bmEz">Show</button></div>' : '');
+  }
+  el.classList.add('show');
+  bmLegendPlace();
+}
+// The street whose ⚘ tag is under a tap: the tag is about 22 px high, so it answers within 22 px of its centre
+// across and 20 px up and down (a target of 44 x 40 px at least); where two meet, the nearer centre.
+function bmTagAt(sx, sy) {
+  const H = APP.R && APP.R.bmTagHits;
+  if (!H || !H.length) return null;
+  let best = null, bd = 1e9;
+  for (const t of H) {
+    const hw = Math.max(t.w / 2, 22), hh = Math.max(t.h / 2, 20), dx = Math.abs(sx - t.x), dy = Math.abs(sy - t.y);
+    if (dx > hw || dy > hh) continue;
+    const d = dx * dx + dy * dy;
+    if (d < bd) { bd = d; best = { k: t.k, x: t.x, y: t.y, w: t.w, h: t.h, inside: dx <= t.w / 2 && dy <= t.h / 2 }; }
+  }
+  return best;
+}
+function bmLegendClick(ev) {
+  const t = ev.target.closest && ev.target.closest('button');
+  if (!t) return;
+  if (t.id === 'bmlegendX') beautyLayer(false);
+  else if (t.id === 'bmWhy') { APP.ui.bmWhy = !APP.ui.bmWhy; beautyLegend(); }
+  else if (t.id === 'bmEz') { const e = bmEasiestNow(APP.state); if (e) bmCardOpen(bmMid(e.st), true, e.st.k); }
+}
+// Under the pill, left of the round map buttons where it would meet them (keeping them free to tap), or below them
+// where the room left of them is too narrow (a phone).
+function bmLegendPlace() {
+  const el = $('bmlegend');
+  if (!el || !el.classList.contains('show')) return;
+  const card = $('card'), cr = card && card.classList.contains('show') ? card.getBoundingClientRect() : null;
+  // (a phone: the card takes the screen's lower part, the legend steps aside while it is open)
+  el.style.display = cr && cr.width && innerWidth < 600 ? 'none' : '';
+  if (el.style.display) return;
+  const pill = $('pill'), pb = pill ? pill.getBoundingClientRect().bottom : 110, top = Math.round((pb > 0 ? pb : 110) + 8);
+  el.style.top = top + 'px';
+  // (a card open at the right of a wide screen: the legend keeps to the map left of it)
+  let right = cr && cr.width && innerWidth > 900 ? cr.left - 12 : innerWidth - 8;
+  const fit = () => { if (right < innerWidth - 8) { el.style.left = Math.round((8 + right) / 2) + 'px'; el.style.maxWidth = Math.round(Math.min(600, right - 8)) + 'px'; } else { el.style.left = ''; el.style.maxWidth = ''; } };
+  fit();
+  // (the round buttons move: left of the card on a wide screen, in a row on a phone; #rotbtns, Beauty, Land value)
+  const btns = Array.from(document.querySelectorAll('#rotbtns button')).concat([$('bBeauty'), $('bLand')]).filter(Boolean).map((b) => b.getBoundingClientRect()).filter((r) => r.width);
+  for (let k = 0; k < 3; k++) {
+    const a = el.getBoundingClientRect(), hit = btns.filter((r) => a.right > r.left && a.left < r.right && a.bottom > r.top && a.top < r.bottom);
+    if (!hit.length) return;
+    right = Math.min(right, Math.min(...hit.map((r) => r.left)) - 8);
+    if (right - 8 < 360) break;
+    fit();
+  }
+  // too narrow beside them: below them, the full width again (or left of the card)
+  right = cr && cr.width && innerWidth > 900 ? cr.left - 12 : innerWidth - 8;
+  fit();
+  for (let k = 0; k < 3; k++) {
+    const a = el.getBoundingClientRect(), hit = btns.filter((r) => a.right > r.left && a.left < r.right && a.bottom > r.top && a.top < r.bottom);
+    if (!hit.length) return;
+    el.style.top = Math.round(Math.max(...hit.map((r) => r.bottom)) + 8) + 'px';
+  }
+}
+{
+  const _hu = hudUpdate;
+  hudUpdate = function () {
+    const r = _hu.apply(this, arguments);
+    if (APP.ui && APP.ui.beauty) beautyLegend();
+    if (APP.ui && APP.ui.bsel) bmCardRender();
+    return r;
+  };
+  // the toast steps below the legend
+  const _tp = toastPlace;
+  toastPlace = function () {
+    const r = _tp.apply(this, arguments), el = $('toast'), lg = $('bmlegend');
+    if (!el || !lg || !lg.classList.contains('show')) return r;
+    const a = el.getBoundingClientRect(), b = lg.getBoundingClientRect();
+    if (a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom) el.style.top = Math.round(b.bottom + 8) + 'px';
+    return r;
+  };
+}
+
+// The street easiest to improve, with its words, worked out once a month (or when the island changes): { st, step, v, text }.
+function bmEasiestNow(s) {
+  if (!s || !beautyLive(s)) return null;
+  const key = (s.beauty ? s.beauty.m : -1) + ':' + s.ver;
+  if (APP.bmEz && APP.bmEz.key === key && APP.bmEz.s === s) return APP.bmEz.e;
+  let e = null;
+  try { e = beautyEasiest(s); } catch (err) { e = null; }
+  if (e) {
+    const nm = bmTitle(s, e.st), up = bmTier(e.v + e.step.gain) > bmTier(e.v) ? ' (then ' + BEAU_TIER_WORDS[bmTier(e.v + e.step.gain)] + ')' : '';
+    e.text = 'Easiest: ' + nm + ' (' + e.v + '): ' + e.step.text + ', +' + e.step.gain + ' · ' + money$(e.step.cost);
+    e.rosa = nm + ' is ' + e.v + ': ' + e.step.text + ' and it gains ' + e.step.gain + up + ' · ' + money$(e.step.cost) + '.';
+  }
+  APP.bmEz = { key, e, s };
+  return e;
+}
+
+// ---------- a street's card ----------
+function bmCardOpen(i, fly, key) {
+  const s = APP.state;
+  if (!s || !s.road[i]) return;
+  const st = (key && bmByKey(s, key)) || beautyStreetAt(s, i);
+  if (!st) { toastShow('A road through open land: nothing built along it yet, so not a street. Homes along it make it one.'); return; }
+  if (APP.ui.sel || APP.ui.jsel >= 0) cardClose();
+  APP.ui.jsel = -1;
+  APP.ui.bsel = st.k; APP.ui.bselAt = i;
+  APP.cardKey = ''; APP.cardFor = -900000 - i;
+  $('card').style.minHeight = '';
+  // (the build bar folds for it, as for a road's card)
+  if (!APP.ui.trayClosed) { APP.ui.trayClosed = true; barBuild(); }
+  bmCardRender();
+  $('card').classList.add('show');
+  document.body.classList.add('carded');
+  const m = bmMid(st);
+  if (fly) cameraFlyTo(m % MAP_W + 0.5, ((m / MAP_W) | 0) + 0.5);
+  else requestAnimationFrame(() => bmCardReveal(st));
+}
+// The street stays in sight beside the card (iPad, Mac) or above it (portrait).
+function bmCardReveal(st) {
+  const card = $('card').getBoundingClientRect();
+  if (!card.width || !APP.R) return;
+  const m = bmMid(st), p = tileToScreen(APP.R, APP.view, m % MAP_W + 0.5, ((m / MAP_W) | 0) + 0.5), W = window.innerWidth;
+  if (W <= 900) { const top = ($('pill').getBoundingClientRect().bottom || 120) + 20, target = (top + card.top) / 2; if (p.y > card.top - 30 || p.y < top) viewNudge(0, p.y - target); }
+  else if (p.x > card.left - 30) viewNudge(p.x - card.left / 2, 0);
+}
+function bmCardHtml(s, st) {
+  const head = '<button class="x" id="cardX" aria-label="Close">' + iconSvg('close') + '</button>';
+  const src = bmSources(s), q = bmParts(s, st, src), v = beautyOf(s, st), shown = v >= 0 ? v : q.v;
+  const kind = st.kind === 3 ? 'an avenue' : st.kind === 2 ? 'a paved street' : 'a lane';
+  let h = head + '<h3>' + iconSvg('flower') + esc(bmTitle(s, st)) + '</h3>';
+  h += '<div class="line"><span>Beauty</span><b>' + shown + ' · ' + esc(v >= 0 ? BEAU_TIER_WORDS[bmTier(v)] : 'measured at the month’s end') + '</b></div>';
+  h += '<div class="bmbar"><i style="width:' + Math.max(3, shown) + '%;background:' + bmCol(shown) + '"></i>' + BEAU.tiers.map((t) => '<b style="left:' + t + '%"></b>').join('') + '</div>';
+  h += '<div class="bmticks"><span>0</span><span>' + BEAU.tiers[0] + ' swept</span><span>' + BEAU.tiers[1] + ' painted</span><span>' + BEAU.tiers[2] + ' cobbles</span><span>100</span></div>';
+  const tiles = st.b - st.a + 1;
+  h += '<p class="bmlook">' + esc(bmLookWhy(s, st, v, q, kind, tiles)) + '</p>';
+  h += '<h4>What makes it</h4><div class="bmparts"><div class="base"><span>a street to begin with</span><b>+' + BEAU.base + '</b></div>' +
+    q.parts.map((p) => '<div><span>' + esc(p.label) + '</span><b class="' + (p.v > 0 ? 'p' : 'm') + '">' + (p.v > 0 ? '+' : '−') + Math.abs(p.v) + '</b></div>').join('') + '</div>';
+  if (v >= 0 && v !== q.v) h += '<p class="why">' + esc('Now ' + q.v + ': the street changed since the month’s end; its new beauty counts from the next one.') + '</p>';
+  const steps = beautySteps(s, st, src);
+  APP.ui.bmSteps = steps;
+  if (steps.length) {
+    h += '<h4>What would help most</h4>';
+    steps.forEach((x, k) => { h += '<button class="bmstep' + (s.money < x.cost ? ' poor' : '') + '" data-k="' + k + '"><span>' + esc(x.text.replace(/^./, (c) => c.toUpperCase())) + '</span><b>+' + x.gain + ' · ' + money$(x.cost) + '</b></button>'; });
+    h += '<p class="why">' + esc('A tap picks the tool and outlines the place on the map: you build it there yourself.') + '</p>';
+  } else if (q.v < 95) {
+    const more = [st.kind === 1 ? (s.stage >= PAVED_STAGE ? 'paving' : 'paving (from the City)') : '', 'palms or a garden beside it', 'a statue or a fountain where its view ends', 'fewer carts and less smoke near it'].filter(Boolean);
+    h += '<p class="why">' + esc((q.wall < q.den ? 'Its gaps are fields, yards or forest no home can take now. ' : '') + 'No single step with a free place for it now; ' + listAnd(more) + ' would raise it.') + '</p>';
+  }
+  // (land and happiness both from 60, the painted fronts she sees: BEAU.landStep, BEAU.happyFrom)
+  const land = bmLandOf(q.look, v), would = bmLandOf(q.look, BEAU.landStep), H = bmHappy(s), town = s.stage >= BEAU.payStage;
+  h += '<p class="note' + (land > 0 || v >= BEAU.happyFrom ? ' good' : '') + '">' + esc('What it does: ' + (v >= BEAU.landStep
+    ? 'a fine street: the land along it +' + land + ' (its wall, heights and view; rent follows the land' + (town ? '' : ' from the Town on') + ')'
+    : 'at ' + BEAU.landStep + ' the land along it rises (' + (would > 0 ? '+' + would + ' by its wall, heights and view now' : 'by its wall, heights and view, up to +' + BEAU.landMax) + '; rent follows the land' + (town ? '' : ' from the Town on') + ')') +
+    (town ? ' · ' + (v >= BEAU.happyFrom ? 'its homes are among the ' + H.n + ' on streets of ' + BEAU.happyFrom + '+ that make the island happier (+' + H.v + ' now)' : 'at ' + BEAU.happyFrom + '+ its homes make the island happier (up to +' + BEAU.happy + ')') : ' · from the Town on, homes on streets of ' + BEAU.happyFrom + '+ make the island happier') + '.') + '</p>';
+  return h;
+}
+// Why it looks as it does: the families' doing, step by step (and the kind of street, its lots).
+function bmLookWhy(s, st, v, q, kind, tiles) {
+  const lots = q.den ? q.wall + ' of its ' + q.den + ' lots built' : 'no lots along it';
+  const t = v < 0 ? -1 : bmTier(v);
+  const T = BEAU.tiers, look = t < 0 ? 'Its look follows its beauty from the month’s end.' : t === 0 ? 'Plain: at ' + T[0] + ' its families sweep it and the town lights it.' :
+    t === 1 ? 'Swept, with street lamps: its families keep it. At ' + T[1] + ' they paint their fronts and hang flower boxes and awnings.' :
+      t === 2 ? 'Painted fronts, flower boxes and awnings: its families are proud of it. At ' + T[2] + ' it is cobbled and lanterns hang at the doors.' :
+        'Cobbled, with lanterns at the doors at night: the finest kind of street on the island.';
+  return 'It is ' + kind + ', ' + plural(tiles, 'tile', 'tiles') + ' long, ' + lots + '. ' + look + ' Its people do this, nobody builds it.';
+}
+function bmCardRender() {
+  const s = APP.state, el = $('card');
+  if (!APP.ui.bsel || !s) return;
+  let st = bmByKey(s, APP.ui.bsel);
+  if (!st && APP.ui.bselAt >= 0) st = beautyStreetAt(s, APP.ui.bselAt);
+  if (!st) { cardClose(); return; }
+  APP.ui.bsel = st.k;
+  const html = bmCardHtml(s, st);
+  if (html === APP.cardKey) return;
+  if (APP.cardKey && el.classList.contains('show') && uiHeld('card')) return;
+  APP.cardKey = html; el.innerHTML = html; cardHold(el);
+  $('cardX').addEventListener('click', cardClose);
+  el.querySelectorAll('button.bmstep').forEach((b) => b.addEventListener('click', () => bmStepTap(+b.dataset.k)));
+}
+// A step's tap: the tool armed, the view at the place, the lots outlined until they are built (A12: nothing before her tap).
+function bmStepTap(k) {
+  const s = APP.state, x = (APP.ui.bmSteps || [])[k];
+  if (!x) return;
+  const i = x.tiles[0], st = APP.ui.bsel;
+  APP.ui.bmPlan = { tiles: x.tiles.slice(), tool: x.tool, label: x.text.replace(/^./, (c) => c.toUpperCase()) + ' · +' + x.gain, st };
+  cardClose();
+  toolSet(x.tool);
+  cameraFlyTo(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5);
+  toastShow(x.tool === 'clear' ? 'Clear the outlined forest, then build homes there (+' + x.gain + ' beauty).' : x.tool === 'paved' ? 'Draw the paved road along the outlined street (+' + x.gain + ' beauty).' : 'Tap the outlined ' + (x.tiles.length > 1 ? 'lots' : 'lot') + ' (+' + x.gain + ' beauty).');
+}
+{
+  const _cc = cardClose;
+  cardClose = function () { APP.ui.bsel = null; APP.ui.bselAt = -1; APP.ui.bmSteps = null; return _cc.apply(this, arguments); };
+  // a building's, a crossing's or a road's card takes the place of the street's
+  const _co = cardOpen;
+  cardOpen = function () { if (APP.ui.bsel) { APP.ui.bsel = null; APP.cardKey = ''; } return _co.apply(this, arguments); };
+  const _jo = jcardOpen;
+  jcardOpen = function () { if (APP.ui.bsel) { APP.ui.bsel = null; APP.cardKey = ''; } return _jo.apply(this, arguments); };
+  if (typeof rcardOpen === 'function') { const _ro = rcardOpen; rcardOpen = function () { if (APP.ui.bsel) { APP.ui.bsel = null; APP.cardKey = ''; } return _ro.apply(this, arguments); }; }
+  // the outline goes with its tool
+  const _ts = toolSet;
+  toolSet = function (tool) { const r = _ts.apply(this, arguments); const p = APP.ui.bmPlan; if (p && (APP.ui.tool === 'look' || (APP.ui.tool !== p.tool && !(p.tool === 'paved' && APP.ui.tool === 'road')))) APP.ui.bmPlan = null; return r; };
+  // with the Beauty layer on, a tap on a street's number (its ⚘ tag) or on the street itself (no building under the
+  // finger) opens its card
+  const _tap = tapAt;
+  tapAt = function (sx, sy) {
+    const s = APP.state;
+    // (the tags are drawn over the homes' bubbles: on the tag itself it answers, around it a bubble there comes first)
+    const tg = s && APP.ui.beauty && APP.ui.tool === 'look' ? bmTagAt(sx, sy) : null;
+    if (tg && (tg.inside || !bubbleAt(sx, sy))) { const st = bmByKey(s, tg.k); if (st) { $('pop').classList.remove('show'); bmCardOpen(bmMid(st), false, st.k); return; } }
+    if (s && APP.ui.beauty && APP.ui.tool === 'look' && !renderPick(APP.R, APP.view, s, sx, sy) && !bubbleAt(sx, sy)) {
+      const p = screenToTile(APP.R, APP.view, sx, sy), x = Math.floor(p.x), y = Math.floor(p.y), t = inMap(x, y) ? tileIdx(x, y) : -1;
+      if (t >= 0 && s.road[t]) { $('pop').classList.remove('show'); bmCardOpen(t); return; }
+    }
+    return _tap.apply(this, arguments);
+  };
+}
+
+// ---------- the building cards: a home's street, the residence's square ----------
+{
+  const _ch = cardHtml;
+  cardHtml = function (s, b) {
+    const h = _ch.apply(this, arguments);
+    if (!beautyLive(s) || !s.beauty || s.beauty.m < 0) return h;
+    let x = '', y = '';
+    try {
+      const d = defOf(b);
+      if (d && d.kind === 'home') {
+        const st = beautyStreetOf(s, b);
+        if (st) {
+          const v = beautyOf(s, st), land = v >= 0 ? bmLandOf((s.beauty.st[st.k] || [0, 0])[1], v) : 0;
+          x += '<button class="bmst" id="cardStreet" data-at="' + bmMid(st) + '" data-k="' + st.k + '"><span><i style="background:' + bmCol(Math.max(0, v)) + '"></i>' + esc('Its street: ' + bmTitle(s, st) + ' · beauty ' + (v >= 0 ? v + ' (' + BEAU_TIER_WORDS[bmTier(v)] + ')' : '– (measured at the month’s end)') + (land > 0 ? ' · its land +' + land : '')) + '</span><span>›</span></button>';
+        }
+      }
+      if (b.type === 'residence') {
+        const sq = bmSquare(s);
+        if (sq) y += '<p class="note' + (sq.v >= BEAU.sqHappyFrom ? ' good' : '') + '">' + esc('The square: beauty ' + sq.v + ' · ' + sq.parts.map((p) => p.label + ' ' + (p.v > 0 ? '+' : '−') + Math.abs(p.v)).join(', ') + '. ' + (sq.v >= BEAU.sqHappyFrom ? 'A beautiful square: +' + BEAU.sqHappy + ' happiness.' : 'At ' + BEAU.sqHappyFrom + ' it makes the island happier (+' + BEAU.sqHappy + '): lots round it built, the church on it, a fountain or a statue.')) + '</p>';
+      }
+    } catch (e) { x = ''; y = ''; }
+    let out = h;
+    // a home's street near the top, under what it earns (the card is long and its foot covers its last lines)
+    if (x) { const cut = ['<div class="fam"', '<p class="note', '<div class="line">', '<div class="btns">'].map((k) => out.indexOf(k)).filter((k) => k >= 0), at = cut.length ? Math.min(...cut) : -1; out = at >= 0 ? out.slice(0, at) + x + out.slice(at) : out + x; }
+    // the square on the residence's card, after what the card had (its buttons keep their places)
+    if (y) { const at = out.indexOf('<div class="btns">'); out = at >= 0 ? out.slice(0, at) + y + out.slice(at) : out + y; }
+    return out;
+  };
+  const _cr = cardRender;
+  cardRender = function () {
+    if (APP.ui.bsel) { bmCardRender(); return; }
+    const r = _cr.apply(this, arguments), bt = $('cardStreet');
+    if (bt && !bt.dataset.on) { bt.dataset.on = '1'; bt.addEventListener('click', () => { const i = +bt.dataset.at; if (!APP.ui.beauty) beautyLayer(true); bmCardOpen(i, true, bt.dataset.k); }); }
+    return r;
+  };
+}
+
+// ---------- Rosa's line and the to-do list ----------
+// Rosa's own line about beauty (a UI line: the sim's Rosa is not changed): the street easiest to improve. It speaks
+// when she has nothing else to say, or over an ask's line (the askers keep their faces in the stack and their glow on
+// the map) that has stood two months; never over a problem or a hint; not in the first two months of a session; at
+// most BEAU.rosaShow months in a row, then BEAU.rosaRest months' rest; Show (or ✕) starts the rest. (Measured on her
+// islands: from the Town on Rosa's slot was never empty at a decade's start, an ask's line a third of the time.)
+function bmRosa(s, base) {
+  if (!s || !beautyLive(s) || !s.beauty || s.stage < BEAU.payStage || (s.guide && s.guide.step < GUIDE_INTRO.length)) return null;
+  if (APP.bmRosaS !== s) { APP.bmRosaS = s; APP.bmRosaM0 = s.month; APP.bmCom = null; }
+  if (s.month - APP.bmRosaM0 < 2) return null;
+  if (base) {
+    if (!/^com-/.test(base.key || '')) return null;
+    if (!APP.bmCom || APP.bmCom.key !== base.key) APP.bmCom = { key: base.key, m: s.month };
+    if (s.month - APP.bmCom.m < 2) return null;
+  }
+  const B = s.beauty, R = B.rosa && typeof B.rosa === 'object' ? B.rosa : (B.rosa = { from: -99 });
+  const cyc = BEAU.rosaShow + BEAU.rosaRest;
+  if (s.month - R.from >= cyc) R.from = s.month;
+  if (s.month - R.from >= BEAU.rosaShow || R.off === R.from) return null;
+  const e = bmEasiestNow(s);
+  if (!e) return null;
+  const k = 'beauty|' + e.rosa;
+  if (APP.bmRosaMsg && APP.bmRosaMsg.k === k) return APP.bmRosaMsg;
+  const m = bmMid(e.st);
+  return (APP.bmRosaMsg = { k, key: 'beauty', text: e.rosa, btn: 'Show', act: { at: [m % MAP_W, (m / MAP_W) | 0], beauty: e.st.k } });
+}
+{
+  const _gm = guideMsg;
+  guideMsg = function () {
+    const m = _gm.apply(this, arguments);
+    if (m && (m === APP.ui.hint || !/^com-/.test(m.key || ''))) return m;
+    let b = null;
+    try { b = bmRosa(APP.state, m); } catch (e) { b = null; }
+    return b || m;
+  };
+  const _ga = guideAct;
+  guideAct = function () {
+    const m = guideMsg();
+    if (m && m.key === 'beauty' && m.act && m.act.beauty) {
+      if (performance.now() - (APP.guideT || 0) < 900) return;
+      const s = APP.state, B = s.beauty;
+      if (B && B.rosa) B.rosa.off = B.rosa.from;
+      if (!APP.ui.beauty) beautyLayer(true);
+      const st = bmByKey(s, m.act.beauty);
+      if (st) bmCardOpen(bmMid(st), true, st.k);
+      guideRender();
+      return;
+    }
+    return _ga.apply(this, arguments);
+  };
+  const _gd = guideDismiss;
+  guideDismiss = function (s) { const m = typeof APP !== 'undefined' && APP.state === s ? guideMsg() : null; if (m && m.key === 'beauty' && s.beauty && s.beauty.rosa) s.beauty.rosa.off = s.beauty.rosa.from; return _gd.apply(this, arguments); };
+  // the to-do list's This evening: the street easiest to improve (not counted in the stage's share)
+  const _tg = todoGoal;
+  todoGoal = function (s) {
+    const d = _tg.apply(this, arguments);
+    try {
+      const e = bmEasiestNow(s);
+      if (e && d && d.rows) {
+        const m = bmMid(e.st), at = [m % MAP_W, (m / MAP_W) | 0], want = BEAU.tiers.find((t) => t > e.v) || 100;
+        d.rows.push({ key: 'beauty', label: 'A beautiful street: ' + bmTitle(s, e.st), have: e.v, want, ok: false, why: e.step.text + ': +' + e.step.gain + ' · ' + money$(e.step.cost), show: { at }, loop: bmTitle(s, e.st) + ': beauty ' + e.v + ' of ' + want });
+      }
+    } catch (err) { /* the list as it is */ }
+    return d;
+  };
 }
 
 // ---- src/ui/phone.js
