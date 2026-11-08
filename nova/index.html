@@ -973,6 +973,54 @@ body.fac-on #todo, body.fac-on #glance, body.fac-on #pop, body.fac-on #facPins, 
   #fac { top: calc(var(--gap) + 120px + var(--st)); }
   .fac-title span { white-space: normal; }
 }
+
+/* B2 (8 Nov 2026): the postcard (src/ui/postcard_ui.js). The camera hangs under the round row's left end (Land value
+   hangs under its right end); the frame dims the map around a postcard-shaped window while the HUD is put away; the
+   card opens large in a wider sheet; the Album has a section of its own. */
+#rotbtns #bPost { position: absolute; left: 0; top: calc(100% + 6px); }
+#rotbtns #bPost.pchide { display: none !important; }
+#rotbtns #bPost.pcside { left: auto; right: calc(100% + 6px); top: 0; }
+#rotbtns #bPost .ic { width: 27px; height: 27px; }
+/* (a phone: the open row has no room for a seventh button at 390 px: the camera hangs under its right end, the ✕) */
+@media (max-width: 600px) { #rotbtns.fold.open #bPost { left: auto; right: 0; top: calc(100% + 6px); } }
+body.pcframing #top, body.pcframing #pill, body.pcframing #lower, body.pcframing #bar, body.pcframing #done, body.pcframing #toast,
+body.pcframing #comstack, body.pcframing #trlegend, body.pcframing #lvlegend, body.pcframing #moneyLegend, body.pcframing #facPins,
+body.pcframing #card, body.pcframing #receipt, body.pcframing #glance, body.pcframing #todo, body.pcframing #sndpop, body.pcframing #yearcard,
+body.pcframing #rotbtns #bTraffic, body.pcframing #rotbtns #bLand, body.pcframing #rotbtns #bMap { visibility: hidden !important; pointer-events: none !important; }
+#pcFrame { position: fixed; z-index: 3; display: none; pointer-events: none; border-radius: 4px;
+  box-shadow: 0 0 0 3px #fffaf0, 0 0 0 5px rgba(58, 42, 31, 0.85), 0 0 0 200vmax rgba(26, 18, 12, 0.58); }
+body.pcframing #pcFrame { display: block; }
+#pcFrame::before, #pcFrame::after { content: ''; position: absolute; width: 34px; height: 34px; border: 3px solid #fffaf0; }
+#pcFrame::before { left: 10px; top: 10px; border-right: 0; border-bottom: 0; }
+#pcFrame::after { right: 10px; bottom: 10px; border-left: 0; border-top: 0; }
+#pcFrame.flash { animation: pcflash 0.5s ease-out; }
+@keyframes pcflash { 0% { background: rgba(255, 255, 255, 0.95); } 100% { background: rgba(255, 255, 255, 0); } }
+#pcBar { position: fixed; z-index: 6; left: 50%; transform: translateX(-50%); bottom: calc(12px + var(--sb)); display: none; align-items: center; gap: 12px;
+  width: max-content; max-width: calc(100% - 20px - var(--sl) - var(--sr)); padding: 8px 8px 8px 16px; }
+body.pcframing #pcBar { display: flex; }
+#pcBar .pct { margin: 0; font-size: 14px; line-height: 1.3; max-width: 560px; }
+#pcBar .pct b { font: italic 700 17px var(--serif); }
+#pcBar .pcbs { display: flex; gap: 8px; flex: none; }
+#pcBar button { min-height: 48px; min-width: 92px; padding: 0 18px; border-radius: 12px; font-weight: 800; font-size: 16px; }
+#pcBar #pcCancel { background: var(--paper2); box-shadow: inset 0 0 0 1.5px rgba(58, 42, 31, 0.4); }
+#pcBar #pcTake { background: var(--coral); color: #fff7ea; box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
+#pcBar #pcTake:disabled { opacity: 0.7; }
+#sheet.pcview { width: min(980px, calc(100% - 20px - var(--sl) - var(--sr))); }
+#sheet .pcpic { margin-top: 8px; }
+#sheet .pcpic img { display: block; width: min(100%, calc((100vh - 280px - var(--st) - var(--sb)) * 1200 / 780)); margin: 0 auto; aspect-ratio: 1200 / 780; background: #efe4c8; border-radius: 3px; box-shadow: 0 0 0 2px var(--ink), 0 6px 16px rgba(30, 20, 10, 0.25);
+  -webkit-touch-callout: default !important; pointer-events: auto; }
+#sheet .pcbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+#sheet .pcbtns button, #sheet .pcbtns a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 88px; padding: 0 16px; border-radius: 12px;
+  background: var(--paper2); color: var(--ink); font-weight: 800; font-size: 15px; text-decoration: none; box-shadow: inset 0 0 0 1.5px rgba(58, 42, 31, 0.4); }
+#sheet .pcbtns .pcgo, #sheet .pcbtns .pcsave { background: var(--teal); color: #fff7ea; box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }
+#sheet .pcbtns #pcRm { margin-left: auto; }
+#sheet .pcbtns #pcRm.sure { background: #fbe3da; color: #7a2e1c; box-shadow: inset 0 0 0 2px #b5402c; }
+#sheet p.pchow, #sheet p.pcnote { margin: 8px 2px 0; font-size: 14px; color: var(--ink2); }
+#sheet p.pcnote { color: #7a2e1c; font-weight: 700; }
+#sheet h4.pch { margin: 12px 0 4px; }
+#sheet p.pcrule { margin: 0 2px 6px; }
+.album.pcards figure button { display: block; width: 100%; padding: 0; border-radius: 5px; }
+.album.pcards img { aspect-ratio: 1200 / 780; object-fit: cover; }
 </style>
 </head>
 <body>
@@ -47376,6 +47424,888 @@ function g5CostLine(s, b) {
       Object.defineProperty(d, f, { configurable: true, enumerable: true, get() { return APP.state && ap5BoatsGone(APP.state) ? OLD[k][f] : v0; } });
     }
   }
+}
+
+// ---- src/ui/postcard_store.js
+// B2 (8 Nov 2026): the postcard (Tomáš, after "Aesthetic City Builder": she frames a view of her island and keeps it).
+// This file: the style of a card by the island's year, its stamp's value, and where the cards are kept. No DOM here:
+// tests/postcard.js loads this file alone. The drawing is postcard_art.js, the button, frame and Album postcard_ui.js.
+// Sources: docs/research/postcard.md.
+//
+// Where they are kept (the save always comes first):
+// - In IndexedDB (database SAVE_KEY + '-cards', store 'cards'), apart from the island's save and the stage photos,
+//   which stay in localStorage (SAVE_KEY, SAVE_KEY + '-album'). The browser gives IndexedDB its own room: a postcard
+//   never takes the save's room and never pushes out a stage photo.
+// - PC_CAP (12) for each island. A new one past the cap gives up the oldest of that island (the frame says so before
+//   she takes it). A new island's first postcard clears the old island's, as its first stage photo replaces the old album.
+// - Storage full (QuotaExceededError): the oldest postcards of this island make room (as many as hold the new card's
+//   bytes, at most 3, once); when they cannot, none is given up and the new one is kept in memory until the page
+//   closes, and she is told to share or save it now.
+// - No IndexedDB (a private window, the claude.ai preview's sandbox): every postcard is kept in memory for this visit,
+//   and the Album says so.
+// A record: { k, album, m (the island's month), tod (minutes since midnight), y, style, pop, rate (cents), t (Date.now()),
+//   img: ArrayBuffer (JPEG, PC_W x PC_H), thumb: ArrayBuffer (JPEG, PC_THUMB wide), bytes }. ArrayBuffers, not Blobs:
+//   every Safari that has IndexedDB stores them.
+
+const PC_CAP = 12, PC_W = 1200, PC_H = 780, PC_THUMB = 360;
+
+// The styles by year (docs/research/postcard.md). pic: the picture's box on the card (the frame on the map has its shape).
+//  - tinted (to 1914): a black-and-white photograph coloured by the printer; before 1907 the front keeps a space for the
+//    message (the address side was for the address only), from 1907 the picture fills the front;
+//  - white (1915-1929): the white border era, the border left unprinted to save ink;
+//  - linen (1930-1949): rag paper with a linen texture, bright dyes, the large letters of "Greetings from ...";
+//  - chrome (1950 on): the photochrome card, photographic colour on glossy card.
+const PC_STYLES = [
+  { k: 'tinted', from: 0, name: 'a tinted view', era: 'the tinted photographs of the 1900s', pic: [0, 0, PC_W, PC_H] },
+  { k: 'white', from: 1915, name: 'a white border card', era: 'the white border cards of 1915-1930', pic: [40, 40, PC_W - 80, PC_H - 120] },
+  { k: 'linen', from: 1930, name: 'a linen card', era: 'the linen cards of the 1930s and 1940s', pic: [24, 24, PC_W - 48, PC_H - 48] },
+  { k: 'chrome', from: 1950, name: 'a chrome card', era: 'the glossy chrome cards after 1950', pic: [0, 0, PC_W, PC_H] },
+];
+// before 1907: the undivided back (the message went on the front, beside the picture)
+const PC_UNDIVIDED = 1907, PC_UND_PIC = [26, 26, 744, PC_H - 52];
+
+function pcStyleOf(year) {
+  let st = PC_STYLES[0];
+  for (const o of PC_STYLES) if (year >= o.from) st = o;
+  if (st.k === 'tinted' && year < PC_UNDIVIDED) return Object.assign({}, st, { und: true, name: 'a tinted view with room for a message', pic: PC_UND_PIC });
+  return st;
+}
+
+// The stamp: the island's money is the dollar, so its postcard stamp follows the US postcard rate of the month (USPS,
+// "Postcard rates since 1873"): [year, month (0 = January) it took effect, cents]. After the last row, the last rate.
+const PC_RATES = [[1873, 4, 1], [1917, 10, 2], [1919, 6, 1], [1925, 3, 2], [1928, 6, 1], [1952, 0, 2], [1958, 7, 3], [1963, 0, 4],
+  [1968, 0, 5], [1971, 4, 6], [1974, 2, 8], [1975, 8, 7], [1975, 11, 9], [1978, 4, 10], [1981, 2, 12], [1981, 10, 13], [1985, 1, 14],
+  [1988, 3, 15], [1991, 1, 19], [1995, 0, 20], [2001, 6, 21], [2002, 5, 23], [2006, 0, 24], [2007, 4, 26], [2008, 4, 27],
+  [2009, 4, 28], [2011, 3, 29], [2012, 0, 32], [2013, 0, 33], [2014, 0, 34], [2015, 4, 35], [2016, 3, 34], [2018, 0, 35],
+  [2021, 0, 36], [2021, 7, 40], [2022, 6, 44], [2023, 0, 48], [2023, 6, 51], [2024, 0, 53], [2024, 6, 56], [2025, 6, 61], [2026, 6, 65]];
+function pcRate(year, mo) {
+  let c = PC_RATES[0][2];
+  for (const [y, m, v] of PC_RATES) if (year > y || (year === y && mo >= m)) c = v;
+  return c;
+}
+
+// ---------- the backends: { kind, list() -> Promise<[rec]>, put(rec) -> Promise, del(k) -> Promise } ----------
+function pcMemBackend() {
+  const m = new Map();
+  return { kind: 'mem', list: () => Promise.resolve([...m.values()]), put: (r) => { m.set(r.k, r); return Promise.resolve(); }, del: (k) => { m.delete(k); return Promise.resolve(); } };
+}
+
+// The database, or null when the browser has none or refuses it (a private window, a sandboxed frame), at most 4 s.
+function pcIdbOpen(name) {
+  return new Promise((res) => {
+    let req, done = false;
+    const end = (v) => { if (!done) { done = true; res(v); } };
+    try {
+      if (typeof indexedDB === 'undefined' || !indexedDB) return end(null);
+      req = indexedDB.open(name, 1);
+    } catch (e) { return end(null); }
+    req.onupgradeneeded = () => { try { const db = req.result; if (!db.objectStoreNames.contains('cards')) db.createObjectStore('cards', { keyPath: 'k' }); } catch (e) { /* refused: onerror follows */ } };
+    req.onsuccess = () => end(req.result);
+    req.onerror = () => end(null);
+    req.onblocked = () => end(null);
+    setTimeout(() => end(null), 4000);
+  });
+}
+
+function pcIdbBackend(db) {
+  const tx = (mode, fn) => new Promise((res, rej) => {
+    try {
+      const t = db.transaction('cards', mode), q = fn(t.objectStore('cards'));
+      t.oncomplete = () => res(q ? q.result : undefined);
+      t.onerror = () => rej(t.error || (q && q.error) || new Error('IndexedDB error'));
+      t.onabort = () => rej(t.error || (q && q.error) || new Error('IndexedDB abort'));
+    } catch (e) { rej(e); }
+  });
+  return { kind: 'idb', list: () => tx('readonly', (st) => st.getAll()), put: (r) => tx('readwrite', (st) => st.put(r)), del: (k) => tx('readwrite', (st) => st.delete(k)) };
+}
+
+function pcQuotaErr(e) {
+  const n = e && (e.name || '');
+  return n === 'QuotaExceededError' || n === 'NS_ERROR_DOM_QUOTA_REACHED' || (e && e.code === 22);
+}
+
+// Keeps rec, the newest postcard, in backend B: other islands' postcards go first; then this island's oldest past the
+// cap; when the storage is full, this island's oldest make room by size (as many as hold the new card's bytes, at most
+// 3, once), or none when they cannot. Any other error loses nothing.
+// Returns { kept: this island's count, dropped: [k], mem: true when it could not be kept (the caller keeps it in memory) }.
+async function pcKeepIn(B, rec, cap) {
+  const all = await B.list(), dropped = [];
+  for (const r of all) if (r.album !== rec.album) { await B.del(r.k); dropped.push(r.k); }
+  const mine = all.filter((r) => r.album === rec.album && r.k !== rec.k).sort((a, b) => a.t - b.t);
+  while (mine.length >= cap) { const o = mine.shift(); await B.del(o.k); dropped.push(o.k); }
+  for (let round = 0; ; round++) {
+    try {
+      await B.put(rec);
+      return { kept: mine.length + 1, dropped, mem: false };
+    } catch (e) {
+      const full = pcQuotaErr(e), mem = { kept: mine.length, dropped, mem: true, err: String((e && e.name) || e), full };
+      // room by size: the oldest whose bytes together reach the new card's, at most 3, once; when they cannot make that
+      // room, none is given up (a full device would otherwise empty her album for nothing)
+      if (!full || round >= 1) return mem;
+      let take = 0, sum = 0;
+      while (take < mine.length && take < 3 && sum < (rec.bytes || 1)) sum += mine[take++].bytes || 0;
+      if (!take || sum < (rec.bytes || 1)) return mem;
+      for (const o of mine.splice(0, take)) { try { await B.del(o.k); } catch (e2) { /* gone already */ } dropped.push(o.k); }
+    }
+  }
+}
+
+// This island's postcards in B, oldest first.
+async function pcListIn(B, album) {
+  const all = await B.list();
+  return all.filter((r) => r.album === album).sort((a, b) => a.t - b.t);
+}
+
+// Which postcard the next one replaces (null while there is room).
+function pcNextDrop(list, cap) { return list.length >= cap ? list.slice().sort((a, b) => a.t - b.t)[0] : null; }
+
+// ---- src/ui/postcard_art.js
+// B2 (8 Nov 2026): the postcard drawn by code in the style of its year (postcard_store.js PC_STYLES, sources in
+// docs/research/postcard.md). Nothing is copied: every card is made from her own map picture with canvas operations
+// (pixel adjustments, blend modes, small patterns drawn here) and type set in the device's own fonts.
+//   pcCompose(pic, info) -> a PC_W x PC_H canvas. pic: the map under the frame, at the style's picture size (st.pic);
+//   info: { year, mo, when ('March 1938'), mon ('MAR'), hour ('11 AM'), people ('2,456 people'), rate (cents), st }.
+// The stamp and the postmark sit on the picture's side here so that one image carries the whole card; on a real card
+// they went on the address side (the research note says so).
+
+const PC_FONT = {
+  script: '"Snell Roundhand", "Savoye LET", "Apple Chancery", "Brush Script MT", "URW Chancery L", "Z003", cursive',
+  hand: '"Bradley Hand", "Noteworthy", "Segoe Print", "Comic Neue", "URW Chancery L", cursive',
+  serif: 'Palatino, "Palatino Linotype", "Book Antiqua", "GFS Baskerville", Georgia, serif',
+  block: '"Avenir Next Condensed", "Futura", "Arial Narrow", "DejaVu Sans Condensed", Impact, sans-serif',
+  sans: '"Avenir Next", Avenir, "Trebuchet MS", "Segoe UI", Carlito, "DejaVu Sans", sans-serif',
+};
+
+function pcCanvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
+// (iPad Safari keeps a canvas's pixels until its size is zero)
+function pcFree(c) { if (c && c.width) { c.width = 0; c.height = 0; } }
+
+// The picture's colours, pixel by pixel (Safari's canvas has no ctx.filter): sat 0 grey .. 1 as is .. 2 twice as
+// bright; con contrast about the middle; br brightness; warm reddens (and takes blue); lift raises the blacks (ink on
+// cream paper never reaches black).
+function pcAdjust(c, o) {
+  const g = c.getContext('2d'), im = g.getImageData(0, 0, c.width, c.height), d = im.data;
+  const sat = o.sat === undefined ? 1 : o.sat, con = o.con || 1, br = o.br || 0, wr = o.warm || 0, lift = o.lift || 0, lk = 1 - lift / 255;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = d[i], gg = d[i + 1], b = d[i + 2];
+    const L = 0.299 * r + 0.587 * gg + 0.114 * b;
+    r = L + (r - L) * sat; gg = L + (gg - L) * sat; b = L + (b - L) * sat;
+    r = (r - 128) * con + 128 + br + wr; gg = (gg - 128) * con + 128 + br + wr * 0.35; b = (b - 128) * con + 128 + br - wr;
+    d[i] = lift + r * lk; d[i + 1] = lift + gg * lk; d[i + 2] = lift * 0.85 + b * lk;
+  }
+  g.putImageData(im, 0, 0);
+}
+
+// Small patterns laid over a card with 'overlay' (mid grey leaves it as it is): paper grain, the linen weave, a halftone screen.
+function pcPattern(kind) {
+  const n = kind === 'grain' ? 96 : kind === 'linen' ? 8 : 6, c = pcCanvas(n, n), q = c.getContext('2d');
+  if (kind === 'grain') {
+    const im = q.createImageData(n, n);
+    for (let i = 0; i < im.data.length; i += 4) { const v = 128 + (Math.random() - 0.5) * 110; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+    q.putImageData(im, 0, 0);
+  } else if (kind === 'linen') {
+    // the weave: darker threads across, lighter threads down
+    q.fillStyle = '#808080'; q.fillRect(0, 0, n, n);
+    q.fillStyle = '#545454'; q.fillRect(0, 0, n, 1.5); q.fillStyle = '#6a6a6a'; q.fillRect(0, 4, n, 1);
+    q.fillStyle = '#b2b2b2'; q.fillRect(0, 0, 1.4, n); q.fillStyle = '#9c9c9c'; q.fillRect(4, 0, 1, n);
+  } else {
+    // a halftone screen: a dot in each cell
+    q.fillStyle = '#8a8a8a'; q.fillRect(0, 0, n, n);
+    q.fillStyle = '#5a5a5a'; q.beginPath(); q.arc(n / 2, n / 2, 1.5, 0, Math.PI * 2); q.fill();
+  }
+  return c;
+}
+function pcOverlay(g, kind, x, y, w, h, a) {
+  const p = pcPattern(kind);
+  g.save(); g.globalCompositeOperation = 'overlay'; g.globalAlpha = a; g.fillStyle = g.createPattern(p, 'repeat'); g.fillRect(x, y, w, h); g.restore();
+  pcFree(p);
+}
+
+// A copy of the picture at w x h (cover: the middle, cut to the box).
+function pcCopy(pic, w, h, zoom) {
+  const c = pcCanvas(w, h), g = c.getContext('2d'), z = zoom || 1;
+  const k = Math.max(w / pic.width, h / pic.height) * z, dw = pic.width * k, dh = pic.height * k;
+  g.imageSmoothingEnabled = true; try { g.imageSmoothingQuality = 'high'; } catch (e) { /* old Safari */ }
+  g.drawImage(pic, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  return c;
+}
+
+// The largest size of font f(px) at which text fits in maxW.
+function pcFit(g, text, f, maxW, px, min) {
+  for (; px > (min || 10); px -= 2) { g.font = f(px); if (g.measureText(text).width <= maxW) return px; }
+  g.font = f(min || 10);
+  return min || 10;
+}
+
+// Text with a halo (outline under the fill).
+function pcText(g, text, x, y, font, fill, halo, hw, shadow) {
+  g.save(); g.font = font; g.lineJoin = 'round'; g.miterLimit = 2;
+  if (shadow) { g.shadowColor = shadow; g.shadowBlur = 8; g.shadowOffsetX = 2; g.shadowOffsetY = 3; }
+  if (halo) { g.strokeStyle = halo; g.lineWidth = hw; g.strokeText(text, x, y); g.shadowColor = 'transparent'; }
+  g.fillStyle = fill; g.fillText(text, x, y);
+  g.restore();
+}
+
+// ---------- the stamp and the postmark ----------
+// The stamp's ink by its value (one-colour engraved stamps; the colours are the game's, not any real issue's).
+function pcStampInk(c) { return { 1: '#2c6e3f', 2: '#a8322a', 3: '#5f3d86', 4: '#7a4a22', 5: '#1f5c86', 6: '#2a6f73', 8: '#5a3a2a', 10: '#b0562a' }[c] || ['#2c6e3f', '#a8322a', '#5f3d86', '#1f5c86', '#7a4a22', '#2a6f73'][c % 6]; }
+
+// The stamp, its middle at (cx, cy): perforated paper, a frame, the island's palm and the sea, "ISLA NUEVA", the value.
+function pcStamp(g, cx, cy, sc, info) {
+  const w = Math.round(92 * sc), h = Math.round(112 * sc), pad = Math.round(6 * sc), c = pcCanvas(w + 2 * pad, h + 2 * pad), q = c.getContext('2d'), ink = pcStampInk(info.rate);
+  q.translate(pad, pad);
+  q.fillStyle = '#fbf7ec'; q.fillRect(0, 0, w, h);
+  // the perforations: half holes along every edge
+  q.globalCompositeOperation = 'destination-out';
+  const step = 9 * sc, rr = 2.6 * sc;
+  for (let x = step / 2; x < w; x += step) { q.beginPath(); q.arc(x, 0, rr, 0, Math.PI * 2); q.arc(x, h, rr, 0, Math.PI * 2); q.fill(); }
+  for (let y = step / 2; y < h; y += step) { q.beginPath(); q.arc(0, y, rr, 0, Math.PI * 2); q.arc(w, y, rr, 0, Math.PI * 2); q.fill(); }
+  q.globalCompositeOperation = 'source-over';
+  const m = 8 * sc, iw = w - 2 * m, ih = h - 2 * m;
+  q.fillStyle = ink; q.fillRect(m, m, iw, ih);
+  q.fillStyle = '#fbf7ec'; q.fillRect(m + 3 * sc, m + 15 * sc, iw - 6 * sc, ih - 40 * sc);
+  // the picture, engraved in one colour: sun, sea lines, an island, a palm
+  const px = m + 3 * sc, py = m + 15 * sc, pw = iw - 6 * sc, ph = ih - 40 * sc;
+  q.save(); q.beginPath(); q.rect(px, py, pw, ph); q.clip();
+  q.strokeStyle = ink; q.fillStyle = ink; q.lineCap = 'round';
+  q.lineWidth = 1.1 * sc;
+  q.beginPath(); q.arc(px + pw * 0.72, py + ph * 0.32, 7 * sc, 0, Math.PI * 2); q.stroke();
+  for (let k = 0; k < 5; k++) { const yy = py + ph * (0.66 + k * 0.08); q.beginPath(); for (let x = px; x <= px + pw; x += 4 * sc) q.lineTo(x, yy + Math.sin(x / (3 * sc) + k) * 0.9 * sc); q.stroke(); }
+  q.beginPath(); q.ellipse(px + pw * 0.38, py + ph * 0.68, pw * 0.34, ph * 0.1, 0, Math.PI, 0); q.fill();
+  q.lineWidth = 2.2 * sc; q.beginPath(); q.moveTo(px + pw * 0.36, py + ph * 0.62); q.quadraticCurveTo(px + pw * 0.3, py + ph * 0.4, px + pw * 0.4, py + ph * 0.2); q.stroke();
+  q.lineWidth = 1.6 * sc;
+  for (const a of [-2.7, -2.1, -1.5, -0.9, -0.3]) { q.beginPath(); q.moveTo(px + pw * 0.4, py + ph * 0.2); q.quadraticCurveTo(px + pw * 0.4 + Math.cos(a) * 12 * sc, py + ph * 0.2 + Math.sin(a) * 12 * sc - 4 * sc, px + pw * 0.4 + Math.cos(a) * 19 * sc, py + ph * 0.2 + Math.sin(a) * 19 * sc + 4 * sc); q.stroke(); }
+  q.restore();
+  q.fillStyle = '#fbf7ec'; q.textAlign = 'center'; q.textBaseline = 'middle';
+  q.font = '800 ' + (10.5 * sc) + 'px ' + PC_FONT.sans; q.fillText('ISLA NUEVA', w / 2, m + 8 * sc);
+  const v = info.rate + '¢';
+  q.font = 'italic 700 ' + (21 * sc) + 'px ' + PC_FONT.serif; q.fillText(v, w / 2, h - m - 12 * sc);
+  g.save();
+  g.translate(cx, cy); g.rotate(-0.035);
+  g.shadowColor = 'rgba(30,20,10,0.35)'; g.shadowBlur = 6 * sc; g.shadowOffsetX = 2 * sc; g.shadowOffsetY = 3 * sc;
+  g.drawImage(c, -w / 2 - pad, -h / 2 - pad);
+  g.restore();
+  pcFree(c);
+  return { w, h };
+}
+
+// The postmark: a double ring with ISLA NUEVA round the top, the month, year and hour inside, and the machine's wavy
+// lines across the stamp. Inked unevenly (specks left white), multiplied onto the card.
+function pcPostmark(g, cx, cy, sc, info, toRight) {
+  const R = 54 * sc, W = Math.round(R * 2 + 190 * sc), H = Math.round(R * 2 + 16 * sc), c = pcCanvas(W, H), q = c.getContext('2d');
+  const ox = R + 8 * sc, oy = H / 2, ink = 'rgba(26,22,34,0.86)';
+  q.strokeStyle = ink; q.fillStyle = ink; q.lineWidth = 2.6 * sc;
+  q.beginPath(); q.arc(ox, oy, R, 0, Math.PI * 2); q.stroke();
+  q.lineWidth = 1.4 * sc; q.beginPath(); q.arc(ox, oy, R - 6 * sc, 0, Math.PI * 2); q.stroke();
+  // ISLA NUEVA along the top of the ring
+  const word = 'ISLA NUEVA', rr = R - 15 * sc;
+  q.font = '800 ' + (12 * sc) + 'px ' + PC_FONT.sans; q.textAlign = 'center'; q.textBaseline = 'middle';
+  const span = 2.7, a0 = -Math.PI / 2 - span / 2;
+  for (let i = 0; i < word.length; i++) {
+    const a = a0 + span * (i + 0.5) / word.length;
+    q.save(); q.translate(ox + Math.cos(a) * rr, oy + Math.sin(a) * rr); q.rotate(a + Math.PI / 2); q.fillText(word[i], 0, 0); q.restore();
+  }
+  q.font = '800 ' + (15 * sc) + 'px ' + PC_FONT.sans; q.fillText(info.mon + ' ' + info.year, ox, oy + 2 * sc);
+  q.font = '700 ' + (12 * sc) + 'px ' + PC_FONT.sans; q.fillText(info.hour, ox, oy + 20 * sc);
+  q.beginPath(); q.moveTo(ox - R * 0.55, oy - 12 * sc); q.lineTo(ox + R * 0.55, oy - 12 * sc); q.lineWidth = 1.2 * sc; q.stroke();
+  // the wavy lines (over the stamp, on its side)
+  q.lineWidth = 2.4 * sc;
+  for (let k = 0; k < 5; k++) {
+    const yy = oy + (k - 2) * 13 * sc;
+    q.beginPath();
+    for (let x = ox + R + 6 * sc; x < W - 4 * sc; x += 3 * sc) q.lineTo(x, yy + Math.sin((x - ox) / (9 * sc)) * 4.5 * sc);
+    q.stroke();
+  }
+  // uneven ink
+  q.globalCompositeOperation = 'destination-out';
+  for (let k = 0; k < 260; k++) { q.globalAlpha = 0.25 + Math.random() * 0.6; q.beginPath(); q.arc(Math.random() * W, Math.random() * H, (0.6 + Math.random() * 2.2) * sc, 0, Math.PI * 2); q.fill(); }
+  q.globalAlpha = 1; q.globalCompositeOperation = 'source-over';
+  g.save(); g.globalCompositeOperation = 'multiply';
+  g.translate(cx, cy); g.rotate(-0.06);
+  if (!toRight) g.scale(-1, 1);
+  g.drawImage(c, -ox, -oy);
+  g.restore();
+  pcFree(c);
+}
+
+// The stamp at the card's top right with its postmark beside it (the ring on the picture, the lines over the stamp).
+function pcStampCorner(g, x, y, sc, info) {
+  const s = pcStamp(g, x, y, sc, info);
+  // (the ring to the stamp's left, its wavy lines running right across the stamp)
+  pcPostmark(g, x - s.w / 2 - 52 * sc, y + 10 * sc, sc, info, true);
+}
+
+// ---------- the four styles ----------
+// to 1914: a black-and-white photograph coloured by the printer (a soft brown print, the colours laid on as washes)
+function pcTintedPic(pic, w, h) {
+  const ph = pcCopy(pic, w, h);
+  pcAdjust(ph, { sat: 0, con: 0.86, lift: 30, warm: 18 });
+  // (the washes a little off the lines, as a brush lays them)
+  const wash = pcCopy(pic, Math.max(8, w / 10), Math.max(8, h / 10));
+  pcAdjust(wash, { sat: 1.0, br: 6 });
+  const q = ph.getContext('2d');
+  q.save(); q.globalCompositeOperation = 'color'; q.globalAlpha = 0.48; q.imageSmoothingEnabled = true; q.drawImage(wash, 6, 4, w, h); q.restore();
+  pcFree(wash);
+  pcOverlay(q, 'grain', 0, 0, w, h, 0.32);
+  // the paper shows at the edges
+  const vg = q.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.72);
+  vg.addColorStop(0, 'rgba(246,236,212,0)'); vg.addColorStop(1, 'rgba(246,236,212,0.42)');
+  q.fillStyle = vg; q.fillRect(0, 0, w, h);
+  return ph;
+}
+
+function pcDrawTinted(g, pic, info) {
+  const W = PC_W, H = PC_H, st = info.st, [x, y, w, h] = st.pic;
+  if (st.und) {
+    // before 1907: the picture at the left, the space for her message at the right (the back was for the address only)
+    g.fillStyle = '#f2e7cf'; g.fillRect(0, 0, W, H);
+    pcOverlay(g, 'grain', 0, 0, W, H, 0.28);
+    const ph = pcTintedPic(pic, w, h);
+    g.drawImage(ph, x, y); pcFree(ph);
+    g.strokeStyle = 'rgba(70,50,30,0.55)'; g.lineWidth = 2; g.strokeRect(x - 1, y - 1, w + 2, h + 2);
+    pcText(g, 'Greetings from Isla Nueva', x + 22, y + 62, 'italic 700 ' + pcFit(g, 'Greetings from Isla Nueva', (p) => 'italic 700 ' + p + 'px ' + PC_FONT.script, w - 44, 54, 24) + 'px ' + PC_FONT.script, '#8c1f1a', 'rgba(250,242,224,0.95)', 7);
+    // her message, by hand, in the space beside it
+    const mx = x + w + 34, mw = W - mx - 30, ink = '#27305e';
+    g.save(); g.translate(mx, 0); g.rotate(-0.02);
+    const lines = [info.when + ',', 'Isla Nueva.', info.people, 'and more on every boat!'];
+    let yy = 300;
+    for (const t of lines) { const px = pcFit(g, t, (p) => p + 'px ' + PC_FONT.hand, mw, 42, 20); pcText(g, t, 0, yy, px + 'px ' + PC_FONT.hand, ink); yy += px * 1.45; }
+    g.restore();
+    pcStampCorner(g, W - 82, 92, 1.05, info);
+    return;
+  }
+  const ph = pcTintedPic(pic, W, H);
+  g.drawImage(ph, 0, 0); pcFree(ph);
+  const f = (p) => 'italic 700 ' + p + 'px ' + PC_FONT.script, px = pcFit(g, 'Greetings from Isla Nueva', f, W * 0.62, 66, 28);
+  pcText(g, 'Greetings from Isla Nueva', 40, 40 + px, f(px), '#8c1f1a', 'rgba(250,242,224,0.95)', 8);
+  // the printed caption, white on the picture's foot
+  pcText(g, info.when + '  ·  ' + info.people, 40, H - 36, 'italic 700 26px ' + PC_FONT.serif, '#fbf4e2', 'rgba(40,28,18,0.75)', 5);
+  pcStampCorner(g, W - 82, 92, 1.05, info);
+}
+
+// 1915-1929: the white border (printers left it unprinted to save ink), the picture in the plainer colours of the
+// American printers of the time, a halftone screen, the title printed in the border
+function pcDrawWhite(g, pic, info) {
+  const W = PC_W, H = PC_H, [x, y, w, h] = info.st.pic;
+  g.fillStyle = '#fbf9f2'; g.fillRect(0, 0, W, H);
+  const ph = pcCopy(pic, w, h);
+  pcAdjust(ph, { sat: 0.74, con: 0.9, br: 12, warm: 7 });
+  pcOverlay(ph.getContext('2d'), 'dots', 0, 0, w, h, 0.22);
+  g.drawImage(ph, x, y); pcFree(ph);
+  pcOverlay(g, 'grain', 0, 0, W, H, 0.1);
+  const by = y + h + (H - y - h) / 2 + 2;
+  g.textBaseline = 'middle';
+  const f = (p) => 'italic 700 ' + p + 'px ' + PC_FONT.serif, px = pcFit(g, 'Greetings from Isla Nueva', f, w * 0.56, 34, 18);
+  pcText(g, 'Greetings from Isla Nueva', x + 2, by, f(px), '#2f2a24');
+  const r = (info.when + '  ·  ' + info.people).toUpperCase(), f2 = (p) => '700 ' + p + 'px ' + PC_FONT.sans;
+  const p2 = pcFit(g, r, f2, w * 0.4, 19, 11);
+  g.font = f2(p2); g.textAlign = 'right'; g.fillStyle = '#5a5047'; g.fillText(r, x + w - 2, by + 2);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  pcStampCorner(g, W - 98, 104, 1.0, info);
+}
+
+// 1930-1949: linen: rag paper with a woven texture, bright dyes, and the large letters of "Greetings from ..." with
+// her island inside them
+function pcDrawLinen(g, pic, info) {
+  const W = PC_W, H = PC_H, [x, y, w, h] = info.st.pic;
+  g.fillStyle = '#f5efe1'; g.fillRect(0, 0, W, H);
+  // the airbrushed look: a softer picture, the colours bright
+  const half = pcCopy(pic, w / 2, h / 2), ph = pcCopy(half, w, h);
+  pcFree(half);
+  pcAdjust(ph, { sat: 1.75, con: 1.05, br: 16, warm: 5 });
+  g.drawImage(ph, x, y);
+  // the large letters
+  const word = 'ISLA NUEVA', fb = (p) => '900 ' + p + 'px ' + PC_FONT.block;
+  const px = pcFit(g, word, fb, w * 0.86, 230, 60);
+  g.font = fb(px);
+  const tw = g.measureText(word).width, lx = x + (w - tw) / 2, ly = y + h * 0.78;
+  // the letters' inside: her island again, closer and brighter, lit from above
+  const L = pcCanvas(W, H), lq = L.getContext('2d');
+  lq.font = fb(px); lq.fillStyle = '#000'; lq.fillText(word, lx, ly);
+  lq.globalCompositeOperation = 'source-in';
+  const zoom = pcCopy(ph, w, h, 1.3);
+  pcAdjust(zoom, { sat: 1.25, br: 18 });
+  lq.drawImage(zoom, x, y); pcFree(zoom);
+  const lg = lq.createLinearGradient(0, ly - px * 0.75, 0, ly);
+  lg.addColorStop(0, 'rgba(255,250,220,0.38)'); lg.addColorStop(0.5, 'rgba(255,250,220,0)'); lg.addColorStop(1, 'rgba(60,20,0,0.22)');
+  lq.globalCompositeOperation = 'source-atop'; lq.fillStyle = lg; lq.fillRect(0, 0, W, H);
+  pcFree(ph);
+  // the block's depth (a dark red side), its ink outline, the island inside, a thin white line
+  g.save(); g.font = fb(px); g.lineJoin = 'round';
+  for (let k = 14; k >= 1; k--) { g.fillStyle = k > 12 ? '#3a120a' : '#7c2614'; g.fillText(word, lx + k * 0.8, ly + k); }
+  g.strokeStyle = '#1b2742'; g.lineWidth = 10; g.strokeText(word, lx, ly);
+  g.restore();
+  g.drawImage(L, 0, 0); pcFree(L);
+  g.save(); g.font = fb(px); g.strokeStyle = 'rgba(255,252,240,0.95)'; g.lineWidth = 2.4; g.strokeText(word, lx, ly); g.restore();
+  // "Greetings from" over the letters' left shoulder
+  const fs = (p) => 'italic 700 ' + p + 'px ' + PC_FONT.script, gp = pcFit(g, 'Greetings from', fs, w * 0.5, 74, 30);
+  pcText(g, 'Greetings from', lx + 6, ly - px * 0.78 - 14, fs(gp), '#fffaf0', '#1b2742', 9, 'rgba(0,0,0,0.35)');
+  // the date and the people on a band under the letters
+  const band = info.when + '  ·  ' + info.people, fbn = (p) => '800 ' + p + 'px ' + PC_FONT.sans, bp = pcFit(g, band, fbn, w * 0.6, 24, 14);
+  g.font = fbn(bp);
+  const bw = g.measureText(band).width + 40, bx = x + (w - bw) / 2, byy = Math.min(y + h - bp - 22, ly + 30);
+  g.fillStyle = '#c2381f'; g.strokeStyle = '#1b2742'; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(bx + 12, byy); g.lineTo(bx + bw - 12, byy); g.lineTo(bx + bw, byy + (bp + 16) / 2); g.lineTo(bx + bw - 12, byy + bp + 16); g.lineTo(bx + 12, byy + bp + 16); g.lineTo(bx, byy + (bp + 16) / 2); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#fff7e6'; g.textBaseline = 'middle'; g.fillText(band, bx + 20, byy + (bp + 16) / 2 + 1); g.textBaseline = 'alphabetic';
+  // the linen weave over the whole card (the border too)
+  pcOverlay(g, 'linen', 0, 0, W, H, 0.42);
+  pcStampCorner(g, W - 86, 92, 1.0, info);
+}
+
+// 1950 on: chrome: photographic colour on a glossy card, the picture to the edges, the greeting in white script
+function pcDrawChrome(g, pic, info) {
+  const W = PC_W, H = PC_H;
+  const ph = pcCopy(pic, W, H);
+  pcAdjust(ph, { sat: 1.25, con: 1.13, br: 3, warm: 7 });
+  g.drawImage(ph, 0, 0); pcFree(ph);
+  // a darker foot for the white words, then the gloss
+  const fg = g.createLinearGradient(0, H * 0.58, 0, H);
+  fg.addColorStop(0, 'rgba(10,20,30,0)'); fg.addColorStop(1, 'rgba(10,20,30,0.42)');
+  g.fillStyle = fg; g.fillRect(0, 0, W, H);
+  g.save(); g.globalCompositeOperation = 'screen';
+  const gl = g.createLinearGradient(0, 0, W * 0.75, H);
+  gl.addColorStop(0, 'rgba(255,255,255,0.20)'); gl.addColorStop(0.42, 'rgba(255,255,255,0.05)'); gl.addColorStop(0.5, 'rgba(255,255,255,0)');
+  g.fillStyle = gl; g.fillRect(0, 0, W, H); g.restore();
+  const fs = (p) => 'italic 700 ' + p + 'px ' + PC_FONT.script;
+  pcText(g, 'Greetings from', 46, H - 168, fs(44), '#ffffff', null, 0, 'rgba(0,0,0,0.6)');
+  const np = pcFit(g, 'Isla Nueva', fs, W * 0.55, 104, 40);
+  pcText(g, 'Isla Nueva', 40, H - 78, fs(np), '#ffffff', null, 0, 'rgba(0,0,0,0.6)');
+  pcText(g, info.when + '  ·  ' + info.people, 50, H - 34, '700 24px ' + PC_FONT.sans, '#fffdf6', null, 0, 'rgba(0,0,0,0.7)');
+  pcStampCorner(g, W - 82, 92, 1.0, info);
+}
+
+function pcCompose(pic, info) {
+  const c = pcCanvas(PC_W, PC_H), g = c.getContext('2d');
+  g.fillStyle = '#fbf8f0'; g.fillRect(0, 0, PC_W, PC_H);
+  const k = info.st.k;
+  if (k === 'white') pcDrawWhite(g, pic, info);
+  else if (k === 'linen') pcDrawLinen(g, pic, info);
+  else if (k === 'chrome') pcDrawChrome(g, pic, info);
+  else pcDrawTinted(g, pic, info);
+  return c;
+}
+
+// The card as a JPEG Blob (toBlob; an old browser's toDataURL turned into one).
+function pcBlob(c, q) {
+  return new Promise((res) => {
+    const viaUrl = () => { try { const u = c.toDataURL('image/jpeg', q), b = atob(u.split(',')[1]), a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); res(new Blob([a], { type: 'image/jpeg' })); } catch (e) { res(null); } };
+    try { if (c.toBlob) c.toBlob((b) => (b ? res(b) : viaUrl()), 'image/jpeg', q); else viaUrl(); } catch (e) { viaUrl(); }
+  });
+}
+// A Blob's bytes (Blob.arrayBuffer is Safari 14+; FileReader before).
+function pcBytes(b) {
+  if (b.arrayBuffer) return b.arrayBuffer();
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsArrayBuffer(b); });
+}
+// A Blob as a data: URL (the large view: a long press saves a data: picture to Photos).
+function pcDataUrl(b) {
+  return new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(''); r.readAsDataURL(b); });
+}
+
+// ---- src/ui/postcard_ui.js
+// B2 (8 Nov 2026): the postcard. She frames a view of her own island and taps once; the game makes a postcard of it in
+// the style of its year (postcard_art.js), keeps it in the Album (postcard_store.js) and lets her open, save and send it.
+// - The camera: a round map button, hanging under the row's left end (Land value hangs under its right end). Hidden
+//   while a sheet, a placement (a tool, a ghost, a move), the stage ritual, the facility screen or the title is open.
+// - Its first tap shows the frame: a postcard-shaped window over the map (the picture's shape of the year's style),
+//   the rest dimmed, the HUD put away, the clock paused; she pans, zooms and turns the island under it. "Take" (the
+//   second tap; Enter on a keyboard) makes the card, "Cancel" (Esc) puts everything back as it was (the clock's speed,
+//   a layer that was on). Inside the frame the map shows as the card will: without bubbles, labels or marks.
+// - The picture: the map canvas under the frame as drawn before its marks (render/iso.js reads ui.hudRects right
+//   before the first mark: the page is copied at that moment, iso.js itself is not changed), at device pixels, scaled
+//   to the style's picture (1200 x 780 card). Day or night as on the map.
+// - The card goes into the Album (its own section, its own cap of 12, apart from the stage photos), opens large, and
+//   Share sends the JPEG (navigator.share with the file); where the browser cannot share, one line says how to keep it
+//   (press and hold on the iPad; right-click on a Mac). A mouse in a page of its own also gets Save (a download).
+// - Nothing in the island changes: no money, no score, nothing built or moved (s.albumId is set as the stage photo does).
+
+const PC_CAM = '<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3.8 7.4h3.4l1.5-2.2h6.6l1.5 2.2h3.4c.9 0 1.6.7 1.6 1.6v9.2c0 .9-.7 1.6-1.6 1.6H3.8c-.9 0-1.6-.7-1.6-1.6V9c0-.9.7-1.6 1.6-1.6z"/>' +
+  '<circle cx="12" cy="13.4" r="4.4" fill="#f8eed6"/><circle cx="12" cy="13.4" r="2.5" fill="#2e9a91"/><path d="M17.6 9.4h1.6" fill="none" stroke-width="1.4"/></svg>';
+const PC_ALBUM_RULE = 'A postcard is a view you frame yourself: tap the camera on the map, beside the turn buttons. Each is made in the style of its year: a tinted view to 1914, a white border to 1929, linen with large letters to 1949, glossy chrome after. This device keeps the last ' + PC_CAP + ', apart from the stage photos; a new one past ' + PC_CAP + ' replaces the oldest.';
+
+// ---------- the store for this page ----------
+// PCS.B: IndexedDB's backend, or memory when the browser has none; PCS.mem: postcards the backend could not keep (kept
+// until the page closes); PCS.urls: the Album's thumbnails (object URLs, freed when a postcard goes).
+const PCS = { B: null, ready: null, mem: [], urls: {} };
+function pcStore() {
+  if (!PCS.ready) PCS.ready = pcIdbOpen(SAVE_KEY + '-cards').then((db) => (PCS.B = db ? pcIdbBackend(db) : pcMemBackend()));
+  return PCS.ready;
+}
+// The island's album id (as albumAdd makes it); a new one is saved at once, or her postcards would not find their
+// island after a reload.
+function pcAlbumId() {
+  const s = APP.state;
+  if (!s.albumId) { s.albumId = 'a' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); gameSave(); }
+  return s.albumId;
+}
+// This island's postcards, oldest first.
+async function pcCards() {
+  const s = APP.state;
+  if (!s || !s.albumId) return [];
+  const B = await pcStore();
+  let list = [];
+  try { list = await pcListIn(B, s.albumId); } catch (e) { list = []; }
+  return list.concat(PCS.mem.filter((r) => r.album === s.albumId)).sort((a, b) => a.t - b.t);
+}
+async function pcKeep(rec) {
+  const B = await pcStore();
+  let res;
+  try { res = await pcKeepIn(B, rec, PC_CAP); } catch (e) { res = { kept: 0, dropped: [], mem: true, err: String((e && e.name) || e) }; }
+  if (res.mem) PCS.mem = PCS.mem.filter((r) => r.album === rec.album).concat([rec]).slice(-PC_CAP);
+  for (const k of res.dropped || []) pcUrlFree(k);
+  PCS.last = res;
+  return res;
+}
+async function pcRemove(k) {
+  const B = await pcStore();
+  try { await B.del(k); } catch (e) { /* gone already */ }
+  PCS.mem = PCS.mem.filter((r) => r.k !== k);
+  pcUrlFree(k);
+}
+function pcUrlFree(k) { if (PCS.urls[k]) { try { URL.revokeObjectURL(PCS.urls[k]); } catch (e) { /* ignore */ } delete PCS.urls[k]; } }
+function pcThumbUrl(r) {
+  if (!PCS.urls[r.k]) PCS.urls[r.k] = URL.createObjectURL(new Blob([r.thumb || r.img], { type: 'image/jpeg' }));
+  return PCS.urls[r.k];
+}
+
+// ---------- words ----------
+function pcYearOf(m) { return TUNE.startYear + Math.floor(m / 12); }
+function pcWhen(r) { return MONTHS[r.m % 12] + ' ' + r.y; }
+function pcHour(tod) { const h = Math.floor(((tod % 1440) + 1440) % 1440 / 60); return (h % 12 || 12) + (h < 12 ? ' AM' : ' PM'); }
+function pcPeople(n) { return Number(n).toLocaleString('en-US') + (n === 1 ? ' person' : ' people'); }
+
+// ---------- the camera button ----------
+{
+  const _ri = rotInit;
+  rotInit = function () {
+    const r = _ri.apply(this, arguments), el = $('rotbtns');
+    if (el && el.style.display !== 'none' && !$('bPost')) {
+      const b = document.createElement('button');
+      b.id = 'bPost'; b.title = 'Postcard'; b.setAttribute('aria-label', 'Postcard: frame a view of your island'); b.innerHTML = PC_CAM;
+      el.appendChild(b);
+      b.addEventListener('click', () => pcFrameOpen());
+      APP.rotKey = '';
+      // (while framing: Esc cancels, Enter takes; the space bar does not start the clock; the view keys Q E T still turn)
+      window.addEventListener('keydown', (e) => {
+        if (!APP.pc) return;
+        if (e.key === 'Escape') { pcFrameClose(); e.preventDefault(); e.stopImmediatePropagation(); } else if (e.key === 'Enter') { pcTake(); e.preventDefault(); e.stopImmediatePropagation(); } else if (e.key === ' ') { e.preventDefault(); e.stopImmediatePropagation(); }
+      }, true);
+      pcStore();
+    }
+    return r;
+  };
+}
+function pcOpen(id) { const e = $(id); return !!(e && e.classList.contains('show')); }
+// Hidden while a sheet or a placement is open (and on the title, in the ritual, on a facility's screen, while framing).
+function pcBtnHide() {
+  return !APP.state || APP.titleOn || !APP.R || APP.R.kind === 'flat' || !!APP.pc || APP.ui.tool !== 'look' || !!APP.ui.ghost || !!APP.ui.move || !!APP.ui.ritual ||
+    pcOpen('sheet') || pcOpen('greet') || document.body.classList.contains('fac-on') || document.body.classList.contains('titled');
+}
+{
+  const _rp = rotPlace;
+  rotPlace = function () {
+    const b = $('bPost');
+    if (b) { const hide = pcBtnHide(); if (b.classList.contains('pchide') !== hide) { if (hide && b.offsetWidth) uiGone(b); b.classList.toggle('pchide', hide); } }
+    const r = _rp.apply(this, arguments);
+    if (b) pcBtnSide(b);
+    if (APP.pc) pcFramePlace();
+    return r;
+  };
+}
+// Under the row's left end, unless a legend stands there (the Land value legend steps below the row at 820 x 1180):
+// then on the row's line, at its left.
+function pcBtnSide(b) {
+  const el = $('rotbtns');
+  let side = false;
+  if (b.offsetWidth && window.innerWidth > 600) {
+    const r = el.getBoundingClientRect(), u = { l: r.left, t: r.bottom + 6, r: r.left + b.offsetWidth, b: r.bottom + 6 + b.offsetHeight };
+    for (const id of ['lvlegend', 'trlegend', 'moneyLegend']) {
+      const e = $(id);
+      if (!e || !e.offsetWidth || getComputedStyle(e).visibility === 'hidden') continue;
+      const q = e.getBoundingClientRect();
+      if (q.left < u.r && q.right > u.l && q.top < u.b && q.bottom > u.t) side = true;
+    }
+  }
+  if (b.classList.contains('pcside') !== side) { if (b.offsetWidth) uiGone(b); b.classList.toggle('pcside', side); }
+}
+
+// ---------- the frame ----------
+function pcFrameEls() {
+  if ($('pcFrame')) return;
+  const f = document.createElement('div');
+  f.id = 'pcFrame'; f.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(f);
+  const b = document.createElement('div');
+  b.id = 'pcBar'; b.className = 'panel'; b.setAttribute('role', 'group'); b.setAttribute('aria-label', 'Postcard');
+  b.innerHTML = '<p class="pct" id="pcText"></p><span class="pcbs"><button id="pcCancel">Cancel</button><button id="pcTake">Take</button></span>';
+  document.body.appendChild(b);
+  $('pcCancel').addEventListener('click', () => pcFrameClose());
+  $('pcTake').addEventListener('click', () => pcTake());
+}
+
+function pcFrameOpen() {
+  if (APP.pc || pcBtnHide()) return;
+  const s = APP.state, y = pcYearOf(s.month), st = pcStyleOf(y);
+  APP.pc = { st, y, speed: APP.speed, layers: { tr: APP.ui.layer === 'traffic', land: !!APP.ui.land, money: !!APP.ui.money }, box: null, t0: performance.now() };
+  const P = APP.pc;
+  uiGone($('bPost'));
+  speedSet(0);
+  cardClose();
+  if (P.layers.tr) trafficToggle(false);
+  if (P.layers.land && typeof landLayer === 'function') landLayer(false);
+  if (P.layers.money && typeof moneyLayer === 'function') moneyLayer(false);
+  pcFrameEls();
+  $('pcTake').disabled = false; $('pcTake').textContent = 'Take';
+  const head = '<b>' + esc(st.name[0].toUpperCase() + st.name.slice(1)) + ' of ' + y + '</b> ';
+  $('pcText').innerHTML = head + '<span>Move and zoom the island under the frame, then Take.</span>';
+  document.body.classList.add('pcframing');
+  APP.rotKey = '';
+  pcFramePlace();
+  // the Album's cap, said before she takes it
+  pcCards().then((list) => {
+    if (APP.pc !== P) return;
+    const o = pcNextDrop(list, PC_CAP);
+    P.drop = o ? pcWhen(o) : '';
+    if (o) $('pcText').innerHTML = head + '<span>Move and zoom the island under the frame. The album keeps ' + PC_CAP + ': this one replaces the oldest (' + esc(P.drop) + ').</span>';
+  });
+}
+
+function pcFrameClose() {
+  const P = APP.pc;
+  if (!P) return;
+  APP.pc = null;
+  const bar = $('pcBar');
+  if (bar && bar.offsetWidth) uiGone(bar);
+  document.body.classList.remove('pcframing');
+  pcFree(P.hold); P.hold = null;
+  if (P.layers.tr) trafficToggle(true);
+  if (P.layers.land && typeof landLayer === 'function') landLayer(true);
+  if (P.layers.money && typeof moneyLayer === 'function') moneyLayer(true);
+  speedSet(P.speed);
+  APP.rotKey = '';
+  APP.hudKey = '';
+}
+
+// The window: the picture's shape of the year's style, as large as fits between the round buttons and the bar.
+function pcFramePlace() {
+  const P = APP.pc, f = $('pcFrame'), bar = $('pcBar');
+  if (!P || !f || !bar) return;
+  const W = window.innerWidth, H = window.innerHeight, ins = safeInsets(), gap = 12;
+  const rb = [...document.querySelectorAll('#rotbtns button')].filter((e) => e.offsetWidth && getComputedStyle(e).visibility !== 'hidden').map((e) => e.getBoundingClientRect());
+  const top = Math.max(gap + ins.t, ...rb.map((r) => r.bottom + gap)), bot = bar.getBoundingClientRect().top - gap;
+  const a = P.st.pic[2] / P.st.pic[3];
+  let w = W - 2 * gap - ins.l - ins.r - 8, h = w / a;
+  if (h > bot - top) { h = Math.max(60, bot - top); w = h * a; }
+  const x = Math.round(ins.l + (W - ins.l - ins.r - w) / 2), y = Math.round(top + Math.max(0, (bot - top - h) / 2));
+  w = Math.round(w); h = Math.round(h);
+  const key = x + ',' + y + ',' + w + ',' + h;
+  if (P.key === key) return;
+  P.key = key; P.box = { x, y, w, h };
+  Object.assign(f.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+}
+
+// Taps on the map do nothing while framing (no card opens, nothing is built); a notice waits until the frame is gone.
+{
+  const _tap = tapAt;
+  tapAt = function () { if (APP.pc) return; return _tap.apply(this, arguments); };
+  const _tb = toastBlocked;
+  toastBlocked = function () { return !!APP.pc || _tb.apply(this, arguments); };
+}
+
+// ---------- the picture: the map under the frame, before its marks ----------
+// While framing, each frame of the map is copied under the frame at the moment the renderer reads ui.hudRects (right
+// after the scene, the day's tint and its lights; before bubbles, tags, labels, glows and the ghost) and put back over
+// the frame after the frame is drawn: inside the window the map shows as the card will. A Take copies that moment into
+// the card's picture.
+function pcGrab(R, P) {
+  const c = R.canvas, k = c.width / (c.clientWidth || window.innerWidth), b = P.box;
+  if (!b) return;
+  const sx = Math.max(0, Math.round(b.x * k)), sy = Math.max(0, Math.round(b.y * k));
+  const sw = Math.min(c.width - sx, Math.round(b.w * k)), sh = Math.min(c.height - sy, Math.round(b.h * k));
+  if (sw < 8 || sh < 8) return;
+  P.src = [sx, sy, sw, sh];
+  if (!P.hold || P.hold.width !== sw || P.hold.height !== sh) { pcFree(P.hold); P.hold = pcCanvas(sw, sh); }
+  P.hold.getContext('2d').drawImage(c, sx, sy, sw, sh, 0, 0, sw, sh);
+  if (P.shoot) {
+    const pic = pcCanvas(P.st.pic[2], P.st.pic[3]), q = pic.getContext('2d');
+    q.imageSmoothingEnabled = true; try { q.imageSmoothingQuality = 'high'; } catch (e) { /* old Safari */ }
+    q.drawImage(c, sx, sy, sw, sh, 0, 0, pic.width, pic.height);
+    const f = P.shoot; P.shoot = null; P.shotPx = [sw, sh];
+    f(pic);
+  }
+}
+function pcHoldBack(R, P) {
+  if (!P.hold || !P.src) return;
+  const g = R.canvas.getContext('2d');
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  g.drawImage(P.hold, P.src[0], P.src[1]);
+  g.restore();
+}
+{
+  const _rd = renderDraw;
+  renderDraw = function (R, s, view, ui) {
+    const P = APP.pc;
+    if (!P || !P.box || !R || R.kind === 'flat' || !ui) return _rd.apply(this, arguments);
+    let got = false;
+    const u = Object.create(ui, { hudRects: { get() { if (!got) { got = true; try { pcGrab(R, P); } catch (e) { /* the frame shows the marks */ } } return ui.hudRects; }, configurable: true } });
+    const r = _rd.call(this, R, s, view, u);
+    // (what the renderer wrote on its ui this frame, back on the page's)
+    for (const k of Object.keys(u)) ui[k] = u[k];
+    if (got && !R.turn && !R.fade) pcHoldBack(R, P);
+    return r;
+  };
+}
+
+// The view is still and painted: no finger, no flight, no turn or switch of view, nothing moved for 250 ms, nothing
+// left to paint (at most 1.5 s of waiting, then the picture is taken as it is).
+function pcSettled() {
+  const R = APP.R, now = performance.now();
+  return !APP.gesturing && !APP.fly && !R.turn && !R.fade && !R.pending && !R.holdN && now - (R.movedT || 0) > 250;
+}
+
+function pcTake() {
+  const P = APP.pc;
+  if (!P || P.busy || !P.box) return;
+  P.busy = true;
+  const tk = $('pcTake');
+  if (tk) { tk.disabled = true; tk.textContent = 'Taking…'; }
+  const t0 = performance.now();
+  const go = () => {
+    if (APP.pc !== P) return;
+    if (!pcSettled() && performance.now() - t0 < 1500) { setTimeout(go, 60); return; }
+    P.shoot = (pic) => { P.pic = pic; };
+    renderDraw(APP.R, APP.state, APP.view, APP.ui);
+    const pic = P.pic;
+    P.pic = null;
+    if (!pic) { P.busy = false; if (tk) { tk.disabled = false; tk.textContent = 'Take'; } toastShow('The postcard could not be taken: try again.'); return; }
+    const f = $('pcFrame');
+    if (f) { f.classList.remove('flash'); void f.offsetWidth; f.classList.add('flash'); }
+    try { audioCue('tap'); } catch (e) { /* no sound */ }
+    setTimeout(() => pcMake(P, pic), 30);
+  };
+  go();
+}
+
+// The card from the picture, kept, then shown large.
+async function pcMake(P, pic) {
+  const s = APP.state, y = P.y, mo = s.month % 12, tod = typeof dayClock === 'function' ? dayClock(s) : 720;
+  const info = { year: y, mo, when: MONTHS[mo] + ' ' + y, mon: MONTHS[mo].slice(0, 3).toUpperCase(), hour: pcHour(tod), pop: popCount(s), people: pcPeople(popCount(s)), rate: pcRate(y, mo), st: P.st };
+  let card = null, img = null, th = null;
+  try {
+    card = pcCompose(pic, info);
+    img = await pcBlob(card, 0.84);
+    const t = pcCanvas(PC_THUMB, Math.round(PC_THUMB * PC_H / PC_W)), tq = t.getContext('2d');
+    tq.imageSmoothingEnabled = true; try { tq.imageSmoothingQuality = 'high'; } catch (e) { /* old Safari */ }
+    tq.drawImage(card, 0, 0, t.width, t.height);
+    th = await pcBlob(t, 0.75);
+    pcFree(t);
+  } catch (e) { img = null; }
+  pcFree(card); pcFree(pic);
+  if (!img) { if (APP.pc === P) pcFrameClose(); toastShow('The postcard could not be made on this device.'); return; }
+  const rec = { k: 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36), album: pcAlbumId(), m: s.month, tod, y, style: P.st.k, und: !!P.st.und, pop: info.pop, rate: info.rate, t: Date.now(),
+    img: await pcBytes(img), thumb: th ? await pcBytes(th) : null, bytes: img.size, w: PC_W, h: PC_H, shotPx: P.shotPx || null };
+  if (APP.pc === P) pcFrameClose();
+  const res = await pcKeep(rec);
+  pcView(rec, { fresh: true, res, drop: P.drop || '' });
+}
+
+// ---------- the postcard, large: Share, or how to keep it ----------
+function pcFile(rec) {
+  const name = 'isla-nueva-' + rec.y + '-' + String(rec.m % 12 + 1).padStart(2, '0') + '.jpg', blob = new Blob([rec.img], { type: 'image/jpeg' });
+  let file = null;
+  try { file = new File([blob], name, { type: 'image/jpeg' }); } catch (e) { file = null; }
+  return { name, blob, file };
+}
+function pcCanShare(file) {
+  try { return !!(file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (e) { return false; }
+}
+function pcMouse() { try { return window.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (e) { return false; } }
+function pcTopWindow() { try { return window.top === window.self; } catch (e) { return false; } }
+function pcHowLine(mouse, refused) {
+  const keep = mouse ? 'Right-click the postcard and choose Save Image As… to keep a copy.' : 'Press and hold the postcard to save it to Photos.';
+  return refused ? 'Sharing is not allowed here. ' + keep : keep;
+}
+
+function pcView(rec, o) {
+  o = o || {};
+  const fl = pcFile(rec), share = pcCanShare(fl.file), mouse = pcMouse(), save = mouse && pcTopWindow(), st = pcStyleOf(rec.y);
+  const url = URL.createObjectURL(fl.blob), notes = [];
+  if (o.fresh && o.res && o.res.mem) notes.push(o.res.full ? 'This device’s storage is full: this postcard is kept only until the game is closed. Share or save it now.' : 'This browser could not keep the postcard: it stays only until the game is closed. Share or save it now.');
+  else if (PCS.B && PCS.B.kind === 'mem') notes.push('This browser does not keep postcards between visits (a private window or a preview): share or save it now.');
+  if (o.fresh && o.drop && o.res && !o.res.mem && (o.res.dropped || []).length) notes.push('The album keeps ' + PC_CAP + ' postcards: the one of ' + o.drop + ' made room for it.');
+  sheetOpen('<h2>Greetings from Isla Nueva</h2><p class="sub">' + esc(pcWhen(rec)) + ' · ' + esc(st.name) + ' · ' + esc(pcPeople(rec.pop)) + ' · a ' + rec.rate + '¢ stamp</p>' +
+    '<div class="pcpic"><img id="pcImg" alt="' + esc('Your postcard of Isla Nueva, ' + pcWhen(rec)) + '"></div>' +
+    '<div class="pcbtns">' + (share ? '<button id="pcShare" class="pcgo">Share</button>' : '') + (save ? '<a id="pcSave" class="pcsave" role="button" href="' + url + '" download="' + fl.name + '">Save</a>' : '') +
+    '<button id="pcAlbum">Album</button><button id="pcRm">Remove</button></div>' +
+    '<p class="pchow" id="pcHow"' + (share ? ' hidden' : '') + '>' + esc(pcHowLine(mouse, false)) + '</p>' + notes.map((t) => '<p class="pcnote">' + esc(t) + '</p>').join(''), () => {
+    $('sheet').classList.remove('pcview');
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ } }, 1000);
+  });
+  $('sheet').classList.add('pcview');
+  const im = $('pcImg');
+  // (her long press and right-click reach the picture: the page stops them elsewhere, ios.js)
+  for (const ev of ['contextmenu', 'selectstart']) im.addEventListener(ev, (e) => e.stopPropagation());
+  pcDataUrl(fl.blob).then((d) => { if ($('pcImg') === im) im.src = d || url; });
+  if (share) {
+    $('pcShare').addEventListener('click', () => {
+      APP.pcShared = { name: fl.name, type: fl.file.type, size: fl.file.size };
+      let p;
+      try { p = navigator.share({ files: [fl.file] }); } catch (e) { p = Promise.reject(e); }
+      Promise.resolve(p).then(() => { APP.pcShared.ok = true; }).catch((e) => {
+        APP.pcShared.err = String((e && e.name) || e);
+        if (e && e.name === 'AbortError') return;
+        const h = $('pcHow');
+        if (h) { h.textContent = pcHowLine(mouse, true); h.hidden = false; }
+      });
+    });
+  }
+  $('pcAlbum').addEventListener('click', () => { sheetClose(); albumOpen(); });
+  const rm = $('pcRm');
+  rm.addEventListener('click', () => {
+    if (!rm.classList.contains('sure')) {
+      rm.classList.add('sure'); rm.textContent = 'Tap again to remove';
+      clearTimeout(APP.pcRmT); APP.pcRmT = setTimeout(() => { if (rm.isConnected) { rm.classList.remove('sure'); rm.textContent = 'Remove'; } }, 3000);
+      return;
+    }
+    pcRemove(rec.k).then(() => { sheetClose(); albumOpen(); });
+  });
+}
+
+// ---------- the Album: postcards in their own section ----------
+{
+  const _ao = albumOpen;
+  albumOpen = function () {
+    const r = _ao.apply(this, arguments);
+    const sh = $('sheet'), h = sh && sh.querySelector('h2'), sub = sh && sh.querySelector('.sub');
+    if (h && !$('pcCards')) {
+      h.insertAdjacentHTML('afterend', '<h4 class="pch">Postcards</h4><p class="rule pcrule">' + esc(PC_ALBUM_RULE) + '</p><div class="album pcards" id="pcCards"><p class="empty">…</p></div>' +
+        (sub ? '<h4 class="pch">Photographs of the stages</h4>' : ''));
+      pcAlbumFill();
+    }
+    return r;
+  };
+  // a sheet opened over the postcard's view is an ordinary sheet again
+  const _so = sheetOpen;
+  sheetOpen = function () { const sh = $('sheet'); if (sh) sh.classList.remove('pcview'); return _so.apply(this, arguments); };
+}
+function pcAlbumFill() {
+  pcCards().then((list) => {
+    const el = $('pcCards');
+    if (!el) return;
+    const mem = PCS.B && PCS.B.kind === 'mem';
+    el.innerHTML = (list.length ? list.slice().reverse().map((r) => '<figure class="pc"><button class="pcopen" data-k="' + r.k + '" aria-label="' + esc('Open the postcard of ' + pcWhen(r)) + '"><img alt="" src="' + pcThumbUrl(r) + '"></button>' +
+      '<figcaption><b>' + esc(pcWhen(r)) + '</b><span>' + esc(pcStyleOf(r.y).name) + ' · ' + esc(pcPeople(r.pop)) + '</span></figcaption></figure>').join('') :
+      '<p class="empty">No postcards yet: tap the camera on the map, frame a view of your island and take it.</p>') +
+      (mem ? '<p class="pcnote">This browser does not keep postcards between visits (a private window or a preview): share or save each one.</p>' : '');
+    el.dataset.n = String(list.length);
+    el.querySelectorAll('.pcopen').forEach((b) => b.addEventListener('click', () => { const rec = list.find((q) => q.k === b.dataset.k); if (rec) pcView(rec); }));
+  });
+}
+
+// What the console shows: the store, the cards, the frame.
+function pcState() {
+  return pcCards().then((list) => ({ store: PCS.B ? PCS.B.kind : 'opening', mem: PCS.mem.length, cards: list.map((r) => ({ k: r.k, when: pcWhen(r), style: r.style, und: !!r.und, rate: r.rate, bytes: r.bytes, shotPx: r.shotPx })),
+    frame: APP.pc ? Object.assign({ style: APP.pc.st.k }, APP.pc.box) : null, last: PCS.last || null }));
 }
 
 // ---- src/ui/phone.js
