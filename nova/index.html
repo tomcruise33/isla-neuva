@@ -34695,9 +34695,14 @@ const ISO = (() => {
   //    The ground is painted into the chunks (repainted where a street's step changes, at a month's end); the lamps
   //    are objects among the buildings, lit at night by A1's street lamps (the same places); the homes' looks are
   //    sprites of their own (a key per step). Cheap: nothing is drawn per frame that was not drawn before, but the
-  //    lanterns' glows (at most BM_LANTERNS).
+  //    lanterns' glows (at most BM_LANTERNS) and the strung lights' bulbs (at most BM_BULBS).
+  //    B1b (Tomáš, 8 Nov: "výraznejšie ulice", the steps hardly showed at the iPad's zoom): each step stronger. 40: a pale
+  //    swept band with its edge kept and whitewashed kerb stones, a stout lamp every other tile; 60: fronts in fresh
+  //    Caribbean colours with white trim, strong doors and shutters, deeper flower boxes, wider awnings, flower pots by
+  //    the doors on the verge; 75: grey cobbles in dark-jointed fan rows, a bigger door lantern with a pool of light on
+  //    the street, lights strung across every other tile (bunting by day).
   // 3. The plans: the street her card is about outlined; the lots a step on it would take, dotted with the step's words.
-  const BM_LANTERNS = 40;
+  const BM_LANTERNS = 40, BM_BULBS = 96;
   function bmOn(s) { return !!s && typeof beautyLive === 'function' && beautyLive(s) && !!s.beauty && s.beauty.m >= 0; }
   function bmCols(v) { return typeof bmCol === 'function' ? bmCol(v) : '#e0c060'; }
   // A road tile's step (0-3), from the month's measure (sim/beauty.js beautyTiers).
@@ -34839,32 +34844,63 @@ const ISO = (() => {
       const a = [bw ? x + 0.5 - dx * 0.5 : cx, bw ? y + 0.5 - dy * 0.5 : cy], b = [fw ? x + 0.5 + dx * 0.5 : cx, fw ? y + 0.5 + dy * 0.5 : cy];
       const line = (w, col) => { g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.strokeStyle = col; g.lineWidth = w; g.stroke(); };
       if (k >= 3) {
-        // cobbles in fan-shaped rows (segmental arcs across the street), on a stone bed with a gutter down the middle
-        if (kind === 1) { line(RW + 0.04, '#857b6d'); line(RW - 0.02, '#e6dfcf'); }
-        line(RW - 0.1, '#d6cab2');
-        const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(L / 0.12)), half = (RW - 0.12) / 2;
-        g.beginPath();
-        for (let q = 0; q <= n; q++) {
-          const u = q / n, px = lerp(a[0], b[0], u), py = lerp(a[1], b[1], u);
-          // an arc bulging along the street: from one kerb through the middle to the other
-          const ex = -dy * half, ey = dx * half;
-          g.moveTo(px + ex, py + ey); g.quadraticCurveTo(px + dx * 0.09, py + dy * 0.09, px - ex, py - ey);
-        }
-        g.strokeStyle = 'rgba(120,104,84,.55)'; g.lineWidth = 0.014; g.stroke();
-        line(0.03, 'rgba(150,135,110,.55)');
+        // cobbles (B1b: to read at the iPad's zoom): grey stones between dark kerbs, in fan-shaped rows (segmental arcs
+        // across the street) whose dark joints show, a light gutter down the middle
+        line(RW + (kind === 1 ? 0.06 : 0.02), '#5d5852');
+        line(RW - 0.05, '#b7b3ab');
+        const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(L / 0.13)), half = (RW - 0.08) / 2;
+        const fan = (lw, col, off) => {
+          g.beginPath();
+          for (let q = 0; q <= n; q++) {
+            const u = q / n, px = lerp(a[0], b[0], u) + dx * off, py = lerp(a[1], b[1], u) + dy * off;
+            // an arc bulging along the street: from one kerb through the middle to the other
+            const ex = -dy * half, ey = dx * half;
+            g.moveTo(px + ex, py + ey); g.quadraticCurveTo(px + dx * 0.1, py + dy * 0.1, px - ex, py - ey);
+          }
+          g.strokeStyle = col; g.lineWidth = lw; g.stroke();
+        };
+        fan(0.03, '#6f6a62', 0); fan(0.016, 'rgba(236,232,224,.75)', 0.03);
+        line(0.04, '#dcd8cf');
       } else if (kind === 1) {
-        // swept: a clean brushed band down the lane, its ruts gone, the broom's strokes across it
-        line(RW * 0.82, 'rgba(236,214,168,.85)');
+        // swept (B1b): a clean, pale band down the lane with its edges kept, its ruts gone, the broom's strokes across it
+        line(RW + 0.01, '#b0874f');
+        line(RW - 0.06, '#f1e2bd');
         g.beginPath();
-        for (let q = 0; q < 4; q++) {
-          const u = (q + 0.5) / 4, px = lerp(a[0], b[0], u), py = lerp(a[1], b[1], u), r2 = h2(x * 3 + q, y * 7 - q) - 0.5;
-          const ex = -dy * 0.2, ey = dx * 0.2;
-          g.moveTo(px + ex, py + ey); g.quadraticCurveTo(px + dx * (0.06 + r2 * 0.04), py + dy * (0.06 + r2 * 0.04), px - ex, py - ey);
+        for (let q = 0; q < 3; q++) {
+          const u = (q + 0.5) / 3, px = lerp(a[0], b[0], u), py = lerp(a[1], b[1], u), r2 = h2(x * 3 + q, y * 7 - q) - 0.5;
+          const ex = -dy * 0.21, ey = dx * 0.21;
+          g.moveTo(px + ex, py + ey); g.quadraticCurveTo(px + dx * (0.07 + r2 * 0.05), py + dy * (0.07 + r2 * 0.05), px - ex, py - ey);
         }
-        g.strokeStyle = 'rgba(176,138,90,.35)'; g.lineWidth = 0.012; g.stroke();
+        g.strokeStyle = 'rgba(176,135,79,.55)'; g.lineWidth = 0.024; g.stroke();
       } else {
-        // a paved street swept clean: its stones a shade lighter
-        line(RW - 0.06, 'rgba(255,250,236,.22)');
+        // a paved street swept clean: its stones lighter, its kerbs whitewashed
+        line(RW - 0.02, 'rgba(255,253,244,.55)');
+        line(RW - 0.1, 'rgba(255,250,236,.35)');
+      }
+      // (B1b) along its edges, on the verge before the homes: whitewashed kerb stones at 40 and 60; at 60 and more the
+      // families' flower pots by their doors, two a tile, in the island's reds, pinks and yellows
+      const ex = -dy, ey = dx, L2 = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (k < 3) {
+        g.beginPath();
+        for (const sd of [-1, 1]) for (let q = 0; q < 4; q++) {
+          const u = (q + 0.5) / 4, px = lerp(a[0], b[0], u) + ex * sd * (RW / 2 + 0.03), py = lerp(a[1], b[1], u) + ey * sd * (RW / 2 + 0.03);
+          if (L2 < 0.3 && q % 2) continue;
+          g.moveTo(px + 0.034, py); g.arc(px, py, 0.034, 0, TAU);
+        }
+        g.fillStyle = '#fbf7ee'; g.fill(); g.strokeStyle = 'rgba(120,96,64,.7)'; g.lineWidth = 0.012; g.stroke();
+      }
+      if (k >= 2) {
+        const FL = ['#ff3b30', '#ff7eb6', '#ffd23f', '#ff6a3d'];
+        for (const sd of [-1, 1]) {
+          const u = sd < 0 ? 0.3 : 0.7;
+          if ((u < 0.5 && !bw) || (u > 0.5 && !fw)) continue;
+          const px = lerp(x + 0.5 - dx * 0.5, x + 0.5 + dx * 0.5, u) + ex * sd * (RW / 2 + 0.1), py = lerp(y + 0.5 - dy * 0.5, y + 0.5 + dy * 0.5, u) + ey * sd * (RW / 2 + 0.1);
+          g.beginPath(); g.arc(px, py, 0.06, 0, TAU); g.fillStyle = '#b8582f'; g.fill(); g.strokeStyle = 'rgba(70,40,25,.7)'; g.lineWidth = 0.012; g.stroke();
+          g.beginPath(); g.arc(px, py, 0.04, 0, TAU); g.fillStyle = '#3d8a3a'; g.fill();
+          g.beginPath();
+          for (let f = 0; f < 3; f++) { const an = f * 2.1 + h2(x * 5 + f, y * 3 + sd) * 2, fx = px + Math.cos(an) * 0.022, fy = py + Math.sin(an) * 0.022; g.moveTo(fx + 0.022, fy); g.arc(fx, fy, 0.022, 0, TAU); }
+          g.fillStyle = FL[(x * 3 + y + (sd > 0 ? 1 : 0)) % FL.length]; g.fill();
+        }
       }
     }
     g.lineCap = 'round';
@@ -34882,7 +34918,24 @@ const ISO = (() => {
     for (let i = 0; i < T.length; i++) {
       if (!T[i] || N.at[i] < 0 || N.at2[i] >= 0) continue;
       const x = i % MAP_W, y = (i / MAP_W) | 0;
-      if ((x + 2 * y) % 3 === 0 || (T[i] >= 3 && (x + y) % 2 === 0)) out.push([i, T[i]]);
+      // (B1b: every other tile on every street of 40+, as a lit street reads at a glance; the grander lantern at 75+)
+      if ((x + y) % 2 === 0) out.push([i, T[i]]);
+    }
+    return out;
+  }
+  // B1b: the tiles of streets of 75+ with lights strung across (every tile between two lamps, never a crossing):
+  // [tile, axis], cached with the island and the month
+  function bmFestoonTiles(s) {
+    if (!bmOn(s)) return [];
+    const c = simCache(s);
+    if (c.bmFest && c.bmFest.m === s.beauty.m) return c.bmFest.out;
+    const out = [], T = beautyTiers(s), N = bmNet(s);
+    c.bmFest = { m: s.beauty.m, out };
+    for (let i = 0; i < T.length; i++) {
+      if (T[i] < 3 || N.at[i] < 0 || N.at2[i] >= 0) continue;
+      const x = i % MAP_W, y = (i / MAP_W) | 0, ax = N.list[N.at[i]].ax;
+      if ((x + y) % 2 === 0) continue;
+      out.push([i, ax]);
     }
     return out;
   }
@@ -34892,11 +34945,14 @@ const ISO = (() => {
       const o = _ro(s);
       // (h 0.5: a thin post hides no lit window behind it, A1's dayHidden)
       for (const [i, k] of bmLampTiles(s)) { const x = i % MAP_W, y = (i / MAP_W) | 0; o.push({ k: 'bmlamp', v: k, x0: x, y0: y, x1: x + 0.36, y1: y + 0.36, h: 0.5 }); }
+      // (h 0.1: a line overhead hides no light behind it)
+      for (const [i, ax] of bmFestoonTiles(s)) { const x = i % MAP_W, y = (i / MAP_W) | 0; o.push({ k: 'bmfest', v: x + y, ax, x0: x, y0: y, x1: x + 1, y1: y + 1, h: 0.1 }); }
       return o;
     };
     const _os = objSprite;
     objSprite = function (R, s, o) {
       if (o.k === 'bmlamp') return sprite(R, 'bmlamp|' + (o.v >= 3 ? 3 : 1), [0.36, 0.36, 0.1, 0.1], 0.9, () => paintBmLamp(o.v >= 3));
+      if (o.k === 'bmfest') return sprite(R, 'bmfest|' + o.ax + '|' + (o.v % 3), [1, 1], 1.1, () => paintBmFestoon(o.ax, o.v));
       return _os.apply(this, arguments);
     };
     // at night they are lit with the paved roads' lamps (the same corner of the tile)
@@ -34908,23 +34964,49 @@ const ISO = (() => {
     };
   }
   function paintBmLamp(fine) {
+    // (B1b: a post and a head twice as stout, to read at the iPad's zoom; the head at A1's lamps' height, 0.62)
     const x = 0.18, y = 0.18, b = P(x, y, 0), t = P(x, y, 0.62);
-    ell(b[0], b[1] + 0.6 * S, 2.6 * S, 1.2 * S, 'rgba(40,28,50,.22)');
-    seg(b, t, '#2f2a28', (fine ? 1.8 : 1.4) * S);
+    ell(b[0], b[1] + 0.8 * S, 3.6 * S, 1.6 * S, 'rgba(40,28,50,.25)');
+    seg(b, t, '#2a2420', (fine ? 3 : 2.6) * S);
+    seg(P(x, y, 0), P(x, y, 0.1), '#2a2420', 4.4 * S);
     if (fine) {
       // a cast-iron lantern on a fluted post with a bracket
-      seg(P(x, y, 0.05), P(x, y, 0.12), '#2f2a28', 3 * S);
-      poly([[t[0] - 2.6 * S, t[1] - 1 * S], [t[0] + 2.6 * S, t[1] - 1 * S], [t[0] + 1.8 * S, t[1] + 3.2 * S], [t[0] - 1.8 * S, t[1] + 3.2 * S]], '#f6d98a', '#2f2a28', 0.8 * S);
-      poly([[t[0] - 3.2 * S, t[1] - 1 * S], [t[0] + 3.2 * S, t[1] - 1 * S], [t[0], t[1] - 4.2 * S]], '#2f2a28');
+      poly([[t[0] - 4 * S, t[1] - 1.4 * S], [t[0] + 4 * S, t[1] - 1.4 * S], [t[0] + 2.8 * S, t[1] + 4.6 * S], [t[0] - 2.8 * S, t[1] + 4.6 * S]], '#ffe7a0', '#2a2420', 1.1 * S);
+      seg([t[0], t[1] - 1.4 * S], [t[0], t[1] + 4.6 * S], 'rgba(42,36,32,.6)', 0.8 * S);
+      poly([[t[0] - 4.8 * S, t[1] - 1.4 * S], [t[0] + 4.8 * S, t[1] - 1.4 * S], [t[0], t[1] - 6.2 * S]], '#2a2420');
+      circ(t[0], t[1] - 6.6 * S, 1.2 * S, '#2a2420');
     } else {
-      circ(t[0], t[1] - 1.5 * S, 2.2 * S, '#f6d98a', '#2f2a28', 0.8 * S);
-      seg([t[0] - 2 * S, t[1] - 3.4 * S], [t[0] + 2 * S, t[1] - 3.4 * S], '#2f2a28', 1 * S);
+      circ(t[0], t[1] - 2 * S, 3.4 * S, '#ffe9a8', '#2a2420', 1.1 * S);
+      seg([t[0] - 3.2 * S, t[1] - 5.4 * S], [t[0] + 3.2 * S, t[1] - 5.4 * S], '#2a2420', 1.6 * S);
+    }
+  }
+  // B1b: on a street of 75+ its families string lights across it (bunting by day): a line from wall to wall over the
+  // middle of a tile, sagging, small flags in the island's colours; lit bulbs at night (bmLanterns). The game's own
+  // sign of the finest street (Tomáš: "výraznejšie ulice"), not a claim about a custom. ax: the street's axis (1 along
+  // x: the line runs along y).
+  const BM_FLAGS = ['#e0583e', '#f2c75a', '#2f8f88', '#fbf3df', '#3f74a8', '#e9a5c0'];
+  function bmFestoonPts(ax) {
+    const pts = [];
+    for (let k = 0; k <= 8; k++) { const u = k / 8, z = 1.0 - 0.22 * Math.sin(u * Math.PI); pts.push(ax === 1 ? [0.5, 0.02 + u * 0.96, z] : [0.02 + u * 0.96, 0.5, z]); }
+    return pts;
+  }
+  function paintBmFestoon(ax, v) {
+    const pts = bmFestoonPts(ax), sp = pts.map((q) => P(q[0], q[1], q[2]));
+    pline(sp, '#3a2c24', 1 * S);
+    for (let k = 0; k < 8; k++) {
+      const q0 = sp[k], q1 = sp[k + 1], m = [(q0[0] + q1[0]) / 2, (q0[1] + q1[1]) / 2];
+      poly([q0, q1, [m[0], m[1] + 5.5 * S]], BM_FLAGS[(k + v) % BM_FLAGS.length], 'rgba(58,42,31,.5)', 0.5 * S);
     }
   }
   // the homes: a fresh coat of paint, flower boxes under the windows, an awning over the door (60+); a lantern by the
   // door (75+). BMK: the step of the home whose sprite is looked up; BMD: of the one being painted.
   let BMK = 0, BMD = 0, BMC = '#c0503a';
   const BM_AWN = ['#c0503a', '#2f8f88', '#3f74a8', '#3f8a52', '#d98a2b'];
+  // B1b: a fresh coat in Caribbean colours, brighter and cleaner than the old one (WALLS' order: coral, yellow, teal,
+  // cream, salmon, aqua, gold, pink), with white trim, a strong door and shutters
+  const BM_FRESH = ['#ff6b4a', '#ffcf1a', '#12b3a2', '#5fb6f0', '#ff7186', '#22cbbb', '#ffa91f', '#ff63b0'];
+  const BM_DOOR = ['#1f6fb2', '#c23b2e', '#1d8a6f', '#d0802a', '#2a5fa0'];
+  const BM_SHUT = ['#1d8a6f', '#2a5fa0', '#1f6fb2', '#c23b2e', '#2e7d4f'];
   {
     const _sp = sprite;
     sprite = function (R, base, foot, H, paint) {
@@ -34943,10 +35025,26 @@ const ISO = (() => {
     const _ph = paintHome;
     paintHome = function (level, lk, face, empty) {
       if (BMD < 2) return _ph.apply(this, arguments);
-      // freshly painted: the wall a shade brighter and cleaner, the door a strong colour, the awning in its own
-      const lk2 = Object.assign({}, lk, { wall: mix(lk.wall, '#fffaf0', 0.14), door: lk.door === '#9a5b39' ? '#2f8f88' : lk.door });
-      const was = BMC; BMC = BM_AWN[(WALLS.indexOf(lk.wall) + ROOFS.indexOf(lk.roof) * 3 + 5) % BM_AWN.length];
+      // freshly painted (B1b): the wall in a fresh Caribbean colour, white trim at its corners and eaves (bands), a
+      // strong door and shutters, the awning in its own colour
+      const wi = WALLS.indexOf(lk.wall), ri = ROOFS.indexOf(lk.roof), j = (Math.max(0, wi) + Math.max(0, ri) * 3) % BM_DOOR.length;
+      const lk2 = Object.assign({}, lk, { wall: wi >= 0 ? BM_FRESH[wi] : mix(lk.wall, '#fffaf0', 0.14), door: BM_DOOR[j], shut: lk.shut ? BM_SHUT[j] : lk.shut });
+      const was = BMC; BMC = BM_AWN[(Math.max(0, wi) + Math.max(0, ri) * 3 + 5) % BM_AWN.length];
       try { return _ph.call(this, level, lk2, face, empty); } finally { BMC = was; }
+    };
+    // (B1b) white trim: corner pilasters and a cornice under the eaves, as a fresh coat leaves the old houses
+    const _bd = bands;
+    bands = function (wv, w, d, h) {
+      const r = _bd.apply(this, arguments);
+      if (BMD >= 2 && !BK) {
+        for (const [f, L, c] of [[wv.fl, w, '#fffdf6'], [wv.fr, d, '#ece6f0']]) {
+          if (f.cull) continue;
+          poly(fq(f, 0, L, 0, 0.07), c, ln(c), 0.6 * S);
+          poly(fq(f, 0, 0.065, 0.07, h), c); poly(fq(f, L - 0.065, L, 0.07, h), c);
+          poly(fq(f, 0, L, h - 0.08, h), c, ln(c), 0.6 * S);
+        }
+      }
+      return r;
     };
     const _w = win;
     win = function (f, s0, t, w, h) {
@@ -34963,28 +35061,32 @@ const ISO = (() => {
   }
   // a flower box under a window: a painted wooden trough, red, pink and yellow flowers in green
   function bmBox(f, s0, t, w) {
-    const a = s0 - w / 2 - 0.015, b = s0 + w / 2 + 0.015, z0 = t - 0.07, z1 = t - 0.025, o = 0.04;
-    poly([fpo(f, a, z1, 0), fpo(f, b, z1, 0), fpo(f, b, z1, o), fpo(f, a, z1, o)], '#4f8a45');
-    poly([fpo(f, a, z0, o), fpo(f, b, z0, o), fpo(f, b, z1, o), fpo(f, a, z1, o)], '#8a5a34', ln('#8a5a34'), 0.5 * S);
-    const cols = ['#e0583e', '#f0a3c0', '#f2c75a', '#e0583e'];
-    for (let k = 0; k < 4; k++) { const q = fpo(f, lerp(a + 0.01, b - 0.01, (k + 0.5) / 4), z1 + 0.012, o * 0.6); circ(q[0], q[1] - 0.6 * S, 1.3 * S, '#4f8a45'); circ(q[0], q[1] - 1.4 * S, 1.05 * S, cols[(k + Math.round(s0 * 10)) % 4]); }
+    // (B1b: a deeper box, its flowers twice the size, in strong reds, pinks and yellows over the green)
+    const a = s0 - w / 2 - 0.03, b = s0 + w / 2 + 0.03, z0 = t - 0.09, z1 = t - 0.025, o = 0.055;
+    poly([fpo(f, a, z1, 0), fpo(f, b, z1, 0), fpo(f, b, z1, o), fpo(f, a, z1, o)], '#3d8a3a');
+    poly([fpo(f, a, z0, o), fpo(f, b, z0, o), fpo(f, b, z1, o), fpo(f, a, z1, o)], '#8a5a34', ln('#8a5a34'), 0.6 * S);
+    const cols = ['#ff3b30', '#ff7eb6', '#ffd23f', '#ff3b30', '#ff7eb6'];
+    for (let k = 0; k < 5; k++) { const q = fpo(f, lerp(a + 0.01, b - 0.01, (k + 0.5) / 5), z1 + 0.015, o * 0.6); circ(q[0], q[1] - 0.8 * S, 1.9 * S, '#3d8a3a'); circ(q[0], q[1] - 2 * S, 1.6 * S, cols[(k + Math.round(s0 * 10)) % 5]); }
   }
   // an awning over the door: striped canvas sloping out from the wall, a scalloped edge
   function bmAwning(f, s0, w, h) {
-    const a = s0 - w / 2 - 0.05, b = s0 + w / 2 + 0.05, z0 = h + 0.09, z1 = h - 0.02, o = 0.13, n = 5;
+    // (B1b: wider and deeper, to read at the iPad's zoom)
+    const a = s0 - w / 2 - 0.08, b = s0 + w / 2 + 0.08, z0 = h + 0.12, z1 = h - 0.03, o = 0.2, n = 5;
     for (let k = 0; k < n; k++) {
       const u0 = lerp(a, b, k / n), u1 = lerp(a, b, (k + 1) / n), c = k % 2 ? '#fbf3df' : BMC;
       poly([fpo(f, u0, z0, 0), fpo(f, u1, z0, 0), fpo(f, u1, z1, o), fpo(f, u0, z1, o)], c);
     }
     pline([fpo(f, a, z0, 0), fpo(f, a, z1, o), fpo(f, b, z1, o), fpo(f, b, z0, 0)], ln(BMC), 0.7 * S);
-    for (let k = 0; k < n; k++) { const q = fpo(f, lerp(a, b, (k + 0.5) / n), z1 - 0.012, o); circ(q[0], q[1], 1.2 * S, k % 2 ? '#fbf3df' : BMC); }
+    for (let k = 0; k < n; k++) { const q = fpo(f, lerp(a, b, (k + 0.5) / n), z1 - 0.012, o); circ(q[0], q[1], 1.8 * S, k % 2 ? '#fbf3df' : BMC); }
   }
   // a wall lantern by the door (lit at night: bmLanterns)
   function bmLantern(f, s0, z) {
     const p = fpo(f, s0, z, 0.05), w0 = fpo(f, s0, z + 0.04, 0);
     if (!isFinite(p[0])) return;
-    seg(w0, [p[0], p[1] - 2 * S], '#2f2a28', 0.8 * S);
-    poly([[p[0] - 1.5 * S, p[1] - 2 * S], [p[0] + 1.5 * S, p[1] - 2 * S], [p[0] + 1.1 * S, p[1] + 1.6 * S], [p[0] - 1.1 * S, p[1] + 1.6 * S]], '#f6d98a', '#2f2a28', 0.6 * S);
+    // (B1b: twice the size)
+    seg(w0, [p[0], p[1] - 3 * S], '#2a2420', 1.2 * S);
+    poly([[p[0] - 2.6 * S, p[1] - 3 * S], [p[0] + 2.6 * S, p[1] - 3 * S], [p[0] + 1.9 * S, p[1] + 2.8 * S], [p[0] - 1.9 * S, p[1] + 2.8 * S]], '#ffe7a0', '#2a2420', 0.9 * S);
+    poly([[p[0] - 3.2 * S, p[1] - 3 * S], [p[0] + 3.2 * S, p[1] - 3 * S], [p[0], p[1] - 5.4 * S]], '#2a2420');
   }
   // A door lantern's glow hidden by what stands between it and the eye (as A1's dayHidden), but palms, gardens, a park,
   // a grove and a fountain let it through: their trunks and leaves are no wall (v43: on her 1980 island the street
@@ -35022,14 +35124,27 @@ const ISO = (() => {
       if (p[0] < -20 || p[0] > R.w + 20 || p[1] < -20 || p[1] > R.h + 20) continue;
       const q = rotPt(r, wx, wy);
       if (bmHidden(R, q[0], q[1], 0.4, ob.i)) { hid++; continue; }
-      // a warm pool on the wall and the street, then the lantern itself
-      const r1 = 16 * k + 3, r2 = 6 * k + 1.5;
-      g.globalAlpha = Math.min(1, 0.45 * n); g.drawImage(gl, p[0] - r1, p[1] - r1 * 0.7, 2 * r1, 2 * r1 * 0.7);
-      g.globalAlpha = Math.min(1, 0.9 * n); g.drawImage(gl, p[0] - r2, p[1] - r2, 2 * r2, 2 * r2);
+      // a warm pool on the wall and on the street in front (B1b: wider and warmer), then the lantern itself
+      const r1 = 22 * k + 4, r2 = 7 * k + 2, gp = P(b.x + 0.5 + D[0] * 0.75, b.y + 0.5 + D[1] * 0.75, 0);
+      g.globalAlpha = Math.min(1, 0.55 * n); g.drawImage(gl, p[0] - r1, p[1] - r1 * 0.7, 2 * r1, 2 * r1 * 0.7);
+      g.globalAlpha = Math.min(1, 0.45 * n); g.drawImage(gl, gp[0] - r1 * 1.2, gp[1] - r1 * 0.5, 2.4 * r1, r1);
+      g.globalAlpha = Math.min(1, 0.95 * n); g.drawImage(gl, p[0] - r2, p[1] - r2, 2 * r2, 2 * r2);
       c++;
     }
+    // the lights strung across the finest streets: their bulbs (at most BM_BULBS)
+    let nb = 0;
+    for (const ob of R.order) {
+      if (nb >= BM_BULBS) break;
+      if (ob.k !== 'bmfest' || !onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1)) continue;
+      const pts = bmFestoonPts(ob.ax);
+      for (let j = 1; j < pts.length; j += 1) {
+        const q = pts[j], p = P(ob.x0 + q[0], ob.y0 + q[1], q[2] - 0.03), rr = 5 * k + 1.5;
+        g.globalAlpha = Math.min(1, 0.8 * n); g.drawImage(gl, p[0] - rr, p[1] - rr, 2 * rr, 2 * rr);
+        nb++;
+      }
+    }
     g.restore();
-    R.stats.bmLanterns = c; R.stats.bmLanternHomes = cand; R.stats.bmLanternsHidden = hid;
+    R.stats.bmLanterns = c; R.stats.bmLanternHomes = cand; R.stats.bmLanternsHidden = hid; R.stats.bmBulbs = nb;
   }
   { const _dd = dayDraw; dayDraw = function (R, s, now, t) { const r = _dd.apply(this, arguments); try { bmLanterns(R, s); } catch (e) { /* no lanterns */ } return r; }; }
   return { create, draw, toScreen, toTile, pick, pickAll, mem, trim, reset };
@@ -49608,9 +49723,9 @@ function bmLookWhy(s, st, v, q, kind, tiles) {
   const lots = q.den ? q.wall + ' of its ' + q.den + ' lots built' : 'no lots along it';
   const t = v < 0 ? -1 : bmTier(v);
   const T = BEAU.tiers, look = t < 0 ? 'Its look follows its beauty from the month’s end.' : t === 0 ? 'Plain: at ' + T[0] + ' its families sweep it and the town lights it.' :
-    t === 1 ? 'Swept, with street lamps: its families keep it. At ' + T[1] + ' they paint their fronts and hang flower boxes and awnings.' :
-      t === 2 ? 'Painted fronts, flower boxes and awnings: its families are proud of it. At ' + T[2] + ' it is cobbled and lanterns hang at the doors.' :
-        'Cobbled, with lanterns at the doors at night: the finest kind of street on the island.';
+    t === 1 ? 'Swept, its kerb stones whitewashed, with street lamps: its families keep it. At ' + T[1] + ' they paint their fronts and hang flower boxes and awnings.' :
+      t === 2 ? 'Painted fronts with white trim, flower boxes, pots by the doors and awnings: its families are proud of it. At ' + T[2] + ' it is cobbled, lanterns hang at the doors and lights are strung across it.' :
+        'Cobbled, with lanterns at the doors and lights strung across it, lit at night: the finest kind of street on the island.';
   return 'It is ' + kind + ', ' + plural(tiles, 'tile', 'tiles') + ' long, ' + lots + '. ' + look + ' Its people do this, nobody builds it.';
 }
 function bmCardRender() {
