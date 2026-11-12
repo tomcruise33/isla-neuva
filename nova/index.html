@@ -171,7 +171,7 @@ body.armed.doneup #lower { bottom: calc(var(--bar-h) + 2 * var(--gap) + 66px + v
 #card .btns + .btns { margin-top: 8px; }
 #card .btns button.move { background: var(--paper2); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); font-weight: 800; }
 #card .link { min-height: 40px; padding: 0 12px; margin-top: 6px; border-radius: 10px; background: var(--paper); font-weight: 800; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); display: inline-flex; align-items: center; }
-#pop .lg { display: flex; gap: 8px; align-items: center; padding: 5px 0; border-top: 2px dotted rgba(58, 42, 31, 0.2); font-size: 13.5px; }
+#pop .lg { display: flex; gap: 8px; align-items: center; padding: 5px 0; width: auto; height: auto; margin: 0; border: 0; border-radius: 0; background: none; border-top: 2px dotted rgba(58, 42, 31, 0.2); font-size: 13.5px; }
 #pop .bub { flex: none; width: 30px; height: 30px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--paper2); border: 1.5px solid var(--ink); }
 #pop .bub.warn { background: #fff4ea; border-color: #c4553f; }
 #pop .bub .ic { width: 20px; height: 20px; }
@@ -31015,7 +31015,7 @@ const ISO = (() => {
     const onBoard = (s.walk || []).some((w) => w.arriving && w.pos < 0);
     if (sh.st === 'load') {
       sh.x = m.x; sh.y = m.y; sh.hd = 0; sh.a = 1;
-      if ((age > 1800 && !onBoard) || mf > 0.4) { sh.st = 'turn'; sh.t0 = now; if (sh.money > 0) sh.floatT = now; }
+      if ((age > 1800 && !onBoard) || mf > 0.4) { sh.st = 'turn'; sh.t0 = now; if (sh.money > 0) { if (typeof calmShipPay === 'function' && typeof calmOn === 'function' && calmOn()) calmShipPay(sh.money); else sh.floatT = now; } }
     } else if (sh.st === 'turn') {
       // Q1: turns at the pier toward its way out (over the sea), then follows it
       const w = seaWay(R, s, m.x, m.y), u = clamp(age / 1500, 0, 1), e = ease(u);
@@ -31060,7 +31060,8 @@ const ISO = (() => {
       if (!h) { h = R.hs[b.id] = { st: on && hsWindow(def, mf) ? 'moored' : 'away', t0: now, a: 1 }; R.depSeen[b.id] = key; }
       if (key !== R.depSeen[b.id]) {
         R.depSeen[b.id] = key;
-        if (d0 && d0.n) (R.slips || (R.slips = [])).push({ id: b.id, dep: d0, t0: now + 500 / k });
+        // (C2b, calm: no slip under the anchor; the pay as "+$1,200" by the money, ui/calmcards.js)
+        if (d0 && d0.n) { if (typeof calmShipPay === 'function' && typeof calmOn === 'function' && calmOn()) calmShipPay(d0.money); else (R.slips || (R.slips = [])).push({ id: b.id, dep: d0, t0: now + 500 / k }); }
       }
       // a call: the ship that lies (or comes) here loads and leaves
       if ((paid || (mid && def.ships > 1)) && (h.st === 'moored' || h.st === 'arrive')) { h.st = 'load'; h.t0 = now; }
@@ -32947,6 +32948,8 @@ const ISO = (() => {
       uiDraw(R, moneyTagSprite(R, moneyShort(q.n) + (q.tone ? MT_ARROW[q.tone] : ''), q.tone || q.n >= 0, q.home), p[0], p[1]);
     }
     LBL = lblKeep;
+    // C2b: the building under the mouse (calm, the Mac): a light outline
+    if (CALMD && ui.hover && ui.hover !== sel) { const hb = bById(s, ui.hover); if (hb) diamond(R, hb.x - 0.04, hb.y - 0.04, hb.x + hb.w + 0.04, hb.y + hb.h + 0.04, 'rgba(255,246,223,.16)', 'rgba(251,243,223,.85)', 3); }
     // selection
     if (sel) { const b = bById(s, sel); if (b) { diamond(R, b.x - 0.06, b.y - 0.06, b.x + b.w + 0.06, b.y + b.h + 0.06, 'rgba(255,246,223,.18)', '#fbf3df', 5); diamond(R, b.x - 0.06, b.y - 0.06, b.x + b.w + 0.06, b.y + b.h + 0.06, null, '#df684c', 2.4, [8, 5]); } }
     // payday floaters; one that would sit on top of another already drawn this frame is skipped (no label clouds)
@@ -33375,7 +33378,15 @@ const ISO = (() => {
     if (gh.held && !gh.why) text = (mvb ? 'Tap to move · ' : 'Tap to build · ') + text.replace(/^Move here · /, '');
     const p = P(gh.x + def.w / 2, gh.y + def.h / 2, bHeight({ type: gh.type, level: mvb ? mvb.level || 1 : 1 }) * 0.8 + 0.3);
     // C1 (calm): where it cannot stand the ghost is red with no words; where it can, its price alone
-    if (calm) { if (!gh.why) uiDraw(R, labelSprite(R, mvb ? money$(moveCost(mvb)) : '$' + def.cost.toLocaleString('en-US'), true), p[0], p[1] - 14); return; }
+    // C2b: a spot its own short road makes (ui/calm.js calmPlusSpots): the road dotted, the forest to clear marked, and
+    // the whole price (the building, the road, the clearing)
+    const pl = calm && typeof CALMP !== 'undefined' && CALMP.at && CALMP.at.k === gh.type + '|' + gh.x + '|' + gh.y ? CALMP.at.e : null;
+    if (pl) {
+      for (const i of pl.lay) { const x = i % MAP_W, y = (i / MAP_W) | 0; diamond(R, x + 0.1, y + 0.1, x + 0.9, y + 0.9, 'rgba(255,246,214,.55)', gh.why ? '#a33a28' : '#2e7a3e', 2.2, [5, 4]); }
+      for (const i of pl.clear) { const x = i % MAP_W, y = (i / MAP_W) | 0; diamond(R, x + 0.2, y + 0.2, x + 0.8, y + 0.8, null, '#fbf3df', 2, [3, 3]); }
+      R.stats.plus = pl.cost;
+    }
+    if (calm) { if (!gh.why) uiDraw(R, labelSprite(R, mvb ? money$(moveCost(mvb)) : '$' + (pl ? pl.cost : def.cost).toLocaleString('en-US'), true), p[0], p[1] - 14); return; }
     uiDraw(R, labelSprite(R, text, !gh.why), p[0], p[1] - 14);
     // A13: which side faces the street (the Turn button turns it), under the lot's front corner
     // (Fix3: with a mouse the line also says how to turn it: the key and the right button)
@@ -33708,7 +33719,8 @@ const ISO = (() => {
       diamond(R, vp.x + 0.04, vp.y + 0.04, vp.x + vp.w - 0.04, vp.y + vp.h - 0.04, 'rgba(255,240,190,' + (0.18 + 0.12 * pulse).toFixed(3) + ')', '#fffaf0', 3, [6, 5]);
       diamond(R, vp.x + 0.04, vp.y + 0.04, vp.x + vp.w - 0.04, vp.y + vp.h - 0.04, null, 'rgba(160,110,20,.9)', 1.4, [6, 5]);
       const p = P(vp.x + vp.w / 2, vp.y + vp.h, 0);
-      uiDraw(R, moneyTagSprite(R, vp.label, 'a'), p[0], p[1] + 16);
+      // (C2b: the calm screen's short card: the outline only; its name and price with More)
+      if (typeof calmCardSeen !== 'function' || calmCardSeen()) uiDraw(R, moneyTagSprite(R, vp.label, 'a'), p[0], p[1] + 16);
       R.stats.vplot = vp.label;
     }
     if (ui.land && R.hw >= 22) {
@@ -44445,7 +44457,8 @@ function rcOverlay(R, s, ui, t, H) {
   R.stats.t3Marks = 0; R.stats.t3Route = 0; R.stats.t3Plan = 0;
   // the way the selected producer's carts go (teal) and the direct way (dashed), while its card is open
   const rt = APP.ui.rcRoute;
-  if (rt && APP.ui.sel === rt.id && $('card').classList.contains('show')) {
+  // (C2b: on the calm screen with the short card, not until More shows v44's card)
+  if (rt && APP.ui.sel === rt.id && $('card').classList.contains('show') && (typeof calmCardSeen !== 'function' || calmCardSeen())) {
     const line = (path, col, w, dash) => {
       if (!path || path.length < 2) return;
       g.save(); g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
@@ -50228,6 +50241,8 @@ function calmCss() {
     // the goals panel (the old game's Goals panel: the stage, the next stage with its ring, a row a condition)
     'body.calm #calmGoals.show { display: block; position: fixed; z-index: 4; width: 300px; padding: 12px 14px 10px; overflow-y: auto; overscroll-behavior: contain; }',
     'body.calm.carded #calmGoals, body.calm.fac-on #calmGoals { display: none !important; }',
+    '#calmGoals .x { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }',
+    '#calmGoals .x .ic { width: 18px; fill: var(--ink2); }',
     '#calmGoals .st { font-size: 11.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink2); }',
     '#calmGoals h3 { margin: 0; font: italic 700 25px/1.1 var(--serif); }',
     '#calmGoals .sl { margin: 3px 0 9px; font-size: 13px; line-height: 1.3; color: var(--ink2); }',
@@ -50283,8 +50298,8 @@ const CALM_TRAY = [
   ['Traffic', 'bTraffic', () => APP.ui.layer === 'traffic'],
   ['Land', 'bLand', () => !!APP.ui.land],
   ['Beauty', 'bBeauty', () => !!APP.ui.beauty],
-  ['Turn', 'rotL', null],
-  ['Turn', 'rotR', null],
+  ['Turn left', 'rotL', null],
+  ['Turn right', 'rotR', null],
   ['Above', 'topBtn', () => !!APP.view.top],
   ['Postcard', 'bPost', null],
   ['Sound', 'bSnd', () => $('sndpop') && $('sndpop').classList.contains('show')],
@@ -50318,7 +50333,11 @@ function calmInit() {
   chip.addEventListener('click', () => calmGoalsSet(!calmGoalsOpen(), true));
   const goals = mk('div', 'calmGoals', 'panel');
   goals.setAttribute('role', 'region'); goals.setAttribute('aria-label', 'Goals');
-  goals.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('button.fix'); if (b) calmFix(b.dataset.fix); });
+  goals.addEventListener('click', (e) => {
+    if (e.target.closest && e.target.closest('#calmGoalsX')) { calmGoalsSet(false, true); return; }
+    const b = e.target.closest && e.target.closest('button.fix');
+    if (b) calmFix(b.dataset.fix);
+  });
   const undo = mk('button', 'calmUndo');
   undo.innerHTML = CALM_ICON.undo + '<span>Undo</span>';
   undo.addEventListener('click', calmUndoRun);
@@ -50356,6 +50375,7 @@ function calmTraySet(on) {
   el.classList.toggle('show', !!on);
   $('calmMore').classList.toggle('on', !!on);
   if (on) calmTrayRender(true);
+  calmRender();
   calmPlace(true);
 }
 function calmTrayRender(force) {
@@ -50385,6 +50405,8 @@ function calmSettingsOpen() {
 
 // ---------- the goals ----------
 function calmGoalsOpen() {
+  // C2b: with nothing left to list (the palace stands) the chip alone, unless she opened it now
+  if (CALM.rows && !CALM.rows.next) return !!CALM.capOpen;
   const v = storeGet(CALM.goalsKey);
   if (v === 'open') return true;
   if (v === 'shut') return false;
@@ -50392,7 +50414,10 @@ function calmGoalsOpen() {
   return window.innerWidth > window.innerHeight && window.innerWidth >= 1000;
 }
 function calmGoalsSet(on, hers) {
-  if (hers) storeSet(CALM.goalsKey, on ? 'open' : 'shut');
+  if (hers && CALM.rows && !CALM.rows.next) CALM.capOpen = !!on;
+  else if (hers) storeSet(CALM.goalsKey, on ? 'open' : 'shut');
+  // (the chip opens it over the tray: the tray closes)
+  if (on && hers && $('calmTray').classList.contains('show')) calmTraySet(false);
   if (!on && $('calmGoals').classList.contains('show')) uiGone($('calmGoals'));
   CALM.goalsHtml = '';
   calmRender();
@@ -50410,15 +50435,22 @@ function calmRows(s) {
     return { next, rows };
   }
   if (next.people) {
-    const fix = s.stage === 0 && typeof freePierRoad === 'function' && freePierRoad(s) < FREE.roadMin ? { key: 'tool:road', label: 'Road' } : { key: 'tool:casita', label: 'Build homes' };
-    rows.push({ k: 'people', icon: 'people', name: 'People', n: pop.toLocaleString('en-US'), of: next.people.toLocaleString('en-US'), frac: pop / next.people, ok: pop >= next.people, fix,
-      line: pop < next.people ? 'The next boat brings up to ' + shipSettlers(s) : '' });
+    let fix = s.stage === 0 && typeof freePierRoad === 'function' && freePierRoad(s) < FREE.roadMin ? { key: 'tool:road', label: 'Road' } : { key: 'tool:casita', label: 'Build homes' };
+    let line = pop < next.people ? 'The next boat brings up to ' + shipSettlers(s) : '';
+    // C2b (the playtest sat at 56 people for eight months building homes nobody came to): below 50 % happiness no
+    // settler comes (sim/people.js peopleMonth); the row says so and its button is the biggest reason's fix
+    if (pop < next.people && pop && s.happy < TUNE.happyArrive && foodStood(s)) {
+      const h = calmHappyFix(s);
+      line = 'Settlers come at ' + TUNE.happyArrive + ' % happy · now ' + s.happy + ' %';
+      if (h) fix = { key: 'tool:' + h.tool + (h.at ? ':' + h.at[0] + ',' + h.at[1] : ''), label: toolLabel(h.tool) + ' · ' + h.why };
+    }
+    rows.push({ k: 'people', icon: 'people', name: 'People', n: pop.toLocaleString('en-US'), of: next.people.toLocaleString('en-US'), frac: pop / next.people, ok: pop >= next.people, fix, line });
   }
   if (next.allFed) {
     const homes = homesOccupied(s), fed = homes.filter((h) => !(h.miss || []).includes('food') && !(h.miss || []).includes('market')).length, ok = allHomesFed(s);
     const noMk = homes.filter((h) => (h.miss || []).includes('market'));
     let fix = null;
-    if (!ok) { const c = noMk.length ? { tool: 'market', at: homesAt(noMk) } : needCause(s, 'food'); if (c && c.tool) fix = { key: 'tool:' + c.tool + (c.at ? ':' + c.at[0] + ',' + c.at[1] : ''), label: toolLabel(c.tool) }; }
+    if (!ok) { const c = noMk.length ? { tool: 'market', at: homesAt(noMk) } : needCause(s, 'food'); if (c && c.tool) fix = { key: 'tool:' + c.tool + (c.at ? ':' + c.at[0] + ',' + c.at[1] : ''), label: calmFixLabel(c.tool, 'food') }; }
     // (no homes yet: the row waits for them, with no button)
     rows.push({ icon: 'bread', name: 'Food for every home', n: homes.length ? fed : '', of: homes.length ? homes.length : '', frac: homes.length ? fed / homes.length : 0, ok, fix: homes.length ? fix : null, line: homes.length ? '' : 'Homes first' });
   }
@@ -50428,13 +50460,13 @@ function calmRows(s) {
     let fix = null, line = '';
     const k = ok ? null : goalBlocker(s);
     if (k && k.select) { fix = { key: 'sel:' + k.select, label: 'Upgrade' }; line = plural(k.ready, 'home is', 'homes are') + ' ready to move up'; }
-    else if (k && k.tool) { fix = { key: 'tool:' + k.tool + (k.at ? ':' + k.at[0] + ',' + k.at[1] : ''), label: toolLabel(k.tool) }; if (k.need) line = (k.n === 1 ? 'One lacks ' : k.n + ' lack ') + NEED_NAMES[k.need]; }
+    else if (k && k.tool) { fix = { key: 'tool:' + k.tool + (k.at ? ':' + k.at[0] + ',' + k.at[1] : ''), label: calmFixLabel(k.tool, k.need) }; if (k.need) line = (k.n === 1 ? 'One lacks ' : k.n + ' lack ') + NEED_NAMES[k.need]; }
     rows.push({ icon: 'home', name: LEVELS[L].name + 's', n: Math.min(have, want), of: want, frac: have / want, ok, fix, line });
   }
   if (next.rum) {
     const ok = (s.exported.rum || 0) > 0;
     const t = ok ? '' : !countType(s, 'distillery') ? 'distillery' : !countType(s, 'cane') ? 'cane' : countHarbors(s) ? '' : 'harbor';
-    rows.push({ icon: 'barrel', name: 'Rum shipped', n: ok ? 'yes' : 'not yet', of: '', frac: ok ? 1 : 0, ok, fix: t ? { key: 'tool:' + t, label: toolLabel(t) } : null });
+    rows.push({ icon: 'barrel', name: 'Rum shipped', n: ok ? 'yes' : 'not yet', of: '', frac: ok ? 1 : 0, ok, fix: t ? { key: 'tool:' + t, label: calmFixLabel(t, 'rum') } : null });
   }
   const lm = next.landmark;
   if (lm && lm.res) {
@@ -50446,6 +50478,63 @@ function calmRows(s) {
     rows.push({ icon: BUILDINGS[lm.b].icon || 'anchor', name: BUILDINGS[lm.b].name, n: ok ? 'built' : money$(Math.min(have, cost)), of: ok ? '' : money$(cost), frac: ok ? 1 : have / cost, ok, fix: ok ? null : { key: 'tool:' + lm.b, label: toolLabel(lm.b) } });
   }
   return { next, rows };
+}
+// The armed tool's own plan (no lit place anywhere and no short road to one): v44's dotted line (sim/land.js), which
+// the calm screen shows and a tap on runs; for a building other than a home it builds it in the same tap.
+function calmOwnPlan() {
+  const h = APP.ui && APP.ui.hint;
+  return !!(h && h.key === 'nospot' && h.forTool && h.forTool === APP.ui.tool && h.act && h.act.plan && planOf(APP.state, h.act.plan));
+}
+{
+  const _ns = noSpotHint;
+  noSpotHint = function (s, type) {
+    const h = _ns.apply(this, arguments);
+    if (!calmOn() || !h || !h.act || !h.act.plan || h.act.plan.kind !== 'land' || !BUILDINGS[type] || BUILDINGS[type].kind === 'home') return h;
+    const d = Object.assign({}, h.act.plan, { build: 1 });
+    return planOf(s, d) ? Object.assign({}, h, { act: Object.assign({}, h.act, { plan: d, then: '' }) }) : h;
+  };
+  // the build bar: a building that one tap can place with its road (or its plan) shows its price, not "road first"
+  const _bp = barPoor;
+  barPoor = function () {
+    const r = _bp.apply(this, arguments);
+    if (!calmOn()) return r;
+    const s = APP.state;
+    $('bar').querySelectorAll('.tool.nospot').forEach((b) => {
+      const small = b.querySelector('small'), id = b.dataset.tool;
+      if (!small || !BUILDINGS[id] || /^no room/.test(small.textContent)) return;
+      small.textContent = small.dataset.cost || fmtMoney(BUILDINGS[id].cost);
+      b.classList.remove('nospot');
+      b.classList.toggle('poor', s.money < BUILDINGS[id].cost);
+    });
+    return r;
+  };
+}
+// The biggest reason happiness is below 50 % and the building that helps most: { tool, at, why } ('food', 'jobs',
+// 'church'), from happyCalc's own parts (sim/people.js) and Rosa's fixes for them (sim/guide.js).
+function calmHappyFix(s) {
+  const parts = happyCalc(s).parts.filter((p) => p.v < 0).sort((a, b) => a.v - b.v);
+  for (const p of parts) {
+    if (/without food/.test(p.label)) {
+      // (homes no market reaches eat nothing whatever the fields make: their market first)
+      const noMk = homesOccupied(s).filter((h) => (h.miss || []).includes('market'));
+      if (noMk.length) return { tool: 'market', at: homesAt(noMk), why: 'food' };
+      const c = needCause(s, 'food');
+      if (c && c.tool && BUILDINGS[c.tool]) return { tool: c.tool, at: c.at || null, why: 'food' };
+    }
+    if (/without work|No jobs/.test(p.label)) {
+      const big = bigEmployer(s), t = big ? (big.src && !s.b.some((o) => o.type === big.src) ? big.src : big.t) : 'grove';
+      if (BUILDINGS[t] && BUILDINGS[t].stage <= s.stage) return { tool: t, at: null, why: 'jobs' };
+    }
+  }
+  if (s.stage >= BUILDINGS.chapel.stage && homesOccupied(s).some((h) => !homeHas(s, h, 'church'))) return { tool: 'chapel', at: homesAt(homesOccupied(s).filter((h) => !homeHas(s, h, 'church'))), why: 'church' };
+  return null;
+}
+// C2b (the playtest: "Harbor" under "14 lack bread" read as a puzzle): a goal's button says what the building brings
+// when that is not plain from its name.
+function calmFixLabel(tool, need) {
+  if (tool === 'harbor') return need === 'rum' ? 'Harbor · ships the rum' : need === 'bread' || need === 'flour' ? 'Harbor · flour by ship' : 'Harbor';
+  if (tool === 'cane' && need === 'rum') return 'Cane field · for rum';
+  return toolLabel(tool);
 }
 function calmRing(frac, size, label) {
   const r = size / 2 - 4, c = 2 * Math.PI * r, f = Math.max(0, Math.min(1, frac)), m = size / 2;
@@ -50477,7 +50566,7 @@ const CALM_STAGE_LINE = [
 // (icon, name, n / target, a bar with its share, at most one short grey line, one red button that does the fix).
 function calmGoalsHtml(s, G) {
   const met = G.rows.filter((r) => r.ok).length, all = G.rows.length, pc = (f) => Math.round(100 * Math.max(0, Math.min(1, f || 0)));
-  let h = '<div class="st">' + (s.palace ? 'The island' : 'Stage ' + (s.stage + 1)) + '</div><h3>' + esc(STAGES[s.stage].name) + '</h3>' +
+  let h = '<button class="x" id="calmGoalsX" aria-label="Close the goals">' + iconSvg('close') + '</button><div class="st">' + (s.palace ? 'The island' : 'Stage ' + (s.stage + 1)) + '</div><h3>' + esc(STAGES[s.stage].name) + '</h3>' +
     '<p class="sl">' + esc(CALM_STAGE_LINE[s.stage] || '') + '</p>';
   if (!G.next) return h + '<p class="done">The palace stands. The island is yours: build as you like.</p>';
   const share = calmShare(G);
@@ -50496,7 +50585,12 @@ function calmFix(key) {
   const s = APP.state, k = String(key || '').split(':');
   if (k[0] === 'tool') {
     toolSet(k[1]);
-    if (k[2]) { const [x, y] = k[2].split(',').map(Number); cameraFlyTo(x + 0.5, y + 0.5); }
+    // (C2b: the view goes to the lit place nearest where the fix belongs, not to that spot itself)
+    if (k[2]) {
+      const [x, y] = k[2].split(',').map(Number), def = BUILDINGS[k[1]], sp = def ? spotsFor(s, k[1]) : null;
+      const near = sp && sp.n ? sp.anchors.slice().sort((a, b) => Math.hypot(a[0] - x, a[1] - y) - Math.hypot(b[0] - x, b[1] - y))[0] : null;
+      if (near) cameraFlyTo(near[0] + def.w / 2, near[1] + def.h / 2); else cameraFlyTo(x + 0.5, y + 0.5);
+    }
     if (window.innerWidth <= 900) calmGoalsSet(false);
     return;
   }
@@ -50525,11 +50619,12 @@ function calmRender() {
   const chip = calmChipText(s, G) + '';
   const ck = chip + '|' + met + '/' + G.rows.length + '|' + Math.round(100 * calmShare(G));
   if (CALM.chipK !== ck) { CALM.chipK = ck; $('calmChip').innerHTML = (G.next ? calmRing(calmShare(G), 26) : '') + chip; }
-  const open = calmGoalsOpen();
+  // (C2b: the panel steps aside while the tray is open)
+  const open = calmGoalsOpen(), tray = $('calmTray').classList.contains('show');
   $('calmChip').classList.toggle('on', open);
   $('calmChip').setAttribute('aria-expanded', String(open));
   const el = $('calmGoals');
-  el.classList.toggle('show', open);
+  el.classList.toggle('show', open && !tray);
   if (open) { const h = calmGoalsHtml(s, G); if (h !== CALM.goalsHtml) { CALM.goalsHtml = h; el.innerHTML = h; } }
 }
 
@@ -50586,6 +50681,14 @@ function calmLegends() {
 function calmItemsClose() {
   if (!APP.ui.trayClosed) { APP.ui.trayClosed = true; barBuild(); }
 }
+{
+  // C2b: the tool stays armed after a build; a tap on its open tab ends it (as Done does) and folds the items
+  const _tt = barTabTap;
+  barTabTap = function (group) {
+    if (calmOn() && group === APP.ui.tab && !APP.ui.trayClosed && APP.ui.tool !== 'look') { toolSet('look'); return; }
+    return _tt.apply(this, arguments);
+  };
+}
 
 // ---------- one tap builds; Undo instead of any confirmation ----------
 {
@@ -50596,14 +50699,22 @@ function calmItemsClose() {
     // a tap on the map closes the bar's items (no tool armed) and the tray
     if (tool === 'look') { calmItemsClose(); return _tap.apply(this, arguments); }
     const ids = new Set(s.b.map((b) => b.id)), m0 = s.money;
-    const r = _tap.apply(this, arguments);
+    // C2b: a spot that its own short road (and the forest cleared) makes: the road first, then the building, one tap
+    const plus = BUILDINGS[tool] ? calmPlusTap(s, tool, sx, sy) : null;
+    if (plus && plus.no) return;
+    let r;
+    try { r = _tap.apply(this, arguments); } finally { CALMP.force = null; }
     if (BUILDINGS[tool]) {
       const nb = s.b.find((b) => !ids.has(b.id) && b.type === tool) || null;
       if (nb) {
-        calmUndoSet({ kind: 'b', id: nb.id, paid: m0 - s.money });
-        // built: the tool goes, the group's items close (one tap built it; the bar is back at rest)
-        toolSet('look');
-        calmItemsClose();
+        // (a plan's road and its moved home stay: Undo gives back the building's price, not theirs)
+        calmUndoSet({ kind: 'b', id: nb.id, paid: plus ? m0 - s.money : Math.min(m0 - s.money, BUILDINGS[tool].cost), lay: plus ? plus.lay : null, clear: plus ? plus.clear : null });
+        // (with its road: the floater says the whole price)
+        if (plus) { const fl = (APP.ui.floaters || []).filter((f) => f.id === nb.id).pop(); if (fl) fl.text = '−' + money$(m0 - s.money); }
+        // C2b (the playtest): the tool stays armed after a build, as in v1 (lit lots, Undo; Done or its tab ends it)
+      } else if (plus) {
+        // (the road went down but the building did not: the road goes again, its price back)
+        calmPlusUndo(s, plus.lay, plus.clear, m0 - s.money);
       } else if (APP.ui.ghost && APP.ui.ghost.type === tool && !APP.ui.ghost.why) {
         // (nothing built on a spot that fits: money short) the ghost shows it red, without words
         APP.ui.ghost.why = 'money';
@@ -50631,8 +50742,9 @@ function calmUndoRun() {
   if (!b) return;
   const r = removeAt(s, b.x, b.y);
   if (r.why) return;
-  // the price paid comes back whole (removeAt gave back part of it)
+  // the price paid comes back whole (removeAt gave back part of it); C2b: the road laid with it goes, the forest grows back
   s.money += Math.max(0, (u.paid || 0) - (r.refund || 0));
+  if ((u.lay && u.lay.length) || (u.clear && u.clear.length)) calmPlusUndo(s, u.lay, u.clear, 0);
   if (APP.ui.sel === u.id) cardClose();
   try { audioCue('remove'); } catch (e) { /* no sound */ }
 }
@@ -50653,9 +50765,170 @@ function calmUndoRun() {
     const was = APP.ui.tool, r = _ts.apply(this, arguments);
     if (!calmOn()) return r;
     if (CALM.undo && CALM.undo.kind === 'b' && tool !== 'look') calmUndoSet(null);
-    if (tool !== 'look') { calmTraySet(false); calmLitShow(tool); }
+    if (tool !== 'look') {
+      calmTraySet(false);
+      calmLitShow(tool);
+      // (no lit place at all: the armed tool's plan, its dotted line in view)
+      if (calmOwnPlan()) { comUiUpdate(); const p = planOf(APP.state, APP.ui.hint.act.plan); if (p && p.at) cameraFlyTo(p.at[0] + 0.5, p.at[1] + 0.5); }
+    }
     // Done (or the item tapped again): the tool goes and the group's items close with it
     else if (was !== 'look') calmItemsClose();
+    return r;
+  };
+}
+// ---------- C2b: a building with no spot by a road: the spots its own short road reaches ----------
+// The playtest (12 Nov): on a new island in Village the harbour tool said "beach road first" in red and its ghost was
+// red wherever she tapped; the bakeries had no flour and she sat at 56 people for eight months. In 1980 most tools said
+// "clear forest first" or "road first". On the calm screen such a tool lights the spots where the building fits once a
+// short road joins it to the town's roads (at most CALMP.max new tiles, over free land, through open forest cleared on
+// the way) or once the forest on its lot is cleared (from Village, as the Clear forest tool). A tap on one lays the road,
+// clears the forest and builds, one tap; the ghost shows the road and the whole price. The road, the clearing and their
+// prices are v44's own (sim/land.js landTry: the plan v44's Rosa offered as a dotted line, here for each spot).
+const CALMP = { max: 8, cache: {}, at: null, force: null };
+function calmPlusOn(type) {
+  const s = APP.state, def = BUILDINGS[type];
+  return calmOn() && !!s && !!def && !APP.ui.move && def.kind !== 'fixed' && def.kind !== 'deco' && def.stage <= s.stage && !(def.year && yearOf(s) < def.year);
+}
+// { key, tiles, anchors, n, by: Map(anchor tile -> { x, y, path, lay, clear, cost }) }; empty when the tool has spots by
+// a road already (those stay as they were).
+function calmPlusSpots(s, type) {
+  const f = typeof turnArmF === 'function' ? turnArmF(type) : 0;
+  const key = s.ver + '|' + s.stage + '|' + (s.tver || 0) + '|' + f;
+  const hit = CALMP.cache[type];
+  if (hit && hit.key === key) return hit;
+  const out = { key, tiles: new Uint8Array(MAP_W * MAP_H), anchors: [], n: 0, by: new Map(), plus: true };
+  CALMP.cache[type] = out;
+  const run = () => {
+    const def = BUILDINGS[type], pier = s.b.find((b) => b.type === 'pier');
+    if (!pier) return;
+    const net = roadNets(s), town = new Set(bNets(s, pier));
+    if (!town.size) return;
+    const canClear = s.stage >= TUNE.clearStage, occ = occMap(s), N = MAP_W * MAP_H;
+    // the cheapest way from the town's roads: free land 1 a tile, open forest 4 (cleared); homes and the rest in the way
+    const dist = new Float64Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1), done = new Uint8Array(N), heap = [];
+    const cost = (i) => {
+      if (s.road[i]) return 0;
+      if (occ[i]) return -1;
+      if (s.terrain[i] === FOREST) return canClear && tileOpenAt(s, i) ? 4 : -1;
+      return canRoad(s, i % MAP_W, (i / MAP_W) | 0) === '' ? 1 : -1;
+    };
+    for (let i = 0; i < N; i++) if (s.road[i] && town.has(net[i])) { dist[i] = 0; heapPush(heap, 0, i); }
+    while (heap.length) {
+      const [d, i] = heapPop(heap);
+      if (done[i]) continue;
+      done[i] = 1;
+      if (d > CALMP.max * 4) break;
+      const x = i % MAP_W, y = (i / MAP_W) | 0;
+      for (const [dx, dy] of DIRS4) {
+        const nx = x + dx, ny = y + dy;
+        if (!inMap(nx, ny)) continue;
+        const j = tileIdx(nx, ny), c = cost(j);
+        if (c < 0 || done[j] || d + c >= dist[j]) continue;
+        dist[j] = d + c; prev[j] = i; heapPush(heap, d + c, j);
+      }
+    }
+    // (a home's lot not on a road end kept free for the road to go on: sim/land.js landStubs)
+    const stubs = def.kind === 'home' ? landStubs(s) : null, kept = (a) => !stubs || !stubs.has(tileIdx(a[0], a[1]));
+    const lots = fitAnchors(s, type, { noRoad: true }).filter(kept).map((a) => [a, false]);
+    if (canClear) { const plain = new Set(lots.map(([a]) => a[0] + ',' + a[1])); for (const a of fitAnchors(s, type, { noRoad: true, noForest: true })) if (kept(a) && !plain.has(a[0] + ',' + a[1])) lots.push([a, true]); }
+    for (const [[ax, ay], foot] of lots) {
+      // its nearest side tile (not a corner) the way reaches
+      let best = -1;
+      for (let y = ay - 1; y <= ay + def.h; y++) for (let x = ax - 1; x <= ax + def.w; x++) {
+        const side = (x === ax - 1 || x === ax + def.w) !== (y === ay - 1 || y === ay + def.h);
+        if (!side || !inMap(x, y)) continue;
+        const i = tileIdx(x, y);
+        if (dist[i] < Infinity && (best < 0 || dist[i] < dist[best])) best = i;
+      }
+      if (best < 0) continue;
+      const path = [];
+      for (let i = best; i >= 0 && !(s.road[i] && town.has(net[i])); i = prev[i]) path.push(i);
+      path.reverse();
+      // (a path through the lot itself would leave no room for it)
+      if (path.some((i) => { const x = i % MAP_W, y = (i / MAP_W) | 0; return x >= ax && x < ax + def.w && y >= ay && y < ay + def.h; })) continue;
+      const lay = path.filter((i) => !s.road[i]);
+      if (lay.length > CALMP.max) continue;
+      const clear = path.filter((i) => s.terrain[i] === FOREST);
+      if (foot) for (let y = ay; y < ay + def.h; y++) for (let x = ax; x < ax + def.w; x++) { const i = tileIdx(x, y); if (s.terrain[i] === FOREST && !clear.includes(i)) clear.push(i); }
+      const c = clear.length * clearTileCost(s) + lay.length * TUNE.roadCost;
+      out.by.set(tileIdx(ax, ay), { x: ax, y: ay, path, lay, clear, foot, cost: c + def.cost, extra: c });
+      out.anchors.push([ax, ay]);
+      for (let y = ay; y < ay + def.h; y++) for (let x = ax; x < ax + def.w; x++) out.tiles[tileIdx(x, y)] = 1;
+    }
+    out.n = out.anchors.length;
+  };
+  try { if (typeof turnUi === 'function') turnUi(s, type, run); else run(); } catch (e) { out.n = 0; out.anchors = []; out.by = new Map(); }
+  return out;
+}
+// The plus spot nearest the finger (within two tiles of its lot), as snapFoot measures: { x, y, why, plus } or null.
+function calmPlusSnap(type, sx, sy) {
+  // (only for a tool whose lit spots are these: none by a road)
+  const s = APP.state, sp = spotsFor(s, type);
+  if (!sp.plus || !sp.n) return null;
+  const def = typeof turnArmF === 'function' && turnArmF(type) ? turnFoot(type, turnArmF(type)) : BUILDINGS[type], t = screenToTile(APP.R, APP.view, sx, sy);
+  let best = null;
+  for (const e of sp.by.values()) {
+    const gx = Math.max(e.x - t.x, 0, t.x - (e.x + def.w)), gy = Math.max(e.y - t.y, 0, t.y - (e.y + def.h)), edge = Math.max(gx, gy);
+    if (edge > 2) continue;
+    const d = edge * 4 + Math.hypot(e.x + def.w / 2 - t.x, e.y + def.h / 2 - t.y);
+    if (!best || d < best.d) best = { e, d };
+  }
+  if (!best) return null;
+  const e = best.e;
+  return { x: e.x, y: e.y, why: s.money < e.cost ? 'Not enough money (' + money$(e.cost) + ')' : '', plus: e };
+}
+// A tap with the tool: on a plus spot the road and the clearing go down first (landTry, as v44's plan), then the tap
+// builds there (CALMP.force: the same lot). null: not a plus spot; { no: true }: nothing done (money short, it failed).
+function calmPlusTap(s, type, sx, sy) {
+  if (!calmPlusOn(type) || !APP.R) return null;
+  const f = calmPlusSnap(type, sx, sy);
+  if (!f) return null;
+  const e = f.plus;
+  if (f.why) { APP.ui.ghost = { type, x: e.x, y: e.y, why: 'money' }; return { no: true }; }
+  const p = { kind: 'land', type, path: e.path.slice(), hit: e.path.length ? e.path[e.path.length - 1] : tileIdx(e.x, e.y), spot: [e.x, e.y], foot: e.foot };
+  const go = (real) => (typeof turnUi === 'function' ? turnUi(s, type, () => landTry(s, p, real)) : landTry(s, p, real));
+  const trial = go(false);
+  if (!trial.ok) { APP.ui.ghost = { type, x: e.x, y: e.y, why: trial.why || 'No room here' }; return { no: true }; }
+  const r = go(true);
+  if (!r.ok) return { no: true };
+  CALMP.force = { type, x: e.x, y: e.y };
+  return { lay: (r.lay || []).slice(), clear: (r.clear || []).slice() };
+}
+// Undo of a plus spot's road and clearing: the road tiles go, the forest grows back, `back` dollars return.
+function calmPlusUndo(s, lay, clear, back) {
+  for (const i of lay || []) if (s.road[i] && !occMap(s)[i]) s.road[i] = 0;
+  for (const i of clear || []) if (!s.road[i] && !occMap(s)[i]) s.terrain[i] = FOREST;
+  s.money += Math.max(0, back || 0);
+  if ((clear || []).length) s.tver = (s.tver || 0) + 1;
+  s.ver++;
+}
+{
+  // the lit spots and the snap of a tool with none by a road: the plus spots (calm only; Details as v44)
+  const _sf = spotsFor;
+  spotsFor = function (s, type, opts) {
+    const r = _sf.apply(this, arguments);
+    if (r.n || opts || !calmPlusOn(type)) return r;
+    const p = calmPlusSpots(s, type);
+    return p.n ? p : r;
+  };
+  const _sn = snapFoot;
+  snapFoot = function (type, sx, sy) {
+    const c = CALMP.force;
+    // (the tap that follows the road: the lot the ghost showed)
+    if (c && c.type === type && canPlace(APP.state, type, c.x, c.y, { free: true }) === '') return { x: c.x, y: c.y, why: '' };
+    const f = _sn.apply(this, arguments);
+    CALMP.at = null;
+    if (!f.why || !calmPlusOn(type)) return f;
+    const q = calmPlusSnap(type, sx, sy);
+    if (!q) return f;
+    CALMP.at = { k: type + '|' + q.x + '|' + q.y, e: q.plus };
+    return { x: q.x, y: q.y, why: q.why };
+  };
+  // the road tool's legend (~25 words) only with the Traffic layer (the playtest: it showed on her first Road tap)
+  const _tl = trafficLegend;
+  trafficLegend = function () {
+    const r = _tl.apply(this, arguments), el = $('trlegend');
+    if (calmOn() && el && APP.ui.layer !== 'traffic' && (APP.ui.tool === 'road' || APP.ui.tool === 'tram') && el.classList.contains('show')) el.classList.remove('show');
     return r;
   };
 }
@@ -50666,13 +50939,14 @@ function calmLitShow(tool) {
   if (!sp.n) return;
   const W = window.innerWidth, H = window.innerHeight, tb = $('top').getBoundingClientRect(), bar = $('bar').getBoundingClientRect();
   const gl = $('calmGoals').classList.contains('show') ? $('calmGoals').getBoundingClientRect() : null;
-  const x0 = 20, x1 = (gl && gl.width ? gl.left : W) - 20, y0 = tb.bottom + 70, y1 = bar.top - 20;
-  const def = BUILDINGS[tool];
+  const x0 = 40, x1 = (gl && gl.width ? gl.left : W) - 40, y0 = tb.bottom + 80, y1 = bar.top - 40;
+  const def = BUILDINGS[tool], map = $('map');
   let best = null;
   const c = screenToTile(APP.R, APP.view, (x0 + x1) / 2, (y0 + y1) / 2);
   for (const [x, y] of sp.anchors) {
     const p = tileToScreen(APP.R, APP.view, x + def.w / 2, y + def.h / 2);
-    if (p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1) return;
+    // (C2b: in view means where a finger reaches it: not under a panel)
+    if (p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1 && document.elementFromPoint(p.x, p.y) === map) return;
     const d = Math.hypot(x + def.w / 2 - c.x, y + def.h / 2 - c.y);
     if (!best || d < best.d) best = { x: x + def.w / 2, y: y + def.h / 2, d };
   }
@@ -50696,7 +50970,8 @@ function calmLitShow(tool) {
   };
   // the asks' glowing places and dotted lines: none on the calm map (her taps build what she chose)
   const _cu = comUiUpdate;
-  comUiUpdate = function () { const r = _cu.apply(this, arguments); if (calmOn()) APP.ui.com = null; return r; };
+  // (C2b: but the armed tool's own way to a spot, when no short road reaches one: v44's plan, its dotted line and price)
+  comUiUpdate = function () { const r = _cu.apply(this, arguments); if (calmOn() && !calmOwnPlan()) APP.ui.com = null; return r; };
   // floaters: only those her own tap makes (a price, a refund); none from paydays, homes moving up, scaffolding
   const _fa = floaterAdd;
   floaterAdd = function () { if (calmOn() && !calmHers()) return; return _fa.apply(this, arguments); };
@@ -50787,6 +51062,447 @@ function calmState() {
   const vis = (e) => { if (!e) return false; const cs = getComputedStyle(e), r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0.05; };
   return { on: calmOn(), details: calmDetails(), goals: vis($('calmGoals')), tray: vis($('calmTray')), undo: CALM.undo ? CALM.undo.kind : '', items: !APP.ui.trayClosed,
     marks: Object.assign({}, APP.R && APP.R.marks), bubbles: APP.R && APP.R.bubbles ? APP.R.bubbles.length : 0 };
+}
+
+// ---- src/ui/calmcards.js
+// C2 — short cards (12 Nov 2026; nova/docs/CALM.md "Cards"; the coordinator's brief for C2).
+// On the calm screen a tap on a building, a home, a road or a crossing opens a small card: its name (with its icon),
+// one number (what it gives or takes a month; a home's people too), at most one short line ("Needs bread", "Closed")
+// and one or two buttons chosen by what she would do there (Upgrade, Close or Open, Move, Remove). Everything else is
+// under one closed "More": the v44 card as it is (its own rules, numbers, sections and buttons). The harbour, the
+// airport and the station get the same small card: 1-2 numbers ("Ships: 2 a month · +$1,800", "Planes: 3 a week ·
+// 120 visitors") and Upgrade with its price when there is a next part; their long screens (lines, routes, charters,
+// the history) are behind More. A street's beauty card and a crossing's card follow the same rule: with the Traffic
+// layer on a crossing's one number is its wait, its rules under More.
+// How: the v44 card is rendered as before into #card (every module's wrapper keeps working, and its buttons with
+// their confirmations); on the calm screen #card stays hidden and #calmCard shows the short card, made from the same
+// island and from #card's own buttons (each short button clicks its v44 button). "More" shows #card itself. Details
+// shows the v44 card alone, as before.
+
+const CALMC = { key: '', html: '', t: 0, down: false, downT: 0, sel: '', full: false };
+
+function calmCardsCss() {
+  if ($('calmCardsCss')) return;
+  const st = document.createElement('style');
+  st.id = 'calmCardsCss';
+  st.textContent = [
+    '#calmCard { display: none; }',
+    'body.calm #calmCard.show { display: block; position: fixed; z-index: 7; width: 300px; right: calc(var(--gap) + var(--sr)); top: calc(var(--gap) + 128px + var(--st)); padding: 12px 14px 12px; }',
+    // the v44 card: hidden behind the short one until More
+    'body.calm:not(.cardfull) #card.show { display: none !important; }',
+    '#calmCard .x { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }',
+    '#calmCard .x .ic { width: 18px; fill: var(--ink2); }',
+    '#calmCard h3 { margin: 0 40px 2px 0; font: italic 700 21px/1.15 var(--serif); display: flex; align-items: center; gap: 8px; }',
+    '#calmCard h3 .ic { width: 26px; height: 26px; fill: var(--coral); stroke: var(--ink); stroke-width: 1.2px; paint-order: stroke; flex: none; }',
+    '#calmCard .cn { font-size: 19px; font-weight: 800; margin-top: 6px; font-variant-numeric: tabular-nums; }',
+    '#calmCard .cn .pos { color: var(--green); } #calmCard .cn .neg { color: var(--red); }',
+    '#calmCard .cl { margin-top: 4px; font-size: 14px; font-weight: 700; color: #8a3a22; }',
+    '#calmCard .cl.ok { color: var(--green); } #calmCard .cl.plain { color: var(--ink2); }',
+    '#calmCard .cb { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }',
+    '#calmCard .cb button { flex: 1 1 0; min-width: 0; min-height: 46px; padding: 4px 8px; border-radius: 12px; font-weight: 800; font-size: 14.5px; background: var(--paper2); white-space: normal; overflow-wrap: anywhere;',
+    '  box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); line-height: 1.15; }',
+    '#calmCard .cb button.up { background: #f2c14e; } #calmCard .cb button.danger { background: var(--coral-soft); color: var(--red); }',
+    '#calmCard .cb button.sure { background: var(--red); color: #fff7ea; } #calmCard .cb button.poor { color: var(--red); }',
+    '#calmCard .cb button.up.poor { background: var(--paper2); }',
+    '#calmCard .cb button.wide { flex-basis: 100%; } #calmCard .cb button small { display: block; font-size: 12px; font-weight: 700; color: var(--ink2); margin-top: 1px; }',
+    '#calmCard .cb button.fixb { background: var(--coral); color: #fff7ea; }',
+    '#calmCard .cm { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 44px; margin-top: 8px; border-radius: 11px;',
+    '  font-weight: 800; font-size: 14px; color: var(--ink2); box-shadow: inset 0 0 0 1.5px rgba(58, 42, 31, 0.35); }',
+    '#calmCard .cm:active, #calmCard .cb button:active { transform: translateY(1px); }',
+    // what her own button asked for (the airport's places and prices, a lit spot to move to): its line, as in v44
+    'body.calm.calmhint #lower { display: flex !important; } body.calm.calmhint #receipt { display: none !important; }',
+    // C2b: a bubble's line (#pop.calmpop): its icon and words, the fix and "?"
+    'body.calm #pop.calmpop .cbl { display: flex; align-items: center; gap: 10px; font-size: 15px; }',
+    'body.calm #pop.calmpop .bub { flex: none; width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #fff4ea; border: 1.5px solid #c4553f; }',
+    'body.calm #pop.calmpop .cbb { display: flex; gap: 8px; margin-top: 10px; }',
+    'body.calm #pop.calmpop .cbb button { min-height: 44px; border-radius: 12px; font-weight: 800; font-size: 14.5px; padding: 0 14px; box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); background: var(--paper2); }',
+    'body.calm #pop.calmpop .cbb button.fixb { flex: 1; background: var(--coral); color: #fff7ea; }',
+    'body.calm #pop.calmpop .cbb button.q { width: 44px; padding: 0; flex: none; font-size: 18px; }',
+    // C2b: a row that scrolls fades at the end that has more (the build bar's items at 820, a facility's parts)
+    'body.calm #bar .tray.fr, body.calm .fac-tray.fr { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); }',
+    'body.calm #bar .tray.fl, body.calm .fac-tray.fl { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); }',
+    'body.calm #bar .tray.fl.fr, body.calm .fac-tray.fl.fr { -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); }',
+    // on a portrait iPad and a phone the card stands above the build bar, the whole width
+    '@media (max-width: 900px) { body.calm #calmCard.show { left: calc(var(--gap) + var(--sl)); right: calc(var(--gap) + var(--sr)); width: auto; top: auto;',
+    '  bottom: calc(var(--bar-h) + 2 * var(--gap) + var(--sb)); } }',
+  ].join('\n');
+  document.head.appendChild(st);
+}
+
+// ---------- what the short card says ----------
+const CALMC_UP = ['#cardUp', '#cardRes', '#cardPalace', '#cardVt', '#cardWk', '#cardAP5', '#cardG3', 'button[data-hblv]', '#cardExpand'];
+// One short line from a long sentence: its first clause, at most six words.
+function calmShort(t) {
+  const w = String(t || '').split(/[:.(;]/)[0].trim().split(/\s+/).filter(Boolean);
+  return w.length > 6 ? w.slice(0, 6).join(' ') + '…' : w.join(' ');
+}
+function calmCap(t) { t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); }
+// A v44 button as a short one: { sel, label, cls }
+function calmCardBtn(e, what) {
+  if (!e) return null;
+  // (the label without its small print: "Build the jet terminal · $12,500" and not its months under it)
+  const c = e.cloneNode(true);
+  for (const x of c.querySelectorAll('small')) x.remove();
+  const t = c.textContent.replace(/\s+/g, ' ').trim(), m = t.match(/[+−-]?\$[\d,.]+k?/), price = m ? m[0] : '';
+  const sel = e.id ? '#' + e.id : e.dataset.hblv !== undefined ? 'button[data-hblv="' + e.dataset.hblv + '"]' : e.dataset.k !== undefined ? 'button.bmstep[data-k="' + e.dataset.k + '"]' : '';
+  if (!sel) return null;
+  const sure = e.classList.contains('sure') || /^Tap again/.test(t), poor = e.classList.contains('poor') || e.disabled;
+  let label, cls = '';
+  if (what === 'open') { label = sure ? 'Tap again to close' : /Open it again/.test(t) ? 'Open' : 'Close'; }
+  else if (what === 'remove') { label = sure ? 'Tap again to remove' : 'Remove' + (price ? ' · ' + price : ''); cls = 'danger'; }
+  else if (what === 'move') label = 'Move' + (price ? ' · ' + price : '');
+  else if (what === 'repave') label = 'Repave' + (price ? ' · ' + price : '');
+  else if (what === 'step') { const g = (t.match(/\+(\d+) ·/) || [])[1]; label = 'Beauty' + (g ? ' +' + g : '') + (price ? ' · ' + price : ''); cls = 'up'; }
+  else { label = 'Upgrade' + (price ? ' · ' + price : ''); cls = 'up'; }
+  // C2b (the playtest: "Upgrade · $5,250" with $2,020 in hand did nothing): what is missing, and about when it comes
+  const need = poor && price && !/^[+]/.test(price) ? calmNeedMore(+price.replace(/[^\d.]/g, '') * (/k$/.test(price) ? 1000 : 1)) : '';
+  return { sel, label, sub: need, cls: [cls, sure ? 'sure' : '', poor ? 'poor' : '', need ? 'wide' : ''].filter(Boolean).join(' ') };
+}
+// "Needs $3,230 more · about 3 paydays" (from the last three paydays), '' when the money is there.
+function calmNeedMore(cost) {
+  const s = APP.state, short = Math.ceil(cost - s.money);
+  if (!(short > 0)) return '';
+  const per = (s.history || []).slice(-3), avg = per.length ? per.reduce((a, x) => a + x.result, 0) / per.length : 0;
+  const n = avg > 0 ? Math.ceil(short / avg) : 0;
+  return 'Needs ' + money$(short) + ' more' + (n ? ' · about ' + plural(n, 'payday', 'paydays') : '');
+}
+// A button that arms a tool (the fix of what a home or a workshop lacks) or opens a building: { tool, at, sel, label }.
+function calmFixBtn(fix, need) {
+  if (!fix) return null;
+  if (fix.tool && (BUILDINGS[fix.tool] || fix.tool === 'road' || fix.tool === 'paved')) return { tool: fix.tool, at: fix.at || null, label: calmFixLabel(fix.tool, need), cls: 'fixb' };
+  const id = fix.select || (fix.act && fix.act.select);
+  if (id && bById(APP.state, id)) return { open: id, label: 'Show', cls: 'fixb' };
+  return null;
+}
+function calmCardQ(sel) { const e = $('card').querySelector(sel); return e && !e.disabled ? e : null; }
+// The v44 card's own number a month (its large line: "+$88 a month", "+$26 last month", after every module's wrapper), so the two cards
+// always say the same; null when it has none.
+function calmCardMonth() {
+  const e = $('card').querySelector('.num'), t = e ? e.textContent.replace(/\s+/g, ' ').trim() : '', m = t.match(/^([+−-]?)\$([\d,]+) (a|last) month$/);
+  if (!m) return null;
+  const v = +m[2].replace(/,/g, '');
+  return m[1] === '−' || m[1] === '-' ? -v : v;
+}
+
+function calmFacNums(s, b) {
+  const def = defOf(b), own = calmCardMonth(), money = own !== null ? own : typeof bMonthly === 'function' ? bMonthly(s, b) : null, m = money === null ? '' : fmtSigned(money);
+  if (def.kind === 'harbor') {
+    const d = typeof hbDef === 'function' ? hbDef(s, b) : def, n = (d && d.ships) || def.ships || 1;
+    return ['Ships: ' + n + ' a month' + (m ? ' · ' + m : '')];
+  }
+  if (b.type === 'airfield') {
+    // its routes' planes and their visitors last month; with no route signed, the open service's visitors
+    let L = null;
+    try { L = typeof apOn === 'function' && apOn() && s.air && s.air[b.id] ? (apView(s, b).F.L || {}) : null; } catch (e) { L = null; }
+    if (L && L.flights) return ['Planes: ' + Math.max(1, Math.round(L.flights * 12 / 52)) + ' a week · ' + (L.came || 0).toLocaleString('en-US') + ' visitors'];
+    const v = typeof airVisitors === 'function' ? airVisitors(s) : 0;
+    return ['Visitors: ' + v + ' a month' + (m ? ' · ' + m : '')];
+  }
+  if (b.type === 'station') return ['Loads: ' + (b.lastSent || 0) + ' a month' + (m ? ' · ' + m : '')];
+  return null;
+}
+function calmFacIs(b) { const d = defOf(b); return d.kind === 'harbor' || b.type === 'airfield' || b.type === 'station'; }
+
+// A building's short card.
+function calmBuildingCard(s, b) {
+  const def = defOf(b), kind = def.kind;
+  let name = def.name;
+  if (kind === 'home') name = (LEVELS[b.level] && LEVELS[b.level].name) || def.name;
+  if (b.type === 'residence') name = s.palace ? "Governor's palace" : RESIDENCE[s.res || 0].name;
+  if (b.type === 'pier') name = 'Pier';
+  const own = calmCardMonth(), nums = [], money = own !== null ? own : typeof bMonthly === 'function' ? bMonthly(s, b) : null;
+  const fac = calmFacIs(b) ? calmFacNums(s, b) : null;
+  if (fac) nums.push(...fac);
+  else if (b.type === 'pier') nums.push(s.waiting ? plural(s.waiting, 'settler waits', 'settlers wait') : 'Next boat: up to ' + shipSettlers(s));
+  else {
+    if (kind === 'home') nums.push(plural(b.res || 0, 'person', 'people'));
+    if (money !== null && b.type !== 'residence') nums.push({ n: money });
+  }
+  // the one short line
+  let line = '', ok = false;
+  if (b.wip) line = 'Being built · ' + Math.round(100 * projectDone(b)) + ' %';
+  else if (b.open === false) line = 'Closed';
+  else if (b.strike) line = 'On strike';
+  else if (kind === 'home') {
+    if (b.lacks && b.lacks.length) line = 'Needs ' + (NEED_NAMES[b.lacks[0]] || b.lacks[0]);
+    else if (b.build) line = 'Being upgraded';
+    else if (b.ready) { line = 'Ready to move up'; ok = true; }
+    else if (!b.res) line = 'Empty: settlers come by boat';
+  } else if (b.type !== 'residence' && b.type !== 'pier') {
+    const st = typeof bStatus === 'function' ? bStatus(s, b) : null;
+    if (st && !st.good) line = calmShort(st.text);
+  }
+  // the buttons, by what she would do there
+  const up = CALMC_UP.map(calmCardQ).find(Boolean), open = calmCardQ('#cardOpen'), move = calmCardQ('#cardMoveIt') || calmCardQ('#cardMove'), rm = calmCardQ('#cardRemove');
+  // C2b: what fixes the line (a home that lacks bread: the harbour, "flour by ship"; a bakery with no flour: the same)
+  let fix = null;
+  try {
+    if (kind === 'home' && b.lacks && b.lacks.length && !b.wip) fix = calmFixBtn(needCause(s, b.lacks[0], [b]), b.lacks[0]);
+    else if (def.uses && b.blocked === 'input' && !b.wip && b.open !== false) { const w = inputWhy(s, b); fix = w && calmFixBtn(w.act, w.g); }
+  } catch (e) { fix = null; }
+  let btns;
+  if (fac || b.type === 'residence' || b.type === 'pier') btns = [calmCardBtn(up)];
+  else if (kind === 'home') btns = fix ? [fix, calmCardBtn(move, 'move')] : up ? [calmCardBtn(up), calmCardBtn(rm, 'remove')] : [calmCardBtn(move, 'move'), calmCardBtn(rm, 'remove')];
+  else if (def.jobs) btns = fix ? [fix, calmCardBtn(open, 'open')] : up ? [calmCardBtn(up), calmCardBtn(open, 'open')] : [calmCardBtn(open, 'open'), calmCardBtn(rm, 'remove')];
+  else btns = [calmCardBtn(move, 'move'), calmCardBtn(rm, 'remove')];
+  return { key: 'b' + b.id, icon: def.icon || 'home', name, nums, line, ok, btns: btns.filter(Boolean).slice(0, 2), at: [b.x + b.w / 2, b.y + b.h / 2] };
+}
+// A crossing's short card: its rule; with the Traffic layer on, the wait as its number; else the carts a month.
+function calmCrossCard(s, i) {
+  const J = jctTraffic(s, i), name = calmCap(placeName(s, i).replace(/^the /, ''));
+  const lvl = J.level >= TR.jam ? 'jammed' : J.level > TR.busy ? 'busy' : '';
+  const carts = Math.round(Object.values(J.q || {}).reduce((a, v) => a + (+v || 0), 0));
+  const num = APP.ui.layer === 'traffic' ? (J.wait ? 'Wait: ' + J.wait + ' s' : 'No wait') : 'Carts: ' + carts.toLocaleString('en-US') + ' a month';
+  return { key: 'j' + i, icon: J.ctl === 'lights' ? 'lights' : J.ctl === 'rbt' ? 'rbt' : 'traffic', name, nums: [num], line: (JC_RULE[J.ctl] || '') + (lvl ? ' · ' + lvl : ''), plain: !lvl, btns: [], at: [i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5] };
+}
+// A road's short card: its carts a month; worn or broken up; Repave when it is.
+function calmRoadCard(s, i) {
+  const k = s.road[i], kind = k === 3 ? 'Avenue' : k === 2 ? 'Paved road' : 'Road', name = placeName(s, i).replace(/^the road /, '').replace(/^the /, '');
+  let num = '', line = '';
+  try { if (typeof t3On === 'function' && t3On()) { num = 'Carts: ' + Math.round(rcWearOf(s, i).load).toLocaleString('en-US') + ' a month'; const c = rcClass(rcOf(s, i)); line = c === 2 ? 'Broken up' : c === 1 ? 'Worn' : ''; } } catch (e) { num = ''; }
+  return { key: 'r' + i, icon: 'road', name: kind + ' ' + name, nums: num ? [num] : [], line, btns: [calmCardBtn(calmCardQ('#rcRepave'), 'repave')].filter(Boolean), at: [i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5] };
+}
+// A street's beauty card: its beauty; its look; the step that would help most.
+function calmStreetCard(s) {
+  const st = bmByKey(s, APP.ui.bsel);
+  if (!st) return null;
+  const v = beautyOf(s, st), shown = v >= 0 ? v : bmParts(s, st, bmSources(s)).v;
+  const look = String(BEAU_TIER_WORDS[bmTier(shown)] || '').split(',')[0];
+  const step = $('card').querySelector('button.bmstep[data-k="0"]');
+  return { key: 's' + st.k, icon: 'flower', name: bmTitle(s, st), nums: ['Beauty ' + shown], line: calmCap(look), ok: true, btns: [calmCardBtn(step, 'step')].filter(Boolean), at: null };
+}
+function calmCardModel() {
+  const s = APP.state;
+  if (!s || !$('card').classList.contains('show')) return null;
+  // (C2b: a kind it has no form for: { unknown }; a moment that throws: null, and the card stays as it was)
+  try {
+    if (APP.ui.bsel) return calmStreetCard(s) || { unknown: true };
+    if (APP.ui.jsel >= 0 && !APP.ui.sel) return jctAt(s, APP.ui.jsel) ? calmCrossCard(s, APP.ui.jsel) : s.road[APP.ui.jsel] ? calmRoadCard(s, APP.ui.jsel) : { unknown: true };
+    const b = APP.ui.sel && bById(s, APP.ui.sel);
+    return b ? calmBuildingCard(s, b) : { unknown: true };
+  } catch (e) { return null; }
+}
+function calmCardHtml(m) {
+  const nums = m.nums.map((x) => (typeof x === 'object' ? '<span class="' + (x.n < 0 ? 'neg' : x.n > 0 ? 'pos' : '') + '">' + esc(fmtSigned(x.n) + ' a month') + '</span>' : esc(x))).join(' · ');
+  return '<button class="x" id="calmCardX" aria-label="Close">' + iconSvg('close') + '</button>' +
+    '<h3>' + iconSvg(m.icon) + '<span>' + esc(m.name) + '</span></h3>' +
+    (nums ? '<div class="cn">' + nums + '</div>' : '') +
+    (m.line ? '<div class="cl' + (m.ok ? ' ok' : m.plain ? ' plain' : '') + '">' + esc(m.line) + '</div>' : '') +
+    (m.btns.length ? '<div class="cb">' + m.btns.map((x) => '<button class="' + (x.cls || '') + '"' + (x.tool ? ' data-tool="' + esc(x.tool) + '"' + (x.at ? ' data-at="' + x.at[0] + ',' + x.at[1] + '"' : '') : x.open ? ' data-open="' + x.open + '"' : ' data-src="' + esc(x.sel) + '"') + '>' + esc(x.label) + (x.sub ? '<small>' + esc(x.sub) + '</small>' : '') + '</button>').join('') + '</div>' : '') +
+    '<button class="cm" id="calmCardMore" aria-expanded="false">More ▾</button>';
+}
+
+// ---------- each frame: the short card follows the v44 card ----------
+// The hints her own taps on a card make (Move: "tap a lit spot"; the airport's next part: its places and prices; a
+// big goal's site): Rosa's line shows them on the calm screen as in v44, and nothing else of hers.
+const CALMC_HINTS = ['move', 'plan:g5', 'plan:g4site'];
+function calmCardSync(force) {
+  const el = $('calmCard');
+  if (!el) return;
+  const h = APP.ui && APP.ui.hint;
+  document.body.classList.toggle('calmhint', !!(calmOn() && h && CALMC_HINTS.includes(h.key)));
+  const card = $('card'), on = calmOn() && card.classList.contains('show');
+  if (!on) {
+    if (el.classList.contains('show')) { uiGone(el); el.classList.remove('show'); }
+    document.body.classList.remove('cardfull');
+    CALMC.sel = ''; CALMC.html = '';
+    return;
+  }
+  const now = performance.now();
+  if (!force && (CALMC.down || now < CALMC.downT || now - CALMC.t < 250)) return;
+  CALMC.t = now;
+  const m = calmCardModel();
+  // (nothing shown yet and the moment threw: the v44 card, as before C2b)
+  if (!m) { if (!el.classList.contains('show')) document.body.classList.add('cardfull'); return; }
+  // a card the short card does not know (a bridge's, an island goal's place): the v44 card itself
+  if (m.unknown) { document.body.classList.add('cardfull'); el.classList.remove('show'); return; }
+  const fresh = m.key !== CALMC.sel;
+  if (fresh) { CALMC.sel = m.key; document.body.classList.remove('cardfull'); }
+  if (document.body.classList.contains('cardfull')) { el.classList.remove('show'); return; }
+  const html = calmCardHtml(m);
+  if (html !== CALMC.html) { CALMC.html = html; el.innerHTML = html; }
+  el.classList.add('show');
+  if (fresh && m.at) requestAnimationFrame(() => calmCardReveal(m.at));
+}
+// The building stays in sight beside the card (landscape) or above it (portrait, phone).
+function calmCardReveal(at) {
+  const el = $('calmCard'), r = el.getBoundingClientRect();
+  if (!r.width || !APP.R) return;
+  const p = tileToScreen(APP.R, APP.view, at[0], at[1]);
+  if (window.innerWidth <= 900) { const top = ($('calmChip').getBoundingClientRect().bottom || 120) + 20; if (p.y > r.top - 30) viewNudge(0, p.y - (top + r.top) / 2); }
+  else if (p.x > r.left - 30) viewNudge(p.x - r.left / 2, 0);
+}
+
+function calmCardsInit() {
+  calmCardsCss();
+  if ($('calmCard')) return;
+  const el = document.createElement('div');
+  el.id = 'calmCard'; el.className = 'panel';
+  el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'A short card');
+  document.body.appendChild(el);
+  el.addEventListener('pointerdown', () => { CALMC.down = true; }, true);
+  const up = () => { if (CALMC.down) { CALMC.down = false; CALMC.downT = performance.now() + 350; } };
+  el.addEventListener('pointerup', up, true); el.addEventListener('pointercancel', up, true);
+  el.addEventListener('click', (e) => {
+    const t = e.target.closest && e.target.closest('button');
+    if (!t) return;
+    if (t.id === 'calmCardX') { cardClose(); calmCardSync(true); return; }
+    if (t.id === 'calmCardMore') { document.body.classList.add('cardfull'); el.classList.remove('show'); APP.cardKey = ''; if (typeof cardRender === 'function') cardRender(); return; }
+    if (t.dataset.tool) {
+      const tool = t.dataset.tool, at = t.dataset.at ? t.dataset.at.split(',').map(Number) : null;
+      cardClose(); calmCardSync(true);
+      toolSet(tool);
+      if (at) cameraFlyTo(at[0] + 0.5, at[1] + 0.5);
+      return;
+    }
+    if (t.dataset.open) { const b = bById(APP.state, +t.dataset.open); if (b) { cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id); cardOpen(b.id); } return; }
+    const src = t.dataset.src && $('card').querySelector(t.dataset.src);
+    if (src) { src.click(); CALMC.downT = 0; calmCardSync(true); }
+  });
+  $('map').addEventListener('pointermove', calmHover);
+  $('map').addEventListener('pointerleave', () => { APP.ui.hover = 0; });
+  // a facility's pin (the anchor, the plane) opens its short card on the calm screen; its long screen is under More
+  document.addEventListener('click', (e) => {
+    if (!calmOn()) return;
+    const t = e.target && e.target.closest && e.target.closest('#facPins [data-fp]');
+    if (!t) return;
+    e.stopPropagation(); e.preventDefault();
+    const b = bById(APP.state, +t.dataset.fp);
+    if (b) { toolSet('look'); cardOpen(b.id); }
+  }, true);
+}
+{
+  const _ai = audioInit;
+  audioInit = function () { const r = _ai.apply(this, arguments); calmCardsInit(); return r; };
+  const _rp = rotPlace;
+  rotPlace = function () { const r = _rp.apply(this, arguments); try { calmCardSync(); } catch (e) { /* the v44 card shows */ } return r; };
+  // the short card is in sight at once (not a frame later)
+  const _co = cardOpen;
+  cardOpen = function () { const r = _co.apply(this, arguments); if (calmOn()) calmCardSync(true); return r; };
+  const _cc = cardClose;
+  cardClose = function () { const r = _cc.apply(this, arguments); calmCardSync(true); return r; };
+  // a tap on a road or a crossing (no layer on, no building or bubble under the finger): its short card
+  const _tap = tapAt;
+  tapAt = function (sx, sy) {
+    const s = APP.state;
+    if (calmOn() && s && APP.ui.tool === 'look' && !APP.ui.layer && !APP.ui.beauty && !APP.ui.land && !APP.ui.money && !renderPick(APP.R, APP.view, s, sx, sy) && !bubbleAt(sx, sy)) {
+      const p = screenToTile(APP.R, APP.view, sx, sy), x = Math.floor(p.x), y = Math.floor(p.y), t = inMap(x, y) ? tileIdx(x, y) : -1;
+      const j = typeof jctNear === 'function' ? jctNear(s, sx, sy, true) : -1;
+      if (j >= 0 && Math.hypot(j % MAP_W + 0.5 - p.x, ((j / MAP_W) | 0) + 0.5 - p.y) < 0.75) { calmItemsClose(); jcardOpen(j); calmCardSync(true); return; }
+      if (t >= 0 && s.road[t] && typeof rcardOpen === 'function' && typeof t3On === 'function' && t3On()) { calmItemsClose(); rcardOpen(t); calmCardSync(true); return; }
+      // C2b (the playtest: the hill's rings round the governor's house look tappable): the hill by it opens its card
+      const r = t >= 0 && s.terrain[t] === HILL ? s.b.find((o) => o.type === 'residence') : null;
+      if (r && Math.hypot(r.x + r.w / 2 - p.x, r.y + r.h / 2 - p.y) <= 4.5) { calmItemsClose(); $('pop').classList.remove('show'); cardOpen(r.id); return; }
+    }
+    // C2b: a bubble: its one line and the one button that fixes it (the legend behind "?"), not the home's card
+    if (calmOn() && s && APP.ui.tool === 'look') {
+      const bub = bubbleAt(sx, sy);
+      if (bub && bub.home && bub.need) { calmItemsClose(); cardClose(); calmBubbleOpen(bub); return; }
+    }
+    return _tap.apply(this, arguments);
+  };
+}
+
+// ---------- C2b: the playtest's fixes on the calm screen ----------
+// A bubble's line: "Lacks a market · 3 homes", the one button that fixes it (the tool where it belongs, or Show), and
+// "?" for v44's legend of the bubbles.
+function calmBubbleOpen(bub) {
+  const s = APP.state, el = $('pop'), own = bub.id ? bById(s, bub.id) : null, need = bub.need;
+  const n = ((bub.warn ? s.lackCount : s.wantCount) || {})[need] || 0;
+  let fix = null;
+  try { fix = own && own.type === 'casita' ? needCause(s, need, [own]) : null; if (!fix) fix = needFix(s, need); } catch (e) { fix = null; }
+  const btn = calmFixBtn(fix, need);
+  const line = (bub.warn ? 'Lacks ' : 'To grow: ') + (NEED_NAMES[need] || need) + ' · ' + plural(Math.max(1, n), 'home', 'homes');
+  el.innerHTML = '<div class="cbl"><span class="bub' + (bub.warn ? ' warn' : '') + '">' + iconSvg(NEED_ICONS[need] || 'home') + '</span><b>' + esc(line) + '</b></div>' +
+    '<div class="cbb">' + (btn ? '<button class="fixb"' + (btn.tool ? ' data-tool="' + esc(btn.tool) + '"' + (btn.at ? ' data-at="' + btn.at[0] + ',' + btn.at[1] + '"' : '') : ' data-open="' + btn.open + '"') + '>' + esc(btn.label) + '</button>' : '') +
+    '<button class="q" aria-label="What the bubbles mean">?</button></div>';
+  el.classList.add('show', 'calmpop');
+  clearTimeout(APP.popTimer);
+  const t0 = performance.now();
+  el.onclick = (e) => {
+    const b = e.target.closest && e.target.closest('button');
+    if (!b || performance.now() - t0 < 300) return;
+    if (b.classList.contains('q')) { el.classList.remove('calmpop'); legendOpen(bub); return; }
+    el.classList.remove('show', 'calmpop');
+    if (b.dataset.tool) { toolSet(b.dataset.tool); if (b.dataset.at) { const a = b.dataset.at.split(',').map(Number); cameraFlyTo(a[0] + 0.5, a[1] + 0.5); } return; }
+    if (b.dataset.open) { const o = bById(s, +b.dataset.open); if (o) { cameraFlyTo(o.x + o.w / 2, o.y + o.h / 2, null, o.id); cardOpen(o.id); } }
+  };
+  calmPopPlace();
+}
+// #pop on the calm screen: under the goal chip
+function calmPopPlace() {
+  const el = $('pop'), chip = $('calmChip');
+  if (!el || !calmOn() || !el.classList.contains('show') || !chip) return;
+  const r = chip.getBoundingClientRect(), top = Math.round((r.bottom || 110) + 8) + 'px';
+  if (el.style.top !== top) el.style.top = top;
+}
+// The money card (a tap on the money): what came in, what went out and the result, then More (v44's whole sheet). The
+// month is the payday's own: it falls at the end of the month, so in August the last one is July's.
+{
+  const _mo = moneyOpen;
+  moneyOpen = function () {
+    const s = APP.state, m = calmOn() && s ? moneySources(s) : null;
+    if (!m) return _mo.apply(this, arguments);
+    const sum = (a) => a.reduce((t, o) => t + (o.n || 0), 0), inn = sum(m.income), out = sum(m.costs);
+    const row = (k, n, cls) => '<div class="mline' + (cls ? ' ' + cls : '') + '"><span>' + esc(k) + '</span><b class="' + (n < 0 ? 'n' : 'y') + '">' + esc(fmtSigned(n)) + '</b></div>';
+    sheetOpen('<h2>Money</h2><p class="sub">' + esc('Payday at the end of ' + dateLabel(m.month)) + '</p>' + row('Came in', inn) + row('Went out', out) + row('Result', m.result, 'sum') +
+      '<div class="btns"><button id="calmMoneyMore">More ▾</button></div>');
+    const b = $('calmMoneyMore');
+    if (b) b.addEventListener('click', () => _mo.apply(this, arguments));
+  };
+}
+// Floaters (the playtest: "The Sosa family moves in" over "The Rodriguez family moves in", a ship's slip under the
+// anchor): on the calm screen no family lines, one floater at a time (her own price), and a ship's pay as "+$1,200" by
+// the money (render/iso.js calls calmShipPay instead of drawing its slip).
+{
+  const _fe = famEvents;
+  famEvents = function () { if (calmOn()) return; return _fe.apply(this, arguments); };
+  const _fa = floaterAdd;
+  floaterAdd = function (x, y, text) {
+    if (calmOn()) {
+      if (!/^[+−-]\$/.test(String(text || '')) || !calmHers()) return;
+      if (APP.ui.floaters) APP.ui.floaters.length = 0;
+    }
+    return _fa.apply(this, arguments);
+  };
+}
+// Whether v44's card is in sight (Details, or More on the calm screen): its map extras (a works' next lot's name, the
+// way its carts go) show with it.
+function calmCardSeen() { return !calmOn() || document.body.classList.contains('cardfull'); }
+function calmShipPay(n) { if (n > 0 && calmOn() && typeof calmPayShow === 'function') calmPayShow(n); }
+// Rows that scroll (the build bar's items, a facility's parts): a fade at the end that has more
+function calmRowFades() {
+  for (const el of document.querySelectorAll('#bar .tray, .fac-tray')) {
+    const more = el.scrollWidth - el.clientWidth > 2, r = more && el.scrollLeft < el.scrollWidth - el.clientWidth - 2, l = more && el.scrollLeft > 2;
+    if (el.classList.contains('fr') !== r) el.classList.toggle('fr', r);
+    if (el.classList.contains('fl') !== l) el.classList.toggle('fl', l);
+  }
+}
+// On the Mac, the building under the mouse lights a little (render/iso.js: ui.hover)
+function calmHover(e) {
+  if (e.pointerType !== 'mouse' || e.buttons || !calmOn() || !APP.state || !APP.R || APP.ui.tool !== 'look') { if (APP.ui.hover) APP.ui.hover = 0; return; }
+  const now = performance.now();
+  if (now - (CALMC.hovT || 0) < 60) return;
+  CALMC.hovT = now;
+  const b = renderPick(APP.R, APP.view, APP.state, e.clientX, e.clientY);
+  APP.ui.hover = b ? b.id : 0;
+  $('map').style.cursor = b ? 'pointer' : '';
+}
+{
+  const _rp2 = rotPlace;
+  rotPlace = function () { const r = _rp2.apply(this, arguments); if (calmOn()) { try { calmRowFades(); calmPopPlace(); } catch (e) { /* as it was */ } } return r; };
+}
+
+// What the short card shows now (the console and the tests): its words (the buttons apart), its buttons.
+function calmCardState() {
+  const el = $('calmCard');
+  if (!el || !el.classList.contains('show')) return { show: false, full: document.body.classList.contains('cardfull') };
+  const words = [], btns = [];
+  const tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = tw.nextNode())) { if (n.parentElement.closest('button')) continue; words.push(...n.textContent.split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w))); }
+  for (const b of el.querySelectorAll('button')) { const r = b.getBoundingClientRect(); btns.push([b.id || b.textContent.trim(), Math.round(r.width), Math.round(r.height), b.scrollWidth > b.clientWidth + 1 ? 1 : 0]); }
+  return { show: true, key: CALMC.sel, words: words.length, text: words.join(' '), btns };
 }
 
 // ---- src/ui/main.js
