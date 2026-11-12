@@ -26986,6 +26986,8 @@ const ISO = (() => {
   const CHUNK = 256, RES = 4, PAD = 3, RW = 0.6;
   const MEM_BUDGET = 190e6, UI_CAP = 1.5e6, CANVAS_MAX = 16.7e6, GM_MAX = 200;
   const SANS = '"Avenir Next", Avenir, "Trebuchet MS", "Segoe UI", Carlito, "DejaVu Sans", sans-serif';
+  // C1 (calm): at most this many bubbles in view (homes that truly lack something, one per small area)
+  const CALM_BUBBLES = 6;
 
   // ---------- small utils ----------
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -30161,9 +30163,13 @@ const ISO = (() => {
     else g.drawImage(sp.c, sx - sp.ax * k, sy - sp.ay * k, sp.w * k, sp.h * k);
     if (alpha !== undefined) g.globalAlpha = 1;
   }
+  // C1 (calm): what the frame drew over the map, by kind (MARKK: the part of drawFrame drawing now), for the budget test
+  let MARKK = '';
+  function markCount(R, k) { if (R.marks) R.marks[k] = (R.marks[k] || 0) + 1; }
   function uiDraw(R, sp, sx, sy, alpha) {
     if (sp === HOLD) return;
     if (LBL && sp.lbl) { const q = lblFit(R, sp, sx, sy); if (!q) return; sx = q[0]; sy = q[1]; }
+    markCount(R, MARKK || 'other');
     const g = R.ctx, d = R.dpr;
     if (alpha !== undefined) g.globalAlpha = alpha;
     g.drawImage(sp.c, Math.round((sx - sp.ax) * d) / d, Math.round((sy - sp.ay) * d) / d, sp.w, sp.h);
@@ -30376,6 +30382,7 @@ const ISO = (() => {
   }
   function downBadge(R, x, y) {
     const g = R.ctx;
+    markCount(R, 'badge');
     circ(x, y, 10.5, '#df684c', INK, 1.8);
     g.strokeStyle = '#fffaf0'; g.lineWidth = 2.4; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
     g.moveTo(x, y - 5); g.lineTo(x, y + 4.5); g.moveTo(x - 4, y + 0.8); g.lineTo(x, y + 4.8); g.lineTo(x + 4, y + 0.8); g.stroke();
@@ -30384,6 +30391,7 @@ const ISO = (() => {
   // pill name the need and the months left).
   function riskBadge(R, x, y) {
     const g = R.ctx;
+    markCount(R, 'badge');
     circ(x, y, 10, '#f0a531', INK, 1.8);
     g.strokeStyle = '#3a2a1f'; g.lineWidth = 2.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x, y + 1.2); g.stroke();
     circ(x, y + 4.6, 1.5, '#3a2a1f');
@@ -30391,6 +30399,7 @@ const ISO = (() => {
   // M2: a home ready to move up: a small gold arrow (her cue to tap it and Upgrade).
   function readyBadge(R, x, y) {
     const g = R.ctx;
+    markCount(R, 'badge');
     circ(x, y, 10, '#f2c14e', INK, 1.8);
     g.strokeStyle = '#3a2a1f'; g.lineWidth = 2.4; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
     g.moveTo(x, y + 5); g.lineTo(x, y - 4.5); g.moveTo(x - 4, y - 0.8); g.lineTo(x, y - 4.8); g.lineTo(x + 4, y - 0.8); g.stroke();
@@ -30414,6 +30423,8 @@ const ISO = (() => {
         uiDraw(R, labelSprite(R, 'Join it to this road', true), pb[0], pb[1] - 26);
       }
     }
+    // C1: the calm screen has no upgrade arrows, no step-down and no risk marks (a home's card says it)
+    if (typeof calmOn === 'function' && calmOn()) return;
     for (const b of s.b) {
       if (!b.ready || b.build || b.type !== 'casita') continue;
       const p = P(b.x + 0.5, b.y + 0.5, bubbleZ(b) + 0.15);
@@ -32860,13 +32871,32 @@ const ISO = (() => {
     // marks above buildings: what a home lacks, workers short, a full yard
     const sc = clamp(Math.round(R.hw / 34 * 8) / 8, 0.75, 1.25), sel = ui.sel;
     R.bubbles = [];
+    // C1 (calm, nova/docs/CALM.md): only a home that truly lacks something has a bubble, one per small area, at most
+    // CALM_BUBBLES in view; no workshop or service marks, no roof tags, no family or quarter names
+    const CALMD = typeof calmOn === 'function' && calmOn(), calmCells = {};
+    R.marks = {}; R.calm = CALMD; MARKK = 'bubble';
+    const ftN0 = R.ftN || 0;
     // Fix3: the frame's labels are placed from here (lblFit)
     lblBegin(R, ui);
     // A12: the roof tags (stopped, closed, on strike, being built) are drawn after the loop, merged or stacked
     const tags = [];
     for (const ob of R.order) {
       if (ob.k !== 'b' || !onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1)) continue;
-      const b = ob.b, m = ui.money ? null : bubbleOf(s, b, R.hw);
+      const b = ob.b;
+      let m = ui.money ? null : bubbleOf(s, b, R.hw);
+      if (CALMD && m) {
+        if (b.type !== 'casita' || !m.warn || R.bubbles.length >= CALM_BUBBLES) m = null;
+        else { const ck = Math.floor(b.x / TUNE.bubbleCell) + ',' + Math.floor(b.y / TUNE.bubbleCell); if (calmCells[ck]) m = null; else calmCells[ck] = 1; }
+      }
+      if (CALMD) {
+        if (m) { const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b)); if (p[0] >= -40 && p[0] <= R.w + 40 && p[1] >= -40 && p[1] <= R.h + 60) { uiDraw(R, bubbleSprite(R, m.icon, m.warn, m.text, sc * 0.92), p[0], p[1] - 4 + Math.sin(t * 2.2 + b.id) * 1.5); R.bubbles.push({ x: p[0], y: p[1] - 4 - 16 * sc, id: b.id, home: true, need: b.lacks[0] || '', warn: true }); } }
+        if (b.strike) {
+          const vb = bVBox(R, b);
+          for (let k = 0; k < 5; k++) { const lq = txPt(b, [0.2 + k * (vb[2] - vb[0] - 0.3) / 5, vb[3] - vb[1] + 0.35 + (k % 2) * 0.25]), wq = localWorld(R, b, lq[0], lq[1]), fx = wq[0], fy = wq[1]; paintPerson(fx, fy, k + b.id, Math.floor(t * 2 + k) % 2, false); }
+        }
+        if (b.type === 'residence' && s.unrest && s.unrest.crowd) protestDraw(R, s, b, t);
+        continue;
+      }
       if (b.open === false) { const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b) * 0.6); tags.push({ k: 'closed', x: p[0], y: p[1], n: 1 }); }
       // M4: a strike: workers outside the gate with placards, and the word over the roof
       if (b.strike) {
@@ -32886,10 +32916,15 @@ const ISO = (() => {
       uiDraw(R, bubbleSprite(R, m.icon, m.warn, m.text, m.warn ? sc * 0.92 : sc * 0.8), p[0], p[1] - 4 + Math.sin(t * 2.2 + b.id) * 1.5);
       R.bubbles.push({ x: p[0], y: p[1] - 4 - 16 * sc, id: b.id, home: b.type === 'casita', need: b.type === 'casita' ? (b.lacks[0] || b.wants[0]) : '', warn: m.warn });
     }
+    MARKK = 'roof';
     tagsDraw(R, tags);
+    MARKK = 'space';
     spaceMarks(R, s, ui, t);
     // A3 (commissions): the main commission's glowing places or dotted line, and a stage ritual's gathering
+    // (calm: no asks here, APP.ui.com is null; the chain after it still draws the layers: land value, beauty)
+    MARKK = 'com';
     comOverlay(R, s, ui, t);
+    MARKK = 'overlay';
     // A14: the siding or conveyor her card offers, the old track along a street
     rlOverlay(R, s, ui, t);
     // T2: the plans the junction card offers (turn lanes, a bridge), dashed on the map before she taps (streets_ui.js)
@@ -32897,9 +32932,12 @@ const ISO = (() => {
     // T3: accident markers, the way a producer's carts go, the stretch a road card offers (roadcare_ui.js)
     if (typeof rcOverlay === 'function') rcOverlay(R, s, ui, t, stHook(R));
     // A4: the families' names on the map (the tents, the suitcases, one of them at the door of a tapped home)
-    famMarks(R, s, ui, t, now);
+    MARKK = 'family';
+    famMarks(R, s, ui, t, now, CALMD);
     // A10: a new quarter's street sign (two years), the far town's name (always)
-    isleMarks(R, s, ui);
+    MARKK = 'quarter';
+    if (!CALMD) isleMarks(R, s, ui);
+    MARKK = 'money';
     // M4: the Money layer: every building's monthly number, homes one tag a street block
     const lblKeep = LBL;
     LBL = null;
@@ -32912,6 +32950,7 @@ const ISO = (() => {
     // selection
     if (sel) { const b = bById(s, sel); if (b) { diamond(R, b.x - 0.06, b.y - 0.06, b.x + b.w + 0.06, b.y + b.h + 0.06, 'rgba(255,246,223,.18)', '#fbf3df', 5); diamond(R, b.x - 0.06, b.y - 0.06, b.x + b.w + 0.06, b.y + b.h + 0.06, null, '#df684c', 2.4, [8, 5]); } }
     // payday floaters; one that would sit on top of another already drawn this frame is skipped (no label clouds)
+    MARKK = 'floater';
     const fDrawn = [];
     for (const f of ui.floaters || []) {
       const age = (now - f.t0) / (f.dur || 1600);
@@ -32925,10 +32964,14 @@ const ISO = (() => {
       uiDraw(R, floaterSprite(R, f.text, f.color, f.big), p[0], fy, 1 - age * age);
     }
     mark('overlay');
+    MARKK = 'lock';
     if (!(typeof APP !== 'undefined' && APP.titleOn)) lockLabels(R, s, ui);
     mark('locks');
     if (LBL) LBL.keep = true;
-    ghostDraw(R, s, ui, t);
+    MARKK = 'ghost';
+    ghostDraw(R, s, ui, t, CALMD);
+    MARKK = '';
+    if ((R.ftN || 0) > ftN0) R.marks.text = (R.ftN || 0) - ftN0;
     lblEnd(R);
     const ms = performance.now() - t0;
     R.stats.frames++; R.stats.ms = R.stats.ms ? R.stats.ms * 0.9 + ms * 0.1 : ms; R.stats.last = ms;
@@ -33134,10 +33177,10 @@ const ISO = (() => {
     uiPut(R, key, sp);
     return sp;
   }
-  function famMarks(R, s, ui, t, now) {
+  function famMarks(R, s, ui, t, now, calm) {
     if (ui.money || (typeof APP !== 'undefined' && (APP.titleOn || APP.ui.ritual)) || typeof famTentText !== 'function') return;
     // the tents: who waits
-    const ts = tentSpots(s);
+    const ts = calm ? [] : tentSpots(s);
     if (ts.length) {
       const text = famTentText(s);
       let x = 0, y = 0;
@@ -33146,7 +33189,7 @@ const ISO = (() => {
       if (text && q[0] > -200 && q[0] < R.w + 200 && q[1] > 0 && q[1] < R.h + 40) uiDraw(R, labelSprite(R, text, true), q[0], q[1] - 26);
     }
     // a family leaving: its name walks with the suitcases (the first of them carries it)
-    for (const w of s.walk || []) {
+    for (const w of calm ? [] : s.walk || []) {
       if (!w.fam || w.pos < 0) continue;
       const [x, y] = pathAt(w.path, Math.min(w.path.length - 1, w.pos)), q = P(x, y, 0);
       if (q[0] < -100 || q[0] > R.w + 100 || q[1] < -20 || q[1] > R.h + 40) continue;
@@ -33229,7 +33272,7 @@ const ISO = (() => {
       }
     }
   }
-  function ghostDraw(R, s, ui, t) {
+  function ghostDraw(R, s, ui, t, calm) {
     const g = R.ctx, d = R.dpr, z = R.hw;
     if (ui.stroke && ui.stroke.length && (ui.tool === 'tram' || ui.tool === 'rail' || ui.tool === 'belt')) { trackGhost(R, s, ui, t); return; }
     if (ui.stroke && ui.stroke.length) {
@@ -33253,17 +33296,20 @@ const ISO = (() => {
         text = L.text; afford = L.ok;
         for (const j of L.joins || []) { const q = P(j[0], j[1], 0); circ(q[0], q[1], 7.5, 'rgba(46,154,90,.9)', '#fffaf0', 2.2); seg([q[0] - 3.5, q[1]], [q[0] + 3.5, q[1]], '#fffaf0', 2); seg([q[0], q[1] - 3.5], [q[0], q[1] + 3.5], '#fffaf0', 2); }
       }
+      // C1 (calm): the price alone by the finger, no words; a tile in the way red with no reason
+      if (calm) text = plan.add.length ? '$' + plan.cost.toLocaleString('en-US') : '';
       // block 4: the stroke stops at whatever is in the way; its tile is drawn red with the reason
       const blk = ui.strokeBlock;
       if (blk) {
         const bx = blk.i % MAP_W, by = (blk.i / MAP_W) | 0, q = P(bx + 0.5, by + 0.5, 0);
         diamond(R, bx + 0.04, by + 0.04, bx + 0.96, by + 0.96, 'rgba(196,85,63,.6)', '#a33a28', 2.4);
         g.strokeStyle = '#fff6df'; g.lineWidth = 2.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(q[0] - 6, q[1] - 3); g.lineTo(q[0] + 6, q[1] + 3); g.moveTo(q[0] + 6, q[1] - 3); g.lineTo(q[0] - 6, q[1] + 3); g.stroke();
+        if (calm) { if (text) uiDraw(R, labelSprite(R, text, afford), p[0], p[1] - 54); return; }
         uiDraw(R, labelSprite(R, blk.why, false), q[0], q[1] - 30);
         uiDraw(R, labelSprite(R, text, afford), p[0], p[1] - 54 - (Math.abs(q[1] - p[1]) < 30 && Math.abs(q[0] - p[0]) < 140 ? 34 : 0));
         return;
       }
-      uiDraw(R, labelSprite(R, text, !plan.bad.length && afford), p[0], p[1] - 54);
+      if (!calm || text) uiDraw(R, labelSprite(R, text, !plan.bad.length && afford), p[0], p[1] - 54);
       return;
     }
     // A6: a stretch of road marked for removal by a drag (roads_ui.js)
@@ -33328,6 +33374,8 @@ const ISO = (() => {
     if (mvb && !gh.why) text = 'Move here · ' + money$(moveCost(mvb)) + (mvb.res ? ' · its people stay' : '') + (inReach >= 0 ? ' · ' + inReach + (inReach === 1 ? ' home' : ' homes') + ' in reach' : '');
     if (gh.held && !gh.why) text = (mvb ? 'Tap to move · ' : 'Tap to build · ') + text.replace(/^Move here · /, '');
     const p = P(gh.x + def.w / 2, gh.y + def.h / 2, bHeight({ type: gh.type, level: mvb ? mvb.level || 1 : 1 }) * 0.8 + 0.3);
+    // C1 (calm): where it cannot stand the ghost is red with no words; where it can, its price alone
+    if (calm) { if (!gh.why) uiDraw(R, labelSprite(R, mvb ? money$(moveCost(mvb)) : '$' + def.cost.toLocaleString('en-US'), true), p[0], p[1] - 14); return; }
     uiDraw(R, labelSprite(R, text, !gh.why), p[0], p[1] - 14);
     // A13: which side faces the street (the Turn button turns it), under the lot's front corner
     // (Fix3: with a mouse the line also says how to turn it: the key and the right button)
@@ -33392,6 +33440,13 @@ const ISO = (() => {
   }
 
   function create(canvas) {
+    const R = createR(canvas);
+    // C1: words written straight on the map (not through a label's sprite) are counted too (R.ftN; the budget test)
+    const c = R.ctx, ft = c && c.fillText;
+    if (ft) c.fillText = function () { R.ftN = (R.ftN || 0) + 1; return ft.apply(this, arguments); };
+    return R;
+  }
+  function createR(canvas) {
     return {
       canvas, ctx: canvas.getContext('2d'), dpr: 0, w: 0, h: 0, B: 0, prevB: 0, hw: 32, ox: 0, oy: 0,
       chunks: new Map(), spr: new Map(), ui: new Map(), sprPx: 0, uiPx: 0, still: true, chunkCap: 64, sprCap: 18e6, gm: GM_MAX, chunkNeed: 0, memPlan: null, geo: null, order: [], grid: null, objKey: '', frame: 0,
@@ -33644,7 +33699,8 @@ const ISO = (() => {
       if (!u) continue;
       diamond(R, u.x + 0.04, u.y + 0.04, u.x + u.w - 0.04, u.y + u.h - 0.04, 'rgba(242,182,50,.14)', 'rgba(150,100,20,.9)', 2.2, [7, 5]);
       const p = P(u.x + u.w / 2, u.y + u.h / 2, 0);
-      if (p[0] > -80 && p[0] < R.w + 80 && p[1] > -40 && p[1] < R.h + 60) uiDraw(R, moneyTagSprite(R, 'Building the ' + BUILDINGS[u.to].name.toLowerCase() + ' · ' + Math.round(100 * (1 - u.t / (u.n || 1))) + ' %', 'a'), p[0], p[1] + 14);
+      // (C1: the calm screen has no "being built" labels; the dashed plot stays)
+      if (!R.calm && p[0] > -80 && p[0] < R.w + 80 && p[1] > -40 && p[1] < R.h + 60) uiDraw(R, moneyTagSprite(R, 'Building the ' + BUILDINGS[u.to].name.toLowerCase() + ' · ' + Math.round(100 * (1 - u.t / (u.n || 1))) + ' %', 'a'), p[0], p[1] + 14);
     }
     const vp = ui.vplot;
     if (vp) {
@@ -33930,7 +33986,7 @@ const ISO = (() => {
       if (!u) continue;
       diamond(R, u.x + 0.04, u.y + 0.04, u.x + u.w - 0.04, u.y + u.h - 0.04, 'rgba(242,182,50,.14)', 'rgba(150,100,20,.9)', 2.2, [7, 5]);
       const p = P(u.x + u.w / 2, u.y + u.h / 2, 0);
-      if (p[0] > -80 && p[0] < R.w + 80 && p[1] > -40 && p[1] < R.h + 60) uiDraw(R, moneyTagSprite(R, 'Building the ' + (typeof wkLvName === 'function' ? wkLvName(b.type, u.lv).toLowerCase() : 'works') + ' · ' + Math.round(100 * (1 - u.t / (u.n || 1))) + ' %', 'a'), p[0], p[1] + 14);
+      if (!R.calm && p[0] > -80 && p[0] < R.w + 80 && p[1] > -40 && p[1] < R.h + 60) uiDraw(R, moneyTagSprite(R, 'Building the ' + (typeof wkLvName === 'function' ? wkLvName(b.type, u.lv).toLowerCase() : 'works') + ' · ' + Math.round(100 * (1 - u.t / (u.n || 1))) + ' %', 'a'), p[0], p[1] + 14);
       R.stats.wkPlots = (R.stats.wkPlots || 0) + 1;
     }
   }
@@ -37164,7 +37220,9 @@ function inputInit(canvas) {
     } else if (gesture.kind === 'unroad') {
       if (!unroadEnd(p, gesture, e) && e.type === 'pointerup' && !tapBlocked(gesture, p, e.pointerType)) tapAt(p.x, p.y);
     } else if (gesture.kind === 'place' && e.type === 'pointerup') {
-      if (gesture.moved) ghostUpdate(p.x, p.y, true); else if (!tapBlocked(gesture, p, e.pointerType)) tapAt(p.x, p.y);
+      // C1 (calm): a finger that slid a little (or dragged the ghost) builds where it lifts, like a tap: one tap builds
+      // (v44 left the ghost there for a second tap; on her iPad half the taps that moved over 10 px built nothing)
+      if (gesture.moved && !(typeof calmOn === 'function' && calmOn())) ghostUpdate(p.x, p.y, true); else if (!tapBlocked(gesture, p, e.pointerType)) tapAt(p.x, p.y);
     } else if (gesture.kind === 'press' && e.type === 'pointerup') {
       if (!tapBlocked(gesture, p, e.pointerType)) tapAt(p.x, p.y);
     } else if (gesture.kind === 'drift' && e.type === 'pointerup' && APP.ui.tool === 'remove' && Math.hypot(p.x - gesture.x0, p.y - gesture.y0) <= REMOVE_SLOP) {
@@ -44417,12 +44475,15 @@ function rcOverlay(R, s, ui, t, H) {
   const T = s.t3, B = (T && T.blk) || {}, layer = ui.layer === 'traffic' && !ui.money;
   const marks = new Map();
   if (layer) for (const a of accLastYear(s)) marks.set(a.i, (marks.get(a.i) || 0) + 1);
-  for (const k in B) if (B[k] > now && !marks.has(+k)) marks.set(+k, 0);
+  // C1 (calm): the accident on the road shows with the Traffic layer only (where she looks for the traffic)
+  const calm = typeof calmOn === 'function' && calmOn();
+  if (!calm || layer) for (const k in B) if (B[k] > now && !marks.has(+k)) marks.set(+k, 0);
   for (const [i, n] of marks) {
     const x = i % MAP_W, y = (i / MAP_W) | 0, p = P(x + 0.5, y + 0.5, 0);
     if (p[0] < -40 || p[0] > R.w + 40 || p[1] < -60 || p[1] > R.h + 40) continue;
     const live = B[i] > now, sc = Math.max(0.75, Math.min(1.3, R.hw / 40)), bob = live ? Math.abs(Math.sin(t * 4)) * 4 : 0;
     R.stats.t3Marks++;
+    if (R.marks) R.marks.accident = (R.marks.accident || 0) + 1;
     const cx = p[0], cy = p[1] - 16 * sc - bob;
     g.save();
     if (live) { g.beginPath(); g.ellipse(p[0], p[1], 15 * sc, 8 * sc, 0, 0, Math.PI * 2); g.fillStyle = 'rgba(217,48,30,' + (0.25 + 0.2 * Math.sin(t * 5)).toFixed(3) + ')'; g.fill(); }
@@ -50068,6 +50129,664 @@ function phoneReset() {
     else if (APP.phoneWas) phoneReset();
     return r;
   };
+}
+
+// ---- src/ui/calm.js
+// C1 — the calm screen (12 Nov 2026; nova/docs/CALM.md, the agreed design).
+// Tomáš after her evenings with v44: "too much on the screen; she doesn't know what to tap; she taps and it doesn't get
+// built; bubbles everywhere; the game stops being fun after three minutes. She wants it as on the first day." Every
+// modern feature stays (traffic, land value, beauty, the airport, day and night, turning, the postcard, the whole
+// simulation); the screen at rest holds only:
+//   - the top bar: the island's name and date; money, people, happiness; pause, 1x, 2x, 3x;
+//   - one round "⋯" button: its tray has the layers (traffic, land, beauty), the turns, the view from above, the postcard
+//     camera, sound and settings (with "Details");
+//   - the build bar: the group tabs; a group's items open on a tap and close after she builds or taps the map;
+//   - a goal chip ("Village · 12 / 50 people"), which opens and closes the goals panel on the right (the old game's
+//     panel: the stage, the next stage with its ring, each condition a row with a bar and one button that does the fix);
+//   - bubbles only over homes that truly lack something, one per small area, at most 6 in view (render/iso.js).
+// Not shown: Rosa, the asks and commissions, the pill, the Gazette, the greeting, notices and toasts, the rituals'
+// sheets, the to-do list, the glance numbers. A stage reached is one short line that goes by itself; payday is a small
+// "+$1,240" floating once by the money. One tap on the map builds (input.js: a finger that slid builds where it lifts);
+// "Undo" stays a few seconds after each build instead of any confirmation.
+// "Every rule visible" now means: visible when she looks for it (a tap on a building, the goals panel, a layer), never
+// pushed at her. Nothing of the v44 screen is removed: "Details" in the tray's settings (saved on this device) brings it
+// all back; the old tests run in Details (tests/smoke.py). TUNE.calm = false is the switch for the whole of C1.
+
+TUNE.calm = true;
+const CALM = {
+  detKey: 'isla-nova-details',   // '1': the full v44 screen (Details), on this device
+  goalsKey: 'isla-nova-goals',   // 'open' / 'shut': her choice for the goals panel, on this device
+  undoMs: 5000,                  // the Undo chip stays this long after a build
+  lineMs: 3800,                  // a stage's short line
+  tapMs: 900,                    // what follows a tap within this many ms is hers (a floater, a facility's screen)
+  det: null, undo: null, line: null, tapT: 0, key: '', goalsKey2: '',
+};
+
+// ---------- the switch ----------
+// (window.NOVA_DETAILS: the tests' way to open a page in Details without touching the storage at the page's start)
+function calmDetails() { if (CALM.det === null) CALM.det = (typeof window !== 'undefined' && !!window.NOVA_DETAILS) || storeGet(CALM.detKey) === '1'; return CALM.det; }
+function calmOn() { return !!TUNE.calm && !calmDetails(); }
+function calmDetailsSet(on) {
+  CALM.det = !!on;
+  storeSet(CALM.detKey, on ? '1' : '0');
+  calmApply();
+}
+// The page follows the switch: the body's class (the CSS below hides the v44 pieces), the bar, the top bar.
+function calmApply() {
+  const on = calmOn();
+  document.body.classList.toggle('calm', on);
+  if (!APP.state || !CALM.ready) return;
+  if (on) {
+    APP.toasts = []; if (APP.toastCur) toastClose();
+    if (typeof glanceClose === 'function') try { glanceClose(); } catch (e) { /* as it is */ }
+    APP.ui.trayClosed = APP.ui.tool === 'look';
+    APP.ui.com = null;
+  }
+  APP.hudKey = ''; APP.glanceKey = '';
+  try { barBuild(); hudUpdate(); } catch (e) { /* the next frame draws it */ }
+  calmRender();
+}
+// A tap of hers just now (a floater it causes is hers; a facility's screen may open).
+function calmHers() { return performance.now() - CALM.tapT < CALM.tapMs; }
+
+// ---------- styles ----------
+function calmCss() {
+  if ($('calmCss')) return;
+  const st = document.createElement('style');
+  st.id = 'calmCss';
+  st.textContent = [
+    // the v44 pieces the calm screen does not show (Details shows them)
+    'body.calm #pill, body.calm #lower, body.calm #toast:not(.keep), body.calm #glance, body.calm #todo, body.calm #greet, body.calm #yearcard,',
+    'body.calm #nowplay, body.calm #rotbtns, body.calm #comstack, body.calm #gzslip, body.calm #gazette, body.calm #undoRoad, body.calm #guidePin,',
+    'body.calm #sPeople, body.calm #sWork, body.calm #sNeed, body.calm #sTodo, body.calm #bDesk, body.calm #bLog, body.calm #bMoney, body.calm #bSnd,',
+    'body.calm #ctrl .sep, body.calm #top .stats .badge { display: none !important; }',
+    'body.calm #facPins .fac-pin span, body.calm #facPins .fac-pin i { display: none !important; }',
+    'body.calm #facPins .fac-pin { min-width: 44px; min-height: 44px; padding: 0; justify-content: center; }',
+    '#sPop, #calmMore, #calmTray, #calmChip, #calmGoals, #calmUndo, #calmLine, #calmPay { display: none; }',
+    'body.calm #sPop { display: flex; }',
+    // the clock's digits go (the sun or the moon stays)
+    'body.calm #date .tod em { display: none; }',
+    // the round "⋯" button and its tray
+    'body.calm #calmMore { display: flex; position: fixed; z-index: 6; width: 52px; height: 52px; border-radius: 50%; align-items: center; justify-content: center;',
+    '  background: var(--paper); border: 2px solid var(--ink); box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px rgba(58, 42, 31, 0.16), 0 3px 0 rgba(58, 42, 31, 0.30), 0 6px 14px rgba(30, 20, 10, 0.16); }',
+    'body.calm #calmMore svg { width: 28px; height: 28px; fill: var(--ink); }',
+    'body.calm #calmMore.on { background: var(--coral-soft); }',
+    'body.calm.titled #calmMore, body.calm.titled #calmTray, body.calm.titled #calmChip, body.calm.titled #calmGoals, body.calm.titled #calmUndo, body.calm.titled #calmLine, body.calm.titled #calmPay { display: none !important; }',
+    'body.calm #calmTray.show { display: grid; position: fixed; z-index: 35; grid-template-columns: repeat(3, 72px); gap: 6px; padding: 10px; }',
+    '#calmTray button { min-height: 64px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 700; background: var(--paper2); }',
+    '#calmTray button svg { width: 26px; height: 26px; fill: #7a604b; stroke: var(--ink); stroke-width: 0.9px; paint-order: stroke; stroke-linejoin: round; }',
+    '#calmTray button.on { background: var(--coral); color: #fff7ea; box-shadow: inset 0 0 0 2px var(--ink); }',
+    '#calmTray button.on svg { fill: #fff7ea; }',
+    '#calmTray button:active { transform: translateY(1px); }',
+    // the goal chip
+    'body.calm #calmChip { display: flex; position: fixed; z-index: 4; left: 50%; transform: translateX(-50%); align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 10px;',
+    '  background: var(--paper); border: 2px solid var(--ink); border-radius: 999px; font-weight: 700; font-size: 15px; white-space: nowrap; max-width: calc(100% - 140px);',
+    '  box-shadow: 0 2px 0 rgba(58, 42, 31, 0.28), 0 6px 14px rgba(30, 20, 10, 0.14); overflow: hidden; text-overflow: ellipsis; }',
+    'body.calm #calmChip .ring { flex: none; }',
+    'body.calm #calmChip b { font: italic 700 16px var(--serif); }',
+    'body.calm #calmChip.on { background: var(--coral-soft); }',
+    // the goals panel (the old game's Goals panel: the stage, the next stage with its ring, a row a condition)
+    'body.calm #calmGoals.show { display: block; position: fixed; z-index: 4; width: 300px; padding: 12px 14px 10px; overflow-y: auto; overscroll-behavior: contain; }',
+    'body.calm.carded #calmGoals, body.calm.fac-on #calmGoals { display: none !important; }',
+    '#calmGoals .st { font-size: 11.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink2); }',
+    '#calmGoals h3 { margin: 0; font: italic 700 25px/1.1 var(--serif); }',
+    '#calmGoals .sl { margin: 3px 0 9px; font-size: 13px; line-height: 1.3; color: var(--ink2); }',
+    '#calmGoals .nx { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--paper2); margin-bottom: 6px; }',
+    '#calmGoals .nx b { display: block; font: italic 700 18px/1.15 var(--serif); }',
+    '#calmGoals .nx small { display: block; font-size: 12.5px; font-weight: 700; color: var(--ink2); }',
+    '#calmGoals .row { padding: 8px 0 6px; border-top: 2px dotted rgba(58, 42, 31, 0.2); }',
+    '#calmGoals .row:first-of-type { border-top: 0; }',
+    '#calmGoals .rh { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 700; }',
+    '#calmGoals .rh .ic { width: 22px; height: 22px; fill: #7a604b; stroke: var(--ink); stroke-width: 1.1px; paint-order: stroke; }',
+    '#calmGoals .rh span { flex: 1; } #calmGoals .rh em { font-style: normal; font-variant-numeric: tabular-nums; }',
+    '#calmGoals .row.ok .rh em { color: var(--green); }',
+    '#calmGoals .bar { height: 8px; border-radius: 4px; background: #e9dfc6; margin: 6px 0 0 30px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(58, 42, 31, 0.25); }',
+    '#calmGoals .bar i { display: block; height: 100%; background: var(--coral); border-radius: 4px; }',
+    '#calmGoals .row.ok .bar i { background: var(--green); }',
+    '#calmGoals .ln { display: flex; gap: 8px; margin: 3px 0 0 30px; font-size: 12.5px; color: var(--ink2); font-weight: 600; }',
+    '#calmGoals .ln span { flex: 1; } #calmGoals .ln b { font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums; }',
+    '#calmGoals .fix { margin: 7px 0 0 30px; min-height: 40px; padding: 0 14px; border-radius: 11px; background: var(--coral); color: #fff7ea; font-weight: 800; font-size: 14px;',
+    '  box-shadow: inset 0 0 0 2px var(--ink), 0 2px 0 var(--ink); }',
+    '#calmGoals .done { font-size: 14px; color: var(--ink2); margin: 4px 0 2px; }',
+    // Undo, a stage's line, payday
+    'body.calm #calmUndo.show { display: flex; position: fixed; z-index: 6; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 999px;',
+    '  background: var(--paper); border: 2px solid var(--ink); font-weight: 800; font-size: 15px; box-shadow: 0 3px 0 var(--ink), 0 8px 18px rgba(30, 20, 10, 0.2); }',
+    'body.calm #calmLine.show { display: block; position: fixed; z-index: 6; left: 50%; transform: translateX(-50%); padding: 8px 20px; border-radius: 999px; pointer-events: none;',
+    '  background: var(--paper); border: 2px solid var(--ink); font: italic 700 20px var(--serif); box-shadow: 0 3px 0 rgba(58, 42, 31, 0.3), 0 8px 18px rgba(30, 20, 10, 0.2);',
+    '  animation: calmLineIn 0.5s ease-out; white-space: nowrap; }',
+    '@keyframes calmLineIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }',
+    'body.calm #calmPay.show { display: block; position: fixed; z-index: 6; pointer-events: none; font-weight: 800; font-size: 16px; padding: 2px 10px; border-radius: 999px;',
+    '  background: rgba(251, 243, 223, 0.95); border: 1.5px solid currentColor; animation: calmPayUp 2.2s ease-out forwards; font-variant-numeric: tabular-nums; }',
+    '@keyframes calmPayUp { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }',
+    // the bar: the open group only while its items show
+    'body.calm #bar.shut .tab.on { background: var(--paper2); box-shadow: none; }',
+    // a building's card on the right stands under "⋯" (landscape)
+    '@media (min-width: 901px) { body.calm #card { top: calc(var(--gap) + 128px + var(--st)); max-height: calc(100% - 248px - var(--st) - var(--sb)); } }',
+    // Details' way back: a switch in the sound panel
+    '#sndpop .sw.calmsw { border-top: 2px dotted rgba(58, 42, 31, 0.2); }',
+    'body.calm #sndpop .calmsw { display: none; }',
+    '@media (max-width: 600px) { body.calm #calmChip { font-size: 13.5px; max-width: calc(100% - 84px); } body.calm #calmChip b { font-size: 14px; }',
+    '  body.calm #calmGoals.show { width: calc(100% - 20px); } }',
+  ].join('\n');
+  document.head.appendChild(st);
+}
+
+// ---------- the pieces (made once; placed each frame) ----------
+const CALM_ICON = {
+  more: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.3"/><circle cx="12" cy="12" r="2.3"/><circle cx="19" cy="12" r="2.3"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7c-.1-.6-.1-1.2 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" transform="translate(0 1.2)"/></svg>',
+  undo: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 5 3 10.5 9 16v-3.6c4.6-.3 8 1.2 10.5 5.1-.6-5.6-4-9.6-10.5-10z"/></svg>',
+};
+// The tray: each button stands for one of the v44 buttons (it clicks it, so every rule of that button holds) or opens
+// the settings. [label, the v44 button's id or a function, which state shows it on]
+const CALM_TRAY = [
+  ['Traffic', 'bTraffic', () => APP.ui.layer === 'traffic'],
+  ['Land', 'bLand', () => !!APP.ui.land],
+  ['Beauty', 'bBeauty', () => !!APP.ui.beauty],
+  ['Turn', 'rotL', null],
+  ['Turn', 'rotR', null],
+  ['Above', 'topBtn', () => !!APP.view.top],
+  ['Postcard', 'bPost', null],
+  ['Sound', 'bSnd', () => $('sndpop') && $('sndpop').classList.contains('show')],
+  ['Settings', calmSettingsOpen, null],
+];
+
+function calmInit() {
+  calmCss();
+  const mk = (tag, id, cls) => { const e = document.createElement(tag); e.id = id; if (cls) e.className = cls; document.body.appendChild(e); return e; };
+  const more = mk('button', 'calmMore');
+  more.setAttribute('aria-label', 'More: layers, turning, postcard, sound, settings');
+  more.innerHTML = CALM_ICON.more;
+  more.addEventListener('click', () => calmTraySet(!$('calmTray').classList.contains('show')));
+  const tray = mk('div', 'calmTray', 'panel');
+  tray.setAttribute('role', 'group'); tray.setAttribute('aria-label', 'More');
+  tray.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('button[data-k]');
+    if (!b) return;
+    const it = CALM_TRAY[+b.dataset.k];
+    if (typeof it[1] === 'function') { calmTraySet(false); it[1](); return; }
+    const src = $(it[1]);
+    if (!src) return;
+    // (the sound panel and the postcard's frame open beside the tray's button: the tray closes for them)
+    if (it[1] === 'bSnd') { CALM.sndAt = b.getBoundingClientRect(); calmTraySet(false); audioPanelToggle(); return; }
+    if (it[1] === 'bPost') calmTraySet(false);
+    src.click();
+    calmTrayRender();
+  });
+  const chip = mk('button', 'calmChip');
+  chip.setAttribute('aria-label', 'Goals');
+  chip.addEventListener('click', () => calmGoalsSet(!calmGoalsOpen(), true));
+  const goals = mk('div', 'calmGoals', 'panel');
+  goals.setAttribute('role', 'region'); goals.setAttribute('aria-label', 'Goals');
+  goals.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('button.fix'); if (b) calmFix(b.dataset.fix); });
+  const undo = mk('button', 'calmUndo');
+  undo.innerHTML = CALM_ICON.undo + '<span>Undo</span>';
+  undo.addEventListener('click', calmUndoRun);
+  mk('div', 'calmLine');
+  mk('div', 'calmPay');
+  // the people (a plain number; the glance's lists are Details')
+  const pop = document.createElement('div');
+  pop.className = 'stat people'; pop.id = 'sPop';
+  const ph = $('sHappy');
+  if (ph && ph.parentNode) ph.parentNode.insertBefore(pop, ph);
+  // a tap anywhere: hers (capture, before anything acts on it); a tap on the map closes the tray and the bar's items
+  const hers = () => { CALM.tapT = performance.now(); };
+  for (const t of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchstart']) document.addEventListener(t, hers, true);
+  $('map').addEventListener('pointerdown', () => { if (calmOn() && $('calmTray').classList.contains('show')) calmTraySet(false); });
+  // (at boot the page is drawn next by hudInit's own bar and the first frame; a later switch redraws in calmApply)
+  document.body.classList.toggle('calm', calmOn());
+  CALM.ready = true;
+  calmRender();
+}
+// Details' way back: a switch in the sound panel (Details has no "⋯"); made after the panel (audioInit)
+function calmSwAdd() {
+  const sp = $('sndpop');
+  if (!sp || $('calmSw')) return;
+  sp.insertAdjacentHTML('beforeend', '<button class="sw calmsw" id="calmSw" role="switch">' + iconSvg('look') + '<b>Details<small>every number, notice and helper</small></b><span class="tg"></span></button>');
+  $('calmSw').addEventListener('click', () => { calmDetailsSet(!calmDetails()); calmSwSync(); });
+  calmSwSync();
+}
+function calmSwSync() { const b = $('calmSw'); if (b) { b.classList.toggle('on', calmDetails()); b.setAttribute('aria-checked', String(calmDetails())); } }
+
+// ---------- the tray ----------
+function calmTraySet(on) {
+  const el = $('calmTray');
+  if (!el) return;
+  if (!on && el.classList.contains('show')) uiGone(el);
+  el.classList.toggle('show', !!on);
+  $('calmMore').classList.toggle('on', !!on);
+  if (on) calmTrayRender(true);
+  calmPlace(true);
+}
+function calmTrayRender(force) {
+  const el = $('calmTray');
+  if (!el || !el.classList.contains('show')) return;
+  const items = CALM_TRAY.map((it, k) => {
+    const src = typeof it[1] === 'string' ? $(it[1]) : null;
+    if (typeof it[1] === 'string' && !src) return '';
+    const icon = typeof it[1] === 'function' ? CALM_ICON.gear : (src.querySelector('svg') ? src.querySelector('svg').outerHTML : '');
+    const on = it[2] ? !!it[2]() : false;
+    return '<button data-k="' + k + '" class="' + (on ? 'on' : '') + '" aria-label="' + esc(src && src.getAttribute('aria-label') || it[0]) + '">' + icon + '<span>' + esc(it[0]) + '</span></button>';
+  }).join('');
+  if (force || items !== CALM.trayHtml) { CALM.trayHtml = items; el.innerHTML = items; }
+}
+
+// ---------- the settings ----------
+function calmSettingsOpen() {
+  sheetOpen('<h2>Settings</h2>' +
+    '<p class="sub">The calm screen shows the island, the money, the people, the happiness and the goals. Details brings back every number, notice and helper of the earlier version (Rosa, the asks, the to-do list, the Gazette).</p>' +
+    '<div class="seg" style="grid-template-columns:1fr 1fr"><button id="calmSetCalm" class="' + (calmOn() ? 'on' : '') + '"><b>Calm</b><span>the island and the goals</span></button>' +
+    '<button id="calmSetDet" class="' + (calmOn() ? '' : 'on') + '"><b>Details</b><span>every number and notice</span></button></div>' +
+    '<h4>The governor\'s desk</h4><p class="sub">Rent, wages and the prices at the markets.</p><div class="btns"><button id="calmDesk">Open the desk</button></div>');
+  $('calmSetCalm').addEventListener('click', () => { calmDetailsSet(false); calmSwSync(); sheetClose(); });
+  $('calmSetDet').addEventListener('click', () => { calmDetailsSet(true); calmSwSync(); sheetClose(); });
+  $('calmDesk').addEventListener('click', () => { sheetClose(); deskOpen(); });
+}
+
+// ---------- the goals ----------
+function calmGoalsOpen() {
+  const v = storeGet(CALM.goalsKey);
+  if (v === 'open') return true;
+  if (v === 'shut') return false;
+  // the default: open on the iPad in landscape and on the Mac, closed in portrait and on a phone
+  return window.innerWidth > window.innerHeight && window.innerWidth >= 1000;
+}
+function calmGoalsSet(on, hers) {
+  if (hers) storeSet(CALM.goalsKey, on ? 'open' : 'shut');
+  if (!on && $('calmGoals').classList.contains('show')) uiGone($('calmGoals'));
+  CALM.goalsHtml = '';
+  calmRender();
+}
+// One row a condition of the next stage: { icon, name, n, of, frac, ok, line, fix: { key, label } }.
+function calmRows(s) {
+  const sc = stageConds(s), next = sc.next, rows = [];
+  if (!next) return { next: null, rows };
+  const pop = popCount(s);
+  // (an island saved before she placed the governor's hut, A12: its row first, its button arms the hut)
+  if (typeof a12On === 'function' && a12On() && typeof freeHasSeat === 'function' && !freeHasSeat(s) && BUILDINGS.residence) rows.push({ icon: 'palace', name: 'Governor\'s hut', n: 'not yet', of: '', frac: 0, ok: false, fix: { key: 'tool:residence', label: 'Place it' } });
+  if (next.goal) {
+    const c = sc.conds[0] || { ok: false }, cost = TUNE.palaceCost, have = Math.max(0, s.money);
+    rows.push({ k: 'palace', icon: 'palace', name: 'The palace', n: money$(Math.min(have, cost)), of: money$(cost), frac: have / cost, ok: c.ok, fix: { key: 'res', label: 'Residence' } });
+    return { next, rows };
+  }
+  if (next.people) {
+    const fix = s.stage === 0 && typeof freePierRoad === 'function' && freePierRoad(s) < FREE.roadMin ? { key: 'tool:road', label: 'Road' } : { key: 'tool:casita', label: 'Build homes' };
+    rows.push({ k: 'people', icon: 'people', name: 'People', n: pop.toLocaleString('en-US'), of: next.people.toLocaleString('en-US'), frac: pop / next.people, ok: pop >= next.people, fix,
+      line: pop < next.people ? 'The next boat brings up to ' + shipSettlers(s) : '' });
+  }
+  if (next.allFed) {
+    const homes = homesOccupied(s), fed = homes.filter((h) => !(h.miss || []).includes('food') && !(h.miss || []).includes('market')).length, ok = allHomesFed(s);
+    const noMk = homes.filter((h) => (h.miss || []).includes('market'));
+    let fix = null;
+    if (!ok) { const c = noMk.length ? { tool: 'market', at: homesAt(noMk) } : needCause(s, 'food'); if (c && c.tool) fix = { key: 'tool:' + c.tool + (c.at ? ':' + c.at[0] + ',' + c.at[1] : ''), label: toolLabel(c.tool) }; }
+    // (no homes yet: the row waits for them, with no button)
+    rows.push({ icon: 'bread', name: 'Food for every home', n: homes.length ? fed : '', of: homes.length ? homes.length : '', frac: homes.length ? fed / homes.length : 0, ok, fix: homes.length ? fix : null, line: homes.length ? '' : 'Homes first' });
+  }
+  for (const [key, L] of [['houses', 2], ['villas', 3], ['townhouses', 4], ['mansions', 5]]) {
+    if (!next[key]) continue;
+    const have = homesAtLevel(s, L), want = next[key], ok = have >= want;
+    let fix = null, line = '';
+    const k = ok ? null : goalBlocker(s);
+    if (k && k.select) { fix = { key: 'sel:' + k.select, label: 'Upgrade' }; line = plural(k.ready, 'home is', 'homes are') + ' ready to move up'; }
+    else if (k && k.tool) { fix = { key: 'tool:' + k.tool + (k.at ? ':' + k.at[0] + ',' + k.at[1] : ''), label: toolLabel(k.tool) }; if (k.need) line = (k.n === 1 ? 'One lacks ' : k.n + ' lack ') + NEED_NAMES[k.need]; }
+    rows.push({ icon: 'home', name: LEVELS[L].name + 's', n: Math.min(have, want), of: want, frac: have / want, ok, fix, line });
+  }
+  if (next.rum) {
+    const ok = (s.exported.rum || 0) > 0;
+    const t = ok ? '' : !countType(s, 'distillery') ? 'distillery' : !countType(s, 'cane') ? 'cane' : countHarbors(s) ? '' : 'harbor';
+    rows.push({ icon: 'barrel', name: 'Rum shipped', n: ok ? 'yes' : 'not yet', of: '', frac: ok ? 1 : 0, ok, fix: t ? { key: 'tool:' + t, label: toolLabel(t) } : null });
+  }
+  const lm = next.landmark;
+  if (lm && lm.res) {
+    const ok = (s.res || 0) >= lm.res, cost = RESIDENCE[lm.res].cost, have = Math.max(0, s.money) + (typeof scarceFundN === 'function' ? scarceFundN(s) || 0 : 0);
+    rows.push({ icon: 'palace', name: RESIDENCE[lm.res].name, n: ok ? 'built' : money$(Math.min(have, cost)), of: ok ? '' : money$(cost), frac: ok ? 1 : have / cost, ok, fix: ok ? null : { key: 'res', label: 'Residence' } });
+  }
+  if (lm && lm.b) {
+    const ok = countType(s, lm.b) > 0, cost = BUILDINGS[lm.b].cost, have = Math.max(0, s.money) + (typeof scarceFundN === 'function' ? scarceFundN(s) || 0 : 0);
+    rows.push({ icon: BUILDINGS[lm.b].icon || 'anchor', name: BUILDINGS[lm.b].name, n: ok ? 'built' : money$(Math.min(have, cost)), of: ok ? '' : money$(cost), frac: ok ? 1 : have / cost, ok, fix: ok ? null : { key: 'tool:' + lm.b, label: toolLabel(lm.b) } });
+  }
+  return { next, rows };
+}
+function calmRing(frac, size, label) {
+  const r = size / 2 - 4, c = 2 * Math.PI * r, f = Math.max(0, Math.min(1, frac)), m = size / 2;
+  return '<svg class="ring" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" aria-hidden="true"><circle cx="' + m + '" cy="' + m + '" r="' + r + '" fill="none" stroke="#e2d4b2" stroke-width="5"/>' +
+    '<circle cx="' + m + '" cy="' + m + '" r="' + r + '" fill="none" stroke="' + (f >= 1 ? '#2f7a45' : '#2e9a91') + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + (c * f).toFixed(1) + ' ' + c.toFixed(1) + '" transform="rotate(-90 ' + m + ' ' + m + ')"/>' +
+    (label ? '<text x="' + m + '" y="' + (m + 4.5) + '" text-anchor="middle" font-size="13" font-weight="800" fill="#3a2a1f">' + esc(label) + '</text>' : '') + '</svg>';
+}
+// The chip's one short line: the next stage and its people (or the palace's money); after the palace, the stage.
+function calmChipText(s, G) {
+  if (!G.next) return '<b>' + esc(STAGES[s.stage].name) + '</b><span>· ' + esc(popCount(s).toLocaleString('en-US')) + ' people</span>';
+  const r = G.rows.find((o) => o.k === (G.next.goal ? 'palace' : 'people'));
+  if (!r) return '<b>' + esc(G.next.goal ? 'Palace' : G.next.name) + '</b>';
+  if (G.next.goal) return '<b>Palace</b><span>· ' + esc(r.n + ' / ' + r.of) + '</span>';
+  return '<b>' + esc(G.next.name) + '</b><span>· ' + esc(r.n + ' / ' + r.of) + ' people</span>';
+}
+// How far the next stage is: the goals' shares on average (a goal met counts whole).
+function calmShare(G) { return G.rows.length ? G.rows.reduce((a, r) => a + (r.ok ? 1 : Math.max(0, Math.min(1, r.frac || 0))), 0) / G.rows.length : 0; }
+// The stage's one short line (what the stage brings, from its buildings in data.js / stageOpens).
+const CALM_STAGE_LINE = [
+  'A pier, the governor\'s hut, homes, fish and fruit.',
+  'Cane and rum, a bakery, a chapel and the harbor.',
+  'Schools and clinics, tobacco and cigars, timber.',
+  'Coffee, sugar and cattle, paved roads, the railway.',
+  'The steamship quay, the cannery and the airfield.',
+  'The cathedral, the opera and the governor\'s palace.',
+];
+// The panel, after the old game's Goals panel on her iPad (Tomáš: "Tá lišta napravo ... inšpiruj sa"), drawn in paper
+// and ink: the stage large in italics with its line; the next stage's card with a ring and its share; a row a goal
+// (icon, name, n / target, a bar with its share, at most one short grey line, one red button that does the fix).
+function calmGoalsHtml(s, G) {
+  const met = G.rows.filter((r) => r.ok).length, all = G.rows.length, pc = (f) => Math.round(100 * Math.max(0, Math.min(1, f || 0)));
+  let h = '<div class="st">' + (s.palace ? 'The island' : 'Stage ' + (s.stage + 1)) + '</div><h3>' + esc(STAGES[s.stage].name) + '</h3>' +
+    '<p class="sl">' + esc(CALM_STAGE_LINE[s.stage] || '') + '</p>';
+  if (!G.next) return h + '<p class="done">The palace stands. The island is yours: build as you like.</p>';
+  const share = calmShare(G);
+  h += '<div class="nx">' + calmRing(share, 54, pc(share) + '%') + '<div><small>Next stage</small><b>' + esc(G.next.goal ? "The Governor's palace" : G.next.name) + '</b><small>' + met + ' of ' + all + ' goals met</small></div></div>';
+  for (const r of G.rows) {
+    const f = r.ok ? 1 : r.frac;
+    h += '<div class="row' + (r.ok ? ' ok' : '') + '"><div class="rh">' + iconSvg(r.icon) + '<span>' + esc(r.name) + '</span><em>' + esc(String(r.n)) + (r.of !== '' && r.n !== '' ? ' / ' + esc(String(r.of)) : '') + (r.ok ? ' ✓' : '') + '</em></div>' +
+      '<div class="bar"><i style="width:' + pc(f) + '%"></i></div>' +
+      '<div class="ln"><span>' + (r.line && !r.ok ? esc(r.line) : '') + '</span><b>' + pc(f) + '%</b></div>' +
+      (r.fix && !r.ok ? '<button class="fix" data-fix="' + esc(r.fix.key) + '">' + esc(r.fix.label) + '</button>' : '') + '</div>';
+  }
+  return h;
+}
+// A goal's button: arms the tool where the fix belongs (the view goes there), or opens the home or the residence.
+function calmFix(key) {
+  const s = APP.state, k = String(key || '').split(':');
+  if (k[0] === 'tool') {
+    toolSet(k[1]);
+    if (k[2]) { const [x, y] = k[2].split(',').map(Number); cameraFlyTo(x + 0.5, y + 0.5); }
+    if (window.innerWidth <= 900) calmGoalsSet(false);
+    return;
+  }
+  if (k[0] === 'sel' || k[0] === 'res') {
+    const b = k[0] === 'res' ? s.b.find((o) => o.type === 'residence') : bById(s, +k[1]);
+    if (!b) return;
+    toolSet('look');
+    cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id);
+    cardOpen(b.id);
+  }
+}
+
+// ---------- each frame: the numbers, the chip, the panel ----------
+function calmRender() {
+  if (!CALM.ready) return;
+  const on = calmOn(), s = APP.state;
+  if (!on || !s) { ['calmTray', 'calmGoals', 'calmUndo', 'calmLine'].forEach((id) => $(id) && $(id).classList.remove('show')); return; }
+  // (the rows are worked out again when the island changed: a build, a month, a payday, the stage)
+  const rk = [s.ver, s.month, s.stage, s.money, s.res, s.palace, s.b.length].join('|');
+  if (CALM.rowsK !== rk) { CALM.rowsK = rk; CALM.rows = calmRows(s); }
+  const G = CALM.rows;
+  const pop = popCount(s);
+  const pk = pop + '';
+  if ($('sPop').dataset.k !== pk) { $('sPop').dataset.k = pk; $('sPop').innerHTML = statHtml('people', pop.toLocaleString('en-US')); $('sPop').setAttribute('aria-label', pop + ' people'); }
+  const met = G.rows.filter((r) => r.ok).length;
+  const chip = calmChipText(s, G) + '';
+  const ck = chip + '|' + met + '/' + G.rows.length + '|' + Math.round(100 * calmShare(G));
+  if (CALM.chipK !== ck) { CALM.chipK = ck; $('calmChip').innerHTML = (G.next ? calmRing(calmShare(G), 26) : '') + chip; }
+  const open = calmGoalsOpen();
+  $('calmChip').classList.toggle('on', open);
+  $('calmChip').setAttribute('aria-expanded', String(open));
+  const el = $('calmGoals');
+  el.classList.toggle('show', open);
+  if (open) { const h = calmGoalsHtml(s, G); if (h !== CALM.goalsHtml) { CALM.goalsHtml = h; el.innerHTML = h; } }
+}
+
+// Where the pieces stand: the chip under the top bar in the middle, "⋯" at the right under the top bar, the tray under
+// it, the goals panel under "⋯" down to the build bar, Undo over the bar, the stage's line under the chip.
+function calmPlace(force) {
+  if (!calmOn() || APP.titleOn) return;
+  const tb = $('top').getBoundingClientRect(), bar = $('bar').getBoundingClientRect(), ins = safeInsets(), W = window.innerWidth, H = window.innerHeight, gap = 8;
+  const key = [Math.round(tb.bottom), Math.round(bar.top), W, H, $('calmTray').classList.contains('show') ? 1 : 0, $('calmGoals').classList.contains('show') ? 1 : 0, $('calmUndo').classList.contains('show') ? 1 : 0].join(',');
+  if (!force && key === CALM.key) return;
+  CALM.key = key;
+  const top = Math.round(tb.bottom + gap);
+  const more = $('calmMore');
+  Object.assign(more.style, { top: top + 'px', right: (10 + ins.r) + 'px', left: 'auto' });
+  const chip = $('calmChip');
+  chip.style.top = (top + 4) + 'px';
+  const tray = $('calmTray');
+  Object.assign(tray.style, { top: (top + 60) + 'px', right: (10 + ins.r) + 'px' });
+  const g = $('calmGoals');
+  const gTop = top + 60;
+  Object.assign(g.style, { top: gTop + 'px', right: (10 + ins.r) + 'px', maxHeight: Math.max(160, Math.round(bar.top - gap - gTop)) + 'px' });
+  const u = $('calmUndo');
+  if (u.classList.contains('show')) { const uw = u.offsetWidth || 110; u.style.left = Math.round(Math.max(10, Math.min(W - uw - 10, bar.left + bar.width / 2 - uw / 2))) + 'px'; u.style.top = Math.round(bar.top - 54) + 'px'; }
+  $('calmLine').style.top = (top + 58) + 'px';
+}
+
+// A layer's legend (Traffic, Land value, Beauty, Money) stands under the chip (v44 put it under the pill), left of the
+// goals panel when that is open; the tray stays above it.
+function calmLegends() {
+  if (!calmOn() || APP.titleOn) return;
+  const chip = $('calmChip').getBoundingClientRect(), g = $('calmGoals'), gr = g.classList.contains('show') ? g.getBoundingClientRect() : null;
+  const top = Math.round((chip.bottom || 120) + 8), right = gr && gr.width && gr.left < window.innerWidth ? gr.left - 10 : 0;
+  for (const id of ['trlegend', 'lvlegend', 'bmlegend', 'moneyLegend']) {
+    const el = $(id);
+    if (!el || !el.offsetWidth) continue;
+    if (el.style.top !== top + 'px') el.style.top = top + 'px';
+    if (id === 'moneyLegend') continue;
+    const l = right ? Math.round((8 + right) / 2) + 'px' : '', mw = right ? Math.round(right - 16) + 'px' : '';
+    if (el.style.left !== l) el.style.left = l;
+    if (el.style.maxWidth !== mw) el.style.maxWidth = mw;
+  }
+}
+
+// ---------- the build bar: tabs only at rest ----------
+{
+  const _bb = barBuild;
+  barBuild = function () {
+    const r = _bb.apply(this, arguments);
+    $('bar').classList.toggle('shut', !!(calmOn() && APP.ui.trayClosed));
+    return r;
+  };
+  // a new building quietly in the bar: the group's dot stays (barTabNew); the items close after a build (below)
+}
+function calmItemsClose() {
+  if (!APP.ui.trayClosed) { APP.ui.trayClosed = true; barBuild(); }
+}
+
+// ---------- one tap builds; Undo instead of any confirmation ----------
+{
+  const _tap = tapAt;
+  tapAt = function (sx, sy) {
+    if (!calmOn()) return _tap.apply(this, arguments);
+    const s = APP.state, tool = APP.ui.tool;
+    // a tap on the map closes the bar's items (no tool armed) and the tray
+    if (tool === 'look') { calmItemsClose(); return _tap.apply(this, arguments); }
+    const ids = new Set(s.b.map((b) => b.id)), m0 = s.money;
+    const r = _tap.apply(this, arguments);
+    if (BUILDINGS[tool]) {
+      const nb = s.b.find((b) => !ids.has(b.id) && b.type === tool) || null;
+      if (nb) {
+        calmUndoSet({ kind: 'b', id: nb.id, paid: m0 - s.money });
+        // built: the tool goes, the group's items close (one tap built it; the bar is back at rest)
+        toolSet('look');
+        calmItemsClose();
+      } else if (APP.ui.ghost && APP.ui.ghost.type === tool && !APP.ui.ghost.why) {
+        // (nothing built on a spot that fits: money short) the ghost shows it red, without words
+        APP.ui.ghost.why = 'money';
+      }
+    }
+    return r;
+  };
+}
+function calmUndoSet(u) {
+  CALM.undo = u ? Object.assign({ t: performance.now() }, u) : null;
+  const el = $('calmUndo');
+  if (!el) return;
+  if (!CALM.undo && el.classList.contains('show')) uiGone(el);
+  el.classList.toggle('show', !!CALM.undo);
+  clearTimeout(CALM.undoTimer);
+  if (CALM.undo) CALM.undoTimer = setTimeout(() => calmUndoSet(null), CALM.undoMs);
+  calmPlace(true);
+}
+function calmUndoRun() {
+  const u = CALM.undo, s = APP.state;
+  calmUndoSet(null);
+  if (!u) return;
+  if (u.kind === 'road') { if (APP.ui.undo) roadUndo(); return; }
+  const b = bById(s, u.id);
+  if (!b) return;
+  const r = removeAt(s, b.x, b.y);
+  if (r.why) return;
+  // the price paid comes back whole (removeAt gave back part of it)
+  s.money += Math.max(0, (u.paid || 0) - (r.refund || 0));
+  if (APP.ui.sel === u.id) cardClose();
+  try { audioCue('remove'); } catch (e) { /* no sound */ }
+}
+{
+  // roads: v44's own Undo (roads_ui.js) behind the calm chip
+  const _ur = roadUndoRender;
+  roadUndoRender = function () {
+    const r = _ur.apply(this, arguments);
+    if (calmOn()) {
+      if (APP.ui.undo && (!CALM.undo || CALM.undo.kind !== 'road' || CALM.undo.u !== APP.ui.undo)) calmUndoSet({ kind: 'road', u: APP.ui.undo });
+      else if (!APP.ui.undo && CALM.undo && CALM.undo.kind === 'road') calmUndoSet(null);
+    }
+    return r;
+  };
+  // a new tool: the chance to undo a building has passed
+  const _ts = toolSet;
+  toolSet = function (tool) {
+    const was = APP.ui.tool, r = _ts.apply(this, arguments);
+    if (!calmOn()) return r;
+    if (CALM.undo && CALM.undo.kind === 'b' && tool !== 'look') calmUndoSet(null);
+    if (tool !== 'look') { calmTraySet(false); calmLitShow(tool); }
+    // Done (or the item tapped again): the tool goes and the group's items close with it
+    else if (was !== 'look') calmItemsClose();
+    return r;
+  };
+}
+// A building's tool armed and none of the lit places in view: the view glides to the nearest (no words; she taps one).
+function calmLitShow(tool) {
+  if (!BUILDINGS[tool] || !APP.R || APP.R.kind === 'flat') return;
+  const s = APP.state, sp = spotsFor(s, tool);
+  if (!sp.n) return;
+  const W = window.innerWidth, H = window.innerHeight, tb = $('top').getBoundingClientRect(), bar = $('bar').getBoundingClientRect();
+  const gl = $('calmGoals').classList.contains('show') ? $('calmGoals').getBoundingClientRect() : null;
+  const x0 = 20, x1 = (gl && gl.width ? gl.left : W) - 20, y0 = tb.bottom + 70, y1 = bar.top - 20;
+  const def = BUILDINGS[tool];
+  let best = null;
+  const c = screenToTile(APP.R, APP.view, (x0 + x1) / 2, (y0 + y1) / 2);
+  for (const [x, y] of sp.anchors) {
+    const p = tileToScreen(APP.R, APP.view, x + def.w / 2, y + def.h / 2);
+    if (p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1) return;
+    const d = Math.hypot(x + def.w / 2 - c.x, y + def.h / 2 - c.y);
+    if (!best || d < best.d) best = { x: x + def.w / 2, y: y + def.h / 2, d };
+  }
+  if (best) cameraFlyTo(best.x, best.y);
+}
+
+// ---------- quiet: no notices, no Rosa, no asks, no rituals ----------
+{
+  // notices: the log keeps every one (toastShow), none is shown but the two about her island itself: it could not be
+  // saved on this device, or a saved island could not be opened (main.js)
+  const _tt = toastTick;
+  toastTick = function (now) {
+    if (calmOn()) {
+      if (APP.toasts.length) APP.toasts = APP.toasts.filter(calmToastKeep);
+      if (APP.toastCur && !calmToastKeep(APP.toastCur)) toastClose();
+      if (!APP.toasts.length && !APP.toastCur) return;
+    }
+    const r = _tt.apply(this, arguments);
+    $('toast').classList.toggle('keep', !!(calmOn() && APP.toastCur));
+    return r;
+  };
+  // the asks' glowing places and dotted lines: none on the calm map (her taps build what she chose)
+  const _cu = comUiUpdate;
+  comUiUpdate = function () { const r = _cu.apply(this, arguments); if (calmOn()) APP.ui.com = null; return r; };
+  // floaters: only those her own tap makes (a price, a refund); none from paydays, homes moving up, scaffolding
+  const _fa = floaterAdd;
+  floaterAdd = function () { if (calmOn() && !calmHers()) return; return _fa.apply(this, arguments); };
+  // payday: a small "+$1,240" by the money, once
+  const _rs = receiptShow;
+  receiptShow = function (r) { const x = _rs.apply(this, arguments); if (calmOn() && r) calmPayShow(r.result); return x; };
+  // the New Year: no year card, no Gazette page or slip (the Gazette is kept in the save; Details shows it)
+  const _yc = yearCardShow;
+  yearCardShow = function () { if (calmOn()) return; return _yc.apply(this, arguments); };
+  const _ga = gazetteArrive;
+  gazetteArrive = function () { if (calmOn()) return; return _ga.apply(this, arguments); };
+  // the greeting on coming back
+  const _go = greetOpen;
+  greetOpen = function () { if (calmOn()) { APP.greeted = true; return; } return _go.apply(this, arguments); };
+  // a stage reached: one short line that goes by itself (the album's photo is still taken)
+  const _sc = stageCardOpen;
+  stageCardOpen = function (stage) {
+    if (!calmOn()) return _sc.apply(this, arguments);
+    const s = APP.state;
+    calmLineShow(STAGES[stage].name + '!');
+    try { confettiRun(); } catch (e) { /* none */ }
+    try { const img = comSnap(); if (img) albumAdd({ img, stage, m: s.month, pop: popCount(s), line: COM_STAGE_LINE[stage] || '' }); } catch (e) { /* the album as it is */ }
+    barBuild();
+  };
+  // an island goal reached (A10): the same short line
+  const _ir = isleRitual;
+  isleRitual = function (e) {
+    if (!calmOn()) return _ir.apply(this, arguments);
+    if (e && e.id !== 'record') calmLineShow((e.head || e.title || 'A goal reached').replace(/^./, (c) => c.toUpperCase()) + '!');
+  };
+  // any other ritual's sheet that would open by itself (none she tapped for): not on the calm screen
+  const _so = sheetOpen;
+  sheetOpen = function (html, onClose) {
+    if (calmOn() && /id="stagecard"/.test(html) && !calmHers()) { if (onClose) onClose(); return; }
+    return _so.apply(this, arguments);
+  };
+  // a facility's screen (the harbour, the airport) opens only by her tap
+  const _fo = facOpen;
+  facOpen = function () { if (calmOn() && !calmHers()) return; return _fo.apply(this, arguments); };
+  // the sound panel opens beside the tray's button
+  const _ap = audioPanelPlace;
+  audioPanelPlace = function () {
+    const r = _ap.apply(this, arguments), at = CALM.sndAt;
+    if (calmOn() && at) { const pop = $('sndpop'), w = pop.offsetWidth || 284; pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, at.right - w)) + 'px'; pop.style.top = Math.round(at.top) + 'px'; }
+    return r;
+  };
+  // the tray shows the layers' state as they change
+  const _hu = hudUpdate;
+  hudUpdate = function () { const r = _hu.apply(this, arguments); if (calmOn()) { calmRender(); calmTrayRender(); } return r; };
+  // each frame: the pieces' places (rotPlace runs every frame)
+  const _rp = rotPlace;
+  rotPlace = function () { const r = _rp.apply(this, arguments); try { calmPlace(); calmLegends(); } catch (e) { /* as it was */ } return r; };
+  // a new island starts like the first version: the governor's hut already stands on the low hill by the pier, and her
+  // first act is a road from the pier (sim.js newGame; A12's lot picker stays for Details)
+  const _fs = freeSeatOwn;
+  freeSeatOwn = function () { return calmOn() ? false : _fs.apply(this, arguments); };
+  // the build bar starts with its tabs only
+  const _hi = hudInit;
+  hudInit = function () { if (calmOn()) APP.ui.trayClosed = true; const r = _hi.apply(this, arguments); calmInit(); return r; };
+  const _ai = audioInit;
+  audioInit = function () { const r = _ai.apply(this, arguments); calmSwAdd(); return r; };
+}
+function calmToastKeep(n) { return !!n && /could not be (saved|opened)/.test(n.text); }
+function calmLineShow(text) {
+  const el = $('calmLine');
+  if (!el) return;
+  el.textContent = '★ ' + text;
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  clearTimeout(CALM.lineT);
+  CALM.lineT = setTimeout(() => el.classList.remove('show'), CALM.lineMs);
+  calmPlace(true);
+}
+function calmPayShow(n) {
+  const el = $('calmPay'), m = $('sMoney');
+  if (!el || !m || !n) return;
+  const r = m.getBoundingClientRect();
+  el.textContent = fmtSigned(n);
+  el.style.color = n < 0 ? '#b5402c' : '#2f7a45';
+  el.style.left = Math.round(r.left + 8) + 'px';
+  el.style.top = Math.round(r.bottom + 6) + 'px';
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  clearTimeout(CALM.payT);
+  CALM.payT = setTimeout(() => el.classList.remove('show'), 2300);
+}
+
+// What the calm screen holds now (the console and the tests): words, panels, the renderer's marks.
+function calmState() {
+  const vis = (e) => { if (!e) return false; const cs = getComputedStyle(e), r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0.05; };
+  return { on: calmOn(), details: calmDetails(), goals: vis($('calmGoals')), tray: vis($('calmTray')), undo: CALM.undo ? CALM.undo.kind : '', items: !APP.ui.trayClosed,
+    marks: Object.assign({}, APP.R && APP.R.marks), bubbles: APP.R && APP.R.bubbles ? APP.R.bubbles.length : 0 };
 }
 
 // ---- src/ui/main.js
