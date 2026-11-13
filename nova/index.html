@@ -26494,6 +26494,253 @@ function beautyBest(s) {
   };
 }
 
+// ---- src/sim/simple.js
+// C3 — free play and simple goals (13 Nov 2026; nova/docs/CALM.md "Goals: simple and visible").
+// Tomáš (12 Nov), after her evenings with v44: "goals like traffic and happiness, simple ones like that"; the old game's
+// goals panel on the right "was quite ok". Before C3 a stage needed people plus homes at a level ("12 Houses", "20
+// Villas", "16 Townhouses", "12 Mansions"), "rum shipped" and a landmark. The playtests read the home-level counts as
+// homework (about 36 taps for 12 Houses; "Villas 0 / 20" that Upgrade did not move). Now a stage needs:
+//   - people (the same targets: 50 / 160 / 400 / 650 / 900);
+//   - happiness at least x % (the number on the top bar: state.happy, worked out at the month's end);
+//   - food for every home (Village only; later it is part of happiness: "Homes without food");
+//   - streets flowing: at least x % of the road tiles not jammed (from City; carts jam dirt streets and crossings in a
+//     growing Town), by the Traffic layer's own measure held over a month (jamHeld below). Measured first as "no jammed
+//     streets": no scripted player and none of her islands ever had a month without a red tile from Town on (5 to 40
+//     of 130 to 400 tiles), and before City nothing she can build clears a dirt street's jam, so it was a wall (LOG C3);
+//   - the landmark (the Governor's residence's next level, the steamship quay for the Capital), as before.
+// Upgrades stay as they were (on a home's card, "Upgrade all"): villas, townhouses and mansions still come from her
+// taps; they are no longer a checklist. Every condition is a row of the goals panel (ui/calm.js) and a line of the
+// stage card and the pill (Details): they all read stageConds.
+// Kill switch: TUNE.goalsOld (NOVA_GOALS_OLD=1 in the tests) restores v46's conditions line for line; nothing here
+// runs or is saved with it on. Old saves keep the stage they reached; the new conditions apply to the next one.
+
+TUNE.goalsOld = false;
+function goalsOld() { return !!TUNE.goalsOld; }
+
+// The conditions of each stage (index: the stage reached). happy: the top bar's happiness, at least; flow: the share of
+// road tiles not jammed at the month's measures (jamHeld), at least, in %. Measured on the scripted players and her
+// islands (LOG, C3). The streets join once she can pave and add lanes (City, PAVED_STAGE and TF.laneStage): at Town
+// only a crossing's rule and a second dirt road help, and the on-screen player at her pace stood at Town for good
+// behind 72-86 % with both tapped.
+const STAGE_GOALS = [
+  null,
+  { people: 50, allFed: true },
+  { people: 160, happy: 60, landmark: { res: 1 } },
+  { people: 400, happy: 62, landmark: { res: 2 } },
+  { people: 650, happy: 64, flow: 95, landmark: { res: 3 } },
+  { people: 900, happy: 64, flow: 95, landmark: { b: 'quay' } },
+];
+
+// ---------- the jams, held over a month ----------
+// The Traffic layer colours a road tile red when trafficLevel(s, i) >= TR.jam (render/iso.js), and its legend counts
+// those tiles (trafficCounts). That level changes only when the traffic is measured, four times a month (each quarter
+// month: transport.js trFold, traffic.js tfFold). A tile red at any of the last four measures counts as jammed for the
+// goal: one measure is a moment, four are the month (the month's busiest hour included), and the row cannot flicker
+// between two measures. What she changes on that tile (paving, a lane, a crossing's rule, a roundabout) measures it
+// again at once: the tile leaves the held set until the next measure finds it red again. The Traffic layer and its
+// legend on the calm screen show the same held set red (ui/calm.js), so the layer, the legend, the row and the stage
+// agree at every moment. s.jamH = { f: [[tile, sig], ...] for each of the last four measures (oldest first) } (saved).
+const JAMH = { keep: 4 };
+// What the tile is now: its road kind, lanes and the crossing's rule (a change measures it again).
+function jamSig(s, i) {
+  const k = s.road[i] || 0;
+  if (!k) return '';
+  let ln = 1, ctl = '';
+  try { if (typeof lanesAt === 'function') ln = lanesAt(s, i); } catch (e) { ln = 1; }
+  try { if (typeof tfCtl === 'function' && typeof jctAt === 'function' && jctAt(s, i)) ctl = tfCtl(s, i); } catch (e) { ctl = ''; }
+  return k + ':' + ln + ':' + ctl;
+}
+function jamNow(s) {
+  const out = [];
+  for (let i = 0; i < s.road.length; i++) if (s.road[i] && trafficLevel(s, i) >= TR.jam) out.push(i);
+  return out;
+}
+function jamRecord(s) {
+  const H = s.jamH || (s.jamH = { f: [] });
+  H.f.push(jamNow(s).map((i) => [i, jamSig(s, i)]));
+  while (H.f.length > JAMH.keep) H.f.shift();
+  s._jamK = null;
+}
+// The held set: { n, tiles: [tile, ...], worst: the tile to show first (-1: none), level } (worked out once a version).
+function roadTiles(s) { let n = 0; for (let i = 0; i < s.road.length; i++) if (s.road[i]) n++; return n; }
+function jamHeld(s) {
+  const key = (s.tick || 0) + '|' + s.ver + '|' + (s.jamH ? s.jamH.f.length : 0);
+  if (s._jamK && s._jamK.key === key) return s._jamK.v;
+  const set = new Set();
+  // (a measure taken: each tile red then and still what it was; the tiles red now, whatever the measures said)
+  for (const f of (s.jamH && s.jamH.f) || []) for (const [i, sig] of f) if (s.road[i] && jamSig(s, i) === sig) set.add(i);
+  for (const i of jamNow(s)) set.add(i);
+  let worst = -1, lv = 0;
+  for (const i of set) { const l = trafficLevel(s, i); if (worst < 0 || l > lv) { worst = i; lv = l; } }
+  const all = roadTiles(s), flow = all ? Math.floor(100 * (all - set.size) / all) : 100;
+  const v = { n: set.size, tiles: [...set], set, worst, level: lv, all, flow };
+  s._jamK = { key, v };
+  return v;
+}
+// Is road tile i jammed by the goal's measure (the layer draws it red)?
+function jamShownAt(s, i) { return !!s.road[i] && (trafficLevel(s, i) >= TR.jam || (!goalsOld() && jamHeld(s).set.has(i))); }
+{
+  // the measure after each traffic measure (a tick that ends a quarter month), on new rules only
+  const _st = simTick;
+  simTick = function (state) {
+    const r = _st.apply(this, arguments);
+    if (!goalsOld() && state.tick % TR.window === 0) jamRecord(state);
+    return r;
+  };
+}
+
+// ---------- a jam's one-tap fix ----------
+// What the crossing's or the street's card offers for jammed tile i, from T1's own advice (tfJamFix: the rule a copy
+// of the crossing rings, paving a dirt street, a second lane on a paved one, the dotted second road): { k, i, label,
+// cost, rule?, tiles?, plan? }, or null when the game has no one-tap fix there (the card and the layer show it).
+// k: 'jct' (a crossing's rule), 'rbt' (a roundabout), 'pave', 'lane', 'road' (the dotted second road).
+function jamFixTiles(s, i, test) {
+  const x0 = i % MAP_W, y0 = (i / MAP_W) | 0, out = [];
+  for (let y = y0 - 4; y <= y0 + 4; y++) for (let x = x0 - 4; x <= x0 + 4; x++) {
+    if (!inMap(x, y) || Math.abs(x - x0) + Math.abs(y - y0) > 4) continue;
+    const j = tileIdx(x, y);
+    if (s.road[j] && test(j) && (j === i || trafficLevel(s, j) > TR.busy || jamShownAt(s, j))) out.push(j);
+  }
+  return out;
+}
+function jamFix(s, i) {
+  if (i < 0 || !s.road[i] || typeof tfJamFix !== 'function') return null;
+  let F;
+  try { F = tfJamFix(s, { i }); } catch (e) { return null; }
+  if (!F) return null;
+  const at = F.at || [i % MAP_W, (i / MAP_W) | 0], j = tileIdx(at[0], at[1]);
+  if (F.tool === 'jct' && jctAt(s, j)) {
+    const A = jctAdvice(s, j), k = A.best && A.best.k;
+    if (!k || k === 'rbt' || jctlWhy(s, j, k, true)) return null;
+    const cost = jctlCost(s, j, k);
+    return { k: 'jct', i: j, rule: k, cost, label: (k === 'lights' ? 'Traffic lights' : k === 'stop' ? 'All-way stop' : 'Give way') + (cost ? ' · ' + money$(cost) : '') };
+  }
+  if (F.tool === 'rbt' && !rbtWhy(s, j, true)) { const cost = rbtCost(s, j); return { k: 'rbt', i: j, cost, label: 'Roundabout · ' + money$(cost) }; }
+  if (F.tool === 'paved' && s.stage >= PAVED_STAGE) {
+    const tiles = jamFixTiles(s, i, (t) => s.road[t] === 1);
+    if (!tiles.length) return null;
+    const cost = roadPlan(s, tiles, 2).cost;
+    return { k: 'pave', i, tiles, cost, label: 'Pave it · ' + money$(cost) };
+  }
+  if (F.tool === 'lane') {
+    const tiles = jamFixTiles(s, i, (t) => s.road[t] >= 2 && !laneWhy(s, t, true)), p = tiles.length ? lanePlan(s, tiles, true) : null;
+    if (!p || !p.add.length) return null;
+    return { k: 'lane', i, tiles: p.add, cost: p.cost, label: 'Second lane · ' + money$(p.cost) };
+  }
+  if (F.tool === 'road' && F.plan) {
+    const p = planOf(s, F.plan);
+    if (!p) return null;
+    return { k: 'road', i, plan: F.plan, cost: p.cost, label: 'Second road · ' + money$(p.cost) };
+  }
+  return null;
+}
+// Does it (the card's button, her tap): { ok, cost, why }.
+function jamFixDo(s, f) {
+  if (!f) return { ok: false, why: 'Nothing to do here now' };
+  if (s.money < f.cost) return { ok: false, poor: true, why: 'Not enough money (' + money$(f.cost) + ')' };
+  if (f.k === 'jct') return placeJctl(s, f.i, f.rule);
+  if (f.k === 'rbt') return placeRbt(s, f.i);
+  if (f.k === 'pave') { const r = placeRoad(s, f.tiles, 2); return { ok: r.built > 0, cost: r.cost, why: r.why }; }
+  if (f.k === 'lane') return placeLanes(s, f.tiles, true);
+  if (f.k === 'road') return planRun(s, f.plan);
+  return { ok: false, why: 'Nothing to do here now' };
+}
+// The jam the traffic row shows: the worst held jam with a fix (her tap can clear it), else the worst: { i, fix } or null.
+function jamPick(s) {
+  const J = jamHeld(s);
+  if (!J.n) return null;
+  const list = J.tiles.slice().sort((a, b) => trafficLevel(s, b) - trafficLevel(s, a) || a - b);
+  for (const i of list.slice(0, 8)) { const f = jamFix(s, i); if (f) return { i, fix: f }; }
+  return { i: J.worst, fix: null };
+}
+
+// ---------- the conditions ----------
+{
+  const _sc = stageConds;
+  stageConds = function (state) {
+    const r = _sc.apply(this, arguments);
+    if (goalsOld() || !r.next || r.next.goal) return r;
+    const k = state.stage + 1, G = STAGE_GOALS[k];
+    if (!G) return r;
+    const next = Object.assign({ name: STAGES[k].name, simple: true }, G), conds = [];
+    const pop = popCount(state);
+    if (G.people) conds.push({ key: 'people', label: pop + ' / ' + G.people + ' people', ok: pop >= G.people });
+    if (G.allFed) conds.push({ key: 'food', label: 'every home has food', ok: allHomesFed(state) });
+    if (G.happy) conds.push({ key: 'happy', label: state.happy + ' / ' + G.happy + ' % happy', ok: state.happy >= G.happy });
+    if (G.flow) { const J = jamHeld(state); conds.push({ key: 'jams', label: J.flow + ' / ' + G.flow + ' % of streets flowing (' + J.n + ' jammed)', ok: J.flow >= G.flow }); }
+    // the landmark as before (its price, A11's fund set aside for it)
+    const lm = r.conds.find((c) => c.landmark);
+    if (lm) conds.push(Object.assign({ key: 'landmark' }, lm));
+    return { next, conds };
+  };
+  // the stage card: what the next stage asks (one line, the same conditions as the panel)
+  const _so = stageOpens;
+  stageOpens = function (stage) {
+    const list = _so.apply(this, arguments);
+    const G = STAGE_GOALS[stage + 1];
+    if (goalsOld() || !G) return list;
+    const ask = [G.people + ' people'];
+    if (G.allFed) ask.push('food for every home');
+    if (G.happy) ask.push('happiness ' + G.happy + ' %');
+    if (G.flow) ask.push(G.flow + ' % of streets flowing (not jammed)');
+    const lm = G.landmark, lmName = lm && (lm.res ? RESIDENCE[lm.res].name : BUILDINGS[lm.b] ? 'the ' + BUILDINGS[lm.b].name.toLowerCase() : '');
+    if (lmName) ask.push(lmName);
+    list.push('Next, ' + STAGES[stage + 1].name + ': ' + ask.join(', '));
+    return list;
+  };
+}
+
+// ---------- the homes' next level, as advice ----------
+// The home levels are no longer a condition, but they are still what the island grows into: Rosa's line and the pill's
+// blocker (Details), the asks and the scripted players keep pointing at the next level her homes can reach ("Villas: 8
+// homes lack a school"), so villas, townhouses and mansions still come from her upgrades. The level is the homes' own,
+// not the stage's (the stages now come before the homes grow): the lowest level open at this stage that fewer than half
+// of the homes one level below have reached. goalBlocker (guide.js) reads it as the stage's old level condition did.
+const SIMPLE_LEVEL_KEY = ['', '', 'houses', 'villas', 'townhouses', 'mansions'];
+function simpleNextLevel(s) {
+  const at = (L) => s.b.filter((b) => b.type === 'casita' && b.res > 0 && b.level >= L).length;
+  for (let L = 2; L <= 5; L++) {
+    if (!LEVELS[L] || LEVELS[L].stage > s.stage) return null;
+    const up = at(L), below = at(L - 1);
+    if (below && up < below / 2) return { L, key: SIMPLE_LEVEL_KEY[L], want: homesAtLevel(s, L) + Math.max(1, Math.ceil((below - up) / 2)) };
+  }
+  return null;
+}
+{
+  const _gb = goalBlocker;
+  goalBlocker = function (s) {
+    if (goalsOld()) return _gb.apply(this, arguments);
+    const sc = stageConds(s);
+    if (!sc.next || sc.next.goal) return null;
+    const N = simpleNextLevel(s);
+    if (!N) return null;
+    const keep = stageConds, next = { name: sc.next.name };
+    next[N.key] = N.want;
+    stageConds = function () { return { next, conds: [] }; };
+    try { return _gb.apply(this, arguments); } finally { stageConds = keep; }
+  };
+}
+
+// ---------- the jobs a happiness row asks for ----------
+// The biggest employer of her stage (its fields first, as the jobs line says), whether she can pay it now or not: a
+// small field's few jobs do not move "people without work" (it counts from a fifth of the workforce), and on her 1930
+// island a version that offered the cheapest producer instead built fields that lost money while the jobless stayed
+// (measured: happiness 57 for ten years, paydays red). { tool, cost, poor }.
+function jobsFix(s) {
+  const big = bigEmployer(s);
+  if (!big) return null;
+  // its fields first while what they make is all taken (her 1930 island: a sugar central on cane the distillery already
+  // used stood idle with 50 wages to pay, and the paydays went red)
+  let t = big.t;
+  if (big.src) {
+    const d = BUILDINGS[big.t], raw = Object.keys(d.uses)[0];
+    let sup = 0, use = 0;
+    for (const o of s.b) { const od = defOf(o); if (od.makes === raw && o.open !== false) sup += od.rate || 0; if (od.uses && od.uses[raw]) use += od.uses[raw] * (od.rate || 0); }
+    if (sup - use < d.uses[raw] * d.rate * 0.75) t = big.src;
+  }
+  return BUILDINGS[t] ? { tool: t, cost: BUILDINGS[t].cost, poor: s.money < BUILDINGS[t].cost } : null;
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -30361,7 +30608,8 @@ const ISO = (() => {
       g.beginPath(); g.rect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
       g.fillStyle = r.deco ? 'rgba(224,120,154,.13)' : 'rgba(46,154,145,.13)'; g.fill();
       g.setLineDash([0.35, 0.22]); g.lineDashOffset = -t * 0.3; g.lineWidth = 0.07; g.strokeStyle = r.deco ? 'rgba(176,70,110,.9)' : 'rgba(30,110,104,.9)'; g.stroke(); g.setLineDash([]);
-      for (const h of r.homes) { g.fillStyle = REACH_COL[h.st]; g.fillRect(h.x - 0.14, h.y - 0.14, 1.28, 1.28); }
+      const calmR = typeof calmOn === 'function' && calmOn();
+      for (const h of r.homes) { if (calmR && h.st !== 'in') continue; g.fillStyle = REACH_COL[h.st]; g.fillRect(h.x - 0.14, h.y - 0.14, 1.28, 1.28); }
     }
     if (sp.roads) {
       const q = sp.roads, pulse = 0.55 + 0.2 * Math.sin(t * 4);
@@ -30369,6 +30617,33 @@ const ISO = (() => {
       g.fillStyle = 'rgba(70,170,80,' + pulse.toFixed(3) + ')'; for (const i of q.net) g.fillRect(i % MAP_W + 0.08, ((i / MAP_W) | 0) + 0.08, 0.84, 0.84);
       g.fillStyle = 'rgba(205,60,45,' + (pulse + 0.1).toFixed(3) + ')'; for (const i of q.own) g.fillRect(i % MAP_W + 0.08, ((i / MAP_W) | 0) + 0.08, 0.84, 0.84);
       if (q.noRoad) { g.strokeStyle = 'rgba(205,60,45,.9)'; g.lineWidth = 0.1; g.setLineDash([0.25, 0.15]); g.strokeRect(q.b.x - 0.1, q.b.y - 0.1, q.b.w + 0.2, q.b.h + 0.2); g.setLineDash([]); }
+    }
+  }
+  // C3 (the playtest: the fishing hut's two spots by the pier were hard to see at night): on the calm screen the lit
+  // spots are drawn again over the hour's colour, as strong as the dark is deep; and after a tap where the building
+  // cannot stand, the nearest lit spot pulses for a moment (ui.calmPulse, ui/calmgoals.js), with no words.
+  function spaceNight(R, s, ui, t) {
+    const calm = typeof calmOn === 'function' && calmOn(), sp = ui.space, c = R.spaceC, g = R.ctx;
+    if (!calm || !sp || !sp.valid || !c || c.key !== sp.valid.key) return;
+    const dk = dayOn(s) && typeof dayDark === 'function' ? dayDark(dayClock(s)) : 0;
+    if (dk >= 0.08) {
+      g.save(); tileXf(R);
+      g.globalAlpha = Math.min(0.95, 0.35 + dk * 0.8);
+      g.fillStyle = 'rgba(255,240,190,' + (0.22 + 0.1 * Math.sin(t * 3)).toFixed(3) + ')'; g.fill(c.lit);
+      g.strokeStyle = 'rgba(255,236,170,.95)'; g.lineWidth = 0.06; g.stroke(c.cells);
+      g.restore();
+      R.stats.litNight = 1;
+    }
+    const pz = ui.calmPulse;
+    if (pz && performance.now() - pz.t < 1600) {
+      const u = (performance.now() - pz.t) / 1600, k = Math.sin(u * Math.PI * 3) * 0.5 + 0.5;
+      g.save(); tileXf(R);
+      g.lineWidth = 0.09 + 0.06 * k; g.strokeStyle = 'rgba(255,250,236,' + (0.95 - 0.5 * u).toFixed(3) + ')';
+      g.strokeRect(pz.x - 0.15 - 0.2 * k, pz.y - 0.15 - 0.2 * k, pz.w + 0.3 + 0.4 * k, pz.h + 0.3 + 0.4 * k);
+      g.strokeStyle = 'rgba(46,122,62,' + (0.9 - 0.5 * u).toFixed(3) + ')'; g.lineWidth = 0.05;
+      g.strokeRect(pz.x - 0.05, pz.y - 0.05, pz.w + 0.1, pz.h + 0.1);
+      g.restore();
+      R.stats.litPulse = 1;
     }
   }
   function reachBadge(R, x, y, st) {
@@ -30407,7 +30682,10 @@ const ISO = (() => {
   // Above the buildings: a badge over each home in or near reach, labels on the two road pieces, level-down marks.
   function spaceMarks(R, s, ui, t) {
     const sp = ui.space;
+    // (C3, calm: only the homes the ghost would reach, a ✓ each; the playtest saw a ✓ or ✗ on every home of the town)
+    const calmR = typeof calmOn === 'function' && calmOn();
     if (sp && sp.reach) for (const h of sp.reach.homes) {
+      if (calmR && h.st !== 'in') continue;
       const hb = bById(s, h.id); if (!hb) continue;
       const p = P(h.x + 0.5, h.y + 0.5, bubbleZ(hb) * 0.62);
       if (p[0] > -20 && p[0] < R.w + 20 && p[1] > -20 && p[1] < R.h + 20) reachBadge(R, p[0] + 12, p[1], h.st);
@@ -31284,20 +31562,22 @@ const ISO = (() => {
   function trafficPaths(s, keep) {
     const arms = [new Path2D(), new Path2D(), new Path2D()], all = new Path2D();
     const mids = [[1, 0.5], [0.5, 1], [0, 0.5], [0.5, 0]], rd = (x, y) => inMap(x, y) && s.road[tileIdx(x, y)] > 0;
-    let n = 0;
+    let n = 0, red = 0;
     for (let i = 0; i < s.road.length; i++) {
       if (!s.road[i]) continue;
       const x = i % MAP_W, y = (i / MAP_W) | 0;
       if (keep && !keep(x, y)) continue;
       // (T3, roadcare_ui.js: the condition view colours a tile by its wear: good, worn, poor)
-      const ck = typeof rcLayerK === 'function' ? rcLayerK(s, i) : -1, l = ck >= 0 ? 0 : trafficLevel(s, i), k = ck >= 0 ? ck : l >= TR.jam ? 2 : l > TR.busy ? 1 : 0, cx = x + 0.5, cy = y + 0.5;
+      // (C3, calm: a tile jammed at any of the month's measures stays red, as the goals' traffic row counts it: calmgoals.js)
+      const ck = typeof rcLayerK === 'function' ? rcLayerK(s, i) : -1, l = ck >= 0 ? 0 : trafficLevel(s, i), k = ck >= 0 ? ck : l >= TR.jam || (typeof calmJamRed === 'function' && calmJamRed(s, i)) ? 2 : l > TR.busy ? 1 : 0, cx = x + 0.5, cy = y + 0.5;
       const nb = [rd(x + 1, y), rd(x, y + 1), rd(x - 1, y), rd(x, y - 1)];
       let any = false;
       n++;
+      if (k === 2) red++;
       for (let q = 0; q < 4; q++) if (nb[q]) { any = true; for (const P2 of [arms[k], all]) { P2.moveTo(cx, cy); P2.lineTo(x + mids[q][0], y + mids[q][1]); } }
       if (!any) for (const P2 of [arms[k], all]) { P2.moveTo(cx - 0.18, cy); P2.lineTo(cx + 0.18, cy); }
     }
-    return { arms, all, n };
+    return { arms, all, n, red };
   }
   function trafficStroke(g, tp, t, edge) {
     g.lineCap = 'round'; g.lineJoin = 'round';
@@ -31309,7 +31589,9 @@ const ISO = (() => {
   function trafficGround(R, s, t) {
     if (!trLayerOn()) return;
     tileXf(R);
-    trafficStroke(R.ctx, trafficPaths(s, null), t, true);
+    const tp = trafficPaths(s, null);
+    R.stats.trRed = tp.red; R.stats.trAll = tp.n;
+    trafficStroke(R.ctx, tp, t, true);
     rlTrafficGround(R, s);
   }
   // A6: the Traffic layer is a diagram she reads at any hour: after dusk the hour's colour (A1's tint) would sink the
@@ -32869,6 +33151,7 @@ const ISO = (() => {
     // A1 — the day turns: the colour of the hour over the scene, then the lights (the marks below stay as by day)
     dayDraw(R, s, now, t);
     trafficNight(R, s, t);
+    spaceNight(R, s, ui, t);
     // marks above buildings: what a home lacks, workers short, a full yard
     const sc = clamp(Math.round(R.hw / 34 * 8) / 8, 0.75, 1.25), sel = ui.sel;
     R.bubbles = [];
@@ -33203,6 +33486,8 @@ const ISO = (() => {
     if (ft) {
       const age = (now - ft.t0) / 1000, b = bById(s, ft.id);
       if (!b || age > 3.4) { ui.famTap = null; return; }
+      // (C3, calm: a name only on the home selected now)
+      if (calm && ui.sel !== ft.id) { ui.famTap = null; return; }
       const vb = bVBox(R, b), wq = localWorld(R, b, (vb[2] - vb[0]) / 2 + 0.15, vb[3] - vb[1] + 0.32 * Math.min(1, age * 2));
       pen(R.ctx, R.ox, R.oy, R.hw, R.dpr, R.rot);
       paintPerson(wq[0], wq[1], ft.v, Math.floor(age * 4) % 2 && age < 0.6 ? 1 : 0, false);
@@ -33237,6 +33522,9 @@ const ISO = (() => {
   // One "Opens at …" label a locked region, on its tile nearest the screen's middle; A2: a label that would overlap
   // another one (or the commission's label on its dotted line) takes the region's next nearest tile instead.
   function lockLabels(R, s, ui) {
+    // C3 (calm): none at rest (the playtest: "Opens at Village" peeked out under the goals panel); the land's edge stays
+    // drawn, and a locked item in the bar says its stage
+    if (typeof calmOn === 'function' && calmOn()) return;
     const cand = {}, cx = R.w / 2, cy = R.h / 2;
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
       const i = tileIdx(x, y), r = s.region[i];
@@ -33359,8 +33647,11 @@ const ISO = (() => {
     const def = ghostFoot(gh), gf = ghostF(gh);
     // M9: the ghost of a building being moved looks like it (its level) and says what the move costs
     const mvb = ui.move && ui.move.type === gh.type ? bById(s, ui.move.id) : null;
-    diamond(R, gh.x, gh.y, gh.x + def.w, gh.y + def.h, gh.why ? 'rgba(196,85,63,.42)' : 'rgba(120,205,95,.5)', '#fbf3df', 4.5);
-    diamond(R, gh.x, gh.y, gh.x + def.w, gh.y + def.h, null, gh.why ? '#a33a28' : '#2e7a3e', 2.2, [7, 4]);
+    // C3 (the playtest: "no money" looked the same as a wrong spot): on the calm screen a spot where it fits but the money
+    // is short stays green and only its price is red
+    const poor = calm && !!gh.why && /money/i.test(gh.why), bad = !!gh.why && !poor;
+    diamond(R, gh.x, gh.y, gh.x + def.w, gh.y + def.h, bad ? 'rgba(196,85,63,.42)' : 'rgba(120,205,95,.5)', '#fbf3df', 4.5);
+    diamond(R, gh.x, gh.y, gh.x + def.w, gh.y + def.h, null, bad ? '#a33a28' : '#2e7a3e', 2.2, [7, 4]);
     // Q2 (Tomáš: "it should show how it will look, so I know the directions and angles"): the building's own art at its
     // turn, also where it cannot stand (see-through over the red lot), the edges where a road (a station: the track)
     // meets the lot, and an arrow out of its front
@@ -33386,7 +33677,7 @@ const ISO = (() => {
       for (const i of pl.clear) { const x = i % MAP_W, y = (i / MAP_W) | 0; diamond(R, x + 0.2, y + 0.2, x + 0.8, y + 0.8, null, '#fbf3df', 2, [3, 3]); }
       R.stats.plus = pl.cost;
     }
-    if (calm) { if (!gh.why) uiDraw(R, labelSprite(R, mvb ? money$(moveCost(mvb)) : '$' + (pl ? pl.cost : def.cost).toLocaleString('en-US'), true), p[0], p[1] - 14); return; }
+    if (calm) { if (!gh.why || poor) uiDraw(R, labelSprite(R, mvb ? money$(moveCost(mvb)) : '$' + (pl ? pl.cost : def.cost).toLocaleString('en-US'), !poor), p[0], p[1] - 14); R.stats.ghostPoor = poor ? 1 : 0; return; }
     uiDraw(R, labelSprite(R, text, !gh.why), p[0], p[1] - 14);
     // A13: which side faces the street (the Turn button turns it), under the lot's front corner
     // (Fix3: with a mouse the line also says how to turn it: the key and the right button)
@@ -34856,7 +35147,10 @@ const ISO = (() => {
     if (ui.beauty && R.hw >= 20) {
       let n = 0;
       const hits = [];
+      // (C3, calm: the colours alone; a street's number shows on its card when she taps it, and on the street tapped)
+      const calmB = typeof calmOn === 'function' && calmOn();
       for (const st of bmNet(s).list) {
+        if (calmB && st.k !== ui.bsel) continue;
         const v = beautyOf(s, st);
         if (v < 0 || st.tiles.length < 2) continue;
         const m = st.tiles[st.tiles.length >> 1], p = P(m % MAP_W + 0.5, ((m / MAP_W) | 0) + 0.5, 0.15);
@@ -37216,6 +37510,9 @@ function inputInit(canvas) {
       const st = APP.ui.stroke, blk = APP.ui.strokeBlock;
       // Q1: a one-tile stroke beside a control is a finger meant for the control
       if (st && st.length <= 1 && e.type === 'pointerup' && tapBlocked(gesture, p, e.pointerType)) { APP.ui.stroke = null; APP.ui.strokeBlock = null; gesture = null; return; }
+      // C3 (calm, the playtest): one tap with the Road tool on the dotted road her goal's button suggested lays exactly it;
+      // elsewhere a single tap builds only a tile that extends a road (roads are dragged; ui/calmgoals.js calmRoadTap)
+      if (st && st.length <= 1 && APP.ui.tool === 'road' && typeof calmRoadTap === 'function' && calmRoadTap(p, st)) { APP.ui.stroke = null; APP.ui.strokeBlock = null; gesture = null; return; }
       if (st && st.length) {
         // A6: what the stroke changes can be taken back with one tap (roads_ui.js)
         const snap = roadUndoBegin(APP.state), kind = APP.state._roadKind;
@@ -44487,10 +44784,11 @@ function rcOverlay(R, s, ui, t, H) {
   // accidents: where one blocks the road now (always), the year's count a place (with the Traffic layer on)
   const T = s.t3, B = (T && T.blk) || {}, layer = ui.layer === 'traffic' && !ui.money;
   const marks = new Map();
-  if (layer) for (const a of accLastYear(s)) marks.set(a.i, (marks.get(a.i) || 0) + 1);
   // C1 (calm): the accident on the road shows with the Traffic layer only (where she looks for the traffic)
+  // C3 (the playtest: six warning triangles over the 1980 Traffic layer): none on the calm screen (Details shows them)
   const calm = typeof calmOn === 'function' && calmOn();
-  if (!calm || layer) for (const k in B) if (B[k] > now && !marks.has(+k)) marks.set(+k, 0);
+  if (layer && !calm) for (const a of accLastYear(s)) marks.set(a.i, (marks.get(a.i) || 0) + 1);
+  if (!calm) for (const k in B) if (B[k] > now && !marks.has(+k)) marks.set(+k, 0);
   for (const [i, n] of marks) {
     const x = i % MAP_W, y = (i / MAP_W) | 0, p = P(x + 0.5, y + 0.5, 0);
     if (p[0] < -40 || p[0] > R.w + 40 || p[1] < -60 || p[1] > R.h + 40) continue;
@@ -51503,6 +51801,745 @@ function calmCardState() {
   while ((n = tw.nextNode())) { if (n.parentElement.closest('button')) continue; words.push(...n.textContent.split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w))); }
   for (const b of el.querySelectorAll('button')) { const r = b.getBoundingClientRect(); btns.push([b.id || b.textContent.trim(), Math.round(r.width), Math.round(r.height), b.scrollWidth > b.clientWidth + 1 ? 1 : 0]); }
   return { show: true, key: CALMC.sel, words: words.length, text: words.join(' '), btns };
+}
+
+// ---- src/ui/calmgoals.js
+// C3 — free play and simple goals, the screen (13 Nov 2026; nova/docs/CALM.md "Goals: simple and visible").
+// The goals panel (C1's, after the old game's panel on her iPad) shows the simple stage conditions of sim/simple.js, one
+// row each, at most four: People, Happiness, Food (Village), Traffic (from City), the landmark. Each row: its number,
+// its bar, at most one short line and one button that leads to the fix (it arms a tool with its lit spots, or opens the
+// card whose button does it; nothing is built without her tap). Every button that leads to building says its price; a
+// fix she cannot pay yet still arms its tool, and the button's small line says when she can; a fix she can pay leads
+// when one she cannot would also help.
+// - The landmark row never goes backwards: no bar of cash in hand (the playtest's "Governor's house $0 / $8,000" fell
+//   each time she built what the panel asked). It shows the price and when the treasury will hold it at today's income
+//   ("In about 14 months"); then "Build · $8,000" opens the residence's card.
+// - After the palace: "Your island", four rows that only say how the island is doing (happiness, traffic, food, money a
+//   month), green when fine, a line and one button only when something is wrong. The big projects stay in the bar and on
+//   their cards (P2's ladder runs in the sim as before; nothing of it is pushed here).
+// Kill switch: TUNE.goalsOld (v46's rows, from C1/C2b, as they were).
+
+const CALMG = { keepHappy: 60, poorMonths: 60 };
+
+function calmGoalsCss() {
+  if ($('calmGoalsCss')) return;
+  const st = document.createElement('style');
+  st.id = 'calmGoalsCss';
+  st.textContent = [
+    '#calmGoals .row.nobar .bar { display: none; }',
+    '#calmGoals .fix small { display: block; font-size: 11.5px; font-weight: 700; opacity: 0.92; margin-top: 1px; }',
+    '#calmGoals .fix { line-height: 1.15; padding: 4px 14px; text-align: left; }',
+    '#calmGoals .fix.poor { background: var(--paper2); color: var(--ink); }',
+    '#calmGoals .fix.poor small { color: #8a3a22; }',
+    '#calmGoals .keep { display: flex; align-items: center; gap: 8px; padding: 9px 0 7px; border-top: 2px dotted rgba(58, 42, 31, 0.2); font-size: 14.5px; font-weight: 700; }',
+    '#calmGoals .keep:first-of-type { border-top: 0; }',
+    '#calmGoals .keep .ic { width: 22px; height: 22px; fill: #7a604b; stroke: var(--ink); stroke-width: 1.1px; paint-order: stroke; }',
+    '#calmGoals .keep span { flex: 1; } #calmGoals .keep em { font-style: normal; font-variant-numeric: tabular-nums; }',
+    '#calmGoals .keep.ok em { color: var(--green); } #calmGoals .keep.bad em { color: #b5402c; }',
+    '#calmGoals .keepx { margin: 0 0 6px 30px; } #calmGoals .keepx .ln { margin-left: 0; } #calmGoals .keepx .fix { margin-left: 0; }',
+    // (a phone: the chip above already shows the next stage and its ring; four rows with a line and a button each fit)
+    '@media (max-width: 600px) { #calmGoals .nx { display: none; } #calmGoals h3 { font-size: 21px; } #calmGoals .row { padding: 6px 0 4px; } }',
+  ].join('\n');
+  document.head.appendChild(st);
+}
+
+// ---------- the rows ----------
+// "Needs $1,200 more · about 2 paydays" style, short: "In about 2 paydays" ('' when the money is there).
+function calmWhen(cost) {
+  const s = APP.state, short = Math.ceil(cost - s.money);
+  if (!(short > 0)) return '';
+  const per = (s.history || []).slice(-3), avg = per.length ? per.reduce((a, x) => a + x.result, 0) / per.length : 0;
+  if (avg <= 0) return 'Needs ' + money$(short) + ' more';
+  const n = Math.ceil(short / avg);
+  return n > CALMG.poorMonths ? 'Needs ' + money$(short) + ' more' : 'In about ' + plural(n, 'payday', 'paydays');
+}
+// The same for "Upgrade all" when she cannot pay even one: it says when the first can go ("In about 1 payday" under
+// "Upgrade all 19 · $93,750" read as all of them)
+function calmFirstWhen(cost) {
+  const w = calmWhen(cost);
+  return w.startsWith('In about ') ? 'The first in about ' + w.slice(9) : w ? w + ' for the first' : '';
+}
+// A fix that arms a building's tool: { key, label (with its price), sub, poor, cost }
+function calmToolFix(tool, at, label) {
+  const def = BUILDINGS[tool], cost = def ? def.cost : 0, sub = cost ? calmWhen(cost) : '';
+  return { key: 'tool:' + tool + (at ? ':' + at[0] + ',' + at[1] : ''), label: (label || toolLabel(tool)) + (cost ? ' · ' + money$(cost) : ''), sub, poor: !!sub, cost };
+}
+// The parts of happiness, as the top bar's number is made (happyCalc), with what would fix each: the biggest negative
+// part with a fix she can make here first; then what is missing of the positive ones (a church, food for every home,
+// what the homes' level needs). [{ why (the few words), fix }]
+function calmHappyWhys(s) {
+  const out = [], hp = happyCalc(s), homes = homesOccupied(s);
+  const neg = hp.parts.filter((p) => p.v < 0).sort((a, b) => a.v - b.v);
+  const sign = (v) => (v < 0 ? '−' + Math.abs(v) : '+' + v);
+  for (const p of neg) {
+    let fix = null, why = '';
+    if (/without food/.test(p.label)) {
+      const noMk = homes.filter((h) => (h.miss || []).includes('market'));
+      const c = noMk.length ? { tool: 'market', at: homesAt(noMk) } : needCause(s, 'food');
+      if (c && c.tool && BUILDINGS[c.tool]) fix = calmToolFix(c.tool, c.at, calmFixLabel(c.tool, 'food'));
+      why = 'Homes without food ' + sign(p.v);
+    } else if (/without work|No jobs/.test(p.label)) {
+      const j = jobsFix(s), t = j ? j.tool : 'grove';
+      if (BUILDINGS[t] && BUILDINGS[t].stage <= s.stage) fix = calmToolFix(t, null);
+      const n = (p.label.match(/^(\d+)/) || [])[1];
+      why = (n ? n + ' without work ' : 'No jobs ') + sign(p.v);
+    } else if (/^Rent |^Wages /.test(p.label)) {
+      fix = { key: 'desk', label: 'Rent and wages' };
+      why = p.label + ' ' + sign(p.v);
+    } else continue;
+    out.push({ why, fix, v: p.v });
+  }
+  // what is missing of the positive parts (each part's own size: food 15, a church 10, the homes' needs 10)
+  if (homes.length) {
+    const noCh = s.stage >= BUILDINGS.chapel.stage ? homes.filter((h) => !homeHas(s, h, 'church')) : [];
+    if (noCh.length) out.push({ why: plural(noCh.length, 'home', 'homes') + ' without a church', fix: calmToolFix('chapel', homesAt(noCh)), v: -10 * noCh.length / homes.length });
+    const need = homes.filter((h) => (h.miss || []).some((n) => n !== 'food'));
+    if (need.length) {
+      const by = {};
+      for (const h of need) for (const n of h.miss) if (n !== 'food') by[n] = (by[n] || 0) + 1;
+      const k = Object.keys(by).sort((a, b) => by[b] - by[a])[0];
+      let c = null;
+      try { c = needCause(s, k, need.filter((h) => h.miss.includes(k))); } catch (e) { c = null; }
+      if (c && c.tool && BUILDINGS[c.tool] && BUILDINGS[c.tool].stage <= s.stage) out.push({ why: plural(by[k], 'home lacks ', 'homes lack ') + (NEED_NAMES[k] || k), fix: calmToolFix(c.tool, c.at, calmFixLabel(c.tool, k)), v: -10 * need.length / homes.length });
+    }
+  }
+  return out;
+}
+// The one to lead with: the biggest with a fix she can pay, else the biggest with a fix.
+function calmHappyPick(s) {
+  const all = calmHappyWhys(s), withFix = all.filter((o) => o.fix);
+  const can = withFix.find((o) => !o.fix.poor);
+  return { top: all[0] || null, pick: can || withFix[0] || null };
+}
+// The people row: what really holds the people back, and its button.
+function calmPeopleRow(s, target) {
+  const pop = popCount(s), ok = pop >= target;
+  const row = { k: 'people', icon: 'people', name: 'People', n: pop.toLocaleString('en-US'), of: target.toLocaleString('en-US'), frac: pop / target, ok, line: '', fix: null };
+  if (ok) return row;
+  if (s.stage === 0 && typeof freePierRoad === 'function' && freePierRoad(s) < FREE.roadMin) { row.fix = { key: 'tool:road', label: 'Road' }; row.line = 'A road from the pier first'; return row; }
+  // below 50 % happy no settler comes (sim/people.js peopleMonth)
+  if (pop && s.happy < TUNE.happyArrive && foodStood(s)) {
+    const h = calmHappyPick(s);
+    row.line = 'Settlers come at ' + TUNE.happyArrive + ' % happy · now ' + s.happy + ' %';
+    if (h.pick) row.fix = h.pick.fix;
+    return row;
+  }
+  const ship = shipSettlers(s), beds = freeBeds(s), wait = s.waiting || 0;
+  // the boat is the limit: beds for all it brings
+  if (beds >= ship && !wait) { row.line = 'The next boat brings up to ' + ship; return row; }
+  // homes are the limit: build homes where there are lots; else homes that are ready move up; else a road for new lots
+  const lots = spotsFor(s, 'casita').n || 0, rdy = homesReady(s), home = calmToolFix('casita', null, 'Build homes');
+  const upCost = rdy.length ? Math.min(...rdy.map((h) => upgradeCost(h.level))) : 0, upPoor = upCost > s.money;
+  const say = wait ? plural(wait, 'settler waits', 'settlers wait') + ' for a home' : beds ? 'Beds for ' + beds + ' · the boat brings ' + ship : 'Every home is full';
+  // (homes ready to move up first when she can pay one: a step up gives more beds on the same lot)
+  if (rdy.length && (lots < 3 || !upPoor || home.poor)) {
+    const up = rdy.slice().sort((a, b) => upgradeCost(a.level) - upgradeCost(b.level))[0];
+    row.fix = { key: 'sel:' + up.id, label: 'Upgrade · ' + money$(upgradeCost(up.level)), sub: upPoor ? calmWhen(upgradeCost(up.level)) : '', poor: upPoor };
+    row.line = plural(rdy.length, 'home is', 'homes are') + ' ready to move up';
+    return row;
+  }
+  if (lots >= 3) { row.fix = home; row.line = say; return row; }
+  // few lots: a road that opens new ones (v44's plan for homes: the dotted line, one tap lays it)
+  let p = null;
+  try { p = planOf(s, { kind: 'land', type: 'casita' }); } catch (e) { p = null; }
+  // (v44's plan is offered only once no lot is lit: the last few lots first, then the road; the smoke's novice stood in
+  // Village with 2 lots, $263k and a bare Road tool for 250 months)
+  if (!p && (lots > 0 || landLit(s, 'casita').length)) { row.fix = home; row.line = say; return row; }
+  row.line = (!lots ? 'No free spot' : lots === 1 ? '1 free spot' : lots + ' free spots') + ' · draw a road';
+  row.fix = p ? { key: 'plan:road', label: 'Road · ' + money$(p.cost), sub: calmWhen(p.cost), poor: s.money < p.cost } : { key: 'tool:road', label: 'Road · ' + money$(TUNE.roadCost) + ' a tile' };
+  return row;
+}
+function calmHappyRow(s, target, keep) {
+  const ok = s.happy >= target, row = { k: 'happy', icon: 'smile', name: 'Happiness', n: s.happy + ' %', of: keep ? '' : target + ' %', frac: s.happy / target, ok, line: '', fix: null };
+  if (ok) return row;
+  const h = calmHappyPick(s);
+  // the line names why happiness is where it is (the biggest part), the button the fix she can make
+  const lead = h.pick || h.top;
+  row.line = lead ? lead.why : '';
+  row.fix = h.pick ? h.pick.fix : null;
+  return row;
+}
+function calmFoodRow(s, keep) {
+  if (keep) return calmGoodsRow(s);
+  const homes = homesOccupied(s), fed = homes.filter((h) => !(h.miss || []).includes('food') && !(h.miss || []).includes('market')).length, ok = allHomesFed(s);
+  const noMk = homes.filter((h) => (h.miss || []).includes('market'));
+  let fix = null;
+  if (!ok && homes.length) { const c = noMk.length ? { tool: 'market', at: homesAt(noMk) } : needCause(s, 'food'); if (c && c.tool) fix = calmToolFix(c.tool, c.at, calmFixLabel(c.tool, 'food')); }
+  return { k: 'food', icon: 'bread', name: keep ? 'Food' : 'Food for every home', n: homes.length ? fed : '', of: homes.length ? homes.length : '', frac: homes.length ? fed / homes.length : 0, ok, fix: homes.length ? fix : null,
+    line: !homes.length ? 'Homes first' : ok ? '' : plural(homes.length - fed, 'home', 'homes') + ' without food' };
+}
+// After the palace: the food row counts every good a home's level eats (food, bread, rum, meat, coffee, cigars): her
+// 1980 island lost 28 people in half a year because homes lacking meat stepped down a level, while "food" was fine.
+function calmGoodsRow(s) {
+  const homes = homesOccupied(s), lack = {}, bad = new Set();
+  for (const h of homes) for (const n of h.miss || []) if (NEED_GOODS.includes(n) || n === 'market') { (lack[n] = lack[n] || []).push(h); bad.add(h.id); }
+  const row = { k: 'food', icon: 'bread', name: 'Food', n: (homes.length - bad.size) + ' / ' + homes.length, of: '', ok: !bad.size, nobar: true, line: '', fix: null };
+  if (!bad.size) return row;
+  const g = Object.keys(lack).sort((a, b) => lack[b].length - lack[a].length)[0], list = lack[g];
+  row.line = plural(list.length, 'home lacks ', 'homes lack ') + (NEED_NAMES[g] || g) + (homes.some((h) => homeAtRisk(h)) ? ' · they step down' : '');
+  let c = null;
+  try { c = g === 'market' ? { tool: 'market', at: homesAt(list) } : needCause(s, g, list); } catch (e) { c = null; }
+  if (c && c.tool && BUILDINGS[c.tool]) row.fix = calmToolFix(c.tool, c.at, calmFixLabel(c.tool, g));
+  return row;
+}
+function calmTrafficRow(s, target, keep) {
+  const J = jamHeld(s), ok = J.flow >= target;
+  const row = { k: 'traffic', icon: 'traffic', name: keep ? 'Traffic' : 'Streets flowing', n: J.flow + ' %', of: keep ? '' : target + ' %', frac: J.flow / target, ok, line: '', fix: null, nobar: !!keep };
+  if (!J.n || ok) return row;
+  const P = jamPick(s);
+  if (!P) return row;
+  row.line = plural(J.n, 'jammed tile', 'jammed tiles') + ' · ' + calmCap(placeName(s, P.i).replace(/^the /, ''));
+  row.fix = { key: 'jam:' + P.i, label: P.fix ? P.fix.label : 'Show the jam', sub: P.fix ? calmWhen(P.fix.cost) : '', poor: !!(P.fix && s.money < P.fix.cost) };
+  return row;
+}
+// The landmark: its price and when the treasury holds it (A11's fund counts); never a bar of cash in hand.
+function calmLandmarkRow(s, lm) {
+  const isRes = !!lm.res, name = isRes ? RESIDENCE[lm.res].name : BUILDINGS[lm.b].name, cost = isRes ? RESIDENCE[lm.res].cost : BUILDINGS[lm.b].cost;
+  const ok = isRes ? (s.res || 0) >= lm.res : countType(s, lm.b) > 0;
+  const fund = typeof scarceFundN === 'function' ? scarceFundN(s) || 0 : 0, have = Math.max(0, s.money) + fund;
+  const row = { k: 'landmark', icon: isRes ? 'palace' : (BUILDINGS[lm.b].icon || 'anchor'), name, n: ok ? 'built' : money$(cost), of: '', frac: ok ? 1 : 0, ok, nobar: true, line: '', fix: null };
+  if (ok) return row;
+  const key = isRes ? 'res' : 'tool:' + lm.b;
+  if (have >= cost) { row.line = 'The treasury holds it'; row.fix = { key, label: 'Build · ' + money$(cost) }; return row; }
+  const per = (s.history || []).slice(-3), avg = per.length ? per.reduce((a, x) => a + x.result, 0) / per.length : 0;
+  const n = avg > 0 ? Math.ceil((cost - have) / avg) : 0;
+  row.line = n && n <= CALMG.poorMonths ? 'In about ' + plural(n, 'month', 'months') + ' at today\'s income' : 'Paydays save for it';
+  row.fix = { key, label: (isRes ? 'Residence' : toolLabel(lm.b)) + ' · ' + money$(cost), sub: n && n <= CALMG.poorMonths ? '' : '', poor: true };
+  return row;
+}
+// "Your island" after the palace: happiness, traffic, food, money a month (green when fine; else a line and a button).
+function calmKeepRows(s) {
+  const rows = [];
+  const hp = calmHappyRow(s, CALMG.keepHappy, true);
+  hp.ok = s.happy >= CALMG.keepHappy;
+  if (hp.ok) { hp.line = ''; hp.fix = null; }
+  rows.push(hp);
+  rows.push(calmTrafficRow(s, (STAGE_GOALS[STAGE_GOALS.length - 1] || {}).flow || 95, true));
+  rows.push(calmFoodRow(s, true));
+  const r = s.lastReceipt, res = r ? r.result : 0;
+  const mo = { k: 'money', icon: 'coin', name: 'Money a month', n: r ? fmtSigned(res) : '—', of: '', ok: !r || res >= 0, nobar: true, line: '', fix: null };
+  if (!mo.ok) {
+    const m = typeof moneySources === 'function' ? moneySources(s) : null;
+    const inn = m ? m.income.reduce((a, o) => a + (o.n || 0), 0) : 0, out = m ? -m.costs.reduce((a, o) => a + (o.n || 0), 0) : 0;
+    mo.line = 'Upkeep ' + money$(out) + ' > income ' + money$(inn);
+    mo.fix = { key: 'money', label: 'Where it goes' };
+  }
+  rows.push(mo);
+  return rows;
+}
+{
+  const _cr = calmRows;
+  calmRows = function (s) {
+    if (goalsOld()) return _cr.apply(this, arguments);
+    const sc = stageConds(s), next = sc.next;
+    // after the palace: the island's keep-rows
+    if (!next) return { next: null, keep: true, rows: calmKeepRows(s) };
+    if (next.goal) {
+      // the palace: its price and when (as the landmark's row: it never goes backwards)
+      const cost = TUNE.palaceCost, ok = !!s.palace, fund = typeof scarceFundN === 'function' ? scarceFundN(s) || 0 : 0, have = Math.max(0, s.money) + fund;
+      const per = (s.history || []).slice(-3), avg = per.length ? per.reduce((a, x) => a + x.result, 0) / per.length : 0, n = avg > 0 ? Math.ceil((cost - have) / avg) : 0;
+      const row = { k: 'palace', icon: 'palace', name: 'The palace', n: money$(cost), of: '', frac: 0, ok, nobar: true,
+        line: have >= cost ? 'The treasury holds it' : n && n <= CALMG.poorMonths ? 'In about ' + plural(n, 'month', 'months') + ' at today\'s income' : 'Paydays save for it',
+        fix: { key: 'res', label: have >= cost ? 'Build · ' + money$(cost) : 'Residence · ' + money$(cost), poor: have < cost } };
+      // (and how the island is doing while she saves for it: her 1930 island's paydays went red at Capital with no row
+      // to say so) — happiness, traffic, money a month, as after the palace; they are not the palace's conditions
+      const keep = calmKeepRows(s).filter((r) => r.k !== 'food').map((r) => Object.assign(r, { keep: true }));
+      return { next, rows: [row].concat(keep) };
+    }
+    if (!next.simple) return _cr.apply(this, arguments);
+    const rows = [];
+    if (typeof a12On === 'function' && a12On() && typeof freeHasSeat === 'function' && !freeHasSeat(s) && BUILDINGS.residence) rows.push({ icon: 'palace', name: 'Governor\'s hut', n: 'not yet', of: '', frac: 0, ok: false, nobar: true, fix: { key: 'tool:residence', label: 'Place it' } });
+    if (next.people) rows.push(calmPeopleRow(s, next.people));
+    if (next.allFed) rows.push(calmFoodRow(s));
+    if (next.happy) rows.push(calmHappyRow(s, next.happy));
+    if (next.flow) rows.push(calmTrafficRow(s, next.flow));
+    if (next.landmark) rows.push(calmLandmarkRow(s, next.landmark));
+    // (never more than four rows: the hut's row is an old save's, before the people)
+    return { next, rows: rows.slice(0, 4) };
+  };
+  // the chip: the next stage and its people; after the palace "Capital · 1,944 people · 83 % happy"
+  const _ct = calmChipText;
+  calmChipText = function (s, G) {
+    if (!goalsOld() && G.next && G.next.goal) return '<b>Palace</b><span>· ' + esc(money$(TUNE.palaceCost)) + '</span>';
+    if (goalsOld() || G.next) return _ct.apply(this, arguments);
+    return '<b>' + esc(STAGES[s.stage].name) + '</b><span>· ' + esc(popCount(s).toLocaleString('en-US')) + ' people · ' + s.happy + ' % happy</span>';
+  };
+  // the panel: rows with their prices and small lines; "Your island" after the palace
+  const _gh = calmGoalsHtml;
+  calmGoalsHtml = function (s, G) {
+    if (goalsOld()) return _gh.apply(this, arguments);
+    const pc = (f) => Math.round(100 * Math.max(0, Math.min(1, f || 0)));
+    const fixBtn = (f) => (f ? '<button class="fix' + (f.poor ? ' poor' : '') + '" data-fix="' + esc(f.key) + '">' + esc(f.label) + (f.sub ? '<small>' + esc(f.sub) + '</small>' : '') + '</button>' : '');
+    let h = '<button class="x" id="calmGoalsX" aria-label="Close the goals">' + iconSvg('close') + '</button>';
+    if (!G.next) {
+      h += '<div class="st">' + esc(STAGES[s.stage].name) + '</div><h3>Your island</h3>';
+      for (const r of G.rows) {
+        h += '<div class="keep ' + (r.ok ? 'ok' : 'bad') + '">' + iconSvg(r.icon) + '<span>' + esc(r.name) + '</span><em>' + esc(String(r.n)) + (r.ok ? ' ✓' : '') + '</em></div>';
+        if (!r.ok && (r.line || r.fix)) h += '<div class="keepx">' + (r.line ? '<div class="ln"><span>' + esc(r.line) + '</span></div>' : '') + fixBtn(r.fix) + '</div>';
+      }
+      return h;
+    }
+    const goal = G.rows.filter((r) => !r.keep), met = goal.filter((r) => r.ok).length, all = goal.length, share = calmShare(G);
+    h += '<div class="st">Stage ' + (s.stage + 1) + '</div><h3>' + esc(STAGES[s.stage].name) + '</h3>' +
+      '<div class="nx">' + calmRing(share, 54, pc(share) + '%') + '<div><small>Next stage</small><b>' + esc(G.next.goal ? "The Governor's palace" : G.next.name) + '</b><small>' + met + ' of ' + all + ' goals met</small></div></div>';
+    for (const r of G.rows) {
+      if (r.keep) {
+        h += '<div class="keep ' + (r.ok ? 'ok' : 'bad') + '">' + iconSvg(r.icon) + '<span>' + esc(r.name) + '</span><em>' + esc(String(r.n)) + (r.ok ? ' ✓' : '') + '</em></div>';
+        if (!r.ok && (r.line || r.fix)) h += '<div class="keepx">' + (r.line ? '<div class="ln"><span>' + esc(r.line) + '</span></div>' : '') + fixBtn(r.fix) + '</div>';
+        continue;
+      }
+      const f = r.ok ? 1 : r.frac;
+      h += '<div class="row' + (r.ok ? ' ok' : '') + (r.nobar ? ' nobar' : '') + '"><div class="rh">' + iconSvg(r.icon) + '<span>' + esc(r.name) + '</span><em>' + esc(String(r.n)) + (r.of !== '' && r.n !== '' ? ' / ' + esc(String(r.of)) : '') + (r.ok ? ' ✓' : '') + '</em></div>' +
+        '<div class="bar"><i style="width:' + pc(f) + '%"></i></div>' +
+        (r.line && !r.ok ? '<div class="ln"><span>' + esc(r.line) + '</span>' + (r.nobar ? '' : '<b>' + pc(f) + '%</b>') + '</div>' : '') +
+        (r.fix && !r.ok ? fixBtn(r.fix) : '') + '</div>';
+    }
+    return h;
+  };
+  // a row's button: the new keys (a jam, a plan for a road, the desk, the money card); the rest as C1/C2b
+  const _fx = calmFix;
+  calmFix = function (key) {
+    const s = APP.state, k = String(key || '').split(':');
+    if (k[0] === 'jam') { calmJamShow(+k[1]); return; }
+    if (k[0] === 'plan' && k[1] === 'road') {
+      const d = { kind: 'land', type: 'casita' }, p = planOf(s, d);
+      toolSet('road');
+      if (p) { APP.ui.hint = { key: 'calmplan', forTool: 'road', text: '', act: { plan: d } }; APP.ui.com = null; comUiUpdate(); if (p.at) cameraFlyTo(p.at[0] + 0.5, p.at[1] + 0.5); }
+      if (window.innerWidth <= 900) calmGoalsSet(false);
+      return;
+    }
+    if (k[0] === 'desk') { deskOpen(); return; }
+    if (k[0] === 'money') { moneyOpen(); return; }
+    return _fx.apply(this, arguments);
+  };
+}
+// (the road plan's hint names the Road tool, which has no lot to look for: v44's check that a tool fits again skips it;
+// it threw on BUILDINGS.road at every frame)
+{
+  const _hc = hintCheck;
+  hintCheck = function () { const h = APP.ui.hint; if (h && h.key === 'calmplan') return; return _hc.apply(this, arguments); };
+}
+// (Details) the pill's second line names what holds the stage back. With C3 the home levels are advice, not a
+// condition: once the people are there, "Houses: 44 homes are ready to move up [Upgrade all · $33,000]" beside the
+// villa she saves for pointed her money away from the stage (and took a third line on a phone: smoke phone). The line
+// stays while the people are short (a step up is more beds). Only what hudUpdate draws (the pill and the to-do row's
+// goal): Rosa's line and the scripted players read goalBlocker as before.
+{
+  let inPill = false;
+  const _hu3 = hudUpdate;
+  hudUpdate = function () { inPill = true; try { return _hu3.apply(this, arguments); } finally { inPill = false; } };
+  const _gb3 = goalBlocker;
+  goalBlocker = function (s) {
+    const k = _gb3.apply(this, arguments);
+    if (!inPill || !k || goalsOld() || !s) return k;
+    const sc = stageConds(s), pc = sc.next && sc.next.simple ? sc.conds.find((c) => c.key === 'people') : null;
+    return pc && pc.ok ? null : k;
+  };
+}
+// The traffic row's button: the Traffic layer on, the view on the jam, its crossing's or street's card (whose button is
+// the fix: jamFixDo).
+function calmJamShow(i) {
+  const s = APP.state;
+  if (!s || !s.road[i]) return;
+  toolSet('look');
+  if (APP.ui.layer !== 'traffic') trafficToggle(true);
+  cameraFlyTo(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5);
+  if (jctAt(s, i)) jcardOpen(i); else rcardOpen(i);
+  CALMG.jamCard = i;
+  if (typeof calmCardSync === 'function') calmCardSync(true);
+}
+// The plan her own goal button armed (a road that opens lots): its dotted line shows on the calm screen while the Road
+// tool stays armed, one tap on it lays it.
+{
+  const _co = calmOwnPlan;
+  calmOwnPlan = function () {
+    const h = APP.ui && APP.ui.hint;
+    if (h && h.key === 'calmplan' && h.forTool === APP.ui.tool && h.act && h.act.plan && planOf(APP.state, h.act.plan)) return true;
+    return _co.apply(this, arguments);
+  };
+}
+{
+  // the rows are worked out again at each traffic measure too (the traffic row follows the layer), and the CSS
+  const _cr2 = calmRender;
+  calmRender = function () {
+    const s = APP.state;
+    if (s && !goalsOld()) { const fk = Math.floor((s.tick || 0) / TR.window) + '|' + s.happy; if (CALMG.fk !== fk) { CALMG.fk = fk; CALM.rowsK = ''; } }
+    return _cr2.apply(this, arguments);
+  };
+  const _ci = calmInit;
+  calmInit = function () { calmGoalsCss(); return _ci.apply(this, arguments); };
+}
+
+// ---------- the Traffic layer and its legend on the calm screen ----------
+// The layer draws a tile red when the goals' measure holds it jammed (sim/simple.js jamHeld: red at any of the month's
+// four measures, or now), so the layer, its one-line key and the traffic row count the same tiles.
+function calmJamRed(s, i) { return calmOn() && !goalsOld() && jamShownAt(s, i); }
+function calmTrafficCounts(s) {
+  const out = { free: 0, busy: 0, jam: 0 };
+  for (let i = 0; i < s.road.length; i++) {
+    if (!s.road[i]) continue;
+    const l = trafficLevel(s, i);
+    out[l >= TR.jam || calmJamRed(s, i) ? 'jam' : l > TR.busy ? 'busy' : 'free']++;
+  }
+  return out;
+}
+{
+  // the legend: one line, a colour key with its counts (the rest of v44's legend is Details')
+  const _tl = trafficLegend;
+  trafficLegend = function () {
+    const r = _tl.apply(this, arguments), el = $('trlegend'), s = APP.state;
+    if (!calmOn() || !el || !s || !el.classList.contains('show')) { if (el) el.classList.remove('calmkey'); return r; }
+    const n = calmTrafficCounts(s);
+    const h = '<b data-c3="1">Traffic</b><span class="g"><span class="k free"></span>free ' + n.free + '</span><span class="g"><span class="k busy"></span>busy ' + n.busy + '</span><span class="g"><span class="k jam"></span>jammed ' + n.jam + '</span>' +
+      (APP.ui.layer === 'traffic' ? '<i aria-label="Close">' + iconSvg('close') + '</i>' : '');
+    // (the other modules add their lines to the legend each time: on the calm screen they stay hidden, CSS below)
+    if (el.dataset.calmK !== h || !el.querySelector('b[data-c3]')) { el.dataset.calmK = h; el.innerHTML = h; }
+    el.classList.add('calmkey');
+    return r;
+  };
+  // (the counts change at each measure: the legend follows)
+  const _hu = hudUpdate;
+  hudUpdate = function () { const r = _hu.apply(this, arguments); if (calmOn() && APP.state && APP.ui.layer === 'traffic') trafficLegend(); return r; };
+}
+
+// ---------- the crossing's and the street's short card: the jam's fix, one tap ----------
+function calmJamFixBtn(s, i) {
+  if (goalsOld() || !jamShownAt(s, i)) return null;
+  const f = jamFix(s, i);
+  if (!f) return null;
+  const sub = calmWhen(f.cost);
+  return { sel: 'x-jam', jam: i, label: f.label, sub, cls: 'fixb' + (sub ? ' wide' : '') };
+}
+{
+  const _cc = calmCrossCard;
+  calmCrossCard = function (s, i) {
+    const m = _cc.apply(this, arguments);
+    if (goalsOld()) return m;
+    const J = jctTraffic(s, i), red = jamShownAt(s, i), lvl = red ? 'jammed' : J.level > TR.busy ? 'busy' : '';
+    m.line = (JC_RULE[J.ctl] || '') + (lvl ? ' · ' + lvl : '');
+    m.plain = !lvl;
+    const b = calmJamFixBtn(s, i);
+    if (b) m.btns = [b].concat(m.btns || []).slice(0, 2);
+    return m;
+  };
+  const _rc = calmRoadCard;
+  calmRoadCard = function (s, i) {
+    const m = _rc.apply(this, arguments);
+    if (goalsOld()) return m;
+    if (jamShownAt(s, i)) m.line = m.line ? m.line + ' · jammed' : 'Jammed';
+    const b = calmJamFixBtn(s, i);
+    if (b) m.btns = [b].concat(m.btns || []).slice(0, 2);
+    return m;
+  };
+  // (the fix's button carries its tile: data-jam)
+  const _ch = calmCardHtml;
+  calmCardHtml = function (m) {
+    let h = _ch.apply(this, arguments);
+    for (const x of m.btns || []) if (x.jam !== undefined) h = h.replace('data-src="x-jam"', 'data-jam="' + x.jam + '"');
+    return h;
+  };
+}
+// The jam fix's tap: it is done (two taps for nothing here: it only adds), the card stays with what it did.
+function calmJamFixTap(i) {
+  const s = APP.state, f = jamFix(s, i);
+  if (!f) return;
+  const r = jamFixDo(s, f);
+  if (r.ok) {
+    try { audioCue('place'); } catch (e) { /* no sound */ }
+    floaterAdd(i % MAP_W + 0.5, ((i / MAP_W) | 0) + 0.5, '−' + money$(r.cost || f.cost), '#c0392b');
+    // (the street or crossing is measured again: the goals' row and the layer follow at once)
+    s._jamK = null; CALM.rowsK = '';
+    const e = $('trlegend'); if (e) e.dataset.key = '';
+    APP.cardKey = '';
+    if (jctAt(s, i)) jcardRender(); else if (typeof rcardOpen === 'function') rcardOpen(i);
+  } else if (r.poor) toastShow('Not enough money yet (' + money$(f.cost) + ').');
+  calmCardSync(true);
+}
+
+// ---------- a home's short card: Upgrade all when two or more are ready ----------
+{
+  const _bc = calmBuildingCard;
+  calmBuildingCard = function (s, b) {
+    const m = _bc.apply(this, arguments), def = defOf(b);
+    if (def.kind === 'home' && b.ready && !b.build && $('card').querySelector('#cardUpAll')) {
+      const all = upgradeAllInfo(s, b), can = Math.min(all.n, affordCount(s, all.list)), one = calmCardBtn(calmCardQ('#cardUp'));
+      const allB = { sel: '#cardUpAll', label: 'Upgrade all ' + all.n + ' · ' + money$(all.cost), sub: can < 1 ? calmFirstWhen(upgradeCost(b.level)) : can < all.n ? 'Money for ' + can + ' now' : '', cls: 'up wide' + (can < 1 ? ' poor' : '') };
+      m.btns = [allB, one].filter(Boolean).slice(0, 2);
+    }
+    // C3 (the playtest: "Close" shut the business and sat by the ✕): the workshop's shut is "Shut", two taps, never
+    // first; reopening stays one tap
+    if (def.jobs && b.open !== false && def.kind !== 'home') {
+      m.btns = (m.btns || []).map((x) => (x && /^(Close|Tap again to close)$/.test(x.label) ? Object.assign({}, x, { label: /^Tap again/.test(x.label) ? 'Tap again to shut' : 'Shut' }) : x));
+      m.btns.sort((a, b2) => (/^(Shut|Tap again to shut)$/.test(a.label) ? 1 : 0) - (/^(Shut|Tap again to shut)$/.test(b2.label) ? 1 : 0));
+    }
+    return m;
+  };
+}
+function calmCardsC3Init() {
+  const el = $('calmCard');
+  if (!el || el.dataset.c3) return;
+  el.dataset.c3 = '1';
+  el.addEventListener('click', (e) => {
+    const t = e.target.closest && e.target.closest('button[data-jam]');
+    if (!t) return;
+    e.stopPropagation();
+    calmJamFixTap(+t.dataset.jam);
+  }, true);
+}
+{
+  const _ai = audioInit;
+  audioInit = function () { const r = _ai.apply(this, arguments); calmCardsC3Init(); return r; };
+}
+
+// ---------- the money card: why it is red ----------
+{
+  const _mo = moneyOpen;
+  moneyOpen = function () {
+    const r = _mo.apply(this, arguments), s = APP.state;
+    if (!calmOn() || !s || !$('calmMoneyMore')) return r;
+    const m = moneySources(s), inn = m ? m.income.reduce((a, o) => a + (o.n || 0), 0) : 0, out = m ? -m.costs.reduce((a, o) => a + (o.n || 0), 0) : 0;
+    let why = '';
+    if (m && m.result < 0) why = 'Upkeep ' + money$(out) + ' > income ' + money$(inn);
+    else if (s.money < 0) why = 'Building took more than the treasury held · the next payday brings about ' + fmtSigned(m ? m.result : 0);
+    if (why) { const sub = $('sheet').querySelector('.sub'); if (sub) sub.insertAdjacentHTML('afterend', '<p class="sub" style="color:#b5402c;font-weight:800">' + esc(why) + '</p>'); }
+    return r;
+  };
+}
+
+// ---------- the build bar: a tool whose every spot needs its own road shows "from $X" ----------
+{
+  const _bp = barPoor;
+  barPoor = function () {
+    const r = _bp.apply(this, arguments), s = APP.state;
+    if (!calmOn() || !s) return r;
+    $('bar').querySelectorAll('.tool').forEach((b) => {
+      const id = b.dataset.tool, small = b.querySelector('small');
+      if (!small || !BUILDINGS[id] || b.classList.contains('locked') || b.classList.contains('nospot')) return;
+      let sp = null;
+      try { sp = spotsFor(s, id); } catch (e) { sp = null; }
+      if (sp && sp.plus && sp.n && sp.by) {
+        let lo = Infinity;
+        for (const e of sp.by.values()) lo = Math.min(lo, e.cost);
+        if (lo < Infinity && lo > BUILDINGS[id].cost) { small.textContent = 'from ' + fmtMoney(lo); b.classList.toggle('poor', s.money < lo); }
+      }
+    });
+    return r;
+  };
+}
+
+// ---------- taps that built nothing ----------
+// A tap with a building's tool on a spot where it cannot stand: the red ghost (no words) and the nearest lit spot pulses
+// for a moment. (Not for money: there the ghost stays green and its price is red, render/iso.js.)
+{
+  const _tap = tapAt;
+  tapAt = function (sx, sy) {
+    const s = APP.state, tool = APP.ui.tool, n0 = s ? s.b.length : 0, v0 = s ? s.ver : 0;
+    const r = _tap.apply(this, arguments);
+    try {
+      const gh = APP.ui.ghost;
+      if (calmOn() && s && BUILDINGS[tool] && s.b.length === n0 && s.ver === v0 && gh && gh.type === tool && gh.why && !/money/i.test(gh.why)) {
+        const sp = spotsFor(s, tool), def = BUILDINGS[tool];
+        const near = sp && sp.n ? sp.anchors.slice().sort((a, b) => Math.hypot(a[0] - gh.x, a[1] - gh.y) - Math.hypot(b[0] - gh.x, b[1] - gh.y))[0] : null;
+        if (near) APP.ui.calmPulse = { x: near[0], y: near[1], w: def.w, h: def.h, t: performance.now() };
+      }
+    } catch (e) { /* no pulse */ }
+    return r;
+  };
+}
+
+// ---------- the Road tool's single tap ----------
+// true: handled (the goal's dotted road laid, or a stray tap that builds nothing); false: let it build (a tile that
+// extends a road, or a tile of road paved).
+function calmRoadTap(p, st) {
+  const s = APP.state;
+  if (!calmOn() || !s) return false;
+  // the dotted road her goal's button suggested (or another plan in sight): one tap lays exactly it
+  const cm = APP.ui.com;
+  if (cm && cm.plan) {
+    const t = screenToTile(APP.R, APP.view, p.x, p.y);
+    if (landLineNear(cm.line, t, 0.9) || landLineNear(cm.clear, t, 0.6)) { landRunUi(cm.plan, cm.then); return true; }
+  }
+  const i = st[0];
+  if (s.road[i]) return false;
+  const x = i % MAP_W, y = (i / MAP_W) | 0;
+  const joins = DIRS4.some(([dx, dy]) => inMap(x + dx, y + dy) && s.road[tileIdx(x + dx, y + dy)]);
+  if (joins) return false;
+  APP.ui.calmStray = (APP.ui.calmStray || 0) + 1;
+  return true;
+}
+
+// ---------- a tab, then the map ----------
+// The playtest: a tap on the Homes tab and then on the map built nothing (the shelf opened; "Home" still had to be
+// picked). On the calm screen a tab that opens arms its last-used item (its first by default), with its lit spots and
+// its ghost, so the next tap on a lit spot builds it; Undo stays the safety. A tap on the armed item keeps it armed (it
+// was a switch before; Done or the open tab ends it).
+const CALMG_FIRST = { roads: 'road' };
+function calmTabTool(s, group) {
+  const last = (APP.ui.lastTool || {})[group];
+  const open = barToolsAll(s, group).filter((t) => !t.locked && t.id !== 'remove' && t.id !== 'traffic' && t.id !== 'palace' && (BUILDINGS[t.id] || t.id === 'road' || t.id === 'paved'));
+  if (last && open.some((t) => t.id === last)) return last;
+  if (CALMG_FIRST[group] && open.some((t) => t.id === CALMG_FIRST[group])) return CALMG_FIRST[group];
+  return open.length ? open[0].id : '';
+}
+{
+  const _tt = barTabTap;
+  barTabTap = function (group) {
+    const was = APP.ui.trayClosed ? '' : APP.ui.tab;
+    const r = _tt.apply(this, arguments);
+    if (calmOn() && APP.state && !APP.ui.trayClosed && APP.ui.tab === group && was !== group) {
+      const t = calmTabTool(APP.state, group);
+      if (t) toolSet(t);
+    }
+    return r;
+  };
+  const _bt = barToolTap;
+  barToolTap = function (id, locked) {
+    const s = APP.state;
+    if (calmOn() && s && !locked) {
+      const cur = APP.ui.tool === 'road' ? (s._roadKind === 3 ? 'avenue' : s._roadKind === 2 ? 'paved' : 'road') : APP.ui.tool;
+      if (cur === id) return;
+      const g = barGroupOf(id);
+      if (g && (BUILDINGS[id] || id === 'road' || id === 'paved')) { APP.ui.lastTool = APP.ui.lastTool || {}; APP.ui.lastTool[g] = id; }
+    }
+    return _bt.apply(this, arguments);
+  };
+  // the Road tool on the calm screen draws the roads plainly (their traffic colours are the Traffic layer's): the playtest
+  // read the green of the free roads as a suggested road
+  const _to = trafficOn;
+  trafficOn = function () { if (calmOn()) return APP.ui.layer === 'traffic'; return _to.apply(this, arguments); };
+}
+
+// ---------- quiet unlocks: a dot means something new ----------
+// A tab's dot on the calm screen: the stage she just reached opened something in that tab, and she has not opened the
+// tab since. Saved with the island (s.calmNew = { st, g: [groups] }); an island opened from a save, or a stage reached
+// long ago, has no dot (the playtest saw dots on 3-5 of the 6 tabs at rest, all the time, for nothing new).
+function calmNewGroups(s) {
+  return BAR_GROUPS.map((g) => g.id).filter((g) => barToolsAll(s, g).some((t) => !t.locked && ((BUILDINGS[t.id] && BUILDINGS[t.id].stage === s.stage) ||
+    (t.id === 'paved' && s.stage === PAVED_STAGE) || (TR_TOOLS[t.id] && TR_TOOLS[t.id].stage === s.stage && s.stage > 0) || (t.id === 'clear' && s.stage === TUNE.clearStage) || (t.id === 'palace' && s.stage === STAGES.length - 1))));
+}
+{
+  const _tn = barTabNew;
+  barTabNew = function (s, group) {
+    if (!calmOn()) return _tn.apply(this, arguments);
+    const n = s && s.calmNew;
+    return !!(n && n.st === s.stage && n.g.includes(group));
+  };
+  const _sc = stageCardOpen;
+  stageCardOpen = function (stage) {
+    const s = APP.state;
+    if (calmOn() && s && stage === s.stage) s.calmNew = { st: s.stage, g: calmNewGroups(s) };
+    return _sc.apply(this, arguments);
+  };
+  const _tt = barTabTap;
+  barTabTap = function (group) {
+    const s = APP.state;
+    if (s && s.calmNew && s.calmNew.g.includes(group)) s.calmNew.g = s.calmNew.g.filter((g) => g !== group);
+    return _tt.apply(this, arguments);
+  };
+  // (a goal's button opens the tab too)
+  const _bs = barShow;
+  barShow = function (tool) {
+    const s = APP.state, g = barGroupOf(tool);
+    if (s && s.calmNew && g && s.calmNew.g.includes(g)) s.calmNew.g = s.calmNew.g.filter((x) => x !== g);
+    return _bs.apply(this, arguments);
+  };
+}
+
+// ---------- after the palace the panel opens and closes as at every stage ("Your island" has its rows) ----------
+{
+  const _go = calmGoalsOpen;
+  calmGoalsOpen = function () {
+    if (goalsOld() || !CALM.rows || CALM.rows.next) return _go.apply(this, arguments);
+    const v = storeGet(CALM.goalsKey);
+    if (v === 'open') return true;
+    if (v === 'shut') return false;
+    return window.innerWidth > window.innerHeight && window.innerWidth >= 1000;
+  };
+  const _gs = calmGoalsSet;
+  calmGoalsSet = function (on, hers) {
+    if (!goalsOld() && hers && CALM.rows && !CALM.rows.next) {
+      storeSet(CALM.goalsKey, on ? 'open' : 'shut');
+      if (on && $('calmTray').classList.contains('show')) calmTraySet(false);
+      if (!on && $('calmGoals').classList.contains('show')) uiGone($('calmGoals'));
+      CALM.goalsHtml = '';
+      calmRender();
+      return;
+    }
+    return _gs.apply(this, arguments);
+  };
+}
+
+// ---------- the postcard's line on keeping it ----------
+// (the playtest: "Right-click … Save Image As…" was read on an iPad's screen) On the calm screen: with a touch screen
+// "Touch and hold the postcard to save it."; with a mouse and the Save button there, no line (Save does it).
+{
+  const _ph = pcHowLine;
+  pcHowLine = function (mouse, refused) {
+    if (!calmOn()) return _ph.apply(this, arguments);
+    if (!mouse) return (refused ? 'Sharing is not allowed here. ' : '') + 'Touch and hold the postcard to save it.';
+    if (!refused && typeof pcTopWindow === 'function' && pcTopWindow()) return '';
+    return _ph.apply(this, arguments);
+  };
+}
+
+// ---------- the long card behind "More": no clipped rows, a title that does not wrap beside "+ Pin", less to read ----------
+{
+  const st = document.createElement('style');
+  st.textContent = [
+    'body.calm.cardfull #card .line { flex-wrap: wrap; row-gap: 2px; }',
+    'body.calm.cardfull #card .line > span:first-child { flex: 1 1 100%; }',
+    'body.calm.cardfull #card .line > span:last-child { flex: 1 1 100%; text-align: left; }',
+    'body.calm.cardfull #card .cpin ~ h3 { padding-right: 0; margin-top: 46px; }',
+    'body.calm.cardfull #card p.note.car, body.calm.cardfull #card .earn { display: none; }',
+    'body.calm #pcHow:empty { display: none; }',
+    'body.calm #trlegend.calmkey > :not(b):not(.g):not(i) { display: none !important; }',
+    'body.calm #trFix { display: none !important; }',
+  ].join('\n');
+  document.head.appendChild(st);
+}
+
+// ---------- the layers' legends: one line each; never under the "⋯" tray ----------
+// (the playtest: the Traffic legend read ~100 words, Beauty's ~40 with a number on every street, Land's ~55 and in
+// portrait half under the tray.) On the calm screen each legend is its colour key and ✕; what raises or lowers a value is
+// on a tapped street's or home's card and in Details.
+{
+  const _ll = landLegend;
+  landLegend = function () {
+    const r = _ll.apply(this, arguments), el = $('lvlegend');
+    if (!calmOn() || !el || !el.classList.contains('show')) return r;
+    const h = '<b>Land value</b><span class="sc">' + [[20, '20'], [40, '40'], [50, '50'], [60, '60'], [75, '75+']].map((q) => '<i style="background:' + landCol(q[0]) + '"></i>' + q[1]).join('') + '</span>' +
+      '<button id="lvlegendX" aria-label="Close">' + iconSvg('close') + '</button>';
+    if (el.innerHTML !== h) { el.innerHTML = h; $('lvlegendX').onclick = () => landLayer(false); }
+    return r;
+  };
+  const _bl = beautyLegend;
+  beautyLegend = function () {
+    const r = _bl.apply(this, arguments), el = $('bmlegend');
+    if (!calmOn() || !el || !el.classList.contains('show')) return r;
+    const h = '<b>Beauty</b><span class="sc">' + [[20, 'plain'], [BEAU.tiers[0], 'swept'], [BEAU.tiers[1], 'painted'], [BEAU.tiers[2], 'cobbles']].map((q) => '<span><i style="background:' + bmCol(q[0]) + '"></i>' + q[1] + '</span>').join('') + '</span>' +
+      '<button class="x" id="bmlegendX" aria-label="Close">' + iconSvg('close') + '</button>';
+    if (el.dataset.calmK !== h || el.innerHTML !== h) { el.dataset.calmK = h; el.innerHTML = h; }
+    return r;
+  };
+  const _lg = calmLegends;
+  calmLegends = function () {
+    const r = _lg.apply(this, arguments), tray = $('calmTray');
+    if (!calmOn() || !tray || !tray.classList.contains('show')) return r;
+    const t = tray.getBoundingClientRect();
+    for (const id of ['trlegend', 'lvlegend', 'bmlegend']) {
+      const el = $(id);
+      if (!el || !el.offsetWidth) continue;
+      const a = el.getBoundingClientRect();
+      if (a.right > t.left && a.left < t.right && a.bottom > t.top && a.top < t.bottom) el.style.top = Math.round(t.bottom + 8) + 'px';
+    }
+    return r;
+  };
+}
+
+{
+  // the ring and "N of M goals met" count the stage's conditions, not the island's keep-rows shown beside the palace
+  const _sh = calmShare;
+  calmShare = function (G) { return _sh.call(this, G && G.rows && G.rows.some((r) => r.keep) ? Object.assign({}, G, { rows: G.rows.filter((r) => !r.keep) }) : G); };
 }
 
 // ---- src/ui/main.js
