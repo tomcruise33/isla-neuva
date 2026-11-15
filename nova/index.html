@@ -55105,6 +55105,103 @@ function offlineStart() {
 }
 if (typeof window !== 'undefined') window.addEventListener('load', offlineStart);
 
+// ---- src/ui/sideways.js
+// A phone held sideways (16 Nov 2026). Tomáš, with the game on his iPhone (852 x 393): "I know it is made for the iPad,
+// but could it be fitted to the iPhone? You see the things there are very big." At that size the page took the portrait
+// iPad's layout (max-width 900: the three numbers on a row of their own), so the bars stood over two thirds of the
+// height: the top 126 px, the goal chip 44, the build bar 72, of 393; the map showed in a strip of 129 px.
+// On a short, wide screen (SIDE.q) this file makes: one row at the top (the date, the three numbers, the clock; 44 px),
+// a goal chip of 40 px under it, the round button 44 px, the build bar one low row (the picture beside the word, 44 px),
+// the goals panel and the tray right under the round button, a building's card at the left side under the date instead
+// of across the whole width. Nothing changes on the iPad, the Mac or a phone held upright (their heights are above 500 px).
+// Tap targets stay at 40 px or more. window.NOVA_SIDE = { off: 1 } before the page loads turns it off.
+const SIDE = { q: '(max-height: 500px) and (min-aspect-ratio: 13/10)', top: 52 };
+
+function sideOn() {
+  return typeof window !== 'undefined' && !(window.NOVA_SIDE && window.NOVA_SIDE.off) && !!window.matchMedia && window.matchMedia(SIDE.q).matches;
+}
+
+function sideCss() {
+  if (typeof document === 'undefined' || document.getElementById('sideCss') || (window.NOVA_SIDE && window.NOVA_SIDE.off)) return;
+  const st = document.createElement('style');
+  st.id = 'sideCss';
+  st.textContent = '@media ' + SIDE.q + ' {\n' + [
+    ':root { --gap: 6px; }',
+    // one row at the top: the date, the numbers, the clock
+    'html #top { grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; }',
+    'html #top .brand { grid-column: 1; grid-row: 1; justify-self: start; padding: 3px 10px; min-height: 44px; border-radius: 13px; }',
+    'html #top .brand b { display: none; }',
+    'html #top .brand span { font-size: 11px; letter-spacing: 0.06em; margin: 0; white-space: nowrap; }',
+    'html #top .stats { grid-column: 2; grid-row: 1; justify-self: center; justify-content: center; min-height: 44px; padding: 0 2px; border-radius: 13px; }',
+    'html #top .stat { font-size: 16px; padding: 3px 10px; gap: 5px; min-height: 40px; }',
+    'html #top .stat .ic { width: 20px; height: 20px; }',
+    'html #top .ctrl { grid-column: 3; grid-row: 1; min-height: 44px; padding: 2px; gap: 1px; border-radius: 13px; }',
+    'html #top .ctrl button { min-width: 40px; height: 40px; font-size: 14px; border-radius: 10px; }',
+    // what v44 hangs under a two-row top bar
+    'html #pill, html #nowplay { top: calc(var(--gap) + ' + SIDE.top + 'px + var(--st)); }',
+    'html #yearcard, html #pop, html #glance { top: calc(var(--gap) + ' + (SIDE.top + 46) + 'px + var(--st)); }',
+    // the goal chip and the round button
+    'html body.calm #calmChip { min-height: 40px; font-size: 13.5px; padding: 0 12px 0 8px; }',
+    'html body.calm #calmChip b { font-size: 14px; }',
+    'html body.calm #calmMore { width: 44px; height: 44px; }',
+    'html body.calm #calmMore svg { width: 24px; height: 24px; }',
+    // the build bar: one low row, the picture beside the word; the items a little lower
+    'html #bar { padding: 4px; gap: 3px; border-radius: 13px; }',
+    'html #bar .tab { min-height: 44px; flex-direction: row; gap: 5px; padding: 0 8px; border-radius: 10px; }',
+    'html #bar .tab .ic { width: 18px; height: 18px; }',
+    'html #bar .tool { min-height: 58px; border-radius: 10px; }',
+    'html #bar .tool .ic { width: 22px; height: 22px; }',
+    // a building\'s card: at the left side under the date (the chip, the round button and the goals panel stay free),
+    // as high as what it says, at most down to the build bar
+    'html body.calm #calmCard.show, html #card { right: auto; left: calc(var(--gap) + var(--sl)); width: min(310px, 40vw); top: calc(var(--gap) + ' + SIDE.top + 'px + var(--st)); bottom: auto;',
+    '  max-height: calc(100% - ' + SIDE.top + 'px - var(--bar-h) - 4 * var(--gap) - var(--st) - var(--sb)); overflow-y: auto; box-sizing: border-box; }',
+    // (a little tighter, so a market's card with its two buttons and "More" stands whole above the bar at 393 px)
+    'html body.calm #calmCard.show { padding: 8px 12px 10px; }',
+    'html #calmCard h3 { font-size: 18px; } html #calmCard h3 .ic { width: 22px; height: 22px; }',
+    'html #calmCard .x { top: 0; right: 0; }',
+    'html #calmCard .cn { font-size: 17px; margin-top: 2px; } html #calmCard .cl { font-size: 13px; margin-top: 2px; }',
+    'html #calmCard .cb { margin-top: 8px; gap: 6px; } html #calmCard .cb button { min-height: 42px; font-size: 14px; }',
+    'html #calmCard .cm { min-height: 40px; margin-top: 6px; }',
+    // (the card is the matter while it is open: the goal chip beside it would lie half under it on a narrow phone)
+    'html body.calm.carded #calmChip { display: none !important; }',
+    // the tray of the round button: nine lower buttons, clear of the build bar
+    'html #calmTray button { min-height: 46px; gap: 1px; font-size: 11.5px; }',
+    'html #calmTray { overflow-y: auto; }',
+    'html #calmTray button svg { width: 22px; height: 22px; }',
+    // the title card: lower, so the whole of it stands on the screen
+    'html #title .tcard { padding: 12px 22px 12px; }',
+    'html #title h1 { font-size: 38px; }',
+    'html #title .rule { margin: 4px 0 8px; }',
+    'html #title .foot { margin-top: 6px; }',
+  ].join('\n') + '\n}';
+  document.head.appendChild(st);
+}
+
+// The calm screen's pieces hang under the top row (calmPlace, ui/calm.js, leaves 60 px for a round button of 52).
+{
+  const _cp = calmPlace;
+  calmPlace = function () {
+    const r = _cp.apply(this, arguments);
+    if (!sideOn() || !calmOn() || APP.titleOn) return r;
+    const tb = $('top').getBoundingClientRect(), bar = $('bar').getBoundingClientRect(), top = Math.round(tb.bottom + 6);
+    $('calmMore').style.top = top + 'px';
+    $('calmChip').style.top = (top + 2) + 'px';
+    const tray = $('calmTray');
+    tray.style.top = (top + 48) + 'px';
+    tray.style.maxHeight = Math.max(120, Math.round(bar.top - 6 - (top + 48))) + 'px';
+    const g = $('calmGoals');
+    g.style.top = (top + 50) + 'px';
+    g.style.maxHeight = Math.max(120, Math.round(bar.top - 6 - (top + 50))) + 'px';
+    $('calmLine').style.top = (top + 46) + 'px';
+    return r;
+  };
+}
+if (typeof window !== 'undefined') {
+  sideCss();
+  // (a turn of the phone: the calm pieces are placed again at once)
+  window.addEventListener('resize', () => { try { if (typeof CALM !== 'undefined') CALM.key = ''; } catch (e) { /* not yet */ } });
+}
+
 // ---- src/ui/main.js
 // The app: load or start an island, run the clock (pause / 1x / 2x / 3x), turn sim events into what she sees, autosave.
 // Block 5 (iPad): the title screen first, the loop and the clock stop while the page is hidden, saving never throws,
