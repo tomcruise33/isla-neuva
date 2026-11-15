@@ -2982,9 +2982,12 @@ function happyCalc(state) {
   const homes = homesOccupied(state);
   if (homes.length) {
     const fed = homes.filter((h) => !(h.miss || []).includes('food')).length / homes.length;
-    const food = fed === 1 ? 15 : fed >= 0.75 ? 5 : fed >= 0.5 ? -10 : -25;
-    parts.push({ label: fed === 1 ? 'Every home has food' : 'Homes without food', v: food });
-    const met = homes.filter((h) => (h.miss || []).every((n) => n === 'food')).length / homes.length;
+    // C4 (sim/flow.js): the food part grows with the share fed instead of in steps, and the opening's hunger does not
+    // count while her first market and food building go up (c4Grace); TUNE.c4Off: the steps as before
+    const c4 = typeof c4On === 'function' && c4On(), grace = c4 && c4Grace(state);
+    const food = c4 ? c4FoodPart(fed) : fed === 1 ? 15 : fed >= 0.75 ? 5 : fed >= 0.5 ? -10 : -25;
+    if (!grace) parts.push({ label: fed === 1 ? 'Every home has food' : 'Homes without food', v: food });
+    const met = homes.filter((h) => (h.miss || []).every((n) => n === 'food' || (grace && n === 'market'))).length / homes.length;
     parts.push({ label: 'Homes have what their level needs', v: Math.round(10 * met) });
     if (state.stage >= 1) {
       const ch = homes.filter((h) => homeHas(state, h, 'church')).length / homes.length;
@@ -2999,7 +3002,11 @@ function happyCalc(state) {
   const rent = LEVERS.rent[state.lev.rent].happy, wages = LEVERS.wages[state.lev.wages].happy;
   if (rent) parts.push({ label: 'Rent ' + state.lev.rent, v: rent });
   if (wages) parts.push({ label: 'Wages ' + state.lev.wages, v: wages });
-  if (state.workforce > 0) {
+  if (state.workforce > 0 && typeof c4On === 'function' && c4On()) {
+    // C4: the jobless part grows with their share (sim/flow.js c4JobsPart); none in the opening's grace
+    const v = c4Grace(state) ? 0 : state.jobs === 0 ? -20 : c4JobsPart(state.jobless / state.workforce);
+    if (v) parts.push({ label: state.jobs === 0 ? 'No jobs at all' : plural(state.jobless, 'person', 'people') + ' without work', v });
+  } else if (state.workforce > 0) {
     const u = state.jobless / state.workforce;
     if (state.jobs === 0) parts.push({ label: 'No jobs at all', v: -20 });
     else if (u > 0.2) parts.push({ label: plural(state.jobless, 'person', 'people') + ' without work', v: -10 });
@@ -26741,6 +26748,664 @@ function jobsFix(s) {
   return BUILDINGS[t] ? { tool: t, cost: BUILDINGS[t].cost, poor: s.money < BUILDINGS[t].cost } : null;
 }
 
+// ---- src/sim/flow.js
+// C4 — flow (15 Nov 2026; nova/docs/CALM.md "C4 — flow"). Tomáš, after the calm screen (v47): "Test, fix, improve, so
+// that it really is a good and interesting game." The coordinator's play of v47: the screen is calm, what is missing
+// is flow: traps in the first minutes, small strokes and long waits, the money engine out of sight, the works she
+// loved hidden, a new stage that gives confetti and no present. The simulation's part of it is small and lives here:
+//   - A1: the first food producer is free when she cannot pay it (no fishing hut or grove on the island and less money
+//     than its price): "the settlers plant it themselves". Only the first. The one exception to "no price changes".
+//   - A3: happiness reads fairly: the food and jobs parts grow with their share instead of in steps (one hungry home in a
+//     hundred cost ten points), and in the opening (younger than 5 months, her first market and food building not yet a
+//     month old) hunger and joblessness do not count: the settlers brought food (people.js happyCalc, gated).
+//   - B3: the money engine: what a works would earn a month (the ghost's own forecast, bForecast) and the best next
+//     investment for the panel's "Earn more" (c4EarnPick), with what it needs first (its field, workers, an outlet).
+// Kill switch: TUNE.c4Off (NOVA_FLOW_OFF=1 in the tests): v47 line for line. C4 is off whenever TUNE.goalsOld is on.
+
+TUNE.c4Off = false;
+function c4On() { return !TUNE.c4Off && !goalsOld(); }
+
+// ---------- A3: happiness, continuous in its shares ----------
+// Anchors (the brief's): the share of homes fed 40 % or less −25, 62.5 % −10, 87.5 % +5, all +15, straight between;
+// the jobless share 4 % 0, 20 % −8, 44 % or more −12 ("no jobs at all" stays −20). The old steps sat on the same
+// points' middles (−25 under 50 %, −10 to 75 %, +5 to 100 %; −3 for any jobless, −10 over a fifth). The brief suggested
+// −20 at 44 %: the reasonable player runs at 45-70 % jobless for most of the game, read 7-10 points lower than with the
+// steps and reached Port city 46 % later (month 191 against 131); with −12 the mean shift is 2 points or less at every
+// stage (her 1930 island: none), so C3's thresholds (60 / 62 / 64 %) stand.
+const C4_FOOD = [[0.4, -25], [0.625, -10], [0.875, 5], [1, 15]];
+const C4_JOBS = [[0.04, 0], [0.2, -8], [0.44, -12]];
+function c4Lerp(pts, x) {
+  if (x <= pts[0][0]) return pts[0][1];
+  for (let k = 1; k < pts.length; k++) if (x <= pts[k][0]) { const [x0, y0] = pts[k - 1], [x1, y1] = pts[k]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
+  return pts[pts.length - 1][1];
+}
+function c4FoodPart(fed) { return Math.round(c4Lerp(C4_FOOD, fed)); }
+function c4JobsPart(u) { return Math.round(c4Lerp(C4_JOBS, u)) || 0; }
+// The opening: the island younger than 5 months while her first market and food building have not both stood a month.
+function c4Grace(state) { return c4On() && (state.month || 0) < 5 && !foodStood(state); }
+
+// ---------- A1: the first food producer is free when she cannot pay it ----------
+const C4_FREE = ['grove', 'fishing'];
+const C4_BASE = { grove: BUILDINGS.grove.cost, fishing: BUILDINGS.fishing.cost };
+function c4FreeFood(s, t) {
+  return !!s && c4On() && C4_FREE.includes(t) && !s.b.some((b) => C4_FREE.includes(b.type)) && s.money < C4_BASE[t];
+}
+// The two prices as this island has them now (the shelf, the ghost, the panel and the sim all read BUILDINGS[t].cost).
+function c4PriceSync(s) { for (const t of C4_FREE) { const c = c4FreeFood(s, t) ? 0 : C4_BASE[t]; if (BUILDINGS[t].cost !== c) BUILDINGS[t].cost = c; } }
+{
+  const _cp = canPlace;
+  canPlace = function (state, type) {
+    if (!C4_FREE.includes(type)) return _cp.apply(this, arguments);
+    c4PriceSync(state);
+    // (free means free: a treasury a few dollars in the red still gets it)
+    if (BUILDINGS[type].cost !== 0 || state.money >= 0) return _cp.apply(this, arguments);
+    const m = state.money;
+    state.money = 0;
+    try { return _cp.apply(this, arguments); } finally { state.money = m; }
+  };
+  const _pb = placeBuilding;
+  placeBuilding = function (state, type) {
+    if (!C4_FREE.includes(type)) return _pb.apply(this, arguments);
+    c4PriceSync(state);
+    const free = BUILDINGS[type].cost === 0;
+    const r = _pb.apply(this, arguments);
+    if (r.ok && free) { state.c4free = r.b.id; simLog(state, 'The settlers plant the first ' + BUILDINGS[type].name.toLowerCase() + ' themselves.', [r.b.x + r.b.w / 2, r.b.y + r.b.h / 2]); }
+    c4PriceSync(state);
+    return r;
+  };
+  // (the free one gives nothing back when it is taken away: no money from it)
+  const _ra = removeAt;
+  removeAt = function (state, x, y) {
+    const b = state.c4free ? bAt(state, x, y) : null;
+    const r = _ra.apply(this, arguments);
+    if (b && b.id === state.c4free && r && !r.why) { state.money -= r.refund || 0; r.refund = 0; state.c4free = 0; }
+    if (state && C4_FREE.length) c4PriceSync(state);
+    return r;
+  };
+  // (an island opened or begun: its prices)
+  const _ng = newGame;
+  newGame = function () { const s = _ng.apply(this, arguments); c4PriceSync(s); return s; };
+  const _lg = loadGame;
+  loadGame = function () { const s = _lg.apply(this, arguments); c4PriceSync(s); return s; };
+  // (a payday changes the money: the price follows)
+  const _st = simTick;
+  simTick = function (state) { const r = _st.apply(this, arguments); if (state.tick % TUNE.ticksPerMonth === 0) c4PriceSync(state); return r; };
+}
+
+// ---------- A4: one measure for "food for every home" ----------
+// v47's row counted a home fed when it lacked neither food nor a market, but the stage's condition (allHomesFed) only
+// looked at food: "Food for every home 1 / 2 ✓" with a full green bar while a home had no market (its pantry still held
+// the settlers' food), and the ring fell from 56 % to 26 % a month later. Now both read c4Fed.
+function c4Fed(h) { const m = h.miss || []; return !m.includes('food') && !m.includes('market'); }
+{
+  const _af = allHomesFed;
+  allHomesFed = function (state) {
+    if (!c4On()) return _af.apply(this, arguments);
+    const homes = homesOccupied(state);
+    return homes.length > 0 && homes.every(c4Fed);
+  };
+}
+// Homes a market reaches now (built this month too: a home's own list of what it lacks is worked out at the month's end,
+// so for up to a month after a market went up it still said "market"; v47's food row offered a second market then).
+function c4MarketNear(s, h) { const r = homeReach(s)[h.id]; return !!(r && r.markets && r.markets.length); }
+// The food fix the row, the happiness line and the bubble share: { tool, at } — a market for hungry homes no market
+// reaches, else the food producer (needCause's: the grove, by their market when food is made but does not reach them).
+function c4FoodFix(s, homes) {
+  const all = homesOccupied(s), hungry = (homes || all).filter((h) => !c4Fed(h) || (h.miss || []).includes('food'));
+  // (the finish: when the island makes less food than its homes eat, the producer is the cause, not a market: the smoke's
+  // novice was offered a market for one home out of reach 71 times while food was 40 for 65 eaten; the markets took
+  // every worker, the groves stood empty and the treasury went to −$179,000. A market that did not move the fed count
+  // two paydays on is not offered again for six months: R2)
+  const short = c4On() && hungry.length && goodSupply(s, 'food') < goodDemand(s, 'food');
+  // (the check after the finish: an island with no market at all needs the market whatever its food: the home's bubble
+  // said "Lacks a market · Market" while the row said "Fruit grove", and a careless opening that paid the grove first
+  // waited two paydays for the market's last $47; market first, the first producer is then free when she cannot pay it)
+  const none = !countType(s, 'market');
+  const far = (short && !none) || c4Away(s, 'food:market') ? [] : hungry.filter((h) => !c4MarketNear(s, h));
+  // (the check after the finish: a market helps only within reach of the homes it is for: with no lot there the row has
+  // no button (`none`); three markets went up 12 tiles from five such homes, beside the far groves)
+  if (far.length) { const at = homesAt(far); return c4SpotNear(s, 'market', at, TUNE.marketReach) ? { tool: 'market', at } : { tool: 'market', at, none: true }; }
+  let c = null;
+  try { c = needCause(s, 'food', hungry.length ? hungry : undefined); } catch (e) { c = null; }
+  // (needCause, as wrapped below: no tool when the food is made and has no lot near these homes to reach them from)
+  if (c && !c.tool && c4On()) return { tool: 'market', at: c.at || null, none: true };
+  return c && c.tool && BUILDINGS[c.tool] ? { tool: c.tool, at: c.at || null } : { tool: 'grove', at: null };
+}
+// A spot for `t` within `lim` tiles of `at` (the middle of the homes it is for)
+const C4_FOODNEAR = 10;
+function c4SpotNear(s, t, at, lim) {
+  if (!at) return true;
+  const d = BUILDINGS[t];
+  let A = [];
+  try { A = fitAnchors(s, t); } catch (e) { A = []; }
+  return A.some((a) => Math.hypot(a[0] + d.w / 2 - at[0] - 0.5, a[1] + d.h / 2 - at[1] - 0.5) <= lim);
+}
+// Food that is made and does not reach the homes (the check after the finish, seed 7 at her pace: the island made 330
+// food for 197 eaten and every line still said "build a fruit grove near their market" for homes whose three markets
+// had empty shelves: 16 groves by minute 45, seven with full yards up to 52 road tiles from a market, $3,400 a month of
+// wages for fruit that reached nobody, the month at zero and never the Capital). It is a matter of their shelves:
+// while fruit or fish waits in two yards another producer cannot help; a second market helps only beside these homes,
+// a grove only near them. With no such lot the cause has no tool: Rosa's button is Show (their market), the panel's
+// rows have none; the homes step down to what their market can feed and the island grows elsewhere.
+{
+  const _nc4 = needCause;
+  needCause = function (s, need, homes) {
+    const r = _nc4.apply(this, arguments);
+    if (!c4On() || need !== 'food' || !r || r.tool !== 'grove') return r;
+    if (goodSupply(s, 'food') < goodDemand(s, 'food') * 1.05) return r;
+    const H = homes && homes.length ? homes : homesOccupied(s).filter((h) => (h.miss || []).includes('food') || (h.missNext || []).includes('food'));
+    if (!H.length) return r;
+    const at = r.at || homesAt(H), reach = homeReach(s);
+    const waits = goodMakers(s, 'food').filter((b) => (b.yard || 0) >= cartLoadOf(defOf(b))).length;
+    const their = () => { const n = {}; for (const h of H) for (const m of ((reach[h.id] || {}).markets || [])) n[m] = (n[m] || 0) + 1; const k = Object.keys(n).sort((x, y) => n[y] - n[x])[0]; return k ? +k : undefined; };
+    if (waits >= 2) {
+      if (!c4Away(s, 'food:market') && c4SpotNear(s, 'market', at, C4_FOODNEAR)) return { text: 'food waits in the yards and their market cannot keep up: a second market beside these homes', tool: 'market', at };
+      return { text: 'food waits in the yards, their market cannot pass it on fast enough and no lot is free beside these homes', select: their(), at };
+    }
+    if (!c4SpotNear(s, 'grove', at, C4_FOODNEAR)) return { text: 'the island makes enough food, but no lot is free for a grove near their market', select: their(), at };
+    return r;
+  };
+}
+
+// ---------- B3: the money engine: the best next investment ----------
+// What makes an island rich is what it sells to the ship (the scripted player builds industry and is never short; a
+// beginner who follows the panel builds homes, stays poor and waits). When the thing she saves for is far away, the
+// panel offers the works with the best payback: its price against what it brings a month, by the number its price tag
+// and the ghost already show (bForecast: the ship's price less the harbor's share, less its input, wages and upkeep), and
+// with what it needs first (its raw material's field when the island has none to spare, a harbor when there is none),
+// never more than two steps. The works' own upgrades compete by what the next level adds (worksWorth).
+// c4EarnPick(s) -> { t (what the button arms now), cost (its price), works (the works it is for), month (+$ a month of
+// the whole step: the works and its field), price (all the steps), steps, pay (months to pay back), poor, workers }
+// (maxPay: an investment that takes more than five years of its own month to pay back is no money engine: a fishing
+// hut at +$11 a month was offered at the Capital, and the on-screen player's treasury went red)
+const C4_EARN = { far: 6, maxFeed: 2, maxPay: 60, minMonth: 100 };
+function c4Spare(s, raw) {
+  let sup = 0, use = 0;
+  for (const o of s.b) { const od = defOf(o); if (od.makes === raw && o.open !== false) sup += od.rate || 0; if (od.uses && od.uses[raw]) use += od.uses[raw] * (od.rate || 0); }
+  return sup - use;
+}
+function c4Spot(s, t) { try { return fitAnchors(s, t).length > 0 || fitAnchors(s, t, { noRoad: true }).length > 0; } catch (e) { return false; } }
+// What a type brings a month as built now (the price tag's number). Measured first with the ghost's own forecast alone
+// (bForecast: full staff, everything it makes sold) against what the scripted player's works earned after four months:
+// distilleries promised +$112 and lost $650-870, cane fields +$39 and lost $250 (their cane piled up, the rum went to the
+// markets), the central promised $2,129 and made $1,594-4,707. So where the island already runs this kind of building
+// (one or more that stood four months), the tag says what they made last month on average: the island's own record;
+// only the first of a kind is the forecast. A good the ship would take while no harbor stands (or its export is off at
+// the desk) is counted at what the markets pay.
+function c4Month(s, t) {
+  const own = s.b.filter((b) => b.type === t && b.last && b.last.m === s.month - 1 && s.month - (b.built || 0) >= 4 && !b.wup && b.open !== false);
+  // (the newest of them: a new one shares the same markets and fields with all the others, as the newest does; the
+  // average of all promised a new grove −$21 where it made −$92)
+  if (own.length) { const L = own.slice().sort((a, b) => (b.built || 0) - (a.built || 0) || b.id - a.id).slice(0, 2); return Math.round(L.reduce((a, b) => a + b.last.n, 0) / L.length); }
+  let f = 0;
+  try { f = bForecast(s, t); } catch (e) { return 0; }
+  const d = BUILDINGS[t], g = d && d.makes;
+  if (g && EXPORTABLE.includes(g) && s.exp && s.exp[g] && !countHarbors(s)) {
+    const keep = s.exp[g];
+    try { s.exp[g] = false; f = bForecast(s, t); } catch (e) { /* as it was */ } finally { s.exp[g] = keep; }
+  }
+  // the first of a kind: the forecast less what the island's other producers fall short of theirs, a worker (their
+  // record: last month's number against the forecast of their kind today; the scripted player's fall $15-90 short a
+  // worker: carts, idle days, a yard that waits for the ship)
+  if (d && d.kind === 'producer' && d.jobs) f += Math.round(c4ShortPerJob(s) * d.jobs);
+  return f;
+}
+function c4ShortPerJob(s) {
+  const c = simCache(s);
+  if (c.c4spj !== undefined && c.c4spjM === s.month) return c.c4spj;
+  let gap = 0, jobs = 0;
+  for (const b of s.b) {
+    const d = defOf(b);
+    if (!d || d.kind !== 'producer' || !d.jobs || !b.last || b.last.m !== s.month - 1 || s.month - (b.built || 0) < 4 || b.open === false) continue;
+    let f = 0;
+    try { f = bForecast(s, b.type); } catch (e) { continue; }
+    gap += b.last.n - f; jobs += d.jobs;
+  }
+  c.c4spjM = s.month;
+  c.c4spj = jobs >= 10 ? Math.min(0, gap / jobs) : 0;
+  return c.c4spj;
+}
+function c4EarnList(s) {
+  const out = [];
+  const yr = typeof yearOf === 'function' ? yearOf(s) : 0;
+  const free = Math.max(0, s.jobless || 0);
+  for (const t of BUILD_ORDER) {
+    const d = BUILDINGS[t];
+    if (d.kind !== 'producer' || !d.jobs || d.stage > s.stage || (d.year && yr < d.year) || !d.makes) continue;
+    const g = d.makes;
+    if (!EXPORTABLE.includes(g) || !(GOODS[g].price > 0)) continue;
+    const steps = [];
+    if (!countHarbors(s)) { if (BUILDINGS.harbor.stage > s.stage) continue; steps.push({ t: 'harbor', n: 1 }); }
+    const raw = d.uses ? Object.keys(d.uses)[0] : '';
+    let feed = 0, src = '';
+    if (raw === 'flour') { if (!countHarbors(s) && !steps.length) steps.push({ t: 'harbor', n: 1 }); }
+    else if (raw) {
+      src = makerOf(raw);
+      const need = d.uses[raw] * d.rate, spare = c4Spare(s, raw);
+      if (!src || BUILDINGS[src].stage > s.stage) continue;
+      if (spare < need * 0.75) { feed = Math.ceil((need - Math.max(0, spare)) / BUILDINGS[src].rate); if (feed > C4_EARN.maxFeed) continue; steps.push({ t: src, n: feed }); }
+    }
+    steps.push({ t, n: 1 });
+    if (steps.length > 2 || !c4Spot(s, steps[0].t)) continue;
+    const month = c4Month(s, t) + (feed ? feed * c4Month(s, src) : 0);
+    const price = steps.reduce((a, x) => a + x.n * BUILDINGS[x.t].cost, 0);
+    if (month < C4_EARN.minMonth || price / month > C4_EARN.maxPay) continue;
+    const jobs = d.jobs + (feed ? feed * BUILDINGS[src].jobs : 0);
+    out.push({ kind: 'build', t: steps[0].t, cost: BUILDINGS[steps[0].t].cost, works: t, month: Math.round(month), price, steps, pay: price / month, workers: free < jobs * 0.5 });
+  }
+  // the works' own next level (V2), where it can be built now but for the money
+  if (typeof wkOn === 'function' && wkOn()) {
+    const seen = {};
+    for (const b of s.b) {
+      if (seen[b.type] || !WORKS_LV[b.type] || !wkNext(b) || b.wup) continue;
+      // (a works that stands, or whose goods have no way off the island, is mended first, not made bigger)
+      if (c4Trouble(s, b)) continue;
+      { const g = defOf(b).makes; if (g && EXPORTABLE.includes(g) && GOODS[g].price > 0 && !countHarbors(s)) continue; }
+      let q = null;
+      try { q = wkUpInfo(s, b); } catch (e) { q = null; }
+      if (!q || (q.why && !/^Not enough money/.test(q.why))) continue;
+      const a = worksWorth(s, b), z = worksWorth(s, { type: b.type, wl: q.lv });
+      if (!a || !z || z.net - a.net < C4_EARN.minMonth || q.price / (z.net - a.net) > C4_EARN.maxPay) continue;
+      seen[b.type] = 1;
+      const month = z.net - a.net, jobs = q.next.jobs - q.now.jobs;
+      out.push({ kind: 'up', id: b.id, t: b.type, cost: q.price, works: b.type, name: q.name, month: Math.round(month), price: q.price, steps: [{ t: b.type, n: 1 }], pay: q.price / month, workers: free < jobs * 0.5 });
+    }
+  }
+  return out;
+}
+// The pick (R1, the finish of C4): among the investments that are safe now (c4SafeOk: nothing of hers stands or loses,
+// its chain whole, proven here or one of the reasonable player's first earners, one unproven at a time, a reserve of
+// three months' outgoings after paying the whole step, not a fix that did not fix), the best payback. Nothing pale: a
+// tip she cannot pay safely is not a tip (the smoke's novice took the pale "Earn more" to three distilleries and a cigar
+// factory and went $133,628 red; after the first mend $29,507 red).
+function c4EarnPick(s) {
+  const k = s.month + '|' + s.ver + '|' + s.stage + '|' + Math.floor(s.money / 250);
+  const c = simCache(s);
+  if (c.c4earn && c.c4earn.k === k) return c.c4earn.v;
+  const list = c4EarnList(s).filter((o) => c4SafeOk(s, o));
+  const v = list.length ? Object.assign({ poor: false }, list.slice().sort((a, b) => a.pay - b.pay)[0]) : null;
+  c.c4earn = { k, v };
+  return v;
+}
+// Paydays (the last three on average) until the money holds `cost`: 0 when it does, Infinity when nothing comes in.
+function c4Paydays(s, cost) {
+  const short = cost - s.money;
+  if (short <= 0) return 0;
+  const per = (s.history || []).slice(-3), avg = per.length ? per.reduce((a, x) => a + x.result, 0) / per.length : 0;
+  return avg > 0 ? Math.ceil(short / avg) : Infinity;
+}
+
+// ---------- B2: the ready homes she can pay now, cheapest first (the People row's "Upgrade 4 homes · $6,000") ----------
+// (R4: a home moves up only while the island makes enough of what its new level eats: a step up that leaves the homes
+// short of bread or rum steps them down again, and the rent with them; on her pace the island upgraded $550,000 of
+// homes it could not feed, and while she saved for the palace they stepped down and the month fell to about +$1.
+// c4UpFeed keeps, in the order given, the homes the island can feed after the move; `short`: the good that held one back.)
+// (the check after the finish: what the island makes says nothing of what reaches a shelf. Seed 7 at her pace: 330 food
+// made for 197 eaten, 16 groves, and three markets with empty shelves that each served 460 to 680 people: 125 homes
+// stepped down for food in 70 minutes while "Upgrade N homes" stayed lit, $439,050 of upgrades, and never the Capital
+// (v47 on that seed: minute 58). So a home also stays as it is while, on every market it reaches, some home goes
+// without that good: those markets cannot keep up, and more eaters there only take the level from a neighbour.
+// c4MarketShort(s) -> { need: { marketId: true } }; `why` is 'market' when that alone held every ready home back.)
+function c4MarketShort(s) {
+  const bad = {}, reach = homeReach(s);
+  for (const h of homesOccupied(s)) {
+    const r = reach[h.id];
+    if (!r || !r.markets) continue;
+    for (const n of (h.miss || [])) { if (!NEED_GOODS.includes(n)) continue; for (const m of r.markets) (bad[n] = bad[n] || {})[m] = true; }
+  }
+  return bad;
+}
+function c4UpFeed(s, list) {
+  const out = [], spare = {}, bad = c4On() ? c4MarketShort(s) : {}, reach = c4On() ? homeReach(s) : {};
+  let short = '', mshort = '';
+  const room = (g) => { if (spare[g] === undefined) spare[g] = c4On() ? goodSupply(s, g) - goodDemand(s, g) : Infinity; return spare[g]; };
+  for (const h of list) {
+    const nx = LEVELS[h.level + 1], add = {}, r = reach[h.id];
+    let ok = true;
+    for (const g of Object.keys((nx && nx.eats) || {})) {
+      add[g] = nx.eats[g] - eatRate(h, g) * (h.res || 0) / LEVELS[h.level].people;
+      if (add[g] > 0 && room(g) - add[g] < 0) { ok = false; if (!short) short = g; }
+      else if (bad[g] && r && r.markets && r.markets.length && r.markets.every((m) => bad[g][m])) { ok = false; if (!mshort) mshort = g; }
+    }
+    if (!ok) continue;
+    for (const g of Object.keys(add)) if (add[g] > 0) spare[g] = room(g) - add[g];
+    out.push(h);
+  }
+  // (`short`: the island makes too little of it; `why` 'market': only their markets held every ready home back)
+  return { list: out, short, why: !out.length && !short && mshort ? 'market' : '' };
+}
+function c4UpPlan(s) {
+  const list = homesReady(s).slice().sort((a, b) => upgradeCost(a.level) - upgradeCost(b.level) || a.id - b.id);
+  const F = c4UpFeed(s, list), pick = [];
+  let cost = 0;
+  for (const h of F.list) { const c = upgradeCost(h.level); if (cost + c > s.money) break; pick.push(h); cost += c; }
+  return { all: list, pick, cost, first: list.length ? upgradeCost(list[0].level) : 0, short: pick.length ? '' : F.short, why: pick.length ? '' : F.why };
+}
+{
+  // (the home card's "Upgrade all" and the gold arrows: the same check)
+  const _ua = upgradeAllInfo;
+  upgradeAllInfo = function (state) {
+    const r = _ua.apply(this, arguments);
+    if (!c4On()) return r;
+    const list = c4UpFeed(state, r.list).list;
+    return { list, n: list.length, cost: list.reduce((a, h) => a + upgradeCost(h.level), 0) };
+  };
+}
+function c4UpgradeN(s) {
+  const P = c4UpPlan(s);
+  let n = 0, spent = 0;
+  for (const h of P.pick) { const r = homeUpgrade(s, h); if (r && r.ok) { n++; spent += r.cost || upgradeCost(h.level - 0); } }
+  return { n, spent, ids: P.pick.map((h) => h.id) };
+}
+
+// ---------- C: why a works stands, by its root cause ----------
+// The third playtest: a cane field and a distillery in 1906, no harbour: the distillery lost $369 a month for ten months
+// with no sign on the map, its card said after two scrolls "1 cane field made 0 last month" (its rum yard full) and the
+// cane field's card advised closing the field. The cause was downstream: nothing took the rum off the island. So the
+// cause named is the root one, and every building in the chain names the same fix.
+// c4WorksRoot(s, b) -> null, or { why: 'harbor' | 'input' | 'yard' | 'workers' | 'road', icon, line, fix: { tool, plan,
+// cost } | null, loss (last month's number) }. A works counts when it made nothing last month, or lost money with its yard
+// full or its input short (Details' roof labels: b.blocked, b.last), or has no workers at all.
+function c4Trouble(s, b) {
+  const d = defOf(b);
+  if (!d || d.kind !== 'producer' || !d.jobs || b.open === false || b.wip || b.build || s.month - (b.built || 0) < 2) return '';
+  if (!b.workers && s.workforce > 0) return 'workers';
+  if (!b.blocked || !b.last || b.last.m !== s.month - 1) return '';
+  return b.last.made === 0 || b.last.n < 0 ? b.blocked : '';
+}
+function c4Fix(s, t) { return BUILDINGS[t] && BUILDINGS[t].stage <= s.stage ? { tool: t, cost: BUILDINGS[t].cost } : null; }
+function c4GoodName(g) { return GOODS[g] ? GOODS[g].name.toLowerCase() : g; }
+function c4WorksRoot(s, b, depth) {
+  const k = c4Trouble(s, b), d = defOf(b);
+  if (!k) return null;
+  const loss = b.last && b.last.m === s.month - 1 ? b.last.n : 0;
+  if (k === 'workers') return { why: 'workers', icon: 'worker', line: 'No workers', fix: c4Fix(s, 'casita'), loss };
+  let f = null;
+  try { f = stopFix(s, b); } catch (e) { f = null; }
+  if (k === 'yard') {
+    const g = d.makes;
+    // (food, bread and meat for the homes: a full yard there is plenty while a market takes it, not a stop: lossOf)
+    if (typeof LOCAL_GOODS !== 'undefined' && LOCAL_GOODS.includes(goodNeed(g)) && takerState(s, b) !== 'none') return null;
+    // nothing leaves the island: the ship takes it once a harbour stands
+    if (EXPORTABLE.includes(g) && GOODS[g].price > 0 && !countHarbors(s) && BUILDINGS.harbor.stage <= s.stage) return { why: 'harbor', icon: 'anchor', line: 'Nothing takes its ' + c4GoodName(g), fix: c4Fix(s, 'harbor'), loss };
+    // its works stands: the works' own cause (one step down the chain)
+    if (!depth) {
+      for (const o of s.b) {
+        const od = defOf(o);
+        if (!od.uses || od.uses[g] === undefined) continue;
+        const r = c4WorksRoot(s, o, 1);
+        if (r && r.why !== 'input') return { why: r.why, icon: r.icon, line: 'Waits for the ' + od.name.toLowerCase() + (r.why === 'harbor' ? ' (no harbor)' : ''), fix: r.fix, loss, waits: o.id };
+      }
+    }
+    if (typeof LOCAL_GOODS !== 'undefined' && LOCAL_GOODS.includes(goodNeed(g)) && takerState(s, b) !== 'none') return null;
+    if (f && f.tool && BUILDINGS[f.tool]) return { why: 'yard', icon: c4Icon(g), line: 'Nothing takes its ' + c4GoodName(g), fix: c4Fix(s, f.tool), loss };
+    // (a crop: a market never takes cane; the works that uses it does. The smoke's 1930 cane field said "Nothing takes its
+    // cane · Market · $2,000": more cane than the distillery uses, so the fix is another works that takes cane)
+    if (GOODS[g] && GOODS[g].inner) return { why: 'yard', icon: c4Icon(g), line: 'More ' + c4GoodName(g) + ' than the works use', fix: c4Fix(s, takerTool(g)), loss };
+    return { why: 'yard', icon: c4Icon(g), line: 'Nothing takes its ' + c4GoodName(g), fix: c4Fix(s, EXPORTABLE.includes(g) && !countHarbors(s) ? 'harbor' : 'market'), loss };
+  }
+  if (k === 'input') {
+    const g = Object.keys(d.uses || {})[0];
+    if (!g) return null;
+    if (g === 'flour') return countHarbors(s) ? null : { why: 'harbor', icon: 'anchor', line: 'Lacks flour (no harbor)', fix: c4Fix(s, 'harbor'), loss };
+    if (f && f.plan) { let p = null; try { p = planOf(s, f.plan); } catch (e) { p = null; } return { why: 'road', icon: 'road', line: 'No road to its ' + c4GoodName(g), fix: p ? { plan: f.plan, cost: p.cost } : { tool: 'road', cost: TUNE.roadCost }, loss }; }
+    const src = (f && f.tool) || makerOf(g);
+    return { why: 'input', icon: c4Icon(g), line: 'Lacks ' + c4GoodName(g), fix: c4Fix(s, src), loss };
+  }
+  return null;
+}
+function c4Icon(g) {
+  const m = { cane: 'cane', flour: 'bread', tobacco: 'leaf', logs: 'tree' };
+  if (m[g]) return m[g];
+  const t = makerOf(g);
+  return (t && BUILDINGS[t] && BUILDINGS[t].icon) || 'full';
+}
+
+// ---------- the panel's foot: one line, by priority ----------
+// (the third playtest: "N people without work −10" pulled happiness down three times while the panel was silent, and 330
+// seconds of its 45 minutes were pure waiting.) One line at a time:
+//   1. a works she built that stands or loses money for a cause with a fix (mending before building more);
+//   2. jobs: a tenth or more of the workers without work: the employer she can pay that also earns;
+//   3. while she saves (the landmark not yet in hand): the best investment she can pay now;
+//   4. the idea when she is rich (ui/calmflow.js).
+// { k, text, fix: { tool | plan | up(id), cost, at } } or null.
+function c4FootWorks(s) {
+  let best = null;
+  for (const b of s.b) {
+    if (s.month - (b.built || 0) < 3) continue;
+    const r = c4WorksRoot(s, b);
+    if (!r || !r.fix || r.fix.cost > s.money) continue;
+    if (!best || r.loss < best.r.loss) best = { b, r };
+  }
+  if (!best) return null;
+  const nm = defOf(best.b).name;
+  return { k: 'works', text: nm + ' · ' + best.r.line.charAt(0).toLowerCase() + best.r.line.slice(1), fix: Object.assign({ at: [best.b.x, best.b.y] }, best.r.fix), id: best.b.id };
+}
+// Jobs (R2): the employer that passes R1 (an exporting works, or a food producer the markets take: the allow-list's
+// grove and fishing hut, or a kind that earned here); most jobs first. Nothing safe: the line names the people only.
+function c4JobsPick(s) {
+  if (!(s.workforce > 0) || !(s.jobless > 0)) return null;
+  const list = c4EarnList(s).filter((o) => o.kind === 'build');
+  const yr = typeof yearOf === 'function' ? yearOf(s) : 0;
+  for (const t of BUILD_ORDER) {
+    const d = BUILDINGS[t];
+    if (d.kind !== 'producer' || !d.jobs || !d.makes || d.uses || d.stage > s.stage || (d.year && yr < d.year) || list.some((o) => o.t === t)) continue;
+    if (!(typeof LOCAL_GOODS !== 'undefined' && LOCAL_GOODS.includes(goodNeed(d.makes))) || !countType(s, 'market') || !c4Spot(s, t)) continue;
+    const m = c4Month(s, t);
+    list.push({ kind: 'build', t, cost: d.cost, works: t, month: m, price: d.cost, steps: [{ t, n: 1 }], pay: m > 0 ? d.cost / m : 1e9, local: true });
+  }
+  const ok = list.filter((o) => c4SafeOk(s, o));
+  const jobs = (o) => o.steps.reduce((a, x) => a + x.n * (BUILDINGS[x.t].jobs || 0), 0);
+  return ok.sort((a, b) => jobs(b) - jobs(a) || a.pay - b.pay)[0] || null;
+}
+function c4FootJobs(s) {
+  if (!(s.workforce > 0) || s.jobless / s.workforce < 0.1) return null;
+  const pick = c4JobsPick(s);
+  if (!pick) return null;
+  return { k: 'jobs', text: s.jobless + ' without work', fix: { tool: pick.t, cost: pick.cost, works: pick.works } };
+}
+function c4FootSave(s) {
+  const e = c4EarnPick(s);
+  if (!e || e.poor || e.workers || e.cost > s.money) return null;
+  // (R4: while she saves for the stage's building no spending is suggested on the foot line)
+  if (c4Saving(s)) return null;
+  return { k: 'save', text: 'While you save', month: e.month, fix: e.kind === 'up' ? { up: e.id, cost: e.cost } : { tool: e.t, cost: e.cost, works: e.works } };
+}
+
+// ---------- R1–R3: a tip only when it is safe (the finish of C4) ----------
+// Measured on this code: the smoke's novice, who taps only what the panel offers, went from Town to −$29,507 at 1180
+// ("Homes without food" and a $2,000 Market she could not pay) and sat at Village at 1440 with $389,358 while the jobs
+// row offered a Market that did not cure "39 without work". The forecasts cannot be trusted (c4Month: a distillery
+// promised +$112 and lost $650-870), and on the reasonable player's island nearly every works' own ledger is red (its
+// people's rent pays). So a suggestion to spend on a works stands only when it is safe:
+//   a. nothing of hers stands idle or loses money (then the mend, or an honest line);
+//   b. its chain is whole (a harbour only for goods already piling up or a works that stands; spare input or its field
+//      as the step; enough people without work for its jobs);
+//   c. proven here (its kind stood four months, its newest's last three months positive on average), or the first of
+//      its kind and one of the reasonable player's first earners (C4_FIRST);
+//   d. one unproven at a time: a works she built is watched three months and until a month is positive;
+//   e. a reserve: after paying the whole step the treasury holds three months of wages and upkeep;
+//   f. not a fix that did not fix (R2, c4Away).
+const C4_SAFE = { stood: 4, settle: 3, reserve: 3, check: 2, away: 6 };
+// The reasonable player's first earners (sim_test.js playBot, seed 1902, this code: its first of each kind, the months
+// after it stood): the fishing hut (built month 0): −10, +11, +8, −13, −38, +15, +31, +45; the fruit grove (month 40):
+// −159, −61, +26, +27, +50, +32, +43, +44. Every other first works was red on average over its first eight months (the
+// bakery −100 each month, the tobacco field −252, the cane field −250, the rum distillery −1,150, +300, +278, −365, −574,
+// −421, +88, −249): none of those is a tip before one has earned on her island.
+const C4_FIRST = { fishing: 1, grove: 1 };
+// Each payday: the last three months' result of every building with jobs (s.c4rec[id]).
+function c4RecTick(s) {
+  const r = s.c4rec || (s.c4rec = {});
+  for (const b of s.b) {
+    const d = defOf(b);
+    if (!d || !d.jobs || b.open === false || !b.last || b.last.m !== s.month - 1) continue;
+    const a = r[b.id] || (r[b.id] = []);
+    a.push(Math.round(b.last.n || 0));
+    if (a.length > 3) a.shift();
+  }
+  for (const k of Object.keys(r)) if (!bById(s, +k)) delete r[k];
+  // R2: a row's fix used two paydays ago that did not move the row's number: not offered again for six months
+  const U = s.c4used || {};
+  for (const k of Object.keys(U)) {
+    const u = U[k];
+    if (s.month - u.m < C4_SAFE.check) continue;
+    const now = c4Measure(s, u.row);
+    if (!(u.up ? now > u.n : now < u.n)) { s.c4away = s.c4away || {}; s.c4away[k] = s.month + C4_SAFE.away; }
+    delete U[k];
+  }
+}
+function c4Avg(s, b) { const a = (s.c4rec || {})[b.id]; return a && a.length >= 3 ? a.reduce((x, y) => x + y, 0) / a.length : null; }
+// A field whose crop a works on the island takes is judged with that works (a field's own ledger is never green).
+function c4Feeds(s, b) { const g = defOf(b).makes; return !!g && !!(GOODS[g] && GOODS[g].inner) && s.b.some((o) => o !== b && o.open !== false && defOf(o).uses && defOf(o).uses[g] !== undefined); }
+// a. her works that stands idle or loses money (the worst first): { b, root (c4WorksRoot or null), avg }
+function c4Losing(s) {
+  let worst = null;
+  for (const b of s.b) {
+    const d = defOf(b);
+    if (!d || d.kind !== 'producer' || !d.jobs || b.open === false || b.build || b.wip || s.month - (b.built || 0) < 2) continue;
+    const root = c4WorksRoot(s, b), avg = c4Avg(s, b);
+    let bad = !!root;
+    if (!bad && !foodBuilding(b) && !c4Feeds(s, b) && avg !== null && avg < 0) bad = true;
+    if (!bad) continue;
+    const v = avg !== null ? avg : root && root.loss < 0 ? root.loss : 0;
+    if (!worst || v < worst.avg) worst = { b, root, avg: v };
+  }
+  return worst;
+}
+// c. proven here, or the first of its kind on the allow-list
+function c4Proven(s, t) {
+  const all = s.b.filter((b) => b.type === t);
+  if (!all.length) return !!C4_FIRST[t];
+  const old = all.filter((b) => b.open !== false && s.month - (b.built || 0) >= C4_SAFE.stood);
+  if (!old.length) return false;
+  const nw = old.sort((a, b) => (b.built || 0) - (a.built || 0) || b.id - a.id)[0], v = c4Avg(s, nw);
+  return v !== null && v > 0;
+}
+// d. the works she built last, watched until it stood three months and its last month was positive
+function c4PendingOk(s) {
+  const p = s.c4pend;
+  if (!p) return true;
+  const b = bById(s, p.id);
+  if (!b || b.open === false || c4Feeds(s, b)) { s.c4pend = null; return true; }
+  if (s.month - p.m < C4_SAFE.settle) return false;
+  const a = (s.c4rec || {})[b.id], last = a && a.length ? a[a.length - 1] : null;
+  if (last !== null && last > 0) { s.c4pend = null; return true; }
+  return false;
+}
+// e. three months of the island's outgoings (wages and upkeep, as the money card shows them)
+function c4Outgo(s) {
+  let m = null;
+  try { m = typeof moneySources === 'function' ? moneySources(s) : null; } catch (e) { m = null; }
+  return m ? -m.costs.reduce((a, o) => a + (o.n || 0), 0) : 0;
+}
+function c4Reserve(s) { return C4_SAFE.reserve * c4Outgo(s); }
+function c4SafeOk(s, o) {
+  if (!o || c4Losing(s)) return false;
+  const steps = o.steps || [{ t: o.t, n: 1 }];
+  // b. the chain: a harbour only for a works that stands; enough people for the jobs
+  if (steps.some((x) => x.t === 'harbor') && !s.b.some((b) => b.type === o.works)) return false;
+  const jobs = o.kind === 'up' ? 0 : steps.reduce((a, x) => a + x.n * (BUILDINGS[x.t].jobs || 0), 0);
+  if ((s.jobless || 0) < jobs) return false;
+  // c. proven (a works' next level: that works earned)
+  if (o.kind === 'up') { const b = bById(s, o.id), v = b ? c4Avg(s, b) : null; if (v === null || v <= 0) return false; }
+  else if (!c4Proven(s, o.works)) return false;
+  // d. one unproven at a time; e. the reserve; f. not a fix that did not fix
+  if (!c4PendingOk(s)) return false;
+  if (s.money - o.price < c4Reserve(s)) return false;
+  return !c4Away(s, 'jobs:' + o.t) || o.kind === 'up';
+}
+// R2: a row's fix, used: remember the row's number; two paydays later the payday checks it moved
+function c4Measure(s, row) {
+  if (row === 'jobs') return s.jobless || 0;
+  if (row === 'happy') return s.happy || 0;
+  if (row === 'fed') return homesOccupied(s).filter(c4Fed).length;
+  if (row === 'money') return s.lastReceipt ? s.lastReceipt.result : 0;
+  return popCount(s);
+}
+function c4Use(s, key, row) {
+  if (!c4On()) return;
+  s.c4used = s.c4used || {};
+  s.c4used[key] = { m: s.month, row, n: c4Measure(s, row), up: row !== 'jobs' };
+}
+function c4Away(s, key) { return !!(s.c4away && s.c4away[key] > s.month); }
+// R4: the stage's building is the last thing the stage asks, and she saves for it
+function c4Saving(s) {
+  if (!c4On()) return false;
+  let sc = null;
+  try { sc = stageConds(s); } catch (e) { return false; }
+  if (!sc || !sc.next) return false;
+  if (sc.next.goal) return !s.palace;
+  const lm = sc.conds.find((q) => q.key === 'landmark');
+  return !!lm && !lm.ok && sc.conds.every((q) => q.key === 'landmark' || q.ok);
+}
+// R3: out of the red: the works whose shutting saves most (its card's Open brings it back): { b, save }
+// (the check after the finish: with three idle distilleries shut the row went on to "Chapel loses most · Shut · saves $71
+// a month" while the month was +$1,680, and a beginner taps what is lit. A service has no income by its nature and her
+// people need it; a works that sells at a loss still pays its workers. So the one-tap Shut is for a works only: first
+// one that stands idle for a cause (nothing takes its goods, no input: wages for nothing), whatever the month; then a
+// works that only loses, and only while the month itself stays below zero with what she has shut since the payday.
+// Never a service, a market or a food producer. Nothing to shut: the row says when the treasury is back above zero.)
+// (the check after the finish, seed 7: with the Capital reached the island made 390 food for 213 eaten in nineteen groves,
+// most with full yards far from any market, and the month stood near zero: 59 minutes of her pace to save the palace's
+// $100,000 with nothing to tap. A food producer the island does not need (c4Surplus: its yard full, a loss last month,
+// and without it the island still makes a fifth more than it eats) counts as standing idle, and it alone is the saving
+// row's button while the palace is far (c4IdleShut): "Shut spare fruit grove", one at a time.)
+function c4Surplus(s, b) {
+  const d = defOf(b);
+  if (!d || d.kind !== 'producer' || !d.makes || b.open === false || b.build || b.wip || s.month - (b.built || 0) < 4) return false;
+  const need = goodNeed(d.makes);
+  if (!NEED_GOODS.includes(need)) return false;
+  if (!(b.blocked === 'yard' && b.last && b.last.m === s.month - 1 && b.last.n < 0)) return false;
+  return goodSupply(s, need) - (d.rate || 0) >= goodDemand(s, need) * 1.2;
+}
+// (`only` 'spare': the palace row's button. A works that stands for a cause is not for that button: on seeds 1 and 5 it
+// shut the works whose rum, coffee and cigars the upper homes lived on; they stepped down two levels and a third of the
+// island left (908 people at the Capital, 604 at the palace). Only what the island makes too much of: a producer of a
+// good the homes use, its yard full, and a fifth more of that good than is used without it.)
+function c4CloseWorst(s, only) {
+  const res = (s.lastReceipt ? s.lastReceipt.result : 0) + (s.c4shut && s.c4shut.m === s.month ? s.c4shut.save : 0);
+  let best = null;
+  for (const b of s.b) {
+    const d = defOf(b);
+    if (!d || d.kind !== 'producer' || !d.jobs || b.open === false || b.build || b.wip) continue;
+    const spare = c4Surplus(s, b);
+    if (only === 'spare' ? !spare : !spare && !closable(b)) continue;
+    let c = null, idle = spare;
+    try { c = closeNet(s, b); } catch (e) { c = null; }
+    if (!c || c.net < 50) continue;
+    if (!idle) { try { idle = !!c4WorksRoot(s, b); } catch (e) { idle = false; } }
+    if (!idle && res > 0) continue;
+    // (what the island has too much of first, then what stands for a cause, then what only loses)
+    const rank = (spare ? 2e7 : idle ? 1e7 : 0) + c.net;
+    if (!best || rank > best.rank) best = { b, save: Math.round(c.net), rank, idle, spare };
+  }
+  return best;
+}
+function c4IdleShut(s) { return s.happy >= 60 ? c4CloseWorst(s, 'spare') : null; }
+{
+  // what she has shut since the last payday counts toward the month (c4CloseWorst)
+  const _ac = a8Close;
+  a8Close = function (s, id) {
+    let save = 0;
+    if (c4On()) { try { const b = bById(s, id), c = b && b.open ? closeNet(s, b) : null; save = c && c.net > 0 ? c.net : 0; } catch (e) { save = 0; } }
+    const r = _ac.apply(this, arguments);
+    if (r && save) s.c4shut = { m: s.month, save: (s.c4shut && s.c4shut.m === s.month ? s.c4shut.save : 0) + save };
+    return r;
+  };
+}
+{
+  // the records at each payday; the works she builds is watched (d)
+  const _st4 = simTick;
+  simTick = function (state) { const r = _st4.apply(this, arguments); if (c4On() && state.tick % TUNE.ticksPerMonth === 0) c4RecTick(state); return r; };
+  const _pb4 = placeBuilding;
+  placeBuilding = function (state, type) {
+    const r = _pb4.apply(this, arguments);
+    const d = BUILDINGS[type];
+    if (r && r.ok && c4On() && d && d.kind === 'producer' && d.jobs && (!foodBuilding(r.b) || state.c4sugT === type)) state.c4pend = { id: r.b.id, m: state.month };
+    return r;
+  };
+}
+
 // ---- src/render/icons.js
 // Icons: SVG path data on a 24 x 24 grid, used both by the DOM (inline SVG) and the canvas (Path2D).
 
@@ -33173,7 +33838,9 @@ const ISO = (() => {
         else { const ck = Math.floor(b.x / TUNE.bubbleCell) + ',' + Math.floor(b.y / TUNE.bubbleCell); if (calmCells[ck]) m = null; else calmCells[ck] = 1; }
       }
       if (CALMD) {
-        if (m) { const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b)); if (p[0] >= -40 && p[0] <= R.w + 40 && p[1] >= -40 && p[1] <= R.h + 60) { uiDraw(R, bubbleSprite(R, m.icon, m.warn, m.text, sc * 0.92), p[0], p[1] - 4 + Math.sin(t * 2.2 + b.id) * 1.5); R.bubbles.push({ x: p[0], y: p[1] - 4 - 16 * sc, id: b.id, home: true, need: b.lacks[0] || '', warn: true }); } }
+        // C4 (ui/calmflow.js calmBubbleIcon): the picture of the fix the card offers, and what the home lacks now
+        if (m && typeof calmBubbleIcon === 'function') m = calmBubbleIcon(s, b, m);
+        if (m) { const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b)); if (p[0] >= -40 && p[0] <= R.w + 40 && p[1] >= -40 && p[1] <= R.h + 60) { uiDraw(R, bubbleSprite(R, m.icon, m.warn, m.text, sc * 0.92), p[0], p[1] - 4 + Math.sin(t * 2.2 + b.id) * 1.5); R.bubbles.push({ x: p[0], y: p[1] - 4 - 16 * sc, id: b.id, home: true, need: m.need || b.lacks[0] || '', warn: true }); } }
         if (b.strike) {
           const vb = bVBox(R, b);
           for (let k = 0; k < 5; k++) { const lq = txPt(b, [0.2 + k * (vb[2] - vb[0] - 0.3) / 5, vb[3] - vb[1] + 0.35 + (k % 2) * 0.25]), wq = localWorld(R, b, lq[0], lq[1]), fx = wq[0], fy = wq[1]; paintPerson(fx, fy, k + b.id, Math.floor(t * 2 + k) % 2, false); }
@@ -33199,6 +33866,24 @@ const ISO = (() => {
       if (p[0] < -40 || p[0] > R.w + 40 || p[1] < -40 || p[1] > R.h + 60) continue;
       uiDraw(R, bubbleSprite(R, m.icon, m.warn, m.text, m.warn ? sc * 0.92 : sc * 0.8), p[0], p[1] - 4 + Math.sin(t * 2.2 + b.id) * 1.5);
       R.bubbles.push({ x: p[0], y: p[1] - 4 - 16 * sc, id: b.id, home: b.type === 'casita', need: b.type === 'casita' ? (b.lacks[0] || b.wants[0]) : '', warn: m.warn });
+    }
+    // C4 (ui/calmflow.js calmWorksBubble): a works that stands for lack of its raw material, its outlet or its workers has
+    // a bubble too, inside the same budget (homes first, so after them)
+    if (CALMD && !ui.money && typeof calmWorksBubble === 'function') {
+      for (const ob of R.order) {
+        if (R.bubbles.length >= CALM_BUBBLES) break;
+        if (ob.k !== 'b' || !onScreen(R, ob.X0, ob.Y0, ob.X1, ob.Y1) || ob.b.type === 'casita') continue;
+        const b = ob.b, W = calmWorksBubble(s, b);
+        // (a field that waits for its works: the works carries the bubble; the field's card says it)
+        if (!W || W.waits) continue;
+        const ck = 'w' + Math.floor(b.x / TUNE.bubbleCell) + ',' + Math.floor(b.y / TUNE.bubbleCell);
+        if (calmCells[ck]) continue;
+        calmCells[ck] = 1;
+        const p = P(b.x + b.w / 2, b.y + b.h / 2, bubbleZ(b));
+        if (p[0] < -40 || p[0] > R.w + 40 || p[1] < -40 || p[1] > R.h + 60) continue;
+        uiDraw(R, bubbleSprite(R, W.icon, true, undefined, sc * 0.92), p[0], p[1] - 4 + Math.sin(t * 2.2 + b.id) * 1.5);
+        R.bubbles.push({ x: p[0], y: p[1] - 4 - 16 * sc, id: b.id, home: false, works: W.why, need: '', warn: true });
+      }
     }
     MARKK = 'roof';
     tagsDraw(R, tags);
@@ -33623,6 +34308,20 @@ const ISO = (() => {
       uiDraw(R, sp, Math.max(sh + sp.w / 2 + 4, Math.min(R.w - sh - sp.w / 2 - 4, q[0])), q[1] - 30);
       R.stats.rbtNo = no.why;
     }
+    // C4 (calm, ui/calmflow.js): a paint stroke of homes: a ghost home on each lit lot the finger passed, the running
+    // count and price by the last one
+    if (calm && ui.paint && ui.paint.tiles.length) {
+      g.setTransform(d, 0, 0, d, 0, 0);
+      for (const i of ui.paint.tiles) {
+        const x = i % MAP_W, y = (i / MAP_W) | 0, q = vbox(R.rot || 0, x, y, x + 1, y + 1), pq = PV(q[0], q[1], 0);
+        diamond(R, x, y, x + 1, y + 1, 'rgba(120,205,95,.5)', '#2e7a3e', 2.2, [7, 4]);
+        sprDraw(R, bSprite(R, s, { id: 0, type: 'casita', x, y, w: 1, h: 1, f: ui.paint.f ? ui.paint.f[i] || 0 : 0, level: 1, res: 1, open: true, stock: {}, inp: {}, yard: 0 }), pq[0], pq[1], 0.72);
+      }
+      const last = ui.paint.tiles[ui.paint.tiles.length - 1], p = P(last % MAP_W + 0.5, ((last / MAP_W) | 0) + 0.5, 1.6);
+      uiDraw(R, labelSprite(R, ui.paint.label, !ui.paint.full), p[0], p[1] - 14);
+      R.stats.paint = ui.paint.tiles.length;
+      return;
+    }
     const gh = ui.ghost;
     if (!gh) return;
     g.setTransform(d, 0, 0, d, 0, 0);
@@ -33677,7 +34376,14 @@ const ISO = (() => {
       for (const i of pl.clear) { const x = i % MAP_W, y = (i / MAP_W) | 0; diamond(R, x + 0.2, y + 0.2, x + 0.8, y + 0.8, null, '#fbf3df', 2, [3, 3]); }
       R.stats.plus = pl.cost;
     }
-    if (calm) { if (!gh.why || poor) uiDraw(R, labelSprite(R, mvb ? money$(moveCost(mvb)) : '$' + (pl ? pl.cost : def.cost).toLocaleString('en-US'), !poor), p[0], p[1] - 14); R.stats.ghostPoor = poor ? 1 : 0; return; }
+    if (calm) {
+      // C4 (ui/calmflow.js calmGhostTag): a producer's or a service's tag says its month too ("$9,000 · about +$900 a month")
+      let tag = mvb ? money$(moveCost(mvb)) : '$' + (pl ? pl.cost : def.cost).toLocaleString('en-US');
+      if (!mvb && typeof calmGhostTag === 'function') tag = calmGhostTag(s, gh.type, tag);
+      if (!gh.why || poor) uiDraw(R, labelSprite(R, tag, !poor), p[0], p[1] - 14);
+      R.stats.ghostPoor = poor ? 1 : 0; R.stats.ghostTag = tag;
+      return;
+    }
     uiDraw(R, labelSprite(R, text, !gh.why), p[0], p[1] - 14);
     // A13: which side faces the street (the Turn button turns it), under the lot's front corner
     // (Fix3: with a mouse the line also says how to turn it: the key and the right button)
@@ -37432,6 +38138,7 @@ function inputInit(canvas) {
     if (ptrs.size === 2) {
       // A second finger: cancel any stroke and start a pinch.
       APP.ui.stroke = null; APP.ui.strokeBlock = null; APP.ui.unroad = null;
+      if (gesture && gesture.kind === 'paint') calmPaintEnd(false, false);
       const [a, b] = [...ptrs.values()];
       gesture = { kind: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), z0: APP.view.z, mid: screenToTile(APP.R, APP.view, (a.x + b.x) / 2, (a.y + b.y) / 2), a0: Math.atan2(b.y - a.y, b.x - a.x), turned: false };
       return;
@@ -37442,6 +38149,15 @@ function inputInit(canvas) {
       if (inMap(t.x, t.y)) { APP.ui.strokeA = tileIdx(t.x, t.y); APP.ui.strokeAxis = ''; strokeTo(t.x, t.y); gesture.kind = 'road'; }
     } else if (APP.ui.tool === 'remove' && unroadStart(p, gesture)) {
       // A6: a press with Remove on a road: a drag along it takes a stretch away (roads_ui.js); no drag: the old tap
+    } else if (typeof calmPaintDown === 'function' && calmPaintDown(p)) {
+      // C4 (calm, ui/calmflow.js): with the Home tool a press on a lit lot starts a paint stroke (a home on every lit lot
+      // the finger passes, one Undo); a press anywhere else is as before
+      gesture.kind = 'paint';
+    } else if (typeof calmArmedPan === 'function' && calmArmedPan(e)) {
+      // (C4: with the Home tool a press off the lit lots, and with any building on touch, a drag pans the map as with no
+      // tool and carries no ghost (the third playtest dragged a red ghost into the forest); a tap builds at the nearest
+      // lit spot as before, a finger that wobbles up to 20 px still a tap)
+      gesture.canPan = true; gesture.slop = 20;
     } else if ((BUILDINGS[APP.ui.tool] || APP.ui.tool === 'clear') && e.pointerType !== 'mouse') {
       // a finger with a building tool: the ghost follows it (snapped); lifting after a drag leaves it there
       gesture.kind = 'place';
@@ -37481,6 +38197,7 @@ function inputInit(canvas) {
       return;
     }
     if (gesture.kind === 'unroad') { unroadMove(p, gesture); return; }
+    if (gesture.kind === 'paint') { if (Math.hypot(p.x - gesture.x0, p.y - gesture.y0) > TAP_MOVE) gesture.moved = true; calmPaintMove(p); return; }
     if (gesture.kind === 'place') {
       if (Math.hypot(p.x - gesture.x0, p.y - gesture.y0) > TAP_MOVE) gesture.moved = true;
       ghostUpdate(p.x, p.y);
@@ -37488,8 +38205,8 @@ function inputInit(canvas) {
     }
     if (gesture.kind === 'press' || gesture.kind === 'pan') {
       // one finger pans only when no tool is armed (a mouse may still drag the map with a building tool)
-      const canPan = APP.ui.tool === 'look' || (e.pointerType === 'mouse' && BUILDINGS[APP.ui.tool]);
-      if (Math.hypot(p.x - gesture.x0, p.y - gesture.y0) > TAP_MOVE) gesture.kind = canPan ? 'pan' : 'drift';
+      const canPan = APP.ui.tool === 'look' || gesture.canPan || (e.pointerType === 'mouse' && BUILDINGS[APP.ui.tool]);
+      if (Math.hypot(p.x - gesture.x0, p.y - gesture.y0) > (gesture.slop || TAP_MOVE)) gesture.kind = canPan ? 'pan' : 'drift';
       if (gesture.kind === 'pan') {
         // Keep the point she grabbed under her finger (works for any projection).
         const t = screenToTile(APP.R, APP.view, p.x, p.y);
@@ -37526,6 +38243,11 @@ function inputInit(canvas) {
       }
       if (blk && !(st && st.length > 1)) toastShow(blk.why + '.');
       APP.ui.stroke = null; APP.ui.strokeBlock = null;
+    } else if (gesture.kind === 'paint') {
+      // C4: a stroke builds its homes; a press that did not move is a tap (one home), as before
+      const blocked = e.type === 'pointerup' && tapBlocked(gesture, p, e.pointerType);
+      calmPaintEnd(e.type === 'pointerup' && !blocked, gesture.moved);
+      if (!gesture.moved && e.type === 'pointerup' && !blocked) tapAt(p.x, p.y);
     } else if (gesture.kind === 'unroad') {
       if (!unroadEnd(p, gesture, e) && e.type === 'pointerup' && !tapBlocked(gesture, p, e.pointerType)) tapAt(p.x, p.y);
     } else if (gesture.kind === 'place' && e.type === 'pointerup') {
@@ -37541,7 +38263,7 @@ function inputInit(canvas) {
     }
     gesture = null;
   };
-  const cancel = (e) => { ptrs.delete(e.pointerId); APP.gesturing = ptrs.size > 0; APP.ui.stroke = null; APP.ui.strokeBlock = null; APP.ui.unroad = null; gesture = null; };
+  const cancel = (e) => { if (gesture && gesture.kind === 'paint') calmPaintEnd(false, false); ptrs.delete(e.pointerId); APP.gesturing = ptrs.size > 0; APP.ui.stroke = null; APP.ui.strokeBlock = null; APP.ui.unroad = null; gesture = null; };
   if (window.PointerEvent) {
     const real = (f) => (e) => { e.real = true; f(e); };
     canvas.addEventListener('pointerdown', real(down));
@@ -51149,6 +51871,9 @@ function calmPlusSpots(s, type) {
       const clear = path.filter((i) => s.terrain[i] === FOREST);
       if (foot) for (let y = ay; y < ay + def.h; y++) for (let x = ax; x < ax + def.w; x++) { const i = tileIdx(x, y); if (s.terrain[i] === FOREST && !clear.includes(i)) clear.push(i); }
       const c = clear.length * clearTileCost(s) + lay.length * TUNE.roadCost;
+      // (C4: a home's lot whose own road would end on it, so the lot becomes the road's stub, is not lit: the tap's
+      // landTry refused it with "The way opens no spot", the smoke's novice at 820)
+      if (stubs && typeof c4On === 'function' && c4On() && !landTry(s, { kind: 'land', type, path: path.slice(), hit: path.length ? path[path.length - 1] : tileIdx(ax, ay), spot: [ax, ay], foot }, false).ok) continue;
       out.by.set(tileIdx(ax, ay), { x: ax, y: ay, path, lay, clear, foot, cost: c + def.cost, extra: c });
       out.anchors.push([ax, ay]);
       for (let y = ay; y < ay + def.h; y++) for (let x = ax; x < ax + def.w; x++) out.tiles[tileIdx(x, y)] = 1;
@@ -51237,14 +51962,17 @@ function calmLitShow(tool) {
   if (!sp.n) return;
   const W = window.innerWidth, H = window.innerHeight, tb = $('top').getBoundingClientRect(), bar = $('bar').getBoundingClientRect();
   const gl = $('calmGoals').classList.contains('show') ? $('calmGoals').getBoundingClientRect() : null;
-  const x0 = 40, x1 = (gl && gl.width ? gl.left : W) - 40, y0 = tb.bottom + 80, y1 = bar.top - 40;
+  // (C4: in view as a finger sees it: clear of the shelf's tray and of every control's edge, as the smoke's novice looks;
+  // a lone lit lot 40 px above the shelf or beside the Undo chip counted as in view and the view did not move)
+  const c4v = typeof c4On === 'function' && c4On();
+  const x0 = c4v ? 60 : 40, x1 = (gl && gl.width ? gl.left : W) - (c4v ? 60 : 40), y0 = Math.max(tb.bottom + 80, c4v ? 160 : 0), y1 = c4v ? Math.min(bar.top - 40, H - 160) : bar.top - 40;
   const def = BUILDINGS[tool], map = $('map');
   let best = null;
   const c = screenToTile(APP.R, APP.view, (x0 + x1) / 2, (y0 + y1) / 2);
   for (const [x, y] of sp.anchors) {
     const p = tileToScreen(APP.R, APP.view, x + def.w / 2, y + def.h / 2);
     // (C2b: in view means where a finger reaches it: not under a panel)
-    if (p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1 && document.elementFromPoint(p.x, p.y) === map) return;
+    if (p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1 && document.elementFromPoint(p.x, p.y) === map && !(c4v && typeof uiNearAt === 'function' && uiNearAt(p.x, p.y, UI_NEAR))) return;
     const d = Math.hypot(x + def.w / 2 - c.x, y + def.h / 2 - c.y);
     if (!best || d < best.d) best = { x: x + def.w / 2, y: y + def.h / 2, d };
   }
@@ -51930,7 +52658,7 @@ function calmPeopleRow(s, target) {
   // homes are the limit: build homes where there are lots; else homes that are ready move up; else a road for new lots
   const lots = spotsFor(s, 'casita').n || 0, rdy = homesReady(s), home = calmToolFix('casita', null, 'Build homes');
   const upCost = rdy.length ? Math.min(...rdy.map((h) => upgradeCost(h.level))) : 0, upPoor = upCost > s.money;
-  const say = wait ? plural(wait, 'settler waits', 'settlers wait') + ' for a home' : beds ? 'Beds for ' + beds + ' · the boat brings ' + ship : 'Every home is full';
+  const say = wait ? plural(wait, 'settler waits', 'settlers wait') + ' for a home' : beds ? 'Beds for ' + beds + ' · the boat brings ' + ship : c4On() && !s.b.some((b) => defOf(b).kind === 'home') ? 'No homes yet' : 'Every home is full';
   // (homes ready to move up first when she can pay one: a step up gives more beds on the same lot)
   if (rdy.length && (lots < 3 || !upPoor || home.poor)) {
     const up = rdy.slice().sort((a, b) => upgradeCost(a.level) - upgradeCost(b.level))[0];
@@ -51993,6 +52721,9 @@ function calmTrafficRow(s, target, keep) {
   return row;
 }
 // The landmark: its price and when the treasury holds it (A11's fund counts); never a bar of cash in hand.
+// (C4's check: a treasury below zero is paid back first: at −$20,000 and +$1,680 a month the $8,000 house said "In about
+// 5 months"; it is 17)
+function calmDebt(s) { return c4On() ? Math.max(0, -s.money) : 0; }
 function calmLandmarkRow(s, lm) {
   const isRes = !!lm.res, name = isRes ? RESIDENCE[lm.res].name : BUILDINGS[lm.b].name, cost = isRes ? RESIDENCE[lm.res].cost : BUILDINGS[lm.b].cost;
   const ok = isRes ? (s.res || 0) >= lm.res : countType(s, lm.b) > 0;
@@ -52002,7 +52733,7 @@ function calmLandmarkRow(s, lm) {
   const key = isRes ? 'res' : 'tool:' + lm.b;
   if (have >= cost) { row.line = 'The treasury holds it'; row.fix = { key, label: 'Build · ' + money$(cost) }; return row; }
   const per = (s.history || []).slice(-3), avg = per.length ? per.reduce((a, x) => a + x.result, 0) / per.length : 0;
-  const n = avg > 0 ? Math.ceil((cost - have) / avg) : 0;
+  const n = avg > 0 ? Math.ceil((cost - have + calmDebt(s)) / avg) : 0;
   row.line = n && n <= CALMG.poorMonths ? 'In about ' + plural(n, 'month', 'months') + ' at today\'s income' : 'Paydays save for it';
   row.fix = { key, label: (isRes ? 'Residence' : toolLabel(lm.b)) + ' · ' + money$(cost), sub: n && n <= CALMG.poorMonths ? '' : '', poor: true };
   return row;
@@ -52037,7 +52768,7 @@ function calmKeepRows(s) {
     if (next.goal) {
       // the palace: its price and when (as the landmark's row: it never goes backwards)
       const cost = TUNE.palaceCost, ok = !!s.palace, fund = typeof scarceFundN === 'function' ? scarceFundN(s) || 0 : 0, have = Math.max(0, s.money) + fund;
-      const per = (s.history || []).slice(-3), avg = per.length ? per.reduce((a, x) => a + x.result, 0) / per.length : 0, n = avg > 0 ? Math.ceil((cost - have) / avg) : 0;
+      const per = (s.history || []).slice(-3), avg = per.length ? per.reduce((a, x) => a + x.result, 0) / per.length : 0, n = avg > 0 ? Math.ceil((cost - have + calmDebt(s)) / avg) : 0;
       const row = { k: 'palace', icon: 'palace', name: 'The palace', n: money$(cost), of: '', frac: 0, ok, nobar: true,
         line: have >= cost ? 'The treasury holds it' : n && n <= CALMG.poorMonths ? 'In about ' + plural(n, 'month', 'months') + ' at today\'s income' : 'Paydays save for it',
         fix: { key: 'res', label: have >= cost ? 'Build · ' + money$(cost) : 'Residence · ' + money$(cost), poor: have < cost } };
@@ -52540,6 +53271,1782 @@ function calmNewGroups(s) {
   // the ring and "N of M goals met" count the stage's conditions, not the island's keep-rows shown beside the palace
   const _sh = calmShare;
   calmShare = function (G) { return _sh.call(this, G && G.rows && G.rows.some((r) => r.keep) ? Object.assign({}, G, { rows: G.rows.filter((r) => !r.keep) }) : G); };
+}
+
+// ---- src/ui/calmflow.js
+// C4 — flow, the screen (15 Nov 2026; nova/docs/CALM.md "C4 — flow"; the sim's part: sim/flow.js).
+// After v47 the screen was calm; the play had no flow. This file, by wrapping the calm screen's functions:
+//   A. trust: the first food producer free and named at once (no second market), a tab that opens its shelf without
+//      moving the view or arming a $3,000 chapel, rows whose ✓, bar and numbers are the sim's own measure, the bubble
+//      and the panel naming the same fix;
+//   B. flow: paint homes in one stroke (one Undo), upgrade the ready homes in one tap, "Earn more" (the best works she
+//      can build, its month's number on the price tag), an idea when she is rich;
+//   C. the works on the map: a works that stands for lack of its raw material, its outlet or its workers has a bubble;
+//   D. a new stage is a present: the "New" strip of what opened, and the postcard kept.
+// Kill switch: TUNE.c4Off (and TUNE.goalsOld): v47's screen as it was.
+
+const C4 = { tabNoFly: false };
+
+// ---------- A1: the free first food producer, on the shelf, the ghost and the panel ----------
+{
+  // the page's one island: its prices each frame (the sim also syncs them before each placement)
+  const _hu = hudUpdate;
+  hudUpdate = function () { if (APP.state) c4PriceSync(APP.state); return _hu.apply(this, arguments); };
+  const _bp = barPoor;
+  barPoor = function () {
+    const r = _bp.apply(this, arguments), s = APP.state;
+    if (!s || !calmOn()) return r;
+    for (const t of C4_FREE) {
+      const b = $('bar').querySelector('.tool[data-tool="' + t + '"]'), small = b && b.querySelector('small');
+      if (!small || b.classList.contains('locked') || b.classList.contains('nospot')) continue;
+      const txt = fmtMoney(BUILDINGS[t].cost);
+      if (small.textContent !== txt) small.textContent = txt;
+      b.classList.toggle('poor', BUILDINGS[t].cost > 0 && s.money < BUILDINGS[t].cost);
+    }
+    return r;
+  };
+  // a price that changes while the shelf is open (the money went under the grove's price): the shelf follows
+  const _cr = calmRender;
+  calmRender = function () {
+    const s = APP.state;
+    if (s && calmOn()) { const k = C4_FREE.map((t) => BUILDINGS[t].cost).join(','); if (C4.freeK !== k) { C4.freeK = k; if (!APP.ui.trayClosed) barPoor(); CALM.rowsK = ''; } }
+    return _cr.apply(this, arguments);
+  };
+  // the panel's button says "$0" for the free one (calmToolFix leaves a $0 price out)
+  const _tf = calmToolFix;
+  calmToolFix = function (tool, at, label) {
+    const f = _tf.apply(this, arguments), s = APP.state;
+    if (!s || !c4On()) return f;
+    if (C4_FREE.includes(tool) && BUILDINGS[tool].cost === 0) { f.label = (label || toolLabel(tool)) + ' · $0'; f.sub = ''; f.poor = false; return f; }
+    // (A8: one price everywhere. A tool whose every lit spot needs its own short road or a clearing (C2b's spots) costs
+    // what the spot the button flies to costs: that spot's price on the button, as on the ghost and in the charge)
+    if (BUILDINGS[tool] && f.cost) {
+      let sp = null;
+      try { sp = spotsFor(s, tool); } catch (e) { sp = null; }
+      if (sp && sp.plus && sp.n && sp.by) {
+        const c = at || (s.b.find((b) => b.type === 'pier') ? [s.b.find((b) => b.type === 'pier').x, s.b.find((b) => b.type === 'pier').y] : [0, 0]);
+        let best = null;
+        for (const e of sp.by.values()) { const d = Math.hypot(e.x - c[0], e.y - c[1]); if (!best || d < best.d) best = { d, e }; }
+        if (best && best.e.cost !== f.cost) {
+          f.cost = best.e.cost; f.label = f.label.replace(/ · \$[\d,]+$/, ' · ' + money$(f.cost));
+          f.sub = calmWhen(f.cost); f.poor = !!f.sub;
+        }
+      }
+    }
+    // (A1, the Village hole: a fix she can pay now but whose month would take the next payday under zero is pale too)
+    if (!f.poor && f.cost && BUILDINGS[tool] && c4Short(s, f.cost, tool)) { f.poor = true; f.sub = 'After the next payday'; }
+    return f;
+  };
+}
+// Would building it now take the treasury under zero at the next payday? (the last payday's result and the new
+// building's own month, the ghost's forecast)
+function c4Short(s, cost, tool) {
+  const r = s.lastReceipt, last = r ? r.result : 0;
+  let f = 0;
+  try { f = bForecast(s, tool); } catch (e) { f = 0; }
+  return s.money - cost + Math.min(0, last + f) < 0;
+}
+
+// ---------- A1 / A5: the food fix, live, and the same in the row, the happiness line and the bubble ----------
+{
+  const _fr = calmFoodRow;
+  calmFoodRow = function (s, keep) {
+    if (keep || !c4On()) return _fr.apply(this, arguments);
+    const homes = homesOccupied(s), fed = homes.filter(c4Fed).length, ok = allHomesFed(s);
+    let fix = null;
+    // (`none`: food that is made and has no spot near these homes to reach them from: no button, a wrong tip is worse)
+    if (!ok && homes.length) { const c = c4FoodFix(s); fix = c.none ? null : calmToolFix(c.tool, c.at, calmFixLabel(c.tool, 'food')); }
+    return { k: 'food', icon: 'bread', name: 'Food for every home', n: homes.length ? fed : '', of: homes.length ? homes.length : '', frac: homes.length ? fed / homes.length : 0, ok, fix: homes.length ? fix : null,
+      line: !homes.length ? 'Homes first' : ok ? '' : plural(homes.length - fed, 'home', 'homes') + ' without food' };
+  };
+  const _hw = calmHappyWhys;
+  calmHappyWhys = function (s) {
+    const out = _hw.apply(this, arguments);
+    if (!c4On()) return out;
+    for (const o of out) if (/^Homes without food/.test(o.why)) { const c = c4FoodFix(s); o.fix = c.none ? null : calmToolFix(c.tool, c.at, calmFixLabel(c.tool, 'food')); }
+    // (jobs: a works that stands for a fixable cause employs its people again once mended: that fix first; else an
+    // employer that passes R1 (c4JobsPick); else no button: a market is no jobs fix, and a wrong tip is worse than none)
+    const w = c4FootWorks(s), j = w ? null : c4JobsPick(s);
+    for (const o of out) {
+      if (/without work|No jobs/.test(o.why)) {
+        o.fix = w && !w.fix.plan ? calmToolFix(w.fix.tool, w.fix.at) : j ? calmToolFix(j.t, c4EarnAt(s, j)) : null;
+        if (o.fix && c4Away(s, 'jobs:' + calmFixTool(o.fix))) o.fix = null;
+      } else if (o.fix && calmFixTool(o.fix) && c4Away(s, 'happy:' + calmFixTool(o.fix))) o.fix = null;
+    }
+    return out;
+  };
+  const _hf = calmHappyFix;
+  calmHappyFix = function (s) {
+    const h = _hf.apply(this, arguments);
+    if (!c4On() || !h || h.why !== 'food') return h;
+    const c = c4FoodFix(s);
+    return c.none ? null : { tool: c.tool, at: c.at, why: 'food' };
+  };
+  // the bubble's card: a home a market reaches now lacks food, not a market
+  const _bo = calmBubbleOpen;
+  calmBubbleOpen = function (bub) {
+    const s = APP.state;
+    if (c4On() && s && bub && bub.need === 'market') { const h = bById(s, bub.id); if (h && c4MarketNear(s, h)) bub = Object.assign({}, bub, { need: 'food' }); }
+    const r = _bo.apply(this, [bub]);
+    // (the card's picture as the bubble's: the fix's own, not a fish beside "Fruit grove")
+    if (c4On() && s && bub && bub.need === 'food') {
+      const c = c4FoodFix(s), ic = c.tool === 'market' ? 'market' : (BUILDINGS[c.tool] && BUILDINGS[c.tool].icon) || 'fruit';
+      const e = $('pop').querySelector('.cbl .bub');
+      if (e && ICONS[ic]) e.innerHTML = iconSvg(ic);
+    }
+    return r;
+  };
+  // (its button: the same fix as the panel's)
+  const _fb = calmFixBtn;
+  calmFixBtn = function (fix, need) {
+    const s = APP.state;
+    if (c4On() && s && (need === 'food' || need === 'market')) {
+      const c = c4FoodFix(s);
+      if (need === 'food' || c.tool === 'market') fix = c.none ? null : { tool: c.tool, at: c.at };
+    }
+    const b = _fb.call(this, fix, need);
+    // (every button that leads to building says its price, as the panel's do)
+    if (b && c4On() && b.tool && BUILDINGS[b.tool] && !/\$/.test(b.label)) b.label += ' · ' + money$(BUILDINGS[b.tool].cost);
+    return b;
+  };
+}
+// The bubble drawn over a home (render/iso.js asks): a home a market reaches now shows what it lacks then (food); food
+// shows the fix's own picture (the grove's fruit, not a fish beside the panel's "Fruit grove").
+function calmBubbleIcon(s, b, m) {
+  if (!c4On() || b.type !== 'casita') return m;
+  let need = (b.lacks || [])[0] || '';
+  if (need === 'market' && c4MarketNear(s, b)) need = 'food';
+  if (need === 'food') { const c = c4FoodFix(s); return Object.assign({}, m, { icon: c.tool === 'market' ? 'market' : (BUILDINGS[c.tool] && BUILDINGS[c.tool].icon) || 'fruit', need }); }
+  return Object.assign({}, m, { need });
+}
+
+// ---------- A2: a tab opens the shelf; it does not act ----------
+// v47: a tab tap armed the tab's first (or last-used) item and the view flew to its lit spots; on her 1930 island she
+// opened Services to look, the view moved and a $3,000 chapel was armed under her next tap; the third playtest built a
+// $1,200 grove it never chose (the last-used item, armed by the Food tab). Now a tab never moves the view and arms only
+// Home (the Homes tab) and Road (Transport), each only when she can pay it; every other tab only opens its shelf.
+{
+  const _tt = calmTabTool;
+  calmTabTool = function (s, group) {
+    if (!c4On()) return _tt.apply(this, arguments);
+    const t = group === 'homes' ? 'casita' : group === 'roads' ? 'road' : '';
+    if (!t || !barToolsAll(s, group).some((o) => o.id === t && !o.locked)) return '';
+    return s.money >= (t === 'road' ? TUNE.roadCost : BUILDINGS[t].cost) ? t : '';
+  };
+  const _bt = barTabTap;
+  barTabTap = function () {
+    if (!c4On()) return _bt.apply(this, arguments);
+    C4.tabNoFly = true;
+    try { return _bt.apply(this, arguments); } finally { C4.tabNoFly = false; }
+  };
+  const _cf = cameraFlyTo;
+  cameraFlyTo = function () { if (C4.tabNoFly) return; return _cf.apply(this, arguments); };
+}
+
+// ---------- B1: paint homes ----------
+// With the Home tool armed, a press on a lit lot (by a road) starts a stroke: a home on every lit lot the finger passes,
+// ghosts under the finger with a running "5 homes · $4,000", stopping at what she can pay; the release builds them, one
+// floating price, and one Undo takes the whole stroke back. A tap still places one; a press elsewhere pans as before.
+// Roads are unchanged. (A tool whose lit lots each need their own short road, C2b's, is not painted: a tap each.)
+function calmPaintOn() { return !!APP.state && calmOn() && c4On() && APP.ui.tool === 'casita' && !APP.ui.move && !!APP.R; }
+function calmPaintLot(s, x, y) {
+  const t = screenToTile(APP.R, APP.view, x, y), tx = Math.floor(t.x), ty = Math.floor(t.y);
+  if (!inMap(tx, ty)) return -1;
+  const sp = spotsFor(s, 'casita');
+  if (!sp || sp.plus || !sp.n) return -1;
+  const i = tileIdx(tx, ty);
+  return sp.tiles[i] ? i : -1;
+}
+function calmPaintLabel(n, cost) { return plural(n, 'home', 'homes') + ' · ' + money$(n * cost); }
+function calmPaintDown(p) {
+  if (!calmPaintOn()) return false;
+  const s = APP.state, i = calmPaintLot(s, p.x, p.y), cost = BUILDINGS.casita.cost;
+  if (i < 0) return false;
+  const f = typeof turnArmF === 'function' ? turnArmF('casita') : 0;
+  APP.ui.paint = { tiles: s.money >= cost ? [i] : [], cost, last: [p.x, p.y], f: {}, full: s.money < cost, label: '' };
+  APP.ui.paint.f[i] = f;
+  APP.ui.paint.label = APP.ui.paint.tiles.length ? calmPaintLabel(1, cost) : money$(cost);
+  APP.ui.ghost = null;
+  return true;
+}
+function calmPaintMove(p) {
+  const P = APP.ui.paint, s = APP.state;
+  if (!P) return;
+  // (every few pixels along the way: a quick finger passes lots between two moves)
+  const [x0, y0] = P.last, n = Math.max(1, Math.ceil(Math.hypot(p.x - x0, p.y - y0) / 6));
+  const f = typeof turnArmF === 'function' ? turnArmF('casita') : 0;
+  for (let k = 1; k <= n; k++) {
+    const i = calmPaintLot(s, x0 + (p.x - x0) * k / n, y0 + (p.y - y0) * k / n);
+    if (i < 0 || P.tiles.includes(i)) continue;
+    if ((P.tiles.length + 1) * P.cost > s.money) { P.full = true; continue; }
+    P.tiles.push(i); P.f[i] = f;
+  }
+  P.last = [p.x, p.y];
+  P.label = P.tiles.length ? calmPaintLabel(P.tiles.length, P.cost) : money$(P.cost);
+  APP.ui.ghost = null;
+}
+// go: build the stroke (a release that moved); otherwise it is dropped (a tap builds its one home through tapAt)
+function calmPaintEnd(go, moved) {
+  const P = APP.ui.paint, s = APP.state;
+  APP.ui.paint = null;
+  if (!P || !go || !moved || !P.tiles.length) return;
+  const m0 = s.money, ids = [];
+  for (const i of P.tiles) {
+    const r = placeBuilding(s, 'casita', i % MAP_W, (i / MAP_W) | 0);
+    if (r && r.ok) ids.push(r.b.id);
+  }
+  if (!ids.length) return;
+  const paid = m0 - s.money, last = bById(s, ids[ids.length - 1]);
+  CALM.tapT = performance.now();
+  floaterAdd(last.x + 0.5, last.y + 0.5, '−' + money$(paid), '#c0392b', false, last.id);
+  try { audioCue('place'); } catch (e) { /* no sound */ }
+  calmUndoSet({ kind: 'paint', ids, paid });
+  s.c4paint = (s.c4paint || 0) + 1;
+  try { guideIntro(s); guideRender(); } catch (e) { /* as it was */ }
+}
+{
+  const _ur = calmUndoRun;
+  calmUndoRun = function () {
+    const u = CALM.undo, s = APP.state;
+    if (!u || u.kind !== 'paint') return _ur.apply(this, arguments);
+    calmUndoSet(null);
+    let back = 0;
+    for (const id of u.ids) { const b = bById(s, id); if (!b) continue; const r = removeAt(s, b.x, b.y); if (!r.why) back += r.refund || 0; if (APP.ui.sel === id) cardClose(); }
+    s.money += Math.max(0, (u.paid || 0) - back);
+    try { audioCue('remove'); } catch (e) { /* no sound */ }
+  };
+  // (a new tool: the stroke's Undo has passed, as a building's)
+  const _ts = toolSet;
+  toolSet = function (tool) { const r = _ts.apply(this, arguments); if (CALM.undo && CALM.undo.kind === 'paint' && tool !== 'look') calmUndoSet(null); if (APP.ui.paint) APP.ui.paint = null; return r; };
+}
+
+// ---------- B2: upgrade in one stroke ----------
+{
+  const _hr = homesReady;
+  homesReady = function () { return C4.noReady ? [] : _hr.apply(this, arguments); };
+}
+// The People row's button upgrades as many of the ready homes as she can pay now, cheapest first ("Upgrade 4 homes ·
+// $6,000"): one tap, each gets its scaffolding. When she can pay none it stays pale with "In about N paydays". (v47:
+// one tap moved one home up; at Port city she tapped and waited a payday for $2,250.)
+{
+  const _pr = calmPeopleRow;
+  calmPeopleRow = function (s) {
+    const row = _pr.apply(this, arguments);
+    if (!c4On() || !row.fix || !/^sel:/.test(row.fix.key)) return row;
+    const P = c4UpPlan(s);
+    if (P.pick.length) row.fix = { key: 'upn', label: 'Upgrade ' + plural(P.pick.length, 'home', 'homes') + ' · ' + money$(P.cost), sub: '', poor: false, cost: P.cost };
+    else if (P.why === 'market') {
+      // (the check after the finish: every ready home stands on markets that cannot keep up: the row grows the island
+      // elsewhere, as if none were ready: the lit lots, else the road that opens new ones)
+      C4.noReady = true;
+      try { return _pr.apply(this, arguments); } finally { C4.noReady = false; }
+    }
+    else if (P.short && P.first <= s.money) {
+      // (R4: she could pay a step up, but the island makes too little of what the new level eats: that first)
+      let c = null;
+      try { c = needCause(s, P.short); } catch (e) { c = null; }
+      if (c && c.tool && BUILDINGS[c.tool] && BUILDINGS[c.tool].stage <= s.stage) { row.fix = calmToolFix(c.tool, c.at, calmFixLabel(c.tool, P.short)); row.line = 'More ' + (NEED_NAMES[P.short] || P.short) + ' first'; }
+      else { row.fix = null; row.line = 'More ' + (NEED_NAMES[P.short] || P.short) + ' first'; }
+    }
+    return row;
+  };
+  const _fx = calmFix;
+  calmFix = function (key) {
+    const s = APP.state;
+    if (key === 'upn' && s) {
+      const r = c4UpgradeN(s);
+      if (r.n) {
+        const h = bById(s, r.ids[0]);
+        CALM.tapT = performance.now();
+        if (h) floaterAdd(h.x + 0.5, h.y + 0.5, '−' + money$(r.spent), '#c0392b', false, h.id);
+        try { audioCue('place'); } catch (e) { /* no sound */ }
+        if (h) cameraFlyTo(h.x + 0.5, h.y + 0.5);
+        s.c4upn = (s.c4upn || 0) + 1;
+      }
+      CALM.rowsK = '';
+      return;
+    }
+    return _fx.apply(this, arguments);
+  };
+}
+
+// ---------- B3: Earn more: the money engine in the panel ----------
+// When the landmark (or the palace) is more than about six paydays away at today's income, its row's button is the best
+// next investment (sim/flow.js c4EarnPick): "Earn more · Cigar factory · $9,000"; pale with "In about N paydays" when
+// she cannot pay it yet; "Workers first · Homes · $800" when nobody is free to work there. After the palace the same
+// button stands on "Your island"'s Money row when the month is thin. Its tap arms the tool and flies to a lit spot near
+// its supply (or opens the works' card for its next level).
+function c4Far(s, cost) { return c4Paydays(s, cost) > C4_EARN.far; }
+function c4EarnFix(s) {
+  // (mending first: a works she built that stands for a cause with a fix — no harbour, no field, no road — is the best
+  // money there is; the novice of the smoke built three distilleries and a cigar factory with no harbour and went
+  // $133,000 into the red while Earn more offered a bigger distillery)
+  const w = c4FootWorks(s);
+  if (w) { const f = w.fix; if (f.plan) return { key: 'c4works', label: 'Earn more · Road · ' + money$(f.cost) }; const fx = calmToolFix(f.tool, f.at); fx.label = 'Earn more · ' + toolLabel(f.tool) + ' · ' + money$(fx.cost); return fx; }
+  // (R1: only a safe investment, never pale: c4EarnPick)
+  const e = c4EarnPick(s);
+  if (!e) return null;
+  const name = e.kind === 'up' ? e.name : toolLabel(e.t);
+  return { key: 'earn', label: 'Earn more · ' + name + ' · ' + money$(e.cost), sub: '', poor: false, cost: e.cost };
+}
+// Where the pick's lot should be: by the raw material's fields (a works), by the works that will take its crop (a
+// field), by the pier (a harbor); else nowhere in particular (the nearest lit spot).
+function c4EarnAt(s, e) {
+  const d = BUILDINGS[e.t], raw = d && d.uses ? Object.keys(d.uses)[0] : '';
+  let o = null;
+  if (raw && raw !== 'flour') o = s.b.find((b) => defOf(b).makes === raw);
+  if (!o && e.works !== e.t) o = s.b.find((b) => b.type === e.works) || s.b.find((b) => { const u = defOf(b).uses; return u && u[d.makes] !== undefined; });
+  if (!o && e.t === 'harbor') o = s.b.find((b) => b.type === 'pier');
+  if (!o) o = s.b.find((b) => b.type === 'pier');
+  return o ? [o.x + (o.w >> 1), o.y + (o.h >> 1)] : null;
+}
+{
+  const _lr = calmLandmarkRow;
+  calmLandmarkRow = function (s, lm) {
+    const row = _lr.apply(this, arguments);
+    if (!c4On() || row.ok || !row.fix || !row.fix.poor) return row;
+    const cost = lm.res ? RESIDENCE[lm.res].cost : BUILDINGS[lm.b].cost;
+    const fund = typeof scarceFundN === 'function' ? scarceFundN(s) || 0 : 0;
+    if (c4Paydays(s, cost - fund) > C4_EARN.far) { const f = c4EarnFix(s); if (f) row.fix = f; }
+    return row;
+  };
+  const _cr = calmRows;
+  calmRows = function (s) {
+    const G = _cr.apply(this, arguments);
+    if (!c4On() || !G || !G.rows) return G;
+    // (D: a target higher than the stage before: "▲ 62 %" while the New strip stands)
+    if (c4StripOn() && typeof STAGE_GOALS !== 'undefined') {
+      const a = STAGE_GOALS[s.stage] || {}, z = STAGE_GOALS[s.stage + 1] || {};
+      for (const r of G.rows) if (r.k === 'happy' && a.happy && z.happy > a.happy && r.of) r.of = '▲ ' + r.of;
+    }
+    // the palace's row, as the landmark's
+    const pr = G.rows.find((r) => r.k === 'palace');
+    if (pr && !pr.ok && pr.fix && pr.fix.poor) {
+      const fund = typeof scarceFundN === 'function' ? scarceFundN(s) || 0 : 0;
+      if (c4Paydays(s, TUNE.palaceCost - fund) > C4_EARN.far) {
+        const f = c4EarnFix(s);
+        if (f) pr.fix = f;
+        else {
+          // (the check after the finish: nothing safe to build and the palace far: what the island makes too much of
+          // can be shut, free)
+          const W = c4IdleShut(s);
+          if (W) pr.fix = { key: 'c4close:' + W.b.id, label: 'Shut spare ' + defOf(W.b).name.toLowerCase() + ' · saves ' + money$(W.save) + ' a month', sub: '', poor: false, cost: 0 };
+        }
+      }
+    }
+    // after the palace: the Money row offers it when the month is thin (under a twentieth of the treasury's need: a
+    // payday under $1,000, or red)
+    if (G.keep) {
+      const mo = G.rows.find((r) => r.k === 'money'), r = s.lastReceipt;
+      if (mo && r && r.result < 1000) { const f = c4EarnFix(s); if (f) { mo.ok = false; mo.fix = f; if (!mo.line) mo.line = 'A works for the ship earns more'; } }
+    }
+    return G;
+  };
+  const _fx = calmFix;
+  calmFix = function (key) {
+    const s = APP.state;
+    if (key === 'c4works' && s) { const w = c4FootWorks(s); if (w) { const b = bById(s, w.id); if (b) calmWorksGo(s, b, w.fix); } return; }
+    if ((key === 'earn' || key === 'earnhome') && s) {
+      if (key === 'earnhome') return calmFix('tool:casita');
+      const e = c4EarnPick(s);
+      if (!e) return;
+      C4.earn = { t: e.t, month: c4Month(s, e.t), t0: performance.now() };
+      if (e.kind === 'up') { const b = bById(s, e.id); if (b) { toolSet('look'); cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id); cardOpen(b.id); } return; }
+      const at = c4EarnAt(s, e);
+      return calmFix('tool:' + e.t + (at ? ':' + at[0] + ',' + at[1] : ''));
+    }
+    return _fx.apply(this, arguments);
+  };
+}
+// The armed tool's price tag (the ghost's label, render/iso.js asks): a producer or a service says its month too:
+// "$9,000 · about +$900 a month", "$3,000 · about −$160 a month" (the ghost's own forecast, bForecast). One short line.
+function calmGhostTag(s, type, base) {
+  if (!c4On()) return base;
+  const d = BUILDINGS[type];
+  if (!d || !d.jobs || d.kind === 'home' || d.kind === 'residence') return base;
+  const n = c4Month(s, type);
+  if (!n) return base;
+  const r = Math.abs(n) >= 1000 ? Math.round(n / 100) * 100 : Math.round(n / 10) * 10;
+  return base + ' · about ' + (r >= 0 ? '+' : '−') + money$(Math.abs(r)) + ' a month';
+}
+
+// ---------- C: the works on the map ----------
+// On the calm screen only homes had bubbles: nothing showed that a works stood idle for lack of cane (what she loved:
+// remembering where the distillery was and whether its cane reached it). Now, inside the same budget of six bubbles in
+// view (homes first): a works that made nothing last month for lack of its raw material (the material's picture), whose
+// yard is full because nothing takes its goods (the goods' picture), or with no workers (a person). One bubble a works,
+// gone the month it runs again. Its short card: "Lacks cane" and one button (the field, the road that joins them, the
+// harbor or a market, homes): the measures Details' roof labels use (b.blocked, b.last, b.workers; offers.js stopFix).
+// No roof label.
+// (the cause is the root one: sim/flow.js c4WorksRoot; a field waiting for a works that has no harbor names the harbor)
+function calmWorksBubble(s, b) {
+  if (!c4On()) return null;
+  const r = c4WorksRoot(s, b);
+  if (!r) return null;
+  const f = r.fix;
+  const fix = !f ? null : f.plan ? { plan: f.plan, label: 'Road · ' + money$(f.cost), at: [b.x, b.y] } : { tool: f.tool, label: (f.tool === 'casita' ? 'Homes' : toolLabel(f.tool)) + ' · ' + money$(f.cost), at: [b.x, b.y] };
+  return { icon: r.icon, why: r.why, line: r.line, fix, waits: r.waits || 0 };
+}
+function calmWorksGo(s, b, f) {
+  if (!f) return;
+  if (f.plan) {
+    toolSet('road');
+    APP.ui.hint = { key: 'calmplan', forTool: 'road', text: '', act: { plan: f.plan } }; APP.ui.com = null; comUiUpdate();
+    const p = planOf(s, f.plan); if (p && p.at) cameraFlyTo(p.at[0] + 0.5, p.at[1] + 0.5);
+    return;
+  }
+  calmFix('tool:' + f.tool + (f.at ? ':' + f.at[0] + ',' + f.at[1] : ''));
+}
+function calmWorksOpen(bub) {
+  const s = APP.state, b = bById(s, bub.id), W = b ? calmWorksBubble(s, b) : null, el = $('pop');
+  if (!W) return;
+  const f = W.fix;
+  el.innerHTML = '<div class="cbl"><span class="bub warn">' + iconSvg(W.icon) + '</span><b>' + esc(W.line) + '</b></div>' +
+    '<div class="cbb">' + (f ? '<button class="fixb" data-c4w="1">' + esc(f.label) + '</button>' : '') + '<button class="q" data-c4open="1" aria-label="The works\' card">' + iconSvg('look') + '</button></div>';
+  el.classList.add('show', 'calmpop');
+  clearTimeout(APP.popTimer);
+  const t0 = performance.now();
+  el.onclick = (e) => {
+    const t = e.target.closest && e.target.closest('button');
+    if (!t || performance.now() - t0 < 300) return;
+    el.classList.remove('show', 'calmpop');
+    if (t.dataset.c4open) { cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id); cardOpen(b.id); return; }
+    calmWorksGo(s, b, f);
+  };
+  calmPopPlace();
+}
+{
+  const _tap = tapAt;
+  tapAt = function (sx, sy) {
+    if (calmOn() && APP.state && APP.ui.tool === 'look') {
+      const bub = bubbleAt(sx, sy);
+      if (bub && bub.works) { calmItemsClose(); cardClose(); calmWorksOpen(bub); return; }
+    }
+    return _tap.apply(this, arguments);
+  };
+}
+
+// ---------- D: a new stage is a present ----------
+// v47: confetti, "★ City!" and dots on five tabs. Now the panel's head shows for the stage's first minute (or until she
+// taps it) a strip "New": the pictures of what opened, at most six, the dearest last; a tap on one arms it as the shelf
+// would; new land is one tile "New land" whose tap flies there. The island's picture at that moment is kept in the
+// postcard album ("City · March 1909"), no prompt (the stage photo is kept as before). The tabs keep a dot only for
+// what the strip did not show.
+const C4_STRIP = { ms: 60000, max: 6 };
+function c4StageItems(s) {
+  const out = [];
+  for (const g of BAR_GROUPS) for (const t of barToolsAll(s, g.id)) {
+    if (t.locked || t.id === 'remove' || t.id === 'traffic') continue;
+    const st = TR_TOOLS[t.id] ? TR_TOOLS[t.id].stage : t.id === 'paved' ? PAVED_STAGE : t.id === 'clear' ? TUNE.clearStage : t.id === 'palace' ? STAGES.length - 1 : BUILDINGS[t.id] ? BUILDINGS[t.id].stage : -1;
+    if (st !== s.stage || (t.id === 'palace' && s.palace)) continue;
+    const price = t.price !== undefined ? t.price : BUILDINGS[t.id] ? BUILDINGS[t.id].cost : 0;
+    out.push({ id: t.id, g: g.id, name: t.name, icon: t.icon, price });
+  }
+  return out.sort((a, b) => a.price - b.price);
+}
+function c4NewLand(s) {
+  let n = 0, x = 0, y = 0;
+  for (let i = 0; i < s.region.length; i++) if (s.region[i] === s.stage && s.terrain[i] === GRASS) { n++; x += i % MAP_W; y += (i / MAP_W) | 0; }
+  return n >= 6 ? [x / n, y / n] : null;
+}
+// (the third playtest: at 3x neither Village nor Town was noticed; the strip stays until she uses it or taps it away)
+function c4StripOn() { const S = C4.strip, s = APP.state; return !!(S && s && c4On() && calmOn() && S.st === s.stage); }
+function c4StripHtml() {
+  const S = C4.strip;
+  return '<div class="c4new" role="group" aria-label="New"><button class="c4x" data-c4newx="1" aria-label="Close">' + iconSvg('close') + '</button><b>New</b><div class="c4row">' + S.items.map((o) => '<button data-c4new="' + esc(o.id) + '">' + iconSvg(o.icon) + '<span>' + esc(o.name) + '</span></button>').join('') +
+    (S.land ? '<button data-c4land="1">' + iconSvg('tree') + '<span>New land</span></button>' : '') + '</div></div>';
+}
+// The island at this moment, as a postcard in the album (no prompt): the map's canvas framed as the frame would
+async function c4StagePostcard(stage) {
+  const R = APP.R, s = APP.state;
+  if (!R || !R.canvas || R.kind === 'flat' || typeof pcCompose !== 'function') return;
+  const y = pcYearOf(s.month), st = pcStyleOf(y), mo = s.month % 12, c = R.canvas;
+  const pw = st.pic[2], ph = st.pic[3], k = Math.min(c.width / pw, c.height / ph), sw = Math.round(pw * k * 0.9), sh = Math.round(ph * k * 0.9);
+  const sx = Math.round((c.width - sw) / 2), sy = Math.round((c.height - sh) / 2);
+  const pic = pcCanvas(pw, ph), q = pic.getContext('2d');
+  q.imageSmoothingEnabled = true;
+  q.drawImage(c, sx, sy, sw, sh, 0, 0, pw, ph);
+  const tod = typeof dayClock === 'function' ? dayClock(s) : 720;
+  const info = { year: y, mo, when: MONTHS[mo] + ' ' + y, mon: MONTHS[mo].slice(0, 3).toUpperCase(), hour: pcHour(tod), pop: popCount(s), people: pcPeople(popCount(s)), rate: pcRate(y, mo), st };
+  let card = null, img = null, th = null;
+  try {
+    card = pcCompose(pic, info);
+    img = await pcBlob(card, 0.84);
+    const t = pcCanvas(PC_THUMB, Math.round(PC_THUMB * PC_H / PC_W));
+    t.getContext('2d').drawImage(card, 0, 0, t.width, t.height);
+    th = await pcBlob(t, 0.75);
+    pcFree(t);
+  } catch (e) { img = null; }
+  pcFree(card); pcFree(pic);
+  if (!img) return;
+  const rec = { k: 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36), album: pcAlbumId(), m: s.month, tod, y, style: st.k, und: !!st.und, pop: info.pop, rate: info.rate, t: Date.now(),
+    img: await pcBytes(img), thumb: th ? await pcBytes(th) : null, bytes: img.size, w: PC_W, h: PC_H, title: STAGES[stage].name };
+  await pcKeep(rec);
+  C4.card = rec.k;
+}
+{
+  // the album says "City · March 1909" for a stage's card
+  const _pw = pcWhen;
+  pcWhen = function (r) { const w = _pw.apply(this, arguments); return r && r.title ? r.title + ' · ' + w : w; };
+  const _sc = stageCardOpen;
+  stageCardOpen = function (stage) {
+    const r = _sc.apply(this, arguments), s = APP.state;
+    if (!calmOn() || !c4On() || !s || stage !== s.stage || !stage) return r;
+    const all = c4StageItems(s), items = all.slice(0, C4_STRIP.max);
+    // (the dearest last: the six cheapest in order of price would leave the landmark out; keep the dearest at the end)
+    if (all.length > C4_STRIP.max) { items.pop(); items.push(all[all.length - 1]); }
+    const land = c4NewLand(s);
+    if (land && items.length >= C4_STRIP.max) items.shift();
+    C4.strip = { st: s.stage, items, land, t0: performance.now() };
+    // the celebration at 1x for about five seconds, then her speed again
+    if (APP.speed > 1) { const back = APP.speed; speedSet(1); clearTimeout(C4.spdT); C4.spdT = setTimeout(() => { if (APP.speed === 1) speedSet(back); }, 5000); }
+    // the dots: only the tabs whose new items the strip did not show
+    if (s.calmNew && s.calmNew.st === s.stage) { const shown = new Set(items.map((o) => o.id)); s.calmNew.g = s.calmNew.g.filter((g) => all.some((o) => o.g === g && !shown.has(o.id))); barBuild(); }
+    CALM.goalsHtml = ''; CALM.rowsK = '';
+    setTimeout(() => { c4StagePostcard(stage).catch(() => {}); }, 450);
+    return r;
+  };
+  const _gh = calmGoalsHtml;
+  calmGoalsHtml = function () {
+    const h = _gh.apply(this, arguments);
+    if (!c4StripOn()) return h;
+    // (after the ✕, before the stage's name)
+    const i = h.indexOf('</button>');
+    return i >= 0 ? h.slice(0, i + 9) + c4StripHtml() + h.slice(i + 9) : c4StripHtml() + h;
+  };
+  // the panel stands open for the strip's minute (her choice is not changed)
+  const _go = calmGoalsOpen;
+  calmGoalsOpen = function () { if (c4StripOn() && !C4.strip.shut) return true; return _go.apply(this, arguments); };
+  const _gs = calmGoalsSet;
+  calmGoalsSet = function (on) { if (!on && C4.strip) C4.strip.shut = true; return _gs.apply(this, arguments); };
+  // (the strip goes after its minute: the panel is drawn again)
+  const _cr = calmRender;
+  calmRender = function () { const on = c4StripOn(); if (C4.stripWas && !on) { C4.stripWas = false; CALM.goalsHtml = ''; C4.strip = null; } if (on) C4.stripWas = true; return _cr.apply(this, arguments); };
+}
+function calmFlowInit() {
+  const el = $('calmGoals');
+  if (!el || el.dataset.c4) return;
+  el.dataset.c4 = '1';
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('button[data-c4new], button[data-c4land], button[data-c4idea], button[data-c4ideax], button[data-c4newx]');
+    if (!b) return;
+    e.stopImmediatePropagation();
+    const s = APP.state;
+    if (b.dataset.c4newx) { C4.strip = null; C4.stripWas = false; CALM.goalsHtml = ''; CALM.rowsK = ''; calmRender(); return; }
+    if (b.dataset.c4new || b.dataset.c4land) {
+      const S = C4.strip; C4.strip = null; C4.stripWas = false; CALM.goalsHtml = ''; CALM.rowsK = '';
+      if (b.dataset.c4land && S && S.land) { toolSet('look'); cameraFlyTo(S.land[0], S.land[1]); }
+      else if (b.dataset.c4new) barToolTap(b.dataset.c4new, false);
+      calmRender();
+      return;
+    }
+    if (b.dataset.c4ideax) { c4IdeaClose(s); return; }
+    if (b.dataset.c4idea) c4FootGo(s);
+  }, true);
+  const st = document.createElement('style');
+  st.textContent = [
+    '#calmGoals .c4new { margin: 2px 0 8px; padding: 8px 8px 6px; border-radius: 12px; background: #fff3cf; border: 2px solid #e9c46a; }',
+    '#calmGoals .c4new { position: relative; }',
+    '#calmGoals .c4new .c4x { position: absolute; right: 2px; top: 2px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: transparent; }',
+    '#calmGoals .c4new .c4x .ic { width: 16px; height: 16px; fill: #8a5a12; }',
+    '#calmGoals .c4new > b { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #8a5a12; margin: 0 0 4px 2px; }',
+    '#calmGoals .c4row { display: flex; flex-wrap: wrap; gap: 4px; }',
+    '#calmGoals .c4row button { flex: 0 0 calc(33.33% - 3px); min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 10px; background: #fffaf0; border: 1.5px solid rgba(58,42,31,.18); font-size: 11.5px; font-weight: 800; color: var(--ink); padding: 3px 2px; line-height: 1.1; }',
+    '#calmGoals .c4row button .ic { width: 22px; height: 22px; fill: #7a604b; }',
+    '#calmGoals .c4idea { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 2px dotted rgba(58,42,31,.2); }',
+    '#calmGoals .c4idea .fix { margin: 0; flex: 1; background: var(--paper2); color: var(--ink); }',
+    '#calmGoals .c4idea.act .fix { background: var(--coral); color: #fff7ea; }',
+    '#calmGoals .c4idea .x2 { width: 40px; height: 40px; border-radius: 10px; font-size: 18px; color: #7a604b; background: transparent; }',
+  ].join('\n');
+  document.head.appendChild(st);
+}
+{
+  const _ci = calmInit;
+  calmInit = function () { const r = _ci.apply(this, arguments); calmFlowInit(); return r; };
+}
+
+// ---------- B4: an idea when she is rich ----------
+// When the money in hand is more than three times what the panel's rows ask for and no row has an unpaid fix, the
+// panel's foot shows one optional line: "Idea · a park for the east quarter · $14,000" and its button. It moves a number
+// she sees: a garden or park where homes have no decoration in reach, a service homes lack, a grand project (water
+// works, power station, hospital, university), a works' next level. One at a time; a small ✕ puts that idea away for
+// six months (and the next one shows another). It never counts for the stage and never nags (no bubble, dot or toast).
+const C4_IDEA = { rich: 3, away: 6 };
+function c4Quarter(s, at) {
+  const pier = s.b.find((b) => b.type === 'residence') || s.b.find((b) => b.type === 'pier');
+  if (!pier || !at) return 'the town';
+  const dx = at[0] - pier.x, dy = at[1] - pier.y;
+  if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return 'the old town';
+  return 'the ' + (Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'east' : 'west') : (dy > 0 ? 'south' : 'north')) + ' quarter';
+}
+function c4Ideas(s) {
+  const out = [], homes = homesOccupied(s), ok = (t) => BUILDINGS[t] && BUILDINGS[t].stage <= s.stage && !(BUILDINGS[t].year && yearOf(s) < BUILDINGS[t].year);
+  // a decoration or a park where homes have none in reach
+  const bare = homes.filter((h) => !homeHas(s, h, 'deco'));
+  if (bare.length >= 6) { const t = ok('park') ? 'park' : 'garden', at = homesAt(bare); out.push({ k: 'deco:' + t, t, at, text: (t === 'park' ? 'a park' : 'a flower garden') + ' for ' + c4Quarter(s, at) }); }
+  // a service homes lack
+  for (const need of ['church', 'school', 'clinic', 'park']) {
+    const lack = homes.filter((h) => !homeHas(s, h, need));
+    if (lack.length < 6) continue;
+    let c = null;
+    try { c = needCause(s, need, lack); } catch (e) { c = null; }
+    if (c && c.tool && ok(c.tool) && !out.some((o) => o.t === c.tool)) out.push({ k: 'svc:' + c.tool, t: c.tool, at: c.at || homesAt(lack), text: 'a ' + BUILDINGS[c.tool].name.toLowerCase() + ' for ' + c4Quarter(s, c.at || homesAt(lack)) });
+  }
+  // a grand project
+  for (const t of ['waterworks', 'power', 'hospital', 'university']) if (ok(t) && !countType(s, t)) out.push({ k: 'big:' + t, t, at: null, text: 'the ' + BUILDINGS[t].name.toLowerCase() });
+  // a works' next level
+  for (const e of c4EarnList(s)) if (e.kind === 'up') out.push({ k: 'up:' + e.t, t: e.t, id: e.id, at: null, text: 'a ' + e.name.toLowerCase(), cost: e.cost });
+  for (const o of out) if (o.cost === undefined) o.cost = BUILDINGS[o.t].cost;
+  return out;
+}
+function c4Idea(s, G) {
+  if (!c4On() || !G || !G.rows) return null;
+  const key = s.ver + '|' + s.month + '|' + Math.floor(s.money / 500) + '|' + JSON.stringify((s.c4idea || {}).away || {}) + '|' + G.rows.map((r) => (r.ok ? 1 : 0) + (r.fix ? r.fix.key + (r.fix.poor ? 'p' : '') : '')).join(',');
+  if (C4.ideaK === key) return C4.idea;
+  C4.ideaK = key;
+  C4.idea = c4IdeaPick(s, G);
+  return C4.idea;
+}
+function c4IdeaPick(s, G) {
+  const rows = G.rows.filter((r) => !r.ok);
+  if (rows.some((r) => r.fix && r.fix.poor)) return null;
+  const ask = rows.reduce((a, r) => a + ((r.fix && r.fix.cost) || 0), 0);
+  const I = s.c4idea || {};
+  const list = c4Ideas(s).filter((o) => !(I.away && I.away[o.k] > s.month) && o.cost <= s.money && s.money > C4_IDEA.rich * Math.max(ask, o.cost));
+  return list[0] || null;
+}
+function c4IdeaClose(s) {
+  const G = CALM.rows, o = c4Idea(s, G);
+  if (!o) return;
+  s.c4idea = s.c4idea || { away: {} };
+  s.c4idea.away[o.k] = s.month + C4_IDEA.away;
+  CALM.goalsHtml = ''; CALM.rowsK = ''; C4.footK = ''; C4.ideaK = '';
+  calmRender();
+}
+function c4IdeaGo(s) {
+  const o = c4Idea(s, CALM.rows);
+  if (!o) return;
+  if (o.id) { const b = bById(s, o.id); if (b) { toolSet('look'); cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id); cardOpen(b.id); } return; }
+  calmFix('tool:' + o.t + (o.at ? ':' + o.at[0] + ',' + o.at[1] : ''));
+}
+// The panel's foot: one line by priority (sim/flow.js): a works that stands (its fix), jobs, while she saves, the idea.
+function c4Foot(s, G) {
+  if (!c4On() || !G) return null;
+  const k = s.ver + '|' + s.month + '|' + Math.floor(s.money / 250) + '|' + JSON.stringify((s.c4idea || {}).away || {}) + '|' + (G.rows || []).map((r) => (r.ok ? 1 : 0) + (r.fix ? r.fix.key + (r.fix.poor ? 'p' : '') : '')).join(',');
+  if (C4.footK === k) return C4.foot;
+  C4.footK = k;
+  let o = null;
+  try {
+    const w = c4FootWorks(s);
+    if (w) o = { k: 'works', label: w.text + ' · ' + calmFootFix(w.fix), fix: w.fix, id: w.id };
+    // (R1a: a works of hers loses money and has no fix she can pay: an honest line, its tap opens its card)
+    if (!o) {
+      const L = c4Losing(s);
+      if (L) {
+        // (one answer for one thing: no loss line while the Money row shuts what loses most, or a row's button is this
+        // works' own cure: "Fruit grove · −$88 a month" stood under the food row's "Market · $2,000" in her fourth month,
+        // and "Rum distillery · −$632" under the Money row's "Rum distillery · −$448")
+        const cure = L.root && L.root.fix ? L.root.fix.tool : '';
+        const dup = (G.rows || []).some((r) => r.fix && (/^c4close:/.test(r.fix.key || '') || (cure && calmFixTool(r.fix) === cure)));
+        if (dup) { C4.foot = null; return null; }
+        // (a works that stands for a cause says the cause: "Bakery · $77 a month" was a bakery short of wheat that still earned)
+        const why = L.root && L.root.line ? L.root.line.charAt(0).toLowerCase() + L.root.line.slice(1) : '';
+        o = { k: 'loss', label: defOf(L.b).name + ' · ' + (why && !(L.avg < 0) ? why : money$(Math.round(L.avg)) + ' a month'), id: L.b.id, look: true };
+      }
+    }
+    // (one button for one thing: not when a row's Earn more already arms the same tool)
+    if (!o) { const j = c4FootJobs(s), e = (G.rows || []).some((r) => r.fix && r.fix.key === 'earn') ? c4EarnPick(s) : null; if (j && !(e && e.t === j.fix.tool)) o = { k: 'jobs', label: j.text + ' · ' + calmFootFix(j.fix), fix: j.fix }; }
+    // (only one "earn" on screen: not while a row's button is Earn more)
+    if (!o && !(G.rows || []).some((r) => r.fix && r.fix.key === 'earn') && (G.rows || []).some((r) => (r.k === 'landmark' || r.k === 'palace') && !r.ok)) {
+      const v = c4FootSave(s);
+      if (v) o = { k: 'save', label: v.text + ' · ' + calmFootFix(v.fix) + (v.month > 0 ? ' · +' + money$(Math.round(v.month / 10) * 10) + ' a month' : ''), fix: v.fix };
+    }
+    if (!o) { const i = c4Idea(s, G); if (i) o = { k: 'idea', label: 'Idea · ' + i.text + ' · ' + money$(i.cost), idea: true }; }
+  } catch (e) { o = null; }
+  // (R3: in the red the Money row's Close is the way out; nothing that costs money below it)
+  if (o && s.money < 0 && o.k !== 'loss') o = null;
+  // (R4: while she saves for the stage's building the line is pale)
+  if (o && !o.look) o.sec = c4Saving(s);
+  C4.foot = o;
+  return o;
+}
+function calmFootFix(f) { return f.up ? 'next level · ' + money$(f.cost) : f.plan ? 'Road · ' + money$(f.cost) : (f.tool === 'casita' ? 'Homes' : toolLabel(f.tool)) + ' · ' + money$(f.cost); }
+function c4FootGo(s) {
+  const o = C4.foot;
+  if (!o) return;
+  if (o.idea) return c4IdeaGo(s);
+  if (o.look) { const b = bById(s, o.id); if (b) { toolSet('look'); cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id); cardOpen(b.id); } return; }
+  const f = o.fix;
+  if (o.k === 'jobs' && f.tool) c4Use(s, 'jobs:' + f.tool, 'jobs');
+  if (f.up) { const b = bById(s, f.up); if (b) { toolSet('look'); cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2, null, b.id); cardOpen(b.id); } return; }
+  if (o.k === 'works') { const b = bById(s, o.id); if (b) return calmWorksGo(s, b, f); }
+  let at = f.at || null;
+  if (!at && f.works) { const e = { t: f.tool, works: f.works }; at = c4EarnAt(s, e); }
+  calmFix('tool:' + f.tool + (at ? ':' + at[0] + ',' + at[1] : ''));
+}
+{
+  const _gh = calmGoalsHtml;
+  calmGoalsHtml = function (s, G) {
+    const h = _gh.apply(this, arguments);
+    // (not while the New strip stands: the panel never scrolls)
+    const o = c4StripOn() ? null : c4Foot(s, G);
+    if (!o) return h;
+    return h + '<div class="c4idea' + (o.idea || o.look || o.sec ? '' : ' act') + '"><button class="fix" data-c4idea="1">' + esc(o.label) + '</button>' + (o.idea ? '<button class="x2" data-c4ideax="1" aria-label="Not now">✕</button>' : '') + '</div>';
+  };
+}
+
+// ---------- A6 / A7: Undo stays; a touch drag pans and carries no ghost ----------
+// The third playtest: the Undo chip was gone a second after the grove went up. A road's Undo (v44's, roads_ui.js) still
+// alive from the road before took the chip over and then ran out with it. A building's (or a stroke's) Undo now ends the
+// road's, and stays 7 seconds.
+{
+  const _us = calmUndoSet;
+  calmUndoSet = function (u) {
+    if (!c4On()) return _us.apply(this, arguments);
+    if (u && u.kind !== 'road' && APP.ui.undo) { APP.ui.undo = null; try { roadUndoRender(); } catch (e) { /* as it was */ } }
+    const ms = CALM.undoMs;
+    CALM.undoMs = Math.max(ms, 7000);
+    try { return _us.apply(this, arguments); } finally { CALM.undoMs = ms; }
+  };
+}
+// A press with a building armed pans on a drag: Home off its lit lots (on its lots it paints), any building on touch.
+function calmArmedPan(e) {
+  if (!APP.state || !calmOn() || !c4On() || !BUILDINGS[APP.ui.tool] || APP.ui.move) return false;
+  return APP.ui.tool === 'casita' || (e && e.pointerType !== 'mouse');
+}
+
+// ---------- A9: the Traffic legend's ✕ by touch; the happiness note closes when a tab or a tool opens ----------
+// The legend's content is written again by the traffic modules every frame, so a touch's click could land on a node
+// already gone (three dead taps in the playtest). On the calm screen the legend closes on the release itself.
+function c4LegendHook() {
+  if (C4.legendHook) return;
+  C4.legendHook = true;
+  document.addEventListener('pointerup', (e) => {
+    const t = e.target && e.target.closest ? e.target.closest('#trlegend') : null;
+    if (t && calmOn() && c4On() && APP.ui.layer === 'traffic') trafficToggle(false);
+  }, true);
+}
+{
+  const _hu = hudUpdate;
+  hudUpdate = function () { const r = _hu.apply(this, arguments); if (calmOn()) c4LegendHook(); return r; };
+  const _tt = barTabTap;
+  barTabTap = function () { if (calmOn() && c4On()) { const p = $('pop'); if (p && p.classList.contains('show') && !p.classList.contains('calmpop')) p.classList.remove('show'); } return _tt.apply(this, arguments); };
+  const _ts = toolSet;
+  toolSet = function (tool) { if (calmOn() && c4On() && tool !== 'look') { const p = $('pop'); if (p && p.classList.contains('show')) p.classList.remove('show', 'calmpop'); } return _ts.apply(this, arguments); };
+}
+
+// The works' short card: the root cause's line first (above its month's number), its fix the first button.
+{
+  const _bc = calmBuildingCard;
+  calmBuildingCard = function (s, b) {
+    const m = _bc.apply(this, arguments);
+    if (!c4On() || !m) return m;
+    const W = calmWorksBubble(s, b);
+    if (!W) return m;
+    m.line = W.line; m.ok = false; m.c4first = true;
+    // (the finish: Close stays the second button, so two taps still close a works whose cause she will not fix now)
+    if (W.fix) { const rest = (m.btns || []).filter((x) => x && x.c4w === undefined), op = rest.find((x) => x.sel === '#cardOpen'); m.btns = [{ sel: 'x-c4w', c4w: b.id, label: W.fix.label, cls: 'fixb' }].concat(op ? [op] : rest).slice(0, 2); }
+    return m;
+  };
+  const _ch = calmCardHtml;
+  calmCardHtml = function (m) {
+    let h = _ch.apply(this, arguments);
+    for (const x of m.btns || []) if (x.c4w) h = h.replace('data-src="x-c4w"', 'data-c4w="' + x.c4w + '"');
+    if (m.c4first) { const cn = h.match(/<div class="cn">[\s\S]*?<\/div>/), cl = h.match(/<div class="cl[^"]*">[\s\S]*?<\/div>/); if (cn && cl) h = h.replace(cn[0], '\u0000').replace(cl[0], cn[0]).replace('\u0000', cl[0]); }
+    return h;
+  };
+}
+function calmWorksCardInit() {
+  const el = $('calmCard');
+  if (!el || el.dataset.c4w) return;
+  el.dataset.c4w = '1';
+  el.addEventListener('click', (e) => {
+    const t = e.target.closest && e.target.closest('button[data-c4w]');
+    if (!t) return;
+    e.stopImmediatePropagation();
+    const s = APP.state, b = bById(s, +t.dataset.c4w), W = b ? calmWorksBubble(s, b) : null;
+    if (!W) return;
+    cardClose();
+    calmWorksGo(s, b, W.fix);
+  }, true);
+}
+{
+  const _ai = audioInit;
+  audioInit = function () { const r = _ai.apply(this, arguments); calmWorksCardInit(); return r; };
+}
+
+// ---------- E: portrait and the view ----------
+// The third playtest in portrait (820 x 1180): the ⋯ tray, a layer's legend and the money card stacked over each other;
+// the goals panel covered the lit lots of the tool she had armed; a bubble's card lay over the panel; a new island
+// opened half on the sea. Now one overlay at a time, the panel tucks to its chip while a tool is armed or a bubble's
+// card is open (portrait), and an island opens on its land: between the pier and the governor's house.
+function c4Portrait() { return window.innerHeight > window.innerWidth; }
+{
+  const _go = calmGoalsOpen;
+  calmGoalsOpen = function () {
+    if (calmOn() && c4On() && c4Portrait() && APP.state) {
+      if (APP.ui.tool !== 'look') return false;
+      const p = $('pop');
+      if (p && p.classList.contains('show') && p.classList.contains('calmpop')) return false;
+    }
+    return _go.apply(this, arguments);
+  };
+  // the tray and the money card: one at a time; a layer's legend steps aside while either is open
+  const _ts = calmTraySet;
+  calmTraySet = function (on) {
+    if (on && calmOn() && c4On() && $('sheet') && $('sheet').classList.contains('show')) { try { sheetClose(); } catch (e) { /* as it was */ } }
+    return _ts.apply(this, arguments);
+  };
+  const _mo = moneyOpen;
+  moneyOpen = function () { if (calmOn() && c4On() && $('calmTray') && $('calmTray').classList.contains('show')) calmTraySet(false); return _mo.apply(this, arguments); };
+  const _hu = hudUpdate;
+  hudUpdate = function () {
+    const r = _hu.apply(this, arguments);
+    if (calmOn() && c4On()) {
+      const sh = !!($('sheet') && $('sheet').classList.contains('show')), tr = !!($('calmTray') && $('calmTray').classList.contains('show'));
+      document.body.classList.toggle('c4over', sh || (tr && c4Portrait()));
+    } else document.body.classList.remove('c4over');
+    return r;
+  };
+  const st = document.createElement('style');
+  st.textContent = 'body.calm.c4over #trlegend, body.calm.c4over #lvlegend, body.calm.c4over #bmlegend, body.calm.c4over #moneyLegend { visibility: hidden !important; }';
+  document.head.appendChild(st);
+  // the island opens on its land
+  const _vh = viewHome;
+  viewHome = function () {
+    const r = _vh.apply(this, arguments), s = APP.state;
+    if (!calmOn() || !c4On() || !s) return r;
+    const p = s.b.find((b) => b.type === 'pier'), h = s.b.find((b) => b.type === 'residence');
+    if (p && h) { APP.view.cx = (p.x + 2 * (h.x + h.w / 2)) / 3; APP.view.cy = (p.y + 2 * (h.y + h.h / 2)) / 3; viewClamp(); }
+    return r;
+  };
+}
+// (A1: the snap's own money check: free is free, also a few dollars in the red)
+{
+  const _sn = snapFoot;
+  snapFoot = function (type) {
+    const f = _sn.apply(this, arguments);
+    if (f && f.why && C4_FREE.includes(type) && BUILDINGS[type].cost === 0 && /^Not enough money/.test(f.why)) f.why = '';
+    return f;
+  };
+}
+
+// The armed item's price tag on the shelf says its month too ("$5,000" over "about +$210 a month"): on touch the ghost
+// shows only where she taps, so the shelf is where she reads it before she builds.
+{
+  const _bm = barMark;
+  barMark = function () { const r = _bm.apply(this, arguments); c4ShelfTag(); return r; };
+  const _bp = barPoor;
+  barPoor = function () { const r = _bp.apply(this, arguments); c4ShelfTag(); return r; };
+  const st = document.createElement('style');
+  // (a fourth line in a 68 px item made it 77 px tall, the shelf jumped and the picture and the tag met its edges: with
+  // the tag the picture gives way, 28 to 18 px, and the item keeps its height)
+  st.textContent = 'body.calm #bar .tool small.c4m { display: block; font-size: 10px; line-height: 11px; font-weight: 700; white-space: nowrap; margin-top: -1px; }' +
+    'body.calm #bar .tool.c4t { gap: 1px; padding-bottom: 4px; } body.calm #bar .tool.c4t .ic { width: 18px; height: 18px; } body.calm #bar .tool.c4t > span { line-height: 14px; } body.calm #bar .tool small.c4m.c4l { font-size: 9px; letter-spacing: -0.2px; }';
+  document.head.appendChild(st);
+}
+function c4ShelfTag() {
+    const s = APP.state;
+    if (!s || !calmOn() || !c4On()) return;
+    $('bar').querySelectorAll('.tool').forEach((b) => {
+      const id = b.dataset.tool, small = b.querySelector('small');
+      if (!small) return;
+      const on = b.classList.contains('on') && BUILDINGS[id] && !b.classList.contains('locked');
+      const tag = on ? calmGhostTag(s, id, '') : '';
+      // (beside the price, not in it: the shelf keeps its price text in small's dataset)
+      // ("+$150/month", as the road's "$50/tile": "about +$150 a month" was wider than the item and ran under its neighbours)
+      const was = b.querySelectorAll('.c4m'), txt = tag.replace(/^ · /, '').replace(/^about /, '').replace(/ a month$/, '/month');
+      b.classList.toggle('c4t', !!tag);
+      if (was.length === 1 && was[0].textContent === txt) return;
+      was.forEach((e) => e.remove());
+      if (tag) { const ex = document.createElement('small'); ex.className = 'c4m' + (txt.length > 11 ? ' c4l' : ''); ex.textContent = txt; b.appendChild(ex); }
+    });
+}
+
+// (A2) A tap on the item she has armed (the Homes tab armed Home): its lit spots come into view, as an item's tap always
+// did (the tab itself no longer moves the view).
+{
+  const _bt = barToolTap;
+  barToolTap = function (id, locked) {
+    const s = APP.state;
+    if (s && calmOn() && c4On() && !locked && BUILDINGS[id] && APP.ui.tool === id) { calmLitShow(id); return; }
+    return _bt.apply(this, arguments);
+  };
+}
+
+// ---------- R1-R4: safe money advice, a way out of the red, saving for the stage's building (the finish of C4) ----------
+// (sim/flow.js: c4SafeOk, c4JobsPick, c4Losing, c4CloseWorst, c4Saving; the smoke's novice who taps only lit buttons)
+// The tool a fix arms ('' when it arms none).
+function calmFixTool(f) { const m = f && /^tool:([a-z0-9_]+)/.exec(f.key || ''); return m ? m[1] : ''; }
+{
+  const _cr4 = calmRows;
+  calmRows = function (s) {
+    const G = _cr4.apply(this, arguments);
+    if (!c4On() || !G || !G.rows) return G;
+    // R3: out of the red. The Money row names what loses most and closes it for nothing; no button that costs is lit.
+    if (s.money < 0) {
+      // (while red, the building that loses most can always be closed: the way out that costs nothing)
+      const r = s.lastReceipt, res = r ? r.result : 0, W = c4CloseWorst(s);
+      let mo = G.rows.find((x) => x.k === 'money');
+      if (!mo) { mo = { k: 'money', icon: 'coin', name: 'Money', n: money$(s.money), of: '', frac: 0, ok: false, nobar: true, line: '', fix: null }; G.rows.unshift(mo); G.rows = G.rows.slice(0, 4); }
+      mo.ok = false;
+      // (the card's own word since C3: "Shut"; the line names the building, the button says what its shutting saves)
+      const rt = W && W.idle && !W.spare ? c4WorksRoot(s, W.b) : null;
+      if (W) { mo.line = defOf(W.b).name + (W.spare ? ' · more than the markets take' : rt && rt.line ? ' · ' + rt.line.charAt(0).toLowerCase() + rt.line.slice(1) : ' loses most'); mo.fix = { key: 'c4close:' + W.b.id, label: 'Shut · saves ' + money$(W.save) + ' a month', sub: '', poor: false, cost: 0 }; }
+      else { mo.line = res > 0 ? 'Back above zero in about ' + plural(Math.ceil(-s.money / res), 'payday', 'paydays') : 'Upkeep and wages above income'; mo.fix = res > 0 ? null : { key: 'money', label: 'Where it goes' }; }
+      for (const x of G.rows) {
+        const f = x.fix;
+        if (x === mo || !f || f.key === 'money' || f.key === 'desk' || (f.cost === 0 && /^tool:/.test(f.key))) continue;
+        if (f.cost > 0 || /^(tool|plan|upn|sel|earn|res|jam)/.test(f.key)) { f.poor = true; if (!f.sub && f.cost) f.sub = calmWhen(f.cost); }
+      }
+      return G;
+    }
+    // R4: saving for the stage's building: its row counts the money; every other spending button is pale
+    if (c4Saving(s)) {
+      const lm = G.rows.find((x) => (x.k === 'landmark' || x.k === 'palace') && !x.ok);
+      if (lm) {
+        const fund = typeof scarceFundN === 'function' ? scarceFundN(s) || 0 : 0, have = Math.max(0, s.money) + fund;
+        const sc = stageConds(s), L = sc.next && sc.next.landmark, cost = lm.k === 'palace' ? TUNE.palaceCost : L && L.res ? RESIDENCE[L.res].cost : L ? BUILDINGS[L.b].cost : 0;
+        if (cost && have < cost) lm.line = money$(Math.floor(have / 100) * 100) + ' of ' + money$(cost);
+      }
+      for (const x of G.rows) if (x !== lm && x.fix && x.fix.key !== 'money' && x.fix.key !== 'desk' && !/^jam:/.test(x.fix.key)) x.fix.sec = true;
+    }
+    return G;
+  };
+  // a row's button: Close (R3), and the record a fix leaves for R2
+  const _fx4 = calmFix;
+  calmFix = function (key) {
+    const s = APP.state;
+    if (s && /^c4close:/.test(key || '')) {
+      const b = bById(s, +key.split(':')[1]);
+      if (b && a8Close(s, b.id)) { CALM.tapT = performance.now(); floaterAdd(b.x + b.w / 2, b.y + b.h / 2, 'Closed', '#7a604b', false, b.id); cameraFlyTo(b.x + b.w / 2, b.y + b.h / 2); }
+      CALM.rowsK = '';
+      return;
+    }
+    if (s && c4On() && CALM.rows && CALM.rows.rows) {
+      const same = CALM.rows.rows.filter((x) => x.fix && x.fix.key === key), row = same.find((x) => x.k === 'food' || x.k === 'happy') || same[0], t = row ? calmFixTool(row.fix) : '';
+      if (row && (row.k === 'food' || (row.k === 'happy' && /without food/.test(row.line || ''))) && t) c4Use(s, 'food:' + t, 'fed');
+      else if (row && row.k === 'happy' && t) {
+        const jobs = /without work|No jobs/.test(row.line || '');
+        c4Use(s, (jobs ? 'jobs:' : 'happy:') + t, jobs ? 'jobs' : 'happy');
+        if (jobs) s.c4sugT = t;
+      }
+    }
+    return _fx4.apply(this, arguments);
+  };
+  // the pale (secondary) button: tappable, not lit
+  const _gh4 = calmGoalsHtml;
+  calmGoalsHtml = function (s, G) {
+    let h = _gh4.apply(this, arguments);
+    if (!c4On() || !G || !G.rows) return h;
+    for (const r of G.rows) if (r.fix && r.fix.sec && !r.fix.poor) h = h.replace('<button class="fix" data-fix="' + esc(r.fix.key) + '"', '<button class="fix poor sec" data-fix="' + esc(r.fix.key) + '"');
+    return h;
+  };
+}
+
+// ---- src/ui/alive.js
+// Alive (15 Nov 2026): small living things that make watching the island a pleasure. Drawing and sound only: nothing
+// here is read by the simulation, nothing is saved, no word of text, no tap needed.
+//   clouds      large soft shadows drifting over the island by day (none at night, none in a shower)
+//   rain        now and then a tropical shower (more in May-October, the wet season): fine slanted rain, the light a
+//               little cooler, rings on the sea; worked out from the island's seed and the month, so a reload shows
+//               the same weather; never in the first three months, never two days running (a day is 9 months)
+//   rainbow     after a shower by day, for a short while
+//   glints      sun on the open sea by day, a warmer band at dusk and dawn, a few silver glints of the moon at night
+//   gulls       a small flock crosses the bay now and then; two wheel over the ship while she is in. By day only
+//   dolphins    rarely, a pod arcs through the open sea for a few seconds (only where open sea is in view)
+//   fireworks   the evening after a new stage (by day they wait for dusk), and when the year turns by night with
+//               happiness at 60 % or more: about ten seconds over the Governor's residence, a glow on the roofs, soft
+//               pops through the game's sound
+//   butterflies over flower gardens and parks by day; fireflies at dusk by parks, groves and the forest
+//   sound       a soft rain made of filtered noise, through the music switch and its volume (no audio files)
+// Switches: TUNE.aliveOff turns everything off. window.NOVA_ALIVE (an object set before the game starts, for the
+// tests): { off: 1 } everything off; { rain: 1 } forces an effect on (it happens now, again and again), { clouds: 0 }
+// forces it off. With prefers-reduced-motion only the still parts show (the cooler light in rain, the rainbow).
+// Where it draws: inside the renderer's frame at the moment the map is painted and its marks are not yet (the renderer
+// reads ui.hudRects there, the postcard's hook): bubbles, lit lots, ghosts, labels and the layers stay on top. While a
+// tool is armed or a layer is on, the weather fades to almost nothing. A postcard is copied before this layer: dry.
+// Cost: cached off-screen pictures for the soft shapes (cloud, rainbow, glow), one path per kind, no allocation in the
+// frame (ALV.stats.ms: what this layer took in the last frame, smoothed).
+
+const ALIVE_ROT = [[1, 0, 0, 1, 0, 0], [0, -1, 1, 0, MAP_H, 0], [-1, 0, 0, -1, MAP_W, MAP_H], [0, 1, -1, 0, 0, MAP_W]];
+// the parts that do not move: shown with prefers-reduced-motion
+const ALIVE_STILL = { rain: 1, rainbow: 1 };
+const ALIVE_KINDS = ['clouds', 'rain', 'rainbow', 'glints', 'gulls', 'dolphins', 'fireworks', 'butterflies', 'fireflies', 'sound'];
+const ALIVE_FW_COLS = ['#ffc21a', '#ff4a36', '#ff5fb4', '#4fe06a', '#3fc4ff', '#fff6e0'];
+const ALIVE_BFLY = ['#f2c75a', '#fbf3df', '#ef8a5c', '#9fd0f0', '#f3a7c4'];
+
+const ALV = {
+  T: 0, last: 0, dt: 0, on: false, uiK: 1, inDraw: false, drawn: false, reduced: false, cfg: null,
+  // the frame's view (set before the draw): origin, half a tile's width, turn, from above, device px, screen size
+  ox: 0, oy: 0, hw: 40, r: 0, top: false, d: 1, W: 0, H: 0, px: 0, py: 0, wx: 0, wy: 0, bx0: 0, by0: 0, bx1: 0, by1: 0,
+  // the island's masks and lists (made again when the island changes)
+  key: '', wet: null, open: null, deep: null, flowers: [], groves: [], forest: [], pier: null, home: null,
+  showers: { seed: null, upto: -1, last: -99, list: [] },
+  // this frame's weather and light
+  dark: 0, rain: 0, bow: 0, mp: 0, tod: 0, band: 0.64,
+  sRef: null, stage: 0, year: 0, fwDue: null, fw: null,
+  gull: null, gullE: -1, gullAt: -1, pod: null, podE: -1, podAt: -1,
+  spr: { cloud: null, bow: null, glow: {} },
+  snd: { src: null, gain: null, t: 0, lvl: 0, noise: null },
+  drops: null, stats: { ms: 0, last: 0, clouds: 0, drops: 0, rings: 0, glints: 0, gulls: 0, dolphins: 0, fw: 0, flies: 0, bow: 0, cool: 0 },
+};
+
+function aliveHash(a, b) { let h = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+
+// 1: forced on, 0: off, -1: as the island's own clock says.
+function aliveWant(k) {
+  if (TUNE.aliveOff) return 0;
+  if (ALV.reduced && !ALIVE_STILL[k]) return 0;
+  const o = ALV.cfg;
+  if (o && o[k] !== undefined) return o[k] ? 1 : 0;
+  if (o && o.off) return 0;
+  return -1;
+}
+
+// ---------- the view's projection (the renderer's own, from R after its frame set it up) ----------
+function aliveV2S(u, v, z) {
+  if (ALV.top) { const t = ALV.hw * 1.4; ALV.px = ALV.ox + u * t; ALV.py = ALV.oy + v * t - z * t * 0.2; return; }
+  ALV.px = ALV.ox + (u - v) * ALV.hw; ALV.py = ALV.oy + (u + v) * ALV.hw / 2 - z * ALV.hw * 0.95;
+}
+function aliveW2S(x, y, z) { const m = ALIVE_ROT[ALV.r]; aliveV2S(m[0] * x + m[1] * y + m[4], m[2] * x + m[3] * y + m[5], z); }
+function aliveS2W(sx, sy) {
+  const m = ALIVE_ROT[ALV.r];
+  let u, v;
+  if (ALV.top) { const t = ALV.hw * 1.4; u = (sx - ALV.ox) / t; v = (sy - ALV.oy) / t; } else { const a = (sx - ALV.ox) / ALV.hw, b = (sy - ALV.oy) / (ALV.hw / 2); u = (a + b) / 2; v = (b - a) / 2; }
+  const du = u - m[4], dv = v - m[5];
+  ALV.wx = m[0] * du + m[2] * dv; ALV.wy = m[1] * du + m[3] * dv;
+}
+// screen px a unit of height lifts
+function aliveZ() { return ALV.top ? ALV.hw * 1.4 * 0.2 : ALV.hw * 0.95; }
+function aliveWorldXf(g) {
+  const m = ALIVE_ROT[ALV.r], d = ALV.d, z = ALV.hw, ox = ALV.ox, oy = ALV.oy;
+  if (ALV.top) { const t = z * 1.4; g.setTransform(d * m[0] * t, d * m[2] * t, d * m[1] * t, d * m[3] * t, d * (m[4] * t + ox), d * (m[5] * t + oy)); return; }
+  g.setTransform(d * (m[0] - m[2]) * z, d * (m[0] + m[2]) * z / 2, d * (m[1] - m[3]) * z, d * (m[1] + m[3]) * z / 2, d * ((m[4] - m[5]) * z + ox), d * ((m[4] + m[5]) * z / 2 + oy));
+}
+function aliveOnScr(m) { return ALV.px > -m && ALV.px < ALV.W + m && ALV.py > -m && ALV.py < ALV.H + m; }
+
+// ---------- the island: where the sea is open, what grows ----------
+function aliveIsland(s) {
+  const key = s.seed + '|' + s.ver + '|' + s.b.length + '|' + s.stage;
+  if (key === ALV.key) return;
+  ALV.key = key;
+  const N = MAP_W * MAP_H, wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wet[i] = s.terrain[i] === SEA && !(s.road && s.road[i]) ? 1 : 0;
+  const flowers = [], groves = [];
+  let pier = null, home = null;
+  for (const b of s.b) {
+    for (let y = Math.max(0, b.y); y < Math.min(MAP_H, b.y + b.h); y++) for (let x = Math.max(0, b.x); x < Math.min(MAP_W, b.x + b.w); x++) wet[y * MAP_W + x] = 0;
+    const def = typeof defOf === 'function' ? defOf(b) : null;
+    if (b.type === 'garden' || b.type === 'park' || (def && (def.deco === 'garden' || def.gives === 'park'))) flowers.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, w: b.w, h: b.h, id: b.id });
+    else if (b.type === 'grove') groves.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, w: b.w, h: b.h, id: b.id });
+    if (b.type === 'pier' && !pier) pier = b;
+    if (b.type === 'residence') home = b;
+  }
+  // open: wet with every neighbour wet (or off the map: the open sea); deep: open two tiles further
+  const erode = (src) => { const o = new Uint8Array(N); for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) { if (!src[y * MAP_W + x]) continue; let ok = 1; for (let dy = -1; dy <= 1 && ok; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < MAP_W && Y < MAP_H && !src[Y * MAP_W + X]) { ok = 0; break; } } o[y * MAP_W + x] = ok; } return o; };
+  ALV.wet = wet; ALV.open = erode(wet); ALV.deep = erode(erode(ALV.open));
+  const forest = [];
+  for (let i = 0; i < N && forest.length < 260; i++) if (s.terrain[i] === FOREST && aliveHash(i * 7 + 3, s.seed | 0) < 0.1) forest.push(i);
+  ALV.flowers = flowers; ALV.groves = groves; ALV.forest = forest; ALV.pier = pier; ALV.home = home;
+}
+function aliveSea(mask, x, y) { const i = Math.floor(x), j = Math.floor(y); if (i < 0 || j < 0 || i >= MAP_W || j >= MAP_H) return 1; return mask[j * MAP_W + i]; }
+
+// ---------- the weather: the island's showers, from its seed and the month ----------
+// A month may hold a shower (wet season May-October 25 %, dry months 5 %); at least 10 months (more than a day of the
+// clock, 9 months) after the last; never before month 3. A shower lasts 0.8-1.4 months (2-4 hours of the clock); its
+// rainbow the half month after it. Worked out in order from month 0, kept in memory only.
+function aliveShowers(s) {
+  const W = ALV.showers;
+  if (W.seed !== s.seed || s.month < W.upto - 2) { W.seed = s.seed; W.upto = -1; W.last = -99; W.list = []; }
+  for (let m = W.upto + 1; m <= s.month + 1; m++) {
+    W.upto = m;
+    if (m < 3) continue;
+    const moy = m % 12, p = moy >= 4 && moy <= 9 ? 0.25 : 0.05;
+    if (aliveHash((s.seed | 0) * 31 + m, 7701) < p && m - W.last >= 10) {
+      W.last = m;
+      W.list.push(m + 0.08 + 0.45 * aliveHash(m, (s.seed | 0) + 7702), 0.8 + 0.6 * aliveHash(m, (s.seed | 0) + 7703));
+    }
+  }
+}
+function aliveWeather(s) {
+  aliveShowers(s);
+  const L = ALV.showers.list, mp = s.month + (s.mt || 0) / TUNE.ticksPerMonth;
+  let rain = 0, bow = 0;
+  for (let i = L.length - 2; i >= 0 && L[i] > mp - 3; i -= 2) {
+    const a = L[i], e = a + L[i + 1];
+    if (mp >= a && mp <= e) rain = Math.max(rain, Math.min(1, (mp - a) / 0.12, (e - mp) / 0.15));
+    if (mp >= e - 0.05 && mp <= e + 0.55) bow = Math.max(bow, Math.min(1, (mp - e + 0.05) / 0.12, (e + 0.55 - mp) / 0.15));
+  }
+  ALV.mp = mp;
+  const wr = aliveWant('rain'), wb = aliveWant('rainbow');
+  ALV.rain = wr === 1 ? 1 : wr === 0 ? 0 : rain;
+  // the sun comes back: a rainbow only by day
+  const sun = Math.max(0, 1 - ALV.dark * 2.5);
+  ALV.bow = (wb === 1 ? 1 : wb === 0 ? 0 : bow) * sun;
+}
+// For the tests and the console: the island's next showers (month, length) from a month on.
+function aliveForecast(n, from) {
+  const s = APP.state; if (!s) return [];
+  const keep = s.month; aliveShowers(s);
+  const W = ALV.showers, out = [];
+  // (look ahead without touching the island: a copy of its month)
+  const t = { seed: s.seed, month: Math.max(keep, (from || 0) + 24 * (n || 6)) };
+  aliveShowers(t);
+  for (let i = 0; i < W.list.length; i += 2) if (W.list[i] >= (from || 0)) out.push([+W.list[i].toFixed(2), +W.list[i + 1].toFixed(2)]);
+  W.seed = null; aliveShowers(s);
+  return out.slice(0, n || 6);
+}
+
+// ---------- the cached pictures ----------
+function aliveCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function aliveCloudSpr(v) {
+  const C = ALV.spr.cloud || (ALV.spr.cloud = []);
+  if (C[v]) return C[v];
+  const c = aliveCanvas(256, 176), g = c.getContext('2d');
+  // a few soft lobes: a cumulus's shadow
+  for (let k = 0; k < 7; k++) {
+    const x = 128 + (aliveHash(k + v * 17, 3) - 0.5) * 120, y = 88 + (aliveHash(k + v * 17, 4) - 0.5) * 60, r = 38 + aliveHash(k + v * 17, 5) * 34;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, 'rgba(24,36,62,0.5)'); gr.addColorStop(0.55, 'rgba(24,36,62,0.32)'); gr.addColorStop(1, 'rgba(24,36,62,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 176);
+  }
+  // no lobe is darker than another: the whole shadow is one soft shape (the lobes' sum held to a ceiling)
+  const im = g.getImageData(0, 0, 256, 176), a = im.data;
+  for (let i = 3; i < a.length; i += 4) a[i] = Math.min(150, a[i] * 1.15);
+  g.putImageData(im, 0, 0);
+  C[v] = c;
+  return c;
+}
+function aliveBowSpr() {
+  if (ALV.spr.bow) return ALV.spr.bow;
+  const W = 600, H = 316, c = aliveCanvas(W, H), g = c.getContext('2d'), cx = W / 2, cy = H, r0 = 238, r1 = 298;
+  const gr = g.createRadialGradient(cx, cy, r0, cx, cy, r1);
+  const st = [[0, 'rgba(150,120,215,0)'], [0.12, 'rgba(150,120,215,0.42)'], [0.27, 'rgba(98,140,230,0.6)'], [0.43, 'rgba(96,196,150,0.66)'], [0.58, 'rgba(250,228,104,0.72)'], [0.72, 'rgba(250,168,84,0.7)'], [0.87, 'rgba(232,96,84,0.6)'], [1, 'rgba(232,96,84,0)']];
+  for (const [o, col] of st) gr.addColorStop(o, col);
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  // its feet fade into the sea
+  g.globalCompositeOperation = 'destination-in';
+  const fd = g.createLinearGradient(0, 0, 0, H);
+  fd.addColorStop(0, 'rgba(0,0,0,1)'); fd.addColorStop(0.5, 'rgba(0,0,0,0.9)'); fd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = fd; g.fillRect(0, 0, W, H);
+  ALV.spr.bow = c;
+  return c;
+}
+function aliveGlowSpr(col) {
+  const G = ALV.spr.glow;
+  if (G[col]) return G[col];
+  const c = aliveCanvas(64, 64), g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  const n = parseInt(col.slice(1), 16), rgb = ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255);
+  gr.addColorStop(0, 'rgba(' + rgb + ',1)'); gr.addColorStop(0.35, 'rgba(' + rgb + ',0.45)'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  G[col] = c;
+  return c;
+}
+
+// ---------- 1. cloud shadows ----------
+function aliveClouds(g) {
+  const w = aliveWant('clouds');
+  if (!w) return;
+  const a = (w === 1 ? 1 : Math.pow(Math.max(0, 1 - ALV.dark * 1.6), 1.5)) * (1 - ALV.rain) * ALV.uiK * 0.36;
+  if (a < 0.005) return;
+  const T = ALV.T, M = 18, spanX = MAP_W + 2 * M, spanY = MAP_H + 2 * M;
+  let n = 0;
+  for (let k = 0; k < 5; k++) {
+    const sz = 11 + 7 * aliveHash(k, 11), ww = sz, hh = sz * 0.66;
+    const x = ((aliveHash(k, 12) * spanX + T * 0.3) % spanX) - M, y = ((aliveHash(k, 13) * spanY + T * 0.11) % spanY) - M;
+    aliveW2S(x, y, 0);
+    if (!aliveOnScr(sz * ALV.hw * (ALV.top ? 1.4 : 1))) continue;
+    aliveWorldXf(g);
+    g.globalAlpha = a;
+    g.drawImage(aliveCloudSpr(k & 1), x - ww / 2, y - hh / 2, ww, hh);
+    n++;
+  }
+  ALV.stats.clouds = n;
+}
+
+// ---------- 2. the shower: the cooler light, the rings on the sea, the rain; then the rainbow ----------
+function aliveCool(g) {
+  if (ALV.rain <= 0.01) return;
+  // the light a little cooler and greyer (a still part: shown with reduced motion too)
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalAlpha = ALV.rain * (0.22 - 0.1 * ALV.dark) * (0.2 + 0.8 * ALV.uiK);
+  g.fillStyle = '#3f5874';
+  g.fillRect(0, 0, ALV.W * ALV.d, ALV.H * ALV.d);
+  ALV.stats.cool = 1;
+}
+function aliveRings(g) {
+  if (ALV.rain <= 0.05 || ALV.reduced || !ALV.wet) return;
+  const T = ALV.T, k = Math.max(0.6, Math.min(1.4, ALV.hw / 44)), q = ALV.top ? 1 : 0.5, n = Math.round(80 * ALV.rain);
+  g.setTransform(ALV.d, 0, 0, ALV.d, 0, 0);
+  g.strokeStyle = ALV.dark > 0.6 ? '#b8c8e0' : '#eef8fa'; g.lineWidth = 1;
+  let drawn = 0;
+  for (let i = 0; i < n; i++) {
+    const life = 0.75 + 0.3 * aliveHash(i, 21), ph = aliveHash(i, 22), c = Math.floor(T / life + ph), u = T / life + ph - c;
+    const x = ALV.bx0 + (ALV.bx1 - ALV.bx0) * aliveHash(i * 131 + c, 23), y = ALV.by0 + (ALV.by1 - ALV.by0) * aliveHash(i * 137 + c, 24);
+    if (!aliveSea(ALV.wet, x, y)) continue;
+    aliveW2S(x, y, 0);
+    if (!aliveOnScr(10)) continue;
+    const r = (1.5 + 6 * u) * k;
+    g.globalAlpha = (1 - u) * 0.6 * ALV.rain * ALV.uiK;
+    g.beginPath(); g.ellipse(ALV.px, ALV.py, r, r * q, 0, 0, 6.283); g.stroke();
+    drawn++;
+  }
+  ALV.stats.rings = drawn;
+}
+function aliveRain(g) {
+  if (ALV.rain <= 0.01 || ALV.reduced) return;
+  if (!ALV.drops) { ALV.drops = new Float32Array(900); for (let i = 0; i < 900; i++) ALV.drops[i] = aliveHash(i, 31 + (i % 3)); }
+  const W = ALV.W, H = ALV.H, T = ALV.T, D = ALV.drops, N = Math.min(300, Math.round(W * H / 3600 * ALV.rain)), night = ALV.dark > 0.5;
+  g.setTransform(ALV.d, 0, 0, ALV.d, 0, 0);
+  g.lineCap = 'round';
+  // far drops (short, faint) and near drops (longer), each in one path
+  for (let layer = 0; layer < 2; layer++) {
+    const sp = layer ? 900 : 620, len = layer ? 22 : 12, sl = 0.26, a = layer ? 0.6 : 0.36;
+    g.beginPath();
+    for (let i = layer; i < N; i += 2) {
+      const hx = D[i * 3 % 900], hy = D[(i * 3 + 1) % 900], hl = 0.7 + 0.6 * D[(i * 3 + 2) % 900];
+      const y = ((hy * (H + 60) + T * sp * (0.85 + 0.3 * hl)) % (H + 60)) - 30;
+      let x = (hx * (W + 80) - y * sl) % (W + 80); if (x < 0) x += W + 80; x -= 40;
+      g.moveTo(x, y); g.lineTo(x - len * hl * sl, y + len * hl);
+    }
+    g.globalAlpha = a * Math.min(1, ALV.rain * 1.3) * (0.05 + 0.95 * ALV.uiK);
+    g.strokeStyle = night ? '#aebfdc' : '#eef4fc'; g.lineWidth = layer ? 1.4 : 1;
+    g.stroke();
+  }
+  ALV.stats.drops = N;
+}
+function aliveRainbow(g) {
+  if (ALV.bow <= 0.01) return;
+  const W = ALV.W, H = ALV.H, sp = aliveBowSpr(), R = Math.min(W * 0.52, H * 0.78), k = R / 298, w = 600 * k, h = 316 * k;
+  g.setTransform(ALV.d, 0, 0, ALV.d, 0, 0);
+  g.globalAlpha = 0.5 * ALV.bow * (0.1 + 0.9 * ALV.uiK);
+  g.drawImage(sp, W * 0.47 - w / 2, H * 0.97 - h, w, h);
+  ALV.stats.bow = 1;
+}
+
+// ---------- 3. sun (and the moon) on the sea ----------
+function aliveGlints(g, s) {
+  const w = aliveWant('glints');
+  if (!w || !ALV.open) return;
+  const T = ALV.T, tod = ALV.tod, day = (1 - ALV.dark) * (1 - ALV.rain);
+  // the warm band: dusk 17:00-20:00 (most at 18:40), dawn 05:20-07:20
+  const warm = Math.max(0, 1 - Math.abs(tod - 1120) / 90) + Math.max(0, 1 - Math.abs(tod - 380) / 60);
+  const k = Math.max(0.7, Math.min(1.3, ALV.hw / 44));
+  g.setTransform(ALV.d, 0, 0, ALV.d, 0, 0);
+  let n = 0;
+  const sh = ALV.R && ALV.R.ship, boats = ALV.R && ALV.R.geo && ALV.R.geo.boats;
+  if (day > 0.05) {
+    g.fillStyle = '#ffffff';
+    for (let i = 0; i < 70; i++) {
+      const per = 1.4 + 1.3 * aliveHash(i, 41), c = Math.floor(T / per + aliveHash(i, 42)), u = T / per + aliveHash(i, 42) - c;
+      // (up to three tries a glint for a place on the open sea in view, clear of the ship and the boats)
+      let ok = false;
+      for (let tr = 0; tr < 3 && !ok; tr++) {
+        const x = ALV.bx0 + (ALV.bx1 - ALV.bx0) * aliveHash(i * 97 + c, 43 + tr * 5), y = ALV.by0 + (ALV.by1 - ALV.by0) * aliveHash(i * 89 + c, 44 + tr * 5);
+        if (!aliveSea(ALV.open, x, y)) continue;
+        if (sh && Math.abs(sh.x - x) < 1.5 && Math.abs(sh.y - y) < 1.5) continue;
+        if (boats && aliveNearBoat(boats, x, y)) continue;
+        aliveW2S(x, y, 0);
+        ok = aliveOnScr(4);
+      }
+      if (!ok) continue;
+      const a = Math.pow(Math.sin(u * Math.PI), 2) * day * (1 - 0.6 * warm), L = (4 + 6 * aliveHash(i, 45)) * k;
+      if (a < 0.03) continue;
+      g.globalAlpha = 0.8 * a;
+      g.fillRect(ALV.px - L / 2, ALV.py - 0.8, L, 1.6);
+      if (a > 0.7) { g.globalAlpha = 0.8 * (a - 0.7) / 0.3; g.fillRect(ALV.px - 0.7, ALV.py - L * 0.3, 1.4, L * 0.6); }
+      n++;
+    }
+  }
+  // dusk and dawn: a band of warm glitter under the low sun (a column on the screen: the sun's path on the water)
+  if (warm > 0.02 && ALV.rain < 0.8) {
+    g.fillStyle = '#ffd39a';
+    // (the band sits on the column of the screen with the most open sea, eased as she pans)
+    let best = 0.64, bn = -1;
+    for (let c = 0; c < 7; c++) {
+      const fx = 0.2 + c * 0.1; let m = 0;
+      for (let r = 0; r < 8; r++) { aliveS2W(ALV.W * fx, ALV.H * (0.12 + r * 0.1)); m += aliveSea(ALV.open, ALV.wx, ALV.wy); }
+      if (m > bn + (Math.abs(fx - ALV.band) < 0.06 ? -1 : 0)) { bn = m; best = fx; }
+    }
+    ALV.band += (best - ALV.band) * Math.min(1, ALV.dt * 0.8);
+    const cx = ALV.W * ALV.band, bw = ALV.W * 0.09;
+    for (let i = 0; i < 90; i++) {
+      const per = 0.9 + 0.9 * aliveHash(i, 51), c = Math.floor(T / per + aliveHash(i, 52)), u = T / per + aliveHash(i, 52) - c;
+      const hb = aliveHash(i * 71 + c, 53), sx = cx + (hb - 0.5) * bw * (0.25 + 2.5 * Math.abs(aliveHash(i * 61 + c, 56) - 0.5)) * 2, sy = ALV.H * (0.05 + 0.92 * aliveHash(i * 67 + c, 54));
+      aliveS2W(sx, sy);
+      if (!aliveSea(ALV.open, ALV.wx, ALV.wy)) continue;
+      const a = Math.pow(Math.sin(u * Math.PI), 2) * warm * (1 - ALV.rain), L = (5 + 9 * aliveHash(i, 55)) * k;
+      if (a < 0.03) continue;
+      g.globalAlpha = 0.9 * a;
+      g.fillRect(sx - L / 2, sy - 1, L, 2);
+      n++;
+    }
+  }
+  // night: a few silver glints of the moon on the open sea
+  if (ALV.dark > 0.5 && ALV.rain < 0.5) {
+    g.fillStyle = '#d6e2f6';
+    for (let i = 0; i < 26; i++) {
+      const per = 2 + 1.5 * aliveHash(i, 141), c = Math.floor(T / per + aliveHash(i, 142)), u = T / per + aliveHash(i, 142) - c;
+      const x = ALV.bx0 + (ALV.bx1 - ALV.bx0) * aliveHash(i * 79 + c, 143), y = ALV.by0 + (ALV.by1 - ALV.by0) * aliveHash(i * 83 + c, 144);
+      if (!aliveSea(ALV.open, x, y)) continue;
+      aliveW2S(x, y, 0);
+      if (!aliveOnScr(4)) continue;
+      const a = Math.pow(Math.sin(u * Math.PI), 2) * (ALV.dark - 0.5) * 2, L = (3 + 5 * aliveHash(i, 145)) * k;
+      if (a < 0.03) continue;
+      g.globalAlpha = 0.5 * a;
+      g.fillRect(ALV.px - L / 2, ALV.py - 0.6, L, 1.2);
+      n++;
+    }
+  }
+  ALV.stats.glints = n;
+  // (the lights' shimmer on the water under the pier's lamps and the ship's lanterns was tried and dropped: the
+  // short warm strokes sat on the hull or the deck as often as on the water and read as marks, not as reflections)
+}
+function aliveNearBoat(boats, x, y) { for (let i = 0; i < boats.length; i++) { const b = boats[i]; if (Math.abs(b[0] - x) < 2.4 && Math.abs(b[1] - y) < 1.8) return true; } return false; }
+// ---------- 4. gulls ----------
+function aliveGullPath(s) {
+  // across the bay when the pier is in view, else across the middle of the screen
+  let cx, cy;
+  const p = ALV.pier;
+  if (p) { aliveW2S(p.x + p.w / 2, p.y + p.h / 2, 0); }
+  if (p && ALV.px > 0 && ALV.px < ALV.W && ALV.py > 0 && ALV.py < ALV.H) { cx = p.x + p.w / 2 + 1.5; cy = p.y + p.h / 2; } else { aliveS2W(ALV.W / 2, ALV.H * 0.45); cx = ALV.wx; cy = ALV.wy; }
+  const e = Math.floor(ALV.T * 10), th = aliveHash(e, 61) * 6.283, L = Math.hypot(ALV.bx1 - ALV.bx0, ALV.by1 - ALV.by0) * 0.62 + 10;
+  const n = 5 + Math.floor(aliveHash(e, 62) * 4), dx = Math.cos(th), dy = Math.sin(th);
+  const birds = [];
+  for (let i = 0; i < n; i++) birds.push({ back: Math.ceil(i / 2) * 0.55 + aliveHash(e + i, 63) * 0.3, side: (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.42 + (aliveHash(e + i, 64) - 0.5) * 0.3, z: 2.4 + aliveHash(e + i, 65) * 0.6, ph: aliveHash(e + i, 66) * 6.283 });
+  return { t0: ALV.T, x0: cx - dx * L / 2, y0: cy - dy * L / 2, dx, dy, L, v: 1.9, birds };
+}
+function aliveGulls(g, s) {
+  const w = aliveWant('gulls');
+  const day = 1 - ALV.dark, ok = w === 1 || (w === -1 && day > 0.6 && ALV.rain < 0.3);
+  if (!ok) { ALV.gull = null; return; }
+  const T = ALV.T;
+  // now and then: a flock every 45 s with a chance of 3 in 5 (forced: one after another)
+  const E = Math.floor(T / 45);
+  if (E !== ALV.gullE) { ALV.gullE = E; ALV.gullAt = T > 8 && aliveHash(E, 67) < 0.6 ? E * 45 + aliveHash(E, 68) * 20 : -1; }
+  if (!ALV.gull && (w === 1 || (ALV.gullAt >= 0 && T >= ALV.gullAt && T < ALV.gullAt + 3))) { ALV.gull = aliveGullPath(s); ALV.gullAt = -1; if (w === 1) ALV.gull.t0 -= ALV.gull.L / 2 / ALV.gull.v; }
+  const k = Math.max(0.65, Math.min(1.3, ALV.hw / 44)), Z = aliveZ();
+  let n = 0;
+  g.setTransform(ALV.d, 0, 0, ALV.d, 0, 0);
+  // their shadows on the ground (by day), then the birds: one path stroked twice (the ink, the white)
+  const F = ALV.gull;
+  if (F) {
+    const along = (T - F.t0) * F.v;
+    if (along > F.L + 4) ALV.gull = null;
+    else {
+      g.globalAlpha = 0.1 * day * ALV.uiK; g.fillStyle = '#1e2a3c'; g.beginPath();
+      for (const b of F.birds) { const a = along - b.back, x = F.x0 + F.dx * a - F.dy * b.side, y = F.y0 + F.dy * a + F.dx * b.side; aliveW2S(x + 0.8, y + 0.8, 0); if (aliveOnScr(20)) { g.moveTo(ALV.px + 3 * k, ALV.py); g.ellipse(ALV.px, ALV.py, 3 * k, 1.2 * k, 0, 0, 6.283); } }
+      g.fill();
+      g.beginPath();
+      for (const b of F.birds) {
+        const a = along - b.back, wob = Math.sin(T * 0.8 + b.ph) * 0.25, x = F.x0 + F.dx * a - F.dy * (b.side + wob), y = F.y0 + F.dy * a + F.dx * (b.side + wob);
+        aliveW2S(x, y, b.z + Math.sin(T * 0.6 + b.ph) * 0.15);
+        if (!aliveOnScr(20)) continue;
+        aliveGullPath2(g, ALV.px, ALV.py, k, T, b.ph, F.dx); n++;
+      }
+      aliveGullInk(g, k);
+    }
+  }
+  // the ship in: two gulls wheel over her
+  const sh = ALV.R && ALV.R.ship;
+  if (sh && (sh.st === 'moored' || sh.st === 'load') && (w === 1 || day > 0.6)) {
+    g.beginPath();
+    for (let i = 0; i < 2; i++) {
+      const a = T * (0.45 + 0.1 * i) + i * 3.1, r = 1.3 + 0.4 * i;
+      aliveW2S(sh.x + Math.cos(a) * r, sh.y + Math.sin(a) * r * 0.8, 2.6 + 0.4 * i + Math.sin(T * 0.7 + i) * 0.2);
+      if (!aliveOnScr(20)) continue;
+      aliveGullPath2(g, ALV.px, ALV.py, k * 0.95, T, i * 2.3, -Math.sin(a)); n++;
+    }
+    aliveGullInk(g, k);
+  }
+  ALV.stats.gulls = n;
+  void Z;
+}
+// a gull: two wings in an M, beating now and then and gliding between
+function aliveGullPath2(g, x, y, k, T, ph, dir) {
+  const glide = Math.sin(T * 0.9 + ph) > 0.2 ? 0.25 : 1, f = Math.sin(T * 9 + ph) * glide, sp = 9 * k, up = (2.6 + 3.2 * f) * k;
+  void dir;
+  g.moveTo(x - sp, y - up + 1.2 * k);
+  g.quadraticCurveTo(x - sp * 0.45, y - up - 1.6 * k, x, y);
+  g.quadraticCurveTo(x + sp * 0.45, y - up - 1.6 * k, x + sp, y - up + 1.2 * k);
+}
+function aliveGullInk(g, k) {
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  g.globalAlpha = 0.9 * ALV.uiK; g.strokeStyle = '#3a2a1f'; g.lineWidth = 3.2 * k; g.stroke();
+  g.globalAlpha = ALV.uiK; g.strokeStyle = '#fbfaf4'; g.lineWidth = 1.7 * k; g.stroke();
+}
+
+// ---------- 5. dolphins ----------
+function aliveDolphins(g) {
+  const w = aliveWant('dolphins');
+  if (!w || !ALV.deep || (w === -1 && (ALV.dark > 0.5 || ALV.rain > 0.3))) { if (!w) ALV.pod = null; return; }
+  const T = ALV.T, E = Math.floor(T / 80);
+  if (E !== ALV.podE) { ALV.podE = E; ALV.podAt = T > 20 && aliveHash(E, 71) < 0.4 ? E * 80 + aliveHash(E, 72) * 40 : -1; }
+  if (!ALV.pod && (w === 1 || (ALV.podAt >= 0 && T >= ALV.podAt && T < ALV.podAt + 5))) {
+    ALV.podAt = -1;
+    // a place of open sea in view, clear of the bars (tried at most 30 times)
+    for (let i = 0; i < 30; i++) {
+      const sx = ALV.W * (0.12 + 0.62 * aliveHash(i, Math.floor(T * 7) + 73)), sy = ALV.H * (0.2 + 0.55 * aliveHash(i, Math.floor(T * 7) + 74));
+      aliveS2W(sx, sy);
+      if (!aliveSea(ALV.deep, ALV.wx, ALV.wy)) continue;
+      // the pod swims across the screen (seen from the side), toward the middle of the screen
+      const x0 = ALV.wx, y0 = ALV.wy, side = sx < ALV.W * 0.45 ? 1 : -1;
+      aliveS2W(sx + side * 40, sy + 6);
+      let dx = ALV.wx - x0, dy = ALV.wy - y0; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+      // and open sea where the pod goes (three tiles on)
+      if (!aliveSea(ALV.deep, x0 + dx * 4, y0 + dy * 4)) continue;
+      ALV.pod = { t0: T, x: x0, y: y0, dx, dy, n: 2 + Math.floor(aliveHash(i, Math.floor(T) + 76) * 3) };
+      break;
+    }
+  }
+  const P = ALV.pod;
+  if (!P) return;
+  const tau = T - P.t0;
+  if (tau > 7.5) { ALV.pod = null; return; }
+  const k = Math.max(0.65, Math.min(1.3, ALV.hw / 44)), Z = aliveZ();
+  let n = 0;
+  // a pod of 2-4, one after another, each three arcs
+  for (let i = 0; i < P.n; i++) {
+    for (let j = 0; j < 3; j++) {
+      const t0 = i * 0.42 + j * 1.9, u = (tau - t0) / 1.2;
+      if (u < -0.15 || u > 1.25) continue;
+      // along the way: a jump covers 1.4 tiles, three jumps in a row
+      const a0 = j * 1.8 - i * 0.7, side = ((i & 1) ? 1 : -1) * 0.3 * Math.ceil(i / 2);
+      const x0 = P.x + P.dx * a0 - P.dy * side, y0 = P.y + P.dy * a0 + P.dx * side;
+      aliveW2S(x0, y0, 0); const sx0 = ALV.px, sy0 = ALV.py;
+      aliveW2S(x0 + P.dx * 1.4, y0 + P.dy * 1.4, 0); const sx1 = ALV.px, sy1 = ALV.py;
+      if (sx0 < -40 || sx0 > ALV.W + 40 || sy0 < -40 || sy0 > ALV.H + 40) continue;
+      // the splashes where it leaves and enters the water
+      g.setTransform(ALV.d, 0, 0, ALV.d, 0, 0);
+      g.strokeStyle = '#f2fbfa'; g.lineWidth = 1.6;
+      const q = ALV.top ? 1 : 0.45;
+      for (const [sp, us] of [[0, u], [1, u - 1]]) {
+        if (us < -0.05 || us > 0.6) continue;
+        const r = (4 + (sp ? 18 : 12) * Math.max(0, us)) * k;
+        g.globalAlpha = 0.85 * (1 - Math.max(0, us) / 0.6) * ALV.uiK;
+        g.beginPath(); g.ellipse(sp ? sx1 : sx0, sp ? sy1 : sy0, r, r * q, 0, 0, 6.283); g.stroke();
+      }
+      if (u < 0 || u > 1) continue;
+      const H = 0.75 * Z, x = sx0 + (sx1 - sx0) * u, y = sy0 + (sy1 - sy0) * u - Math.sin(u * Math.PI) * H;
+      const tx = sx1 - sx0, ty = sy1 - sy0 - Math.cos(u * Math.PI) * Math.PI * H, L = Math.hypot(tx, ty) || 1, c = tx / L, sn = ty / L, fl = tx < 0 ? -1 : 1, d = ALV.d;
+      g.setTransform(d * c, d * sn, -d * sn * fl, d * c * fl, d * x, d * y);
+      g.globalAlpha = Math.min(1, u / 0.1, (1 - u) / 0.1) * ALV.uiK;
+      aliveDolphinBody(g, 39 * k);
+      n++;
+    }
+  }
+  ALV.stats.dolphins = n;
+}
+function aliveDolphinBody(g, L) {
+  g.beginPath();
+  // the body: the tail stock, the back up to the melon, the beak, the belly back to the tail
+  g.moveTo(-L * 0.5, L * 0.02);
+  g.bezierCurveTo(-L * 0.2, -L * 0.2, L * 0.25, -L * 0.2, L * 0.45, -L * 0.04);
+  g.lineTo(L * 0.6, 0); g.lineTo(L * 0.44, L * 0.05);
+  g.bezierCurveTo(L * 0.2, L * 0.15, -L * 0.2, L * 0.12, -L * 0.5, L * 0.02);
+  // the dorsal fin, swept back
+  g.moveTo(-L * 0.02, -L * 0.15); g.quadraticCurveTo(-L * 0.1, -L * 0.3, -L * 0.24, -L * 0.34); g.quadraticCurveTo(-L * 0.17, -L * 0.22, -L * 0.2, -L * 0.12);
+  // the flukes
+  g.moveTo(-L * 0.46, L * 0.02); g.lineTo(-L * 0.67, -L * 0.11); g.quadraticCurveTo(-L * 0.6, L * 0.02, -L * 0.67, L * 0.15); g.closePath();
+  g.fillStyle = '#5d7f9a'; g.fill();
+  g.strokeStyle = '#2d3a46'; g.lineWidth = Math.max(0.7, L / 26); g.lineJoin = 'round'; g.stroke();
+  // the pale belly
+  g.beginPath(); g.moveTo(L * 0.42, L * 0.05); g.bezierCurveTo(L * 0.2, L * 0.12, -L * 0.1, L * 0.1, -L * 0.3, L * 0.05);
+  g.strokeStyle = '#d8e6ec'; g.lineWidth = Math.max(0.8, L / 16); g.stroke();
+}
+
+// ---------- 6. fireworks ----------
+function aliveFwStart() {
+  const b = ALV.home;
+  if (!b) return;
+  // 8 bursts in about ten seconds, staggered in time and place over the residence; a few small ones, two together at the end
+  const bursts = [], e = Math.floor(ALV.T) + 81;
+  const T0 = [0.6, 1.7, 2.5, 3.6, 4.6, 5.5, 6.9, 7.1, 8.4];
+  for (let i = 0; i < T0.length; i++) {
+    const h = (j) => aliveHash(i * 13 + j, e), small = h(10) < 0.3 && i < 7;
+    bursts.push({ t: T0[i] + h(1) * 0.3, dx: (h(2) - 0.5) * 3, dy: (h(3) - 0.5) * 3, z: 1.3 + 1.5 * h(4), col: ALIVE_FW_COLS[(i * 5 + e) % ALIVE_FW_COLS.length],
+      n: 24 + Math.floor(h(7) * 13), r: small ? 34 + 10 * h(8) : 58 + 22 * h(8), ph: h(9) * 6.283, pop: false });
+  }
+  ALV.fw = { t0: ALV.T, x: b.x + b.w / 2, y: b.y + b.h / 2, z0: b.level >= 6 ? 2.6 : 1.4, bursts };
+}
+function aliveFireworksWatch(s) {
+  const w = aliveWant('fireworks'), y = Math.floor(s.month / 12);
+  if (ALV.sRef !== s) { ALV.sRef = s; ALV.stage = s.stage; ALV.year = y; ALV.fwDue = null; ALV.fw = null; return; }
+  if (s.stage > ALV.stage) ALV.fwDue = { kind: 'stage', until: 1e9 };
+  ALV.stage = s.stage;
+  // the year turns: fireworks if she is happy (60 % or more), by night or at the first dusk within 4 months
+  if (y > ALV.year && s.month >= 12 && (s.happy || 0) >= 60 && !ALV.fwDue) ALV.fwDue = { kind: 'year', until: ALV.mp + 4 };
+  ALV.year = y;
+  if (ALV.fw && ALV.T - ALV.fw.t0 > 12) ALV.fw = null;
+  if (w === 1 && !ALV.fw) { aliveFwStart(); return; }
+  if (ALV.fwDue && ALV.fwDue.until < ALV.mp) ALV.fwDue = null;
+  if (w === -1 && ALV.fwDue && !ALV.fw && ALV.dark >= 0.55) { ALV.fwDue = null; aliveFwStart(); }
+}
+function aliveFireworks(g) {
+  const F = ALV.fw;
+  if (!F || !aliveWant('fireworks')) return;
+  const tau0 = ALV.T - F.t0, k = Math.max(0.75, Math.min(1.3, ALV.hw / 44)), Z = aliveZ(), d = ALV.d;
+  // at dusk a little bolder (the sky is still light), at night the glow on the roofs is strongest
+  const bold = ALV.dark < 0.7 ? 1.25 : 1, gl = 0.35 + 0.65 * ALV.dark;
+  aliveW2S(F.x, F.y, F.z0);
+  if (ALV.px < -400 || ALV.px > ALV.W + 400 || ALV.py < -500 || ALV.py > ALV.H + 600) return;
+  g.setTransform(d, 0, 0, d, 0, 0); g.lineCap = 'round'; g.lineJoin = 'round';
+  let n = 0;
+  for (const b of F.bursts) {
+    const tau = tau0 - b.t;
+    if (tau < -0.85 || tau > 2.1) continue;
+    aliveW2S(F.x + b.dx, F.y + b.dy, 0); const gx = ALV.px, gy = ALV.py, ry = gy - F.z0 * Z;
+    const cx = gx, cy = ry - b.z * Z;
+    if (tau < 0) {
+      // the rocket: a thin trail rising from the roofs, a spark at its head
+      const u = (tau + 0.85) / 0.85, e = 1 - (1 - u) * (1 - u), y = ry + (cy - ry) * e, x = cx + Math.sin(u * 7 + b.ph) * 1.2;
+      g.globalAlpha = 0.85; g.strokeStyle = '#ffe2a6'; g.lineWidth = 1.3 * k;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(cx, Math.min(ry, y + 14 * k)); g.stroke();
+      g.globalAlpha = 1; g.fillStyle = '#fff6dc'; g.fillRect(x - 1.3 * k, y - 1.3 * k, 2.6 * k, 2.6 * k);
+      n++;
+      continue;
+    }
+    if (!b.pop) { b.pop = true; alivePop(b.r > 70 ? 1 : 0.7); }
+    const R = b.r * k, life = 2.1, a = Math.pow(Math.max(0, 1 - tau / life), 1.2);
+    // the rays: thrown out fast, slowed by the air, drooping as they fall (each a curve from where it was to its tip)
+    const ex = (t) => 1 - Math.exp(-3.2 * Math.max(0, t));
+    const fall = (t) => 16 * k * Math.max(0, t) * Math.max(0, t);
+    const tTail = Math.max(0, tau - 0.7), tMid = Math.max(0, tau - 0.3);
+    // the glow: a warm pulse on the roofs and the ground below, the burst's light in the sky, a bright core that fades
+    g.globalCompositeOperation = 'lighter';
+    const sp = aliveGlowSpr(b.col), pulse = Math.max(0, 1 - tau / 1.6) * (0.85 + 0.15 * Math.sin(tau * 18));
+    g.globalAlpha = 0.55 * pulse * gl; g.drawImage(aliveGlowSpr('#ffb45a'), gx - 3.6 * ALV.hw, gy - 1.8 * ALV.hw - F.z0 * Z * 0.5, 7.2 * ALV.hw, 3.6 * ALV.hw);
+    g.globalAlpha = 0.35 * pulse * gl; g.drawImage(sp, gx - 2.4 * ALV.hw, gy - 1.2 * ALV.hw - F.z0 * Z * 0.5, 4.8 * ALV.hw, 2.4 * ALV.hw);
+    g.globalAlpha = 0.6 * pulse; g.drawImage(sp, cx - R * 1.4, cy - R * 1.4, R * 2.8, R * 2.8);
+    if (tau < 0.6) { const c = 1 - tau / 0.6; g.globalAlpha = c; g.drawImage(aliveGlowSpr('#fff6e0'), cx - R * 0.5, cy - R * 0.5, R, R); }
+    g.globalCompositeOperation = 'source-over';
+    g.beginPath();
+    for (let j = 0; j < b.n; j++) {
+      const an = b.ph + j * 6.283 / b.n + (aliveHash(j, b.n + 7) - 0.5) * 0.12, c = Math.cos(an), sn = Math.sin(an), q = 0.9 + 0.2 * aliveHash(j, 91);
+      const x0 = cx + c * R * q * ex(tTail), y0 = cy + sn * R * q * ex(tTail) * 0.95 + fall(tTail);
+      const x1 = cx + c * R * q * ex(tMid), y1 = cy + sn * R * q * ex(tMid) * 0.95 + fall(tMid);
+      const x2 = cx + c * R * q * ex(tau), y2 = cy + sn * R * q * ex(tau) * 0.95 + fall(tau);
+      g.moveTo(x0, y0); g.quadraticCurveTo(x1, y1, x2, y2);
+    }
+    g.globalAlpha = a; g.strokeStyle = b.col; g.lineWidth = 3 * k * bold; g.stroke();
+    // an inner shell, half as far, lighter: the burst is full, not a ring
+    g.beginPath();
+    for (let j = 0; j < b.n; j += 2) {
+      const an = b.ph + (j + 1) * 6.283 / b.n, c = Math.cos(an), sn = Math.sin(an), q = 0.5;
+      g.moveTo(cx + c * R * q * ex(tTail), cy + sn * R * q * ex(tTail) * 0.95 + fall(tTail));
+      g.lineTo(cx + c * R * q * ex(tau), cy + sn * R * q * ex(tau) * 0.95 + fall(tau));
+    }
+    g.globalAlpha = a * 0.9; g.strokeStyle = '#fff3d6'; g.lineWidth = 1.8 * k * bold; g.stroke();
+    // the sparks at the rays' tips, twinkling as they burn out
+    g.fillStyle = tau < 1.2 ? '#fffbea' : b.col;
+    for (let j = 0; j < b.n; j++) {
+      if (tau > 1.2 && aliveHash(j, Math.floor(tau * 12)) < 0.45) continue;
+      const an = b.ph + j * 6.283 / b.n + (aliveHash(j, b.n + 7) - 0.5) * 0.12, q = 0.9 + 0.2 * aliveHash(j, 91);
+      const x2 = cx + Math.cos(an) * R * q * ex(tau), y2 = cy + Math.sin(an) * R * q * ex(tau) * 0.95 + fall(tau), sz = 2.4 * k * bold;
+      g.globalAlpha = a; g.fillRect(x2 - sz / 2, y2 - sz / 2, sz, sz);
+    }
+    n++;
+  }
+  ALV.stats.fw = n;
+}
+
+// ---------- 7. butterflies by day, fireflies at dusk ----------
+function aliveSmallLife(g) {
+  if (ALV.hw < 22) return;
+  const T = ALV.T, k = Math.max(0.7, Math.min(1.3, ALV.hw / 44)), d = ALV.d, wb = aliveWant('butterflies'), wf = aliveWant('fireflies');
+  let n = 0;
+  g.setTransform(d, 0, 0, d, 0, 0);
+  if (wb && (wb === 1 || (ALV.dark < 0.2 && ALV.rain < 0.2))) {
+    for (const f of ALV.flowers) {
+      const m = f.w * f.h >= 4 ? 2 : 1;
+      for (let i = 0; i < m && n < 18; i++) {
+        const ph = aliveHash(f.id, i + 101) * 6.283, rx = f.w * 0.42, ry = f.h * 0.42;
+        const x = f.x + Math.sin(T * 0.53 + ph) * rx + Math.sin(T * 1.7 + ph * 3) * 0.12, y = f.y + Math.cos(T * 0.41 + ph * 2) * ry;
+        aliveW2S(x, y, 0.5 + 0.2 * Math.sin(T * 1.9 + ph));
+        if (!aliveOnScr(10)) continue;
+        // two wings that open and close (seen from the side when closed), a dark body between them
+        const fl = 0.15 + 0.85 * Math.abs(Math.sin(T * 11 + ph)), col = ALIVE_BFLY[Math.floor(aliveHash(f.id, i + 7) * ALIVE_BFLY.length)], s = 3.6 * k, bx = ALV.px, by = ALV.py;
+        g.globalAlpha = ALV.uiK;
+        g.beginPath();
+        g.moveTo(bx, by); g.quadraticCurveTo(bx - s * 1.3 * fl, by - s * 1.5, bx - s * 1.1 * fl, by - s * 0.2); g.quadraticCurveTo(bx - s * 0.9 * fl, by + s * 0.6, bx, by);
+        g.moveTo(bx, by); g.quadraticCurveTo(bx + s * 1.3 * fl, by - s * 1.5, bx + s * 1.1 * fl, by - s * 0.2); g.quadraticCurveTo(bx + s * 0.9 * fl, by + s * 0.6, bx, by);
+        g.fillStyle = col; g.fill();
+        g.strokeStyle = 'rgba(58,42,31,0.7)'; g.lineWidth = 0.7; g.stroke();
+        g.beginPath(); g.moveTo(bx, by - s * 0.5); g.lineTo(bx, by + s * 0.45); g.strokeStyle = '#3a2a1f'; g.lineWidth = 1.1 * k; g.stroke();
+        n++;
+      }
+    }
+  }
+  // fireflies: from 19:00 to past midnight, by the parks and gardens, the groves and the forest
+  const tod = ALV.tod, dusk = tod >= 1140 ? Math.min(1, (tod - 1140) / 40) : tod < 90 ? Math.min(1, (90 - tod) / 40) : 0;
+  if (wf && (wf === 1 || (dusk > 0 && ALV.rain < 0.2))) {
+    const a0 = wf === 1 ? 1 : dusk, sp = aliveGlowSpr('#d9f27a');
+    g.globalCompositeOperation = 'lighter';
+    let m = 0;
+    const one = (x0, y0, id, j) => {
+      const ph = aliveHash(id, j + 111) * 6.283, x = x0 + Math.sin(T * 0.37 + ph) * 0.45, y = y0 + Math.cos(T * 0.29 + ph * 1.3) * 0.45;
+      aliveW2S(x, y, 0.3 + 0.25 * Math.sin(T * 0.8 + ph));
+      if (!aliveOnScr(8)) return;
+      const b = Math.pow(Math.max(0, Math.sin(T * (1.1 + 0.5 * aliveHash(id, j)) + ph)), 3) * a0;
+      if (b < 0.04) return;
+      g.globalAlpha = 0.6 * b; g.drawImage(sp, ALV.px - 10 * k, ALV.py - 10 * k, 20 * k, 20 * k);
+      g.globalAlpha = b; g.fillStyle = '#f4ffb0'; g.fillRect(ALV.px - 0.9 * k, ALV.py - 0.9 * k, 1.8 * k, 1.8 * k);
+      m++;
+    };
+    for (const f of ALV.flowers) for (let j = 0; j < 5 && m < 44; j++) one(f.x, f.y, f.id, j);
+    for (const f of ALV.groves) for (let j = 0; j < 3 && m < 44; j++) one(f.x, f.y, f.id, j);
+    for (let i = 0; i < ALV.forest.length && m < 44; i++) { const t = ALV.forest[i]; one((t % MAP_W) + 0.5, Math.floor(t / MAP_W) + 0.5, t + 5000, 0); }
+    g.globalCompositeOperation = 'source-over';
+    n += m;
+  }
+  ALV.stats.flies = n;
+}
+
+// ---------- 8. the rain's sound and the fireworks' pops (Web Audio, made here; no files) ----------
+function aliveNoise() {
+  const c = AUD.ctx;
+  if (ALV.snd.noise || !c) return ALV.snd.noise;
+  const n = Math.floor(c.sampleRate * 2), b = c.createBuffer(1, n, c.sampleRate), a = b.getChannelData(0);
+  // brown-ish noise: a soft hiss rather than white static
+  let last = 0;
+  for (let i = 0; i < n; i++) { const w = Math.random() * 2 - 1; last = (last + 0.06 * w) / 1.06; a[i] = last * 3.2 + w * 0.12; }
+  ALV.snd.noise = b;
+  return b;
+}
+function aliveSoundOk() { return typeof AUD !== 'undefined' && AUD.ctx && AUD.ctx.state === 'running' && !document.hidden; }
+function aliveRainSound() {
+  const S = ALV.snd, w = aliveWant('sound');
+  if (aliveSoundOk() && !S.noise) aliveNoise();
+  const want = w && aliveSoundOk() && AUD.set.music ? ALV.rain * 0.16 : 0;
+  if (want <= 0.001 && !S.src) return;
+  try {
+    const c = AUD.ctx;
+    if (!S.src && want > 0.001) {
+      const src = c.createBufferSource(), lp = c.createBiquadFilter(), hp = c.createBiquadFilter(), gn = c.createGain();
+      src.buffer = aliveNoise(); src.loop = true;
+      lp.type = 'lowpass'; lp.frequency.value = 2400; hp.type = 'highpass'; hp.frequency.value = 380;
+      gn.gain.value = 0;
+      src.connect(hp); hp.connect(lp); lp.connect(gn); gn.connect(AUD.vol);
+      src.start();
+      S.src = src; S.gain = gn; S.lvl = 0; S.nodes = [hp, lp];
+    }
+    if (S.src && Math.abs(want - S.lvl) > 0.002) { S.gain.gain.setTargetAtTime(want, c.currentTime, 0.8); S.lvl = want; }
+    if (S.src && want <= 0.001) {
+      if (!S.off) S.off = performance.now();
+      if (performance.now() - S.off > 4000) { try { S.src.stop(); S.src.disconnect(); S.gain.disconnect(); for (const n of S.nodes) n.disconnect(); } catch (e) { /* gone */ } S.src = null; S.gain = null; S.off = 0; }
+    } else S.off = 0;
+  } catch (e) { S.src = null; }
+}
+function alivePop(big) { setTimeout(() => alivePopNow(big), 0); }
+function alivePopNow(big) {
+  if (!aliveWant('fireworks') || !aliveSoundOk() || !AUD.set.sfx) return;
+  try {
+    const c = AUD.ctx, t = c.currentTime + 0.05, src = c.createBufferSource(), bp = c.createBiquadFilter(), gn = c.createGain();
+    src.buffer = aliveNoise(); bp.type = 'bandpass'; bp.frequency.value = 700 + 500 * Math.random(); bp.Q.value = 0.8;
+    gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(0.22 * big, t + 0.008); gn.gain.exponentialRampToValueAtTime(0.002, t + 0.45);
+    src.connect(bp); bp.connect(gn); gn.connect(AUD.sfxBus);
+    src.start(t, Math.random(), 0.5);
+    // a soft thump under it
+    const o = c.createOscillator(), og = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.3);
+    og.gain.setValueAtTime(0, t); og.gain.linearRampToValueAtTime(0.16 * big, t + 0.01); og.gain.exponentialRampToValueAtTime(0.002, t + 0.35);
+    o.connect(og); og.connect(AUD.sfxBus); o.start(t); o.stop(t + 0.4);
+    src.onended = () => { try { src.disconnect(); bp.disconnect(); gn.disconnect(); o.disconnect(); og.disconnect(); } catch (e) { /* gone */ } };
+  } catch (e) { /* no sound */ }
+}
+
+// ---------- the frame ----------
+// Before the renderer draws: the clock, the switches, the view and the weather. busy: a tool armed or a layer on.
+function alivePrep(R, s, ui) {
+  const now = performance.now(), dt = ALV.last ? Math.min(0.25, (now - ALV.last) / 1000) : 0;
+  ALV.last = now; ALV.dt = dt; ALV.T += dt;
+  ALV.cfg = typeof window !== 'undefined' ? window.NOVA_ALIVE || null : null;
+  ALV.on = !TUNE.aliveOff && !!s && !!R && R.kind !== 'flat' && !(ALV.cfg && ALV.cfg.off && !ALIVE_KINDS.some((k) => ALV.cfg[k]));
+  if (!ALV.on) { ALV.gull = null; ALV.pod = null; ALV.rain = 0; ALV.bow = 0; return; }
+  const busy = !!((ui.tool && ui.tool !== 'look') || ui.ghost || ui.layer || ui.beauty || ui.land || ui.money || (typeof APP !== 'undefined' && APP.pc));
+  ALV.uiK += ((busy ? 0.08 : 1) - ALV.uiK) * Math.min(1, dt * 5);
+  ALV.tod = typeof dayClock === 'function' ? dayClock(s) : 720;
+  ALV.dark = typeof dayDark === 'function' && !(typeof APP !== 'undefined' && APP.dayOff) ? dayDark(ALV.tod) : 0;
+  aliveIsland(s);
+  aliveWeather(s);
+  aliveFireworksWatch(s);
+}
+
+// Inside the renderer's frame, after the map and before its marks.
+function aliveDraw(R, s) {
+  if (!ALV.on || R.turn || R.fade || !R.ctx) return;
+  const t0 = performance.now(), g = R.ctx, st = ALV.stats;
+  st.clouds = st.drops = st.rings = st.glints = st.gulls = st.dolphins = st.fw = st.flies = st.bow = st.cool = 0;
+  ALV.R = R; ALV.ox = R.ox; ALV.oy = R.oy; ALV.hw = R.hw; ALV.r = (R.rot || 0) & 3; ALV.top = !!R.top; ALV.d = R.dpr || 1; ALV.W = R.w; ALV.H = R.h;
+  // the world under the screen (a box round its four corners)
+  ALV.bx0 = ALV.by0 = 1e9; ALV.bx1 = ALV.by1 = -1e9;
+  for (let i = 0; i < 4; i++) { aliveS2W(i & 1 ? ALV.W : 0, i & 2 ? ALV.H : 0); ALV.bx0 = Math.min(ALV.bx0, ALV.wx); ALV.bx1 = Math.max(ALV.bx1, ALV.wx); ALV.by0 = Math.min(ALV.by0, ALV.wy); ALV.by1 = Math.max(ALV.by1, ALV.wy); }
+  g.save();
+  try {
+    g.globalCompositeOperation = 'source-over';
+    aliveGlints(g, s);
+    aliveDolphins(g);
+    aliveClouds(g);
+    aliveCool(g);
+    aliveRings(g);
+    aliveSmallLife(g);
+    aliveFireworks(g);
+    aliveGulls(g, s);
+    aliveRain(g);
+    aliveRainbow(g);
+  } finally { g.restore(); }
+  const ms = performance.now() - t0;
+  st.last = +ms.toFixed(3); st.ms = st.ms ? st.ms * 0.9 + ms * 0.1 : ms;
+  ALV.drawn = true;
+}
+
+// The renderer reads ui.hudRects once a frame, right after the map and before its marks (lblBegin; the postcard
+// copies its picture at the same moment, before this layer). The layer draws there.
+function aliveHook(ui) {
+  if (!ui || ALV.hooked === ui) return;
+  const d = Object.getOwnPropertyDescriptor(ui, 'hudRects');
+  if (d && d.get) { ALV.hooked = ui; return; }
+  let v = d ? d.value : undefined;
+  Object.defineProperty(ui, 'hudRects', {
+    configurable: true, enumerable: true,
+    get() { if (ALV.inDraw && !ALV.drawn) { ALV.drawn = true; try { aliveDraw(ALV.dR, ALV.dS); } catch (e) { if (!ALV.err) { ALV.err = 1; console.error(e); } } } return v; },
+    set(x) { v = x; },
+  });
+  ALV.hooked = ui;
+}
+{
+  const _rd = renderDraw;
+  renderDraw = function (R, s, view, ui) {
+    try { aliveHook(ui); alivePrep(R, s, ui); } catch (e) { ALV.on = false; if (!ALV.err) { ALV.err = 1; console.error(e); } }
+    ALV.inDraw = true; ALV.drawn = false; ALV.dR = R; ALV.dS = s;
+    try { return _rd.apply(this, arguments); } finally { ALV.inDraw = false; ALV.dR = null; ALV.dS = null; }
+  };
+}
+
+// For the tests and the console: what the layer drew in the last frame and the weather now.
+function aliveState() {
+  const st = ALV.stats;
+  return { on: ALV.on, ms: +st.ms.toFixed(3), last: st.last, rain: +ALV.rain.toFixed(2), bow: +ALV.bow.toFixed(2), dark: +ALV.dark.toFixed(2), uiK: +ALV.uiK.toFixed(2), reduced: ALV.reduced,
+    clouds: st.clouds, drops: st.drops, rings: st.rings, glints: st.glints, gulls: st.gulls, dolphins: st.dolphins, fw: st.fw, flies: st.flies, bowDrawn: st.bow, cool: st.cool,
+    fwOn: !!ALV.fw, fwDue: ALV.fwDue ? ALV.fwDue.kind : '', sound: !!ALV.snd.src };
+}
+
+// Off the frame: the rain's sound follows the weather four times a second (and makes its noise once the sound is on);
+// the soft pictures are made a moment after the page opens, so no frame pays for them.
+if (typeof window !== 'undefined' && typeof setInterval === 'function') {
+  setInterval(() => { try { aliveRainSound(); } catch (e) { /* no sound */ } }, 250);
+  setTimeout(() => { try { if (TUNE.aliveOff) return; aliveCloudSpr(0); aliveCloudSpr(1); aliveBowSpr(); for (const c of ALIVE_FW_COLS) aliveGlowSpr(c); aliveGlowSpr('#d9f27a'); } catch (e) { /* drawn when needed */ } }, 1500);
+}
+
+// prefers-reduced-motion: only the still parts
+if (typeof window !== 'undefined' && window.matchMedia) {
+  try {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    ALV.reduced = !!mq.matches;
+    const f = () => { ALV.reduced = !!mq.matches; };
+    if (mq.addEventListener) mq.addEventListener('change', f); else if (mq.addListener) mq.addListener(f);
+  } catch (e) { /* none */ }
 }
 
 // ---- src/ui/main.js
