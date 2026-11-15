@@ -55049,6 +55049,62 @@ if (typeof window !== 'undefined' && window.matchMedia) {
   } catch (e) { /* none */ }
 }
 
+// ---- src/ui/offline.js
+// Offline (16 Nov 2026). Tomáš: "I want to download it now and play offline", on an iPhone. A page opened from a file
+// cannot run there, so the web page itself keeps a copy: this file registers the worker (src/sw.js, served beside the
+// page as sw.js) and sends it the list of the sound files with the hashes the page asks for; the worker keeps the page
+// and the files in the device's cache and answers from there when there is no network.
+// Seen on the screen: one line at the foot of the title card, "Saving for offline · 12 / 45" while the files come and
+// "Ready to play offline" once all are kept. Nowhere else, and nothing where a worker cannot run (a page opened from a
+// file, the preview, a private window): there the game plays as before.
+const OFFLINE = { on: false, n: 0, of: 0, page: false, done: false, failed: 0 };
+
+function offlineFiles() { return Object.keys(AUDIO_FILES).map((rel) => audioUrl(rel)).filter(Boolean); }
+
+function offlineLine() {
+  if (!OFFLINE.on) return '';
+  if (OFFLINE.done && OFFLINE.page && !OFFLINE.failed && OFFLINE.n >= OFFLINE.of) return 'Ready to play offline';
+  if (!OFFLINE.done && OFFLINE.of) return 'Saving for offline · ' + OFFLINE.n + ' / ' + OFFLINE.of;
+  return '';
+}
+
+function offlineShow() {
+  if (typeof document === 'undefined') return;
+  const card = document.querySelector('#title .tcard');
+  if (!card) return;
+  let el = document.getElementById('tOff');
+  const text = offlineLine();
+  if (!text) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.className = 'foot'; el.id = 'tOff'; card.appendChild(el); }
+  if (el.textContent !== text) el.textContent = text;
+}
+
+function offlineStart() {
+  try {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      const d = e.data || {};
+      if (d.type !== 'kept') return;
+      Object.assign(OFFLINE, { on: true, n: d.n || 0, of: d.of || 0, page: !!d.page, done: !!d.done, failed: d.failed || 0 });
+      offlineShow();
+    });
+    // (the list goes to this page's own worker, the registration register() returns: on a device that knows the old
+    // game, navigator.serviceWorker.ready is the old game's worker at the site's root, which ignores the list)
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      const send = () => { if (reg.active) reg.active.postMessage({ type: 'keep', files: offlineFiles() }); };
+      const w = reg.installing || reg.waiting;
+      if (w) w.addEventListener('statechange', () => { if (w.state === 'activated') send(); });
+      send();
+    }).catch(() => { /* no worker here: the game plays as before */ });
+  } catch (e) { /* no worker here: the game plays as before */ }
+}
+
+{
+  const _tr = titleRender;
+  titleRender = function () { const r = _tr.apply(this, arguments); offlineShow(); return r; };
+}
+if (typeof window !== 'undefined') window.addEventListener('load', offlineStart);
+
 // ---- src/ui/main.js
 // The app: load or start an island, run the clock (pause / 1x / 2x / 3x), turn sim events into what she sees, autosave.
 // Block 5 (iPad): the title screen first, the loop and the clock stop while the page is hidden, saving never throws,
